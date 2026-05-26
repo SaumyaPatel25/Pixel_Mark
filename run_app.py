@@ -15,10 +15,10 @@ def run_services():
         print(f"❌ Error: Backend virtualenv not found at {backend_python}")
         return
 
-    # 1. Backend Command (Running from backend/ directory)
+    # 1. Backend Command (Running from root directory)
     backend_cmd = [
         backend_python,
-        "-m", "uvicorn", "main:app",
+        "-m", "uvicorn", "backend.main:app",
         "--host", "127.0.0.1",
         "--port", "8765",
         "--reload"
@@ -37,8 +37,8 @@ def run_services():
         print(f"📡 [BACKEND] Starting on http://localhost:8765...")
         backend_proc = subprocess.Popen(
             backend_cmd,
-            cwd=backend_dir,
-            env={**os.environ, "PYTHONPATH": backend_dir}
+            cwd=root_dir,
+            env={**os.environ, "PYTHONPATH": root_dir}
         )
         processes.append(backend_proc)
 

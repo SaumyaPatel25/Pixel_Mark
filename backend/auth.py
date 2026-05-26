@@ -1,45 +1,29 @@
-from typing import Optional
-from fastapi import Depends, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from config import settings
-from logger import logger
-from errors import AppError
-from supabase import Client, create_client
+from datetime import datetime, timedelta
+from jose import jwt, JWTError
+from passlib.context import CryptContext
+from fastapi import HTTPException, status
 import os
 
-# Initialize a local client for auth verification if needed, 
-# though main.py usually exports 'db'. 
-# For isolation, we can use the env directly.
-supabase_url = os.environ.get("SUPABASE_URL")
-supabase_key = os.environ.get("SUPABASE_KEY")
-db: Client = create_client(supabase_url, supabase_key)
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change_this_in_production")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
-bearer_scheme = HTTPBearer(auto_error=False)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)
-):
-    """
-    Validates Supabase JWT. Raises AppError (401) if missing or invalid.
-    Returns the Supabase user object on success.
-    """
-    if not credentials or not credentials.credentials:
-        raise AppError("UNAUTHORIZED", "Authentication required. Provide a Bearer token.", 401)
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
 
-    token = credentials.credentials
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
 
-    # Basic format check — JWT has exactly 3 dot-separated parts
-    parts = token.split(".")
-    if len(parts) != 3:
-        raise AppError("INVALID_TOKEN", "Malformed JWT token.", 401)
+def create_access_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+def decode_token(token: str) -> dict:
     try:
-        user_response = db.auth.get_user(token)
-        if not user_response or not user_response.user:
-            raise AppError("INVALID_TOKEN", "Token is invalid or expired.", 401)
-        return user_response.user
-    except AppError:
-        raise
-    except Exception as e:
-        logger.warning(f"JWT validation failed: {type(e).__name__}")
-        raise AppError("INVALID_TOKEN", "Token is invalid or expired.", 401)
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")

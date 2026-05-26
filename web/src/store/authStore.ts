@@ -1,72 +1,78 @@
 import { create } from 'zustand'
-import { supabase } from '@/lib/supabase'
-import type { AuthUser } from '@/lib/supabase'
+import { persist } from 'zustand/middleware'
+import { api } from '@/lib/api'
 
-interface AuthStore {
-  user: AuthUser | null
-  loading: boolean
-  initialized: boolean
-  signInWithEmail: (email: string, password: string) => Promise<void>
-  signInWithGoogle: () => Promise<void>
-  sendMagicLink: (email: string) => Promise<void>
-  signUp: (email: string, password: string, name: string) => Promise<void>
-  signOut: () => Promise<void>
-  initialize: () => () => void  // returns unsubscribe fn
+interface User {
+  id: string
+  email: string
+  name?: string | null
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
-  user: null,
-  loading: true,
-  initialized: false,
-  
-  initialize: () => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      set({ user: session?.user as AuthUser ?? null, loading: false, initialized: true })
-    })
+interface AuthState {
+  user: User | null
+  token: string | null
+  isLoading: boolean
+  login: (email: string, password: string) => Promise<void>
+  register: (email: string, password: string, name?: string) => Promise<void>
+  logout: () => void
+  fetchMe: () => Promise<void>
+}
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      set({ user: session?.user as AuthUser ?? null, loading: false })
-    })
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      token: null,
+      isLoading: false,
 
-    return () => subscription.unsubscribe()
-  },
+      login: async (email, password) => {
+        set({ isLoading: true })
+        try {
+          const res = await api.auth.login(email, password)
+          const token = res.access_token
+          localStorage.setItem('pm_token', token)
+          set({ token })
+          const meRes = await api.auth.me()
+          set({ user: meRes })
+        } finally {
+          set({ isLoading: false })
+        }
+      },
 
-  signInWithEmail: async (email, password) => {
-    set({ loading: true })
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    set({ loading: false })
-    if (error) throw new Error(error.message)
-  },
+      register: async (email, password, name) => {
+        set({ isLoading: true })
+        try {
+          const res = await api.auth.register(email, password, name)
+          const token = res.access_token
+          localStorage.setItem('pm_token', token)
+          set({ token })
+          const meRes = await api.auth.me()
+          set({ user: meRes })
+        } finally {
+          set({ isLoading: false })
+        }
+      },
 
-  signInWithGoogle: async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` }
-    })
-  },
+      logout: () => {
+        localStorage.removeItem('pm_token')
+        set({ user: null, token: null })
+      },
 
-  sendMagicLink: async (email) => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
-    })
-    if (error) throw new Error(error.message)
-  },
-
-  signUp: async (email, password, name) => {
-    set({ loading: true })
-    const { error } = await supabase.auth.signUp({
-      email, password,
-      options: { data: { full_name: name } }
-    })
-    set({ loading: false })
-    if (error) throw new Error(error.message)
-  },
-
-  signOut: async () => {
-    await supabase.auth.signOut()
-    set({ user: null })
-  }
-}))
+      fetchMe: async () => {
+        set({ isLoading: true })
+        try {
+          const meRes = await api.auth.me()
+          set({ user: meRes })
+        } catch (err) {
+          get().logout()
+        } finally {
+          set({ isLoading: false })
+        }
+      },
+    }),
+    {
+      name: 'pm_auth',
+      partialize: (state) => ({ user: state.user, token: state.token }),
+    }
+  )
+)

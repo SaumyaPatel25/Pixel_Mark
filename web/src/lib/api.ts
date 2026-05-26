@@ -1,185 +1,186 @@
-// src/lib/api.ts
-const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8765').replace(/\/$/, '')
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
 
-// ── Core fetcher ─────────────────────────────────────────────────────────────
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const url = `${BASE}${path}`
+async function request(path: string, options: RequestInit = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
+  const headers = new Headers(options.headers || {})
 
-  let res: Response
-  try {
-    res = await fetch(url, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(init.headers ?? {}),
-      },
-      signal: init.signal ?? AbortSignal.timeout(15_000),
-    })
-  } catch (networkErr: unknown) {
-    // True network failure — backend is down or CORS blocked
-    const msg = networkErr instanceof Error ? networkErr.message : 'Network error'
-    throw new Error(`[Network] ${msg} — is the backend running on ${BASE}?`)
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
   }
 
-  if (res.ok) {
-    // 204 No Content — return empty object
-    if (res.status === 204) return {} as T
-    return res.json() as Promise<T>
+  if (options.body && !(options.body instanceof Blob) && !(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json')
   }
 
-  // ── Parse backend error response ──────────────────────────────────────────
-  let backendMessage = `HTTP ${res.status}`
-  try {
-    const body = await res.json()
-    // Log for developer context
-    console.error(`[API] ${init.method ?? 'GET'} ${path} → ${res.status}`, JSON.stringify(body, null, 2))
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers,
+  })
 
-    // 1. Check for our CUSTOM validation error format (from errors.py)
-    if (body?.error === 'VALIDATION_FAILED' && Array.isArray(body.fields)) {
-      const fields = body.fields.map((f: any) => `${f.field}: ${f.issue}`)
-      backendMessage = `Validation failed — ${fields.join(' | ')}`
+  if (!response.ok) {
+    let detail = 'An error occurred'
+    try {
+      const errData = await response.json()
+      detail = errData.detail || detail
+    } catch {
+      // Non-JSON error
     }
-    // 2. Check for DEFAULT FastAPI Pydantic detail format
-    else if (body?.detail && Array.isArray(body.detail)) {
-      const fields = body.detail.map((e: any) => {
-        const field = e.loc?.slice(-1)[0] ?? 'unknown'
-        return `${field}: ${e.msg}`
-      })
-      backendMessage = `Validation failed — ${fields.join(' | ')}`
-    }
-    // 3. Check for our standard AppError shape
-    else if (body?.message) {
-      backendMessage = body.message
-    }
-    // 4. Fallback for string details
-    else if (body?.detail && typeof body.detail === 'string') {
-      backendMessage = body.detail
-    }
-  } catch {
-    console.error(`[API] ${init.method ?? 'GET'} ${path} → ${res.status} (non-JSON body)`)
+    throw new Error(detail)
   }
-  throw new Error(backendMessage)
+
+  const contentType = response.headers.get('Content-Type')
+  if (contentType && contentType.includes('application/json')) {
+    return response.json()
+  }
+  return response
 }
 
-// ── Typed API methods ─────────────────────────────────────────────────────────
-
-// Projects
 export const api = {
+  // AUTH
+  auth: {
+    async register(email: string, password: string, name?: string) {
+      return request('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, name }),
+      })
+    },
+    async login(email: string, password: string) {
+      return request('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
+    },
+    async me() {
+      return request('/auth/me')
+    },
+  },
+
+  // PROJECTS
   projects: {
-    list: ()                   => request<Project[]>('/projects/'),
-    get:  (id: string)         => request<Project>(`/projects/${id}`),
-    create: (b: ProjectCreate) => request<Project>('/projects/', { method:'POST', body: JSON.stringify(b) }),
-    delete: (id: string)       => request<void>(`/projects/${id}`, { method:'DELETE' }),
+    async getProjects() {
+      return request('/projects/')
+    },
+    async createProject(data: { name: string; url?: string }) {
+      return request('/projects/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+    async getProject(id: string) {
+      return request(`/projects/${id}`)
+    },
+    async deleteProject(id: string) {
+      return request(`/projects/${id}`, {
+        method: 'DELETE',
+      })
+    },
   },
 
-  comments: {
-    list: (projectId: string) =>
-      request<Comment[]>(`/comments/${projectId}/`),
-
-    create: (b: CommentCreate) =>
-      request<Comment>('/comments', { method:'POST', body: JSON.stringify(b) }),
-
-    resolve: (id: string) =>
-      request<Comment>(`/comments/${id}/resolve/`, { method:'PATCH' }),
-
-    delete: (id: string) =>
-      request<void>(`/comments/${id}`, { method:'DELETE' }),
+  // SESSIONS
+  sessions: {
+    async getSessions(projectId: string) {
+      return request(`/sessions/project/${projectId}`)
+    },
+    async createSession(data: { project_id: string; title?: string }) {
+      return request('/sessions/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+    async getSession(id: string) {
+      return request(`/sessions/${id}`)
+    },
   },
 
-  shareLinks: {
-    resolve: (token: string) =>
-      request<Project>(`/resolve-token/${token}`, { method: 'POST' }),
-
-    list:   (projectId: string) =>
-      request<ShareLink[]>(`/projects/${projectId}/share-links`),
-
-    create: (projectId: string, b: ShareLinkCreate) =>
-      request<ShareLink>(`/projects/${projectId}/share-links`, { method:'POST', body: JSON.stringify(b) }),
-
-    revoke: (projectId: string, linkId: string) =>
-      request<void>(`/projects/${projectId}/share-links/${linkId}`, { method:'DELETE' }),
+  // MARKERS
+  markers: {
+    async getMarkers(sessionId: string) {
+      return request(`/markers/session/${sessionId}`)
+    },
+    async createMarker(data: any) {
+      return request('/markers/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+    async updateMarker(id: string, data: any) {
+      return request(`/markers/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      })
+    },
+    async deleteMarker(id: string) {
+      return request(`/markers/${id}`, {
+        method: 'DELETE',
+      })
+    },
   },
 
+  // EXPORT
   export: {
-    download: (projectId: string, format: 'markdown' | 'json' | 'csv') =>
-      fetch(`${BASE}/export?project_id=${projectId}&format=${format}`)
-        .then(r => { if (!r.ok) throw new Error(`Export failed: HTTP ${r.status}`); return r.blob() }),
+    async exportMarkdown(sessionId: string): Promise<string> {
+      const resp = await request(`/export/session/${sessionId}/markdown`)
+      if (resp instanceof Response) {
+        return resp.text()
+      }
+      return String(resp)
+    },
+    async exportCSV(sessionId: string): Promise<Blob> {
+      const resp = await request(`/export/session/${sessionId}/csv`)
+      if (resp instanceof Response) {
+        return resp.blob()
+      }
+      return new Blob([String(resp)], { type: 'text/csv' })
+    },
   },
 
-  health: () => request<{ status: string; db_connected: boolean }>('/health'),
-  
-  // Proxy (Helper for iframe)
-  proxyUrl: (url: string) => `${BASE}/proxy?url=${encodeURIComponent(url)}`,
-}
+  // SHARES
+  shares: {
+    async createShareLink(data: { session_id: string; can_comment: boolean }) {
+      return request('/shares/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+    async getShareLinks(sessionId: string) {
+      return request(`/shares/session/${sessionId}`)
+    },
+  },
 
-// ── Types (single source of truth — keep in sync with backend Pydantic models) ──
+  // AI
+  ai: {
+    async triageSession(sessionId: string) {
+      return request(`/ai/triage/session/${sessionId}`, {
+        method: 'POST',
+      })
+    },
+    async summarizeSession(sessionId: string) {
+      return request(`/ai/summary/session/${sessionId}`)
+    },
+  },
 
-export interface Project {
-  id:           string
-  name:         string
-  description:  string | null
-  target_url:   string
-  created_at:   string
-}
-
-export interface ProjectCreate {
-  name:        string
-  description?: string
-  target_url:  string
-}
-
-export interface Comment {
-  id:                 string
-  project_id:         string
-  text:               string
-  component_selector: string
-  xpath:              string
-  tag_name:           string
-  inner_text:         string
-  page_url:           string
-  tester_name:        string
-  severity:           'P0' | 'P1' | 'P2' | 'P3' | null
-  status:             'open' | 'resolved'
-  x:                  number
-  y:                  number
-  marker_number:      number
-  screenshot_url:     string | null
-  created_at:         string
-}
-
-export interface CommentCreate {
-  project_id:         string
-  text:               string
-  component_selector?: string
-  xpath?:              string
-  tag_name?:           string
-  inner_text?:         string
-  page_url?:           string
-  tester_name?:        string
-  x?:                  number
-  y?:                  number
-  marker_number?:      number
-  screenshot_url?:     string | null
-}
-
-export interface ShareLink {
-  id:           string
-  project_id:   string
-  token:        string
-  label:        string
-  role:         'tester' | 'reviewer' | 'viewer'
-  expires_at:   string | null
-  max_uses:     number | null
-  use_count:    number
-  is_active:    boolean
-  created_at:   string
-  share_url:    string
-}
-
-export interface ShareLinkCreate {
-  label?:           string
-  role?:            'tester' | 'reviewer' | 'viewer'
-  expires_in_days?: number
-  max_uses?:        number
-  password?:        string
+  // CANVAS
+  canvas: {
+    async getCanvas(projectId: string) {
+      return request(`/canvas/project/${projectId}`)
+    },
+    async createFrame(data: any) {
+      return request('/canvas/frames/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+    async updateFrame(id: string, data: any) {
+      return request(`/canvas/frames/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      })
+    },
+    async createFlow(data: any) {
+      return request('/canvas/flows/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+  },
 }
