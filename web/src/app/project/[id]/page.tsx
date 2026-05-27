@@ -212,7 +212,7 @@ export default function ProjectPage() {
               <h1 className="text-xl font-black tracking-tighter text-white uppercase">{currentProject?.name}</h1>
               <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] font-black text-cyan-400 uppercase tracking-widest">Active Audit</span>
             </div>
-            <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5 font-mono truncate max-w-xs">{currentProject?.target_url}</p>
+            <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5 font-mono truncate max-w-xs">{currentProject?.url}</p>
           </div>
         </div>
 
@@ -306,7 +306,7 @@ export default function ProjectPage() {
                 <div className="w-full h-full relative group">
                     <iframe
                         ref={iframeRef}
-                        src={(id && currentProject?.target_url) ? `${API_BASE}/proxy?url=${encodeURIComponent(currentProject.target_url)}&project_id=${id}` : undefined}
+                        src={(id && currentProject?.url) ? `${API_BASE}/proxy?url=${encodeURIComponent(currentProject.url)}&project_id=${id}` : undefined}
                         className="w-full h-full border-none transition-all duration-700 bg-white"
                         title="Entrext Audit Viewport"
                         onLoad={() => setProxyStatus('ok')}

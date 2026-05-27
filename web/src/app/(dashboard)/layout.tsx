@@ -9,16 +9,16 @@ import { LayoutDashboard, Folder, LogOut } from 'lucide-react'
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, logout, fetchMe, isLoading } = useAuthStore()
+  const { user, token, logout, fetchMe, isLoading } = useAuthStore()
 
   useEffect(() => {
-    const token = localStorage.getItem('pm_token')
-    if (!token) {
+    const activeToken = token || (typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null)
+    if (!activeToken) {
       router.push('/login')
     } else if (!user) {
       fetchMe()
     }
-  }, [user, router, fetchMe])
+  }, [user, token, router, fetchMe])
 
   const handleSignOut = () => {
     logout()

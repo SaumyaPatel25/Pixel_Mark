@@ -3,8 +3,9 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 import os
+from config import settings
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change_this_in_production")
+SECRET_KEY = settings.jwt_secret_key
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 

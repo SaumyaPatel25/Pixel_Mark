@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMarkerStore, Marker } from '@/store/markerStore'
 
-const WS_BASE = (process.env.NEXT_PUBLIC_WS_BASE || 'ws://localhost:8765').replace(/\/$/, '')
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
+const WS_BASE = API_BASE.replace(/^http/, 'ws')
 
 export function useSessionSocket(sessionId: string) {
   const socketRef = useRef<WebSocket | null>(null)

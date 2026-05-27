@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models import Marker, User
+from models import Marker, User, Session
 from dependencies import get_db, get_current_user
 import csv, io
 
@@ -12,7 +12,6 @@ router = APIRouter(prefix="/export", tags=["export"])
 async def export_markdown(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     result = await db.execute(select(Marker).where(Marker.session_id == session_id))
     markers = result.scalars().all()
-    # Note: In a real app, we should also check if current_user owns the project/session
     lines = [f"# QA Report — Session {session_id}\n"]
     for i, m in enumerate(markers, 1):
         lines.append(f"## [{m.priority.upper()}] Marker {i}: {m.title or 'Untitled'}")
@@ -48,3 +47,35 @@ async def export_json(session_id: str, db: AsyncSession = Depends(get_db), curre
          "browser": m.browser, "viewport": m.viewport, "description": m.description}
         for m in markers
     ]
+
+@router.get("")
+@router.get("/")
+async def export_by_project_query(
+    project_id: str = Query(...),
+    format: str = Query("markdown"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Find the latest session for this project
+    session_result = await db.execute(
+        select(Session)
+        .where(Session.project_id == project_id)
+        .order_by(Session.created_at.desc())
+        .limit(1)
+    )
+    session = session_result.scalar_one_or_none()
+    if not session:
+        # Create a default session so the export has a target
+        import uuid
+        session = Session(id=str(uuid.uuid4()), project_id=project_id, title="Initial Audit Session")
+        db.add(session)
+        await db.commit()
+        await db.refresh(session)
+        
+    if format == "csv":
+        return await export_csv(session.id, db, current_user)
+    elif format == "json":
+        return await export_json(session.id, db, current_user)
+    else:
+        markdown_text = await export_markdown(session.id, db, current_user)
+        return PlainTextResponse(markdown_text)

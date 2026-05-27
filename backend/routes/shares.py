@@ -58,10 +58,19 @@ async def access_share_link(token: str, data: ShareLinkAccess, db: AsyncSession 
     if not session:
         raise HTTPException(status_code=404, detail="Associated session not found")
         
+    from models import Project
+    project_result = await db.execute(select(Project).where(Project.id == session.project_id))
+    project = project_result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Associated project not found")
+        
     return {
         "session_id": session.id,
         "title": session.title,
-        "can_comment": link.can_comment
+        "can_comment": link.can_comment,
+        "id": project.id,
+        "name": project.name,
+        "url": project.url
     }
 
 @router.delete("/{share_id}")

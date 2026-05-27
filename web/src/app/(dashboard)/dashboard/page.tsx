@@ -9,7 +9,7 @@ import { Plus, FolderPlus, Globe, ArrowRight, Loader2, Layout } from 'lucide-rea
 interface Project {
   id: string
   name: string
-  url?: string | null
+  url?: string
   created_at: string
 }
 
@@ -50,7 +50,7 @@ export default function DashboardPage() {
     try {
       const res = await api.projects.create({
         name: newProjectName.trim(),
-        target_url: newProjectUrl.trim(),
+        url: newProjectUrl.trim(),
       })
       setProjects((prev) => [...prev, res])
       setNewProjectName('')

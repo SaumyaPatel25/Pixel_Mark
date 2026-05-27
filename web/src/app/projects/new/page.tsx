@@ -31,7 +31,7 @@ export default function NewProject() {
       const project = await createProject({
         name: formData.name,
         description: formData.description,
-        target_url: formData.target_url,
+        url: formData.target_url,
       });
       router.push(`/dashboard`); // Go back to dashboard to see the new project
     } catch (err: any) {

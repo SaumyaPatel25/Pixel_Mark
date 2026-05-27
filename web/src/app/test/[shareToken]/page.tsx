@@ -115,7 +115,7 @@ export default function TesterPage() {
         </div>
 
         <iframe 
-          src={api.proxyUrl(currentProject.target_url)}
+          src={api.proxyUrl(currentProject.url || '')}
           className="w-full h-full border-none"
           title="Testing Viewport"
         />

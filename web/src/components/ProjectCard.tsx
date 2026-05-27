@@ -186,7 +186,7 @@ export function ProjectCard({ project, onClick }: { project: any, onClick: () =>
             
             <div className="flex items-center gap-3 py-2 px-4 rounded-xl bg-white/[0.03] border border-white/5 w-fit group-hover:border-purple-500/20 transition-colors">
               <span className="text-[10px] font-bold text-white/20 group-hover:text-white/40 transition-colors tracking-tight truncate max-w-[160px]">
-                {project.target_url.replace(/^https?:\/\//, '')}
+                {project.url?.replace(/^https?:\/\//, '') || ''}
               </span>
               <div className="w-3 h-3 flex items-center justify-center text-white/10 group-hover:text-purple-400 transition-colors">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">

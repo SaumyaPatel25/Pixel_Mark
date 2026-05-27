@@ -18,14 +18,26 @@ async function request(path: string, options: RequestInit = {}) {
   })
 
   if (!response.ok) {
-    let detail = 'An error occurred'
+    let detail: any = 'An error occurred'
     try {
       const errData = await response.json()
-      detail = errData.detail || detail
+      if (errData.detail) {
+        if (typeof errData.detail === 'string') {
+          detail = errData.detail
+        } else if (Array.isArray(errData.detail)) {
+          // Format Pydantic list of validation errors
+          detail = errData.detail.map((err: any) => {
+            const loc = err.loc ? err.loc.join('.') : ''
+            return `${loc ? loc + ': ' : ''}${err.msg || 'Invalid value'}`
+          }).join(', ')
+        } else {
+          detail = JSON.stringify(errData.detail)
+        }
+      }
     } catch {
       // Non-JSON error
     }
-    throw new Error(detail)
+    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail))
   }
 
   const contentType = response.headers.get('Content-Type')
@@ -39,7 +51,6 @@ export interface Project {
   id: string
   name: string
   url?: string
-  target_url: string
   created_at: string
 }
 
@@ -47,7 +58,6 @@ export interface ProjectCreate {
   name: string
   url?: string
   description?: string
-  target_url: string
 }
 
 export interface ShareLink {

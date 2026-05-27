@@ -11,14 +11,17 @@ load_dotenv(dotenv_path=env_path)
 class Settings:
     frontend_url: str = "http://localhost:3000"
     environment: str = "development"
+    jwt_secret_key: str = "dev_secret_key_123"
 
 def load_config() -> Settings:
     frontend = os.environ.get("FRONTEND_URL", "http://localhost:3000")
     env_name = os.environ.get("ENVIRONMENT", "development")
+    jwt_secret = os.environ.get("JWT_SECRET_KEY", "dev_secret_key_123")
 
     return Settings(
         frontend_url=frontend.rstrip("/"),
-        environment=env_name
+        environment=env_name,
+        jwt_secret_key=jwt_secret
     )
 
 settings = load_config()

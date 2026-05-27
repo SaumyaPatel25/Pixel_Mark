@@ -34,15 +34,18 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="PixelMark API", version="2.0.0", lifespan=lifespan)
 
+from config import settings
+
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
 ]
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "")
-if FRONTEND_URL:
-    ALLOWED_ORIGINS.append(FRONTEND_URL)
-    ALLOWED_ORIGINS.append("https://*.vercel.app")
+if settings.frontend_url and settings.frontend_url not in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS.append(settings.frontend_url)
+
+# Optionally include vercel app for preview builds
+ALLOWED_ORIGINS.append("https://*.vercel.app")
 
 app.add_middleware(
     CORSMiddleware,
