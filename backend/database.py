@@ -1,6 +1,9 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import (
+    create_async_engine,
+    AsyncSession,
+    async_sessionmaker
+)
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.pool import NullPool
 import os
 from dotenv import load_dotenv
 
@@ -8,18 +11,31 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-connect_args = {}
-if DATABASE_URL and (DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")):
-    connect_args = {"ssl": "require"}
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
-# Use NullPool to prevent serverless Neon connection exhaustion and 10054 ConnectionResetError
-engine = create_async_engine(
-    DATABASE_URL, 
-    echo=False, 
-    poolclass=NullPool, 
-    connect_args=connect_args
+# asyncpg doesn't support 'sslmode' in the query string. 
+# We strip it to avoid TypeError: connect() got an unexpected keyword argument 'sslmode'
+if "sslmode=" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.split("?")[0]
+
+if "neon.tech" in DATABASE_URL:
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=False,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+        connect_args={"ssl": True},
+    )
+else:
+    engine = create_async_engine(DATABASE_URL, echo=False)
+
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    expire_on_commit=False,
+    class_=AsyncSession
 )
-AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 class Base(DeclarativeBase):
     pass

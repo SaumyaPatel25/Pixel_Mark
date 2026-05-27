@@ -62,6 +62,28 @@ class Project(Base):
     org: Mapped["Organization"] = relationship(back_populates="projects")
     environments: Mapped[list["Environment"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     sessions: Mapped[list["Session"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    frames: Mapped[list["CanvasFrame"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    flows: Mapped[list["CanvasFlow"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+
+class CanvasFrame(Base):
+    __tablename__ = "canvas_frames"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    position_x: Mapped[float] = mapped_column(nullable=False, default=0)
+    position_y: Mapped[float] = mapped_column(nullable=False, default=0)
+    width: Mapped[float] = mapped_column(nullable=False, default=320)
+    height: Mapped[float] = mapped_column(nullable=False, default=200)
+    snapshot_url: Mapped[str] = mapped_column(String, nullable=True)
+    project: Mapped["Project"] = relationship(back_populates="frames")
+
+class CanvasFlow(Base):
+    __tablename__ = "canvas_flows"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    frame_sequence: Mapped[list] = mapped_column(JSON, nullable=False, default=list) # List of frame IDs
+    project: Mapped["Project"] = relationship(back_populates="flows")
 
 class Environment(Base):
     __tablename__ = "environments"

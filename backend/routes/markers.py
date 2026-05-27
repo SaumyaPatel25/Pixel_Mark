@@ -31,6 +31,21 @@ async def list_markers(session_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Marker).where(Marker.session_id == session_id))
     return result.scalars().all()
 
+@router.get("/project/{project_id}", response_model=list[MarkerOut])
+async def list_project_markers(project_id: str, db: AsyncSession = Depends(get_db)):
+    try:
+        uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    # Get all markers for all sessions in this project
+    result = await db.execute(
+        select(Marker)
+        .join(Session)
+        .where(Session.project_id == project_id)
+    )
+    return result.scalars().all()
+
 @router.get("/{marker_id}", response_model=MarkerOut)
 async def get_marker(marker_id: str, db: AsyncSession = Depends(get_db)):
     try:

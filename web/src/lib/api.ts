@@ -35,7 +35,83 @@ async function request(path: string, options: RequestInit = {}) {
   return response
 }
 
+export interface Project {
+  id: string
+  name: string
+  url?: string
+  target_url: string
+  created_at: string
+}
+
+export interface ProjectCreate {
+  name: string
+  url?: string
+  description?: string
+  target_url: string
+}
+
+export interface ShareLink {
+  id: string
+  label: string
+  role: 'tester' | 'reviewer' | 'viewer'
+  token: string
+  share_url: string
+  expires_at: string | null
+  max_uses: number | null
+  use_count: number
+  is_active: boolean
+  created_at: string
+}
+
+export interface ShareLinkCreate {
+  label: string
+  role: 'tester' | 'reviewer' | 'viewer'
+  expires_in_days?: number
+  max_uses?: number
+  password?: string
+}
+
+export interface Comment {
+  id: string
+  project_id: string
+  text: string
+  component_selector: string
+  xpath: string
+  tag_name: string
+  inner_text: string
+  page_url: string
+  tester_name: string
+  severity: string | null
+  status: 'open' | 'resolved' | 'failed'
+  x: number
+  y: number
+  marker_number: number
+  screenshot_url: string | null
+  ai_summary?: string | null
+  suggested_fix?: string | null
+  created_at: string
+  session_data?: any
+}
+
+export interface CommentCreate {
+  project_id: string
+  text: string
+  component_selector?: string
+  xpath?: string
+  tag_name?: string
+  inner_text?: string
+  page_url?: string
+  tester_name?: string
+  x?: number
+  y?: number
+  marker_number?: number
+  screenshot_url?: string | null
+}
+
 export const api = {
+  proxyUrl(url: string) {
+    return `${BASE_URL}/proxy?url=${encodeURIComponent(url)}`
+  },
   // AUTH
   auth: {
     async register(email: string, password: string, name?: string) {
@@ -57,19 +133,19 @@ export const api = {
 
   // PROJECTS
   projects: {
-    async getProjects() {
+    async list(): Promise<Project[]> {
       return request('/projects/')
     },
-    async createProject(data: { name: string; url?: string }) {
+    async create(data: ProjectCreate): Promise<Project> {
       return request('/projects/', {
         method: 'POST',
         body: JSON.stringify(data),
       })
     },
-    async getProject(id: string) {
+    async get(id: string): Promise<Project> {
       return request(`/projects/${id}`)
     },
-    async deleteProject(id: string) {
+    async delete(id: string): Promise<void> {
       return request(`/projects/${id}`, {
         method: 'DELETE',
       })
@@ -89,6 +165,30 @@ export const api = {
     },
     async getSession(id: string) {
       return request(`/sessions/${id}`)
+    },
+  },
+
+  // COMMENTS (Frontend calls it comments, Backend calls it markers)
+  comments: {
+    async list(projectId: string): Promise<Comment[]> {
+      return request(`/markers/project/${projectId}`)
+    },
+    async create(data: CommentCreate): Promise<Comment> {
+      return request('/markers/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+    async resolve(id: string): Promise<void> {
+      return request(`/markers/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'resolved' }),
+      })
+    },
+    async delete(id: string): Promise<void> {
+      return request(`/markers/${id}`, {
+        method: 'DELETE',
+      })
     },
   },
 
@@ -135,15 +235,25 @@ export const api = {
   },
 
   // SHARES
-  shares: {
-    async createShareLink(data: { session_id: string; can_comment: boolean }) {
-      return request('/shares/', {
+  shareLinks: {
+    async list(projectId: string): Promise<ShareLink[]> {
+      return request(`/shares/project/${projectId}`)
+    },
+    async create(projectId: string, data: ShareLinkCreate): Promise<ShareLink> {
+      return request(`/shares/project/${projectId}`, {
         method: 'POST',
         body: JSON.stringify(data),
       })
     },
-    async getShareLinks(sessionId: string) {
-      return request(`/shares/session/${sessionId}`)
+    async revoke(projectId: string, linkId: string): Promise<void> {
+      return request(`/shares/project/${projectId}/${linkId}`, {
+        method: 'DELETE',
+      })
+    },
+    async resolve(token: string): Promise<any> {
+      return request(`/shares/access/${token}`, {
+        method: 'POST',
+      })
     },
   },
 

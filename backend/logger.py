@@ -1,18 +1,14 @@
 import logging
 import sys
-from .config import settings
+from config import settings
 
 class SecretFilter(logging.Filter):
     """
     Redacts sensitive information from logs.
-    Targets SUPABASE_KEY and any strings containing 'Bearer'.
+    Targets sensitive tokens and any strings containing 'Bearer'.
     """
     def filter(self, record: logging.LogRecord) -> bool:
         msg = str(record.msg)
-        
-        # Redact Supabase Key
-        if settings.supabase_key in msg:
-            msg = msg.replace(settings.supabase_key, "[REDACTED_SUPABASE_KEY]")
         
         # Redact Bearer tokens (safety precaution)
         if "Bearer" in msg:

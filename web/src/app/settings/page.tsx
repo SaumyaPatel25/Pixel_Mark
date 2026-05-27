@@ -17,7 +17,7 @@ const PLAN_BADGES: Record<string, string> = {
 }
 
 export default function SettingsPage() {
-  const { user, signOut } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const [profile, setProfile] = useState<any>(null)
   const [name, setName] = useState('')
   const [emailNotifs, setEmailNotifs] = useState(true)
@@ -184,7 +184,7 @@ export default function SettingsPage() {
             </button>
             
             <button 
-              onClick={() => signOut()}
+              onClick={() => logout()}
               className="w-full bg-red-500/[0.02] hover:bg-red-500/[0.06] text-red-500/60 hover:text-red-500 border border-red-500/10 hover:border-red-500/20 py-4 rounded-2xl text-xs font-bold tracking-widest uppercase transition-all">
               Sign Out Securely
             </button>

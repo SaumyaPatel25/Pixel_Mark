@@ -11,6 +11,7 @@ interface CommentState {
   addComment:     (data: CommentCreate) => Promise<Comment>
   resolveComment: (id: string) => Promise<void>
   deleteComment:  (id: string) => Promise<void>
+  retryComment:   (id: string) => Promise<void>
   // Called by WebSocket
   addCommentFromWS:  (c: Comment) => void
   updateSeverity:    (id: string, severity: string) => void
@@ -106,6 +107,30 @@ export const useCommentStore = create<CommentState>((set, get) => ({
       await api.comments.delete(id)
     } catch {
       set({ comments: prev, error: 'Could not delete comment' })
+    }
+  },
+
+  retryComment: async (id) => {
+    const comment = get().comments.find(c => c.id === id)
+    if (!comment) return
+
+    // Set status back to 'open' (or some 'retrying' state)
+    set(s => ({
+      comments: s.comments.map(c => c.id === id ? { ...c, status: 'open' } : c)
+    }))
+
+    try {
+      const { id: _, created_at: __, status: ___, ...data } = comment as any
+      const saved = await api.comments.create(data)
+      set(s => ({
+        comments: s.comments.map(c => c.id === id ? saved : c),
+        error: null,
+      }))
+    } catch (err: unknown) {
+      set(s => ({
+        comments: s.comments.map(c => c.id === id ? { ...c, status: 'failed' } : c),
+        error: err instanceof Error ? err.message : 'Retry failed',
+      }))
     }
   },
 

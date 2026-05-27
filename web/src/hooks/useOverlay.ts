@@ -22,7 +22,7 @@ export interface MarkerPayload {
 
 interface UseOverlayOptions {
   projectId:       string
-  iframeRef:       React.RefObject<HTMLIFrameElement>
+  iframeRef:       React.RefObject<HTMLIFrameElement | null>
   onMarkerDropped: (payload: MarkerPayload) => void
   captureScreen?:  (rect: ElementRect | null) => Promise<string | null>
   enabled?:        boolean

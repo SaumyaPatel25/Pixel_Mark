@@ -1,7 +1,7 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from .logger import logger
+from logger import logger
 import traceback
 
 class AppError(Exception):

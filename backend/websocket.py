@@ -1,6 +1,6 @@
 from fastapi import WebSocket
 from typing import Dict, List, Optional
-from .logger import logger
+from logger import logger
 
 class ConnectionManager:
     def __init__(self):

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
-import { supabase } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
 function Sparkline({ data }: { data: number[] }) {
@@ -79,7 +79,7 @@ function HealthRing({ score }: { score: number }) {
 export function ProjectCard({ project, onClick }: { project: any, onClick: () => void }) {
   const [analytics, setAnalytics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const BASE = process.env.NEXT_PUBLIC_API_BASE
+  const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765'
   
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)

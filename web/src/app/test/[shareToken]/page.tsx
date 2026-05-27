@@ -3,7 +3,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { api, Comment } from '@/lib/api'
+import { api } from '@/lib/api'
+import { Comment } from '@/lib/api-contracts'
 import { Loader2, AlertCircle } from 'lucide-react'
 
 import { useProjectStore } from '@/store/projectStore'

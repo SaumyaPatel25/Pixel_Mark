@@ -1,11 +1,12 @@
 from fastapi import FastAPI
+import os
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database import engine, Base
 import asyncio
 import logging
 
-from routes import auth, projects, sessions, markers, shares, proxy, export, websocket
+from routes import auth, projects, sessions, markers, shares, proxy, export, websocket, canvas
 
 logger = logging.getLogger("uvicorn")
 
@@ -33,9 +34,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="PixelMark API", version="2.0.0", lifespan=lifespan)
 
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "")
+if FRONTEND_URL:
+    ALLOWED_ORIGINS.append(FRONTEND_URL)
+    ALLOWED_ORIGINS.append("https://*.vercel.app")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,6 +56,7 @@ app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(sessions.router)
 app.include_router(markers.router)
+app.include_router(canvas.router)
 app.include_router(shares.router)
 app.include_router(proxy.router)
 app.include_router(export.router)

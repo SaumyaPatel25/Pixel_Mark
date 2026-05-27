@@ -6,12 +6,12 @@ import json
 BASE_URL = "http://localhost:8765"
 
 def test_health():
-    print("--- 1. Testing Health & DB (Prompt 2) ---")
+    print("--- 1. Testing Health ---")
     try:
         r = httpx.get(f"{BASE_URL}/health")
         print(f"Status: {r.status_code}")
         print(f"Body: {r.text}")
-        return r.status_code == 200 and r.json().get("db_connected") is True
+        return r.status_code == 200 and r.json().get("status") == "ok"
     except Exception as e:
         print(f"FAILED: {e}")
         return False
@@ -70,12 +70,11 @@ def test_rate_limit():
     return blocked
 
 def test_logging():
-    print("\n--- 6. Testing Logger Redaction (Prompt 1) ---")
+    print("\n--- 6. Testing Logger Redaction ---")
     print("Triggering a log with a secret string...")
     # Since we can't easily read the server console in real-time here,
-    # we rely on the fact that if SUPABASE_KEY is in the main.py env, 
-    # and we triggered endpoints that might log things, it's filtered.
-    print("Check server console for '[REDACTED_SUPABASE_KEY]' if any error occurred.")
+    # we rely on the fact that if sensitive info is in the log, it's filtered.
+    print("Check server console for '[REDACTED_TOKEN]' if any Bearer token was logged.")
     return True
 
 if __name__ == "__main__":

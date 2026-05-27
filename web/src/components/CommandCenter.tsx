@@ -424,14 +424,13 @@ export default function CommandCenter() {
                 </button>
               </div>
 
-              <ElementPreview 
+              <ElementPreview
                 selector={pendingMarker.selector}
-                tagName={pendingMarker.tagName}
-                innerText={pendingMarker.innerText}
-                xpath={pendingMarker.xpath}
+                tagName={pendingMarker.tagName || 'ELEMENT'}
+                innerText={pendingMarker.innerText || ''}
+                xpath={pendingMarker.xpath || ''}
                 markerNumber={pendingMarker.number}
               />
-
               {!localStorage.getItem('tester_name') && (
                 <input
                   placeholder="Audit Signature (Your Name)"

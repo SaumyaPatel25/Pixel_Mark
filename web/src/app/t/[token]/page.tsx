@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 
-const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8765').replace(/\/$/, '')
+const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
 
 type PageState = 'loading' | 'ready' | 'password' | 'revoked' | 'expired' | 'exhausted' | 'not_found' | 'error'
 

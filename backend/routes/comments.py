@@ -4,13 +4,13 @@ from fastapi import APIRouter, Depends, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ..database import get_db, AsyncSessionLocal
-from ..models import Comment, Project
-from ..schemas import CommentCreate, CommentResponse
-from ..errors import AppError
-from ..ratelimit import check_rate_limit
-from ..logger import logger
-from ..websocket import manager
+from database import get_db, AsyncSessionLocal
+from models import Comment, Project
+from schemas import CommentCreate, CommentResponse
+from errors import AppError
+from ratelimit import check_rate_limit
+from logger import logger
+from websocket import manager
 
 router = APIRouter(prefix="/comments", tags=["comments"])
 

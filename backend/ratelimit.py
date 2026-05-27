@@ -1,7 +1,7 @@
 from fastapi import Request, HTTPException
 from collections import defaultdict
 import time
-from .logger import logger
+from logger import logger
 
 # Storage: { ip: [timestamp1, timestamp2, ...] }
 _windows = defaultdict(list)
@@ -48,7 +48,7 @@ def check_rate_limit(request: Request, action_name: str, max_requests: int = 20,
     
     if len(_windows[key]) >= max_requests:
         logger.warning(f"Manual rate limit exceeded for {key}")
-        from .errors import AppError
+        from errors import AppError
         raise AppError("RATE_LIMIT_EXCEEDED", "Too many requests. Please try again later.", 429)
     
     _windows[key].append(now)

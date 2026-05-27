@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 export default function NewProject() {
   const router = useRouter();
   const createProject = useProjectStore((state) => state.createProject);
-  const isLoading = useProjectStore((state) => state.isLoading);
+  const loading = useProjectStore((state) => state.loading);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -134,10 +134,10 @@ export default function NewProject() {
 
                 <div className="pt-4">
                   <Button 
-                    disabled={isLoading || !formData.name || !formData.target_url}
+                    disabled={loading || !formData.name || !formData.target_url}
                     className="w-full h-14 bg-white text-black hover:bg-white/90 font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-white/5 disabled:opacity-20 active:scale-[0.98] transition-all"
                   >
-                    {isLoading ? (
+                    {loading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       'Initialize Project'

@@ -6,7 +6,7 @@ import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { useCommentStore } from '@/store/commentStore'
 import { api } from '@/lib/api'
 
-const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8765').replace(/\/$/, '')
+const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
 
 type ProxyStatus = 'loading' | 'ok' | 'error'
 type SaveState   = 'idle' | 'saving' | 'saved' | 'error'
@@ -38,7 +38,11 @@ export default function ReviewPage() {
   const [cmdOpen,       setCmdOpen]       = useState(false)
   const { connected: wsConnected }        = useRealtimeSync({
     projectId,
-    onMessage: useCommentStore.getState().addCommentFromWS,
+    onMessage: (msg: any) => {
+      if (msg.type === 'NEW_COMMENT') {
+        useCommentStore.getState().addCommentFromWS(msg.comment)
+      }
+    },
     enabled: true,
   })
 

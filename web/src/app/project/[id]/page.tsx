@@ -25,7 +25,7 @@ import { useUIStore } from '@/store/uiStore'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8765').replace(/\/$/, '')
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
 const WS_BASE  = (process.env.NEXT_PUBLIC_WS_BASE  || 'ws://localhost:8765').replace(/\/$/, '')
 
 export default function ProjectPage() {
@@ -167,7 +167,7 @@ export default function ProjectPage() {
   }
 
   if (isProjectLoading) return (
-    <div className="h-screen bg-[#0a0a0b] flex flex-col items-center justify-center space-y-4">
+    <div className="h-screen bg-[#0a0a0b] flex flex-col overflow-hidden font-sans selection:bg-purple-500/30">
       <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Hydrating Project Surface</p>
     </div>
@@ -219,7 +219,7 @@ export default function ProjectPage() {
         <div className="flex items-center gap-3">
           {/* Design System Button */}
           <Button 
-             onClick={toggleDesignSystem}
+             onClick={() => toggleDesignSystem()}
              variant="outline"
              className={cn(
                "rounded-2xl h-11 px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all",
@@ -321,9 +321,7 @@ export default function ProjectPage() {
                           x={comment.x}
                           y={comment.y}
                           number={comment.marker_number || idx + 1}
-                          severity={comment.severity}
-                          status={comment.status}
-                          comment={comment}
+                          isSaved
                         />
                       ))}
                       
@@ -332,7 +330,6 @@ export default function ProjectPage() {
                           x={pendingMarker.x}
                           y={pendingMarker.y}
                           number={pendingMarker.number}
-                          isPending
                         />
                       )}
                     </div>
@@ -358,7 +355,12 @@ export default function ProjectPage() {
 
       <AnimatePresence>
         {isExportPanelOpen && (
-            <ExportPanel projectId={id} />
+            <ExportPanel 
+              projectId={id} 
+              projectName={currentProject?.name || 'Unknown Project'}
+              commentCount={comments.length}
+              onClose={() => toggleExportPanel(false)}
+            />
         )}
       </AnimatePresence>
     </div>

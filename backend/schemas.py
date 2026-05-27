@@ -107,6 +107,9 @@ class ShareLinkOut(BaseModel):
     expires_at: Optional[datetime]
     class Config: from_attributes = True
 
+class ShareLinkAccess(BaseModel):
+    password: Optional[str] = None
+
 # Environments
 class EnvironmentCreate(BaseModel):
     name: str
@@ -118,6 +121,36 @@ class EnvironmentOut(BaseModel):
     name: str
     base_url: str
     class Config: from_attributes = True
+
+# Canvas
+class CanvasFrameOut(BaseModel):
+    id: str
+    project_id: str
+    title: str
+    position_x: float
+    position_y: float
+    width: float
+    height: float
+    snapshot_url: Optional[str]
+    class Config: from_attributes = True
+
+class CanvasFrameUpdate(BaseModel):
+    position_x: Optional[float] = None
+    position_y: Optional[float] = None
+    width: Optional[float] = None
+    height: Optional[float] = None
+    title: Optional[str] = None
+
+class CanvasFlowOut(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    frame_sequence: List[str]
+    class Config: from_attributes = True
+
+class CanvasData(BaseModel):
+    frames: List[CanvasFrameOut]
+    flows: List[CanvasFlowOut]
 
 # Project Update
 class ProjectUpdate(BaseModel):

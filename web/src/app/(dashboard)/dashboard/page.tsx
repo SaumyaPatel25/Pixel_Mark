@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
-import { Plus, FolderPlus, Globe, ArrowRight, Loader2, Canvas } from 'lucide-react'
+import { Plus, FolderPlus, Globe, ArrowRight, Loader2, Layout } from 'lucide-react'
 
 interface Project {
   id: string
@@ -29,7 +29,7 @@ export default function DashboardPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await api.projects.getProjects()
+      const res = await api.projects.list()
       setProjects(res || [])
     } catch (err: any) {
       setError(err.message || 'Failed to load projects')
@@ -48,9 +48,9 @@ export default function DashboardPage() {
 
     setIsCreating(true)
     try {
-      const res = await api.projects.createProject({
+      const res = await api.projects.create({
         name: newProjectName.trim(),
-        url: newProjectUrl.trim() || undefined,
+        target_url: newProjectUrl.trim(),
       })
       setProjects((prev) => [...prev, res])
       setNewProjectName('')

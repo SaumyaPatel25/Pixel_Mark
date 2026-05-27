@@ -1,9 +1,18 @@
-import { createBrowserClient } from '@supabase/ssr'
+// Supabase is deprecated in favor of Neon DB / Backend API
+// This file is kept as a dummy to avoid breaking existing imports during transition
 
-export const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+export const supabase = {
+  from: () => ({
+    select: () => ({
+      eq: () => ({
+        single: () => Promise.resolve({ data: null, error: null }),
+      }),
+    }),
+    update: () => ({
+      eq: () => Promise.resolve({ error: null }),
+    }),
+  }),
+} as any
 
 export type AuthUser = {
   id: string

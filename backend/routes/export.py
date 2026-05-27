@@ -1,17 +1,18 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models import Marker
-from dependencies import get_db
+from models import Marker, User
+from dependencies import get_db, get_current_user
 import csv, io
 
 router = APIRouter(prefix="/export", tags=["export"])
 
 @router.get("/session/{session_id}/markdown", response_class=PlainTextResponse)
-async def export_markdown(session_id: str, db: AsyncSession = Depends(get_db)):
+async def export_markdown(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     result = await db.execute(select(Marker).where(Marker.session_id == session_id))
     markers = result.scalars().all()
+    # Note: In a real app, we should also check if current_user owns the project/session
     lines = [f"# QA Report — Session {session_id}\n"]
     for i, m in enumerate(markers, 1):
         lines.append(f"## [{m.priority.upper()}] Marker {i}: {m.title or 'Untitled'}")
@@ -27,7 +28,7 @@ async def export_markdown(session_id: str, db: AsyncSession = Depends(get_db)):
     return "\n".join(lines)
 
 @router.get("/session/{session_id}/csv")
-async def export_csv(session_id: str, db: AsyncSession = Depends(get_db)):
+async def export_csv(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     result = await db.execute(select(Marker).where(Marker.session_id == session_id))
     markers = result.scalars().all()
     output = io.StringIO()
@@ -38,7 +39,7 @@ async def export_csv(session_id: str, db: AsyncSession = Depends(get_db)):
     return PlainTextResponse(output.getvalue(), media_type="text/csv")
 
 @router.get("/session/{session_id}/json")
-async def export_json(session_id: str, db: AsyncSession = Depends(get_db)):
+async def export_json(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     result = await db.execute(select(Marker).where(Marker.session_id == session_id))
     markers = result.scalars().all()
     return [
