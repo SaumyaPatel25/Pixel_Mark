@@ -33,3 +33,8 @@ backend/htmlcov/
 # --- Assets ---
 web/public/screenshots/
 backend/screenshots/
+
+# --- Local Secrets and DBs ---
+.env
+*.db
+__pycache__/
