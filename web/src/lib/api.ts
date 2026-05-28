@@ -1,3 +1,5 @@
+// PixelMark Core API Client (Unified exception & structured error handler)
+// Version 2.0.1
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
 
 async function request(path: string, options: RequestInit = {}) {
