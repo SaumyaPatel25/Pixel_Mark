@@ -40,17 +40,16 @@ from config import settings
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "https://web-zeta-sable-82.vercel.app",
 ]
 
 if settings.frontend_url and settings.frontend_url not in ALLOWED_ORIGINS:
     ALLOWED_ORIGINS.append(settings.frontend_url)
 
-# Optionally include vercel app for preview builds
-ALLOWED_ORIGINS.append("https://*.vercel.app")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
