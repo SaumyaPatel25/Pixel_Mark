@@ -178,6 +178,12 @@ export const api = {
     async getSession(id: string) {
       return request(`/sessions/${id}`)
     },
+    async getVisits(sessionId: string) {
+      return request(`/sessions/${sessionId}/pages`)
+    },
+    async getSessionStats(sessionId: string) {
+      return request(`/sessions/${sessionId}/stats`)
+    },
   },
 
   // COMMENTS (Frontend calls it comments, Backend calls it markers)
@@ -224,6 +230,14 @@ export const api = {
     async deleteMarker(id: string) {
       return request(`/markers/${id}`, {
         method: 'DELETE',
+      })
+    },
+    async uploadScreenshot(id: string, blob: Blob) {
+      const formData = new FormData()
+      formData.append('screenshot', blob, 'screenshot.png')
+      return request(`/markers/${id}/screenshot`, {
+        method: 'POST',
+        body: formData,
       })
     },
   },

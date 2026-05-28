@@ -9,6 +9,7 @@ import { useOverlayStore } from '@/store/overlayStore'
 import { useProjectStore } from '@/store/projectStore'
 import { Button } from '@/components/ui/button'
 import { SessionReplay } from './SessionReplay'
+import { cn } from '@/lib/utils'
 
 const SEVERITY_STYLES: any = {
   P0: 'bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.2)]',
@@ -122,6 +123,19 @@ const CommentCard = React.memo(({ comment, index }: { comment: any, index: numbe
             </div>
           )}
 
+          {/* Renderer type badge */}
+          {comment.renderer_type && (
+            <span className={cn(
+              "text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest border",
+              comment.renderer_type === 'threejs' ? 'bg-teal-500/10 border-teal-500/20 text-teal-400' :
+              comment.renderer_type === 'webgl' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+              comment.renderer_type === 'canvas2d' ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' :
+              'bg-white/5 border-white/10 text-white/50'
+            )}>
+              {comment.renderer_type === 'threejs' ? 'Three.js' : comment.renderer_type === 'webgl' ? 'WebGL' : comment.renderer_type === 'canvas2d' ? 'Canvas2D' : 'DOM'}
+            </span>
+          )}
+
           {/* Design system violation flag */}
           {comment.session_data?.designViolations?.length > 0 && (
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 group/ds cursor-help">
@@ -192,6 +206,38 @@ const CommentCard = React.memo(({ comment, index }: { comment: any, index: numbe
               <p className="text-[8px] text-white/20 truncate mt-0.5 font-mono">"{comment.inner_text}"</p>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Monospace 3D Context Panel for WebGL/Three.js */}
+      {comment.canvas_context && (
+        <div className="mt-4 p-3 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 font-mono text-[10px] text-emerald-400 space-y-2 select-text">
+          <div className="flex items-center justify-between border-b border-emerald-500/10 pb-1.5 mb-1.5 select-none">
+            <span className="font-black uppercase tracking-widest text-[8px] text-emerald-500">3D Raycast Substrate</span>
+            <span className="text-[7px] bg-emerald-500/10 px-1.5 py-0.5 rounded uppercase font-black tracking-widest text-emerald-400">{comment.canvas_context.type || 'WebGL'}</span>
+          </div>
+          {comment.canvas_context.type === 'threejs' && (
+            <>
+              <div><strong className="text-emerald-500">Object Name:</strong> {comment.canvas_context.object_name || 'Unnamed Mesh'}</div>
+              <div><strong className="text-emerald-500">Object Type:</strong> {comment.canvas_context.object_type || 'THREE.Object3D'}</div>
+              {comment.canvas_context.intersection_point && (
+                <div><strong className="text-emerald-500">Hit Coordinate:</strong> ({comment.canvas_context.intersection_point.map((n: number) => n.toFixed(2)).join(', ')})</div>
+              )}
+              {comment.canvas_context.camera_position && (
+                <div><strong className="text-emerald-500">Camera Coordinate:</strong> ({comment.canvas_context.camera_position.map((n: number) => n.toFixed(2)).join(', ')})</div>
+              )}
+              {comment.canvas_context.distance && (
+                <div><strong className="text-emerald-500">Distance to Ray:</strong> {comment.canvas_context.distance.toFixed(2)}px</div>
+              )}
+            </>
+          )}
+          {comment.canvas_context.type === 'webgl' && (
+            <>
+              <div><strong className="text-emerald-500">GL Vendor:</strong> {comment.canvas_context.gl_vendor || 'Unknown'}</div>
+              <div><strong className="text-emerald-500">GL Renderer:</strong> {comment.canvas_context.gl_renderer || 'Unknown'}</div>
+              <div><strong className="text-emerald-500">GL Version:</strong> {comment.canvas_context.gl_version || 'Unknown'}</div>
+            </>
+          )}
         </div>
       )}
 
@@ -341,6 +387,8 @@ export default function CommandCenter() {
     }
   }
 
+  const [activeTab, setActiveTab] = useState<string>('all')
+
   const sortedComments = useMemo(() => {
     const severityMap: any = { P0: 0, P1: 1, P2: 2, P3: 3 };
     return [...comments].sort((a, b) => {
@@ -350,6 +398,30 @@ export default function CommandCenter() {
       return sevA - sevB;
     });
   }, [comments]);
+
+  // Derive unique page URLs from comments list
+  const pageUrls = useMemo(() => {
+    const urls = new Set<string>()
+    comments.forEach(c => {
+      if (c.page_url) urls.add(c.page_url)
+    })
+    return Array.from(urls)
+  }, [comments])
+
+  const getUrlPath = (url: string) => {
+    try {
+      const parsed = new URL(url)
+      return parsed.pathname === '/' ? '/' : parsed.pathname
+    } catch {
+      if (url.startsWith('/')) return url
+      return '/'
+    }
+  }
+
+  const filteredComments = useMemo(() => {
+    if (activeTab === 'all') return sortedComments
+    return sortedComments.filter(c => c.page_url === activeTab)
+  }, [sortedComments, activeTab])
 
   return (
     <motion.div className="fixed right-8 top-24 w-96 h-[calc(100vh-160px)] flex flex-col bg-[#121216]/95 backdrop-blur-3xl border border-white/5 rounded-[32px] z-50 shadow-2xl overflow-hidden">
@@ -391,6 +463,42 @@ export default function CommandCenter() {
           <Activity className={`w-4 h-4 ${isSettingsOpen ? 'animate-spin-slow' : ''}`} />
         </button>
       </div>
+
+      {/* Pages Tabs */}
+      {pageUrls.length > 0 && (
+        <div className="px-6 pb-2 flex gap-2 overflow-x-auto select-none no-scrollbar flex-shrink-0">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all border whitespace-nowrap flex items-center gap-1.5",
+              activeTab === 'all'
+                ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/40"
+                : "bg-white/5 border-white/5 text-white/40 hover:text-white/60"
+            )}
+          >
+            All Pages
+            <span className="px-1.5 py-0.5 rounded-full bg-black/30 text-[8px] text-white/50">{comments.length}</span>
+          </button>
+          {pageUrls.map(url => {
+            const count = comments.filter(c => c.page_url === url).length
+            return (
+              <button
+                key={url}
+                onClick={() => setActiveTab(url)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all border whitespace-nowrap flex items-center gap-1.5",
+                  activeTab === url
+                    ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/40"
+                    : "bg-white/5 border-white/5 text-white/40 hover:text-white/60"
+                )}
+              >
+                {getUrlPath(url)}
+                <span className="px-1.5 py-0.5 rounded-full bg-black/30 text-[8px] text-white/50">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 pb-8 space-y-6">
         <AnimatePresence>
@@ -490,9 +598,9 @@ export default function CommandCenter() {
               <div className="h-[1px] flex-1 bg-white/[0.03] ml-4" />
            </div>
            
-           {sortedComments.length > 0 ? (
+           {filteredComments.length > 0 ? (
               <div className="space-y-2">
-                {sortedComments.map((comment, index) => (
+                {filteredComments.map((comment, index) => (
                   <CommentCard key={comment.id} comment={comment} index={index} />
                 ))}
               </div>

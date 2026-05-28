@@ -44,6 +44,8 @@ class SessionOut(BaseModel):
     id: str
     project_id: str
     title: Optional[str]
+    current_page_url: Optional[str] = None
+    pages_visited: Optional[int] = 0
     created_at: datetime
     class Config: from_attributes = True
 
@@ -54,6 +56,11 @@ class MarkerCreate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     url: Optional[str] = None
+    page_url: Optional[str] = None
+    page_title: Optional[str] = None
+    renderer_type: Optional[str] = "dom"
+    canvas_context: Optional[dict] = None
+    agent_version: Optional[str] = "2.0"
     xpath: Optional[str] = None
     css_selector: Optional[str] = None
     inner_text: Optional[str] = None
@@ -79,6 +86,12 @@ class MarkerOut(BaseModel):
     title: Optional[str]
     description: Optional[str]
     url: Optional[str]
+    page_url: Optional[str]
+    page_title: Optional[str]
+    renderer_type: Optional[str]
+    canvas_context: Optional[dict]
+    marker_number: int
+    agent_version: Optional[str]
     xpath: Optional[str]
     css_selector: Optional[str]
     inner_text: Optional[str]
@@ -88,6 +101,7 @@ class MarkerOut(BaseModel):
     scroll_position: Optional[dict]
     console_errors: Optional[List[Any]]
     network_errors: Optional[List[Any]]
+    screenshot_url: Optional[str]
     priority: PriorityEnum
     status: StatusEnum
     ai_summary: Optional[str]
@@ -157,4 +171,23 @@ class CanvasData(BaseModel):
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
+
+# Page Visits
+class PageVisitCreate(BaseModel):
+    session_id: str
+    page_url: str
+    page_title: Optional[str] = None
+    renderer_type: Optional[str] = None
+    screenshot_url: Optional[str] = None
+
+class PageVisitOut(BaseModel):
+    id: str
+    session_id: str
+    page_url: str
+    page_title: Optional[str]
+    visited_at: datetime
+    renderer_type: Optional[str]
+    screenshot_url: Optional[str]
+    class Config: from_attributes = True
+
 

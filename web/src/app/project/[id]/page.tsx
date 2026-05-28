@@ -2,17 +2,14 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, Code, AlertCircle } from 'lucide-react'
+import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Marker } from '@/components/ui/Marker'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ExportPanel } from '@/components/ExportPanel'
 import { DesignSystemPanel } from '@/components/DesignSystemPanel'
-import { createClient } from '@/lib/supabase/client'
-import { AdvancedSiteCard } from '@/components/AdvancedSiteCard'
 import CommandCenter from '@/components/CommandCenter'
-import { Palette, X } from 'lucide-react'
+import { Palette } from 'lucide-react'
+import { AuditSurface } from '@/components/audit/AuditSurface'
+import { api } from '@/lib/api'
 
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { useOverlay as useEntrextOverlay } from '@/hooks/useOverlay'
@@ -66,6 +63,32 @@ export default function ProjectPage() {
   const lastEmitRef = useRef(0)
   
   const screenCapture = useScreenCapture()
+  const [sessionId, setSessionId] = useState<string | null>(null)
+
+  // Retrieve or create active audit session on mount
+  useEffect(() => {
+    if (!id) return
+    async function initSession() {
+      try {
+        const list = await api.sessions.getSessions(id)
+        if (list && list.length > 0) {
+          // Use most recent session
+          const sorted = list.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          setSessionId(sorted[0].id)
+        } else {
+          // Create a new session
+          const newSession = await api.sessions.createSession({ 
+            project_id: id, 
+            title: `Audit Session - ${new Date().toLocaleDateString()}` 
+          })
+          setSessionId(newSession.id)
+        }
+      } catch (err) {
+        console.error("Failed to resolve session:", err)
+      }
+    }
+    initSession()
+  }, [id])
 
   // One-time init — offer screen capture when user first holds Ctrl
   useEffect(() => {
@@ -304,35 +327,20 @@ export default function ProjectPage() {
                 </div>
           ) : (
                 <div className="w-full h-full relative group">
-                    <iframe
-                        ref={iframeRef}
-                        src={(id && currentProject?.url) ? `${API_BASE}/proxy?url=${encodeURIComponent(currentProject.url)}&project_id=${id}` : undefined}
-                        className="w-full h-full border-none transition-all duration-700 bg-white"
-                        title="Entrext Audit Viewport"
-                        onLoad={() => setProxyStatus('ok')}
-                        onError={() => setProxyStatus('failed')}
-                    />
-                    
-                    {/* Visual Overlay of Audits */}
-                    <div className="absolute inset-0 pointer-events-none">
-                      {comments.map((comment, idx) => (
-                        <Marker 
-                          key={comment.id}
-                          x={comment.x}
-                          y={comment.y}
-                          number={comment.marker_number || idx + 1}
-                          isSaved
-                        />
-                      ))}
-                      
-                      {pendingMarker && (
-                        <Marker 
-                          x={pendingMarker.x}
-                          y={pendingMarker.y}
-                          number={pendingMarker.number}
-                        />
-                      )}
-                    </div>
+                    {sessionId ? (
+                      <AuditSurface
+                        sessionId={sessionId}
+                        projectId={id}
+                        onMarkerCreated={(marker) => {
+                          loadComments(id)
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#0a0a0b]">
+                        <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Negotiating Audit Session</p>
+                      </div>
+                    )}
                 </div>
           )}
         </div>

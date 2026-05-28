@@ -98,10 +98,13 @@ class Session(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=True)
+    current_page_url: Mapped[str] = mapped_column(String, nullable=True)
+    pages_visited: Mapped[int] = mapped_column(nullable=True, default=0)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     project: Mapped["Project"] = relationship(back_populates="sessions")
     markers: Mapped[list["Marker"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     share_links: Mapped[list["ShareLink"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    page_visits: Mapped[list["PageVisit"]] = relationship(back_populates="session", cascade="all, delete-orphan")
 
 class Marker(Base):
     __tablename__ = "markers"
@@ -110,6 +113,12 @@ class Marker(Base):
     title: Mapped[str] = mapped_column(String, nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     url: Mapped[str] = mapped_column(String, nullable=True)
+    page_url: Mapped[str] = mapped_column(String, nullable=True)
+    page_title: Mapped[str] = mapped_column(String, nullable=True)
+    renderer_type: Mapped[str] = mapped_column(String, nullable=True, default="unknown")
+    canvas_context: Mapped[dict] = mapped_column(JSON, nullable=True)
+    marker_number: Mapped[int] = mapped_column(nullable=True, default=0)
+    agent_version: Mapped[str] = mapped_column(String, nullable=True, default="1.0")
     xpath: Mapped[str] = mapped_column(Text, nullable=True)
     css_selector: Mapped[str] = mapped_column(Text, nullable=True)
     inner_text: Mapped[str] = mapped_column(Text, nullable=True)
@@ -137,3 +146,14 @@ class ShareLink(Base):
     expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     session: Mapped["Session"] = relationship(back_populates="share_links")
+
+class PageVisit(Base):
+    __tablename__ = "page_visits"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False)
+    page_url: Mapped[str] = mapped_column(String, nullable=False)
+    page_title: Mapped[str] = mapped_column(String, nullable=True)
+    visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    renderer_type: Mapped[str] = mapped_column(String, nullable=True)
+    screenshot_url: Mapped[str] = mapped_column(String, nullable=True)
+    session: Mapped["Session"] = relationship(back_populates="page_visits")
