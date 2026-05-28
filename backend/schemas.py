@@ -49,7 +49,8 @@ class SessionOut(BaseModel):
 
 # Markers
 class MarkerCreate(BaseModel):
-    session_id: str
+    session_id: Optional[str] = None
+    project_id: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
     url: Optional[str] = None

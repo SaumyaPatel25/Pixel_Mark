@@ -10,12 +10,38 @@ router = APIRouter(prefix="/markers", tags=["markers"])
 
 @router.post("/", response_model=MarkerOut)
 async def create_marker(data: MarkerCreate, db: AsyncSession = Depends(get_db)):
-    try:
-        uuid.UUID(data.session_id)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid UUID format")
+    session_id = data.session_id
+    if not session_id:
+        if not data.project_id:
+            raise HTTPException(status_code=422, detail="Either session_id or project_id must be provided")
+        
+        # Resolve or create a default session for this project_id
+        result = await db.execute(
+            select(Session).where(Session.project_id == data.project_id).order_by(Session.created_at.desc())
+        )
+        session = result.scalars().first()
+        if not session:
+            session = Session(
+                id=str(uuid.uuid4()),
+                project_id=data.project_id,
+                title="Default Audit Session"
+            )
+            db.add(session)
+            await db.commit()
+            await db.refresh(session)
+        session_id = session.id
+    else:
+        try:
+            uuid.UUID(session_id)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid UUID format")
 
-    marker = Marker(id=str(uuid.uuid4()), **data.model_dump())
+    marker_data = data.model_dump()
+    marker_data["session_id"] = session_id
+    if "project_id" in marker_data:
+        del marker_data["project_id"]
+
+    marker = Marker(id=str(uuid.uuid4()), **marker_data)
     db.add(marker)
     await db.commit()
     await db.refresh(marker)
