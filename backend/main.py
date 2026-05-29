@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 import os
+import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -45,6 +46,75 @@ ALLOWED_ORIGINS = [
 
 if settings.frontend_url and settings.frontend_url not in ALLOWED_ORIGINS:
     ALLOWED_ORIGINS.append(settings.frontend_url)
+
+from fastapi import Request, Response as FAResponse
+import re
+import urllib.parse
+from database import AsyncSessionLocal
+from sqlalchemy import select
+from models import Session, Project, Environment
+
+@app.middleware("http")
+async def proxy_fallback_middleware(request: Request, call_next):
+    path = request.url.path
+    # Capture _next assets, webpack chunks, or icons
+    if path.startswith("/_next/") or path in ("/icon.svg", "/favicon.ico") or path.endswith((".js", ".css", ".png", ".jpg", ".jpeg", ".woff2", ".woff", ".ttf")):
+        # Check if the path is actually handled by our mounted static files
+        if path.startswith("/static"):
+            return await call_next(request)
+            
+        referer = request.headers.get("referer", "")
+        session_id = None
+        
+        # 1. Try to extract session ID from Referer header
+        match = re.search(r"/proxy/session/([a-f0-9\-]{36})", referer)
+        if match:
+            session_id = match.group(1)
+            
+        if session_id:
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(Session).where(Session.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+                if session:
+                    proj_result = await db.execute(
+                        select(Project).where(Project.id == session.project_id)
+                    )
+                    project = proj_result.scalar_one_or_none()
+                    if project:
+                        env_result = await db.execute(
+                            select(Environment).where(Environment.project_id == project.id)
+                        )
+                        envs = env_result.scalars().all()
+                        
+                        base_url = None
+                        if envs:
+                            base_url = envs[0].base_url
+                            for env in envs:
+                                if env.name.lower() in ("prod", "production"):
+                                    base_url = env.base_url
+                                    break
+                        if not base_url:
+                            base_url = project.url
+                            
+                        if base_url:
+                            target_url = urllib.parse.urljoin(base_url, path)
+                            if request.url.query:
+                                target_url = f"{target_url}?{request.url.query}"
+                                
+                            try:
+                                headers = {
+                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                }
+                                async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
+                                    resp = await client.get(target_url, headers=headers)
+                                    content_type = resp.headers.get("content-type", "application/octet-stream")
+                                    return FAResponse(content=resp.content, media_type=content_type, status_code=resp.status_code)
+                            except Exception as e:
+                                pass
+                                
+    return await call_next(request)
 
 app.add_middleware(
     CORSMiddleware,
