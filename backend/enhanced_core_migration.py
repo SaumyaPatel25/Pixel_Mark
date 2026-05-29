@@ -36,6 +36,57 @@ async def run_migration():
         if "pages_visited" not in session_cols:
             print("Adding pages_visited to sessions table...")
             await conn.execute(text("ALTER TABLE sessions ADD COLUMN pages_visited INTEGER DEFAULT 0"))
+        if "updated_at" not in session_cols:
+            print("Adding updated_at to sessions table...")
+            col_type = "TIMESTAMP WITH TIME ZONE" if "postgresql" in DATABASE_URL else "TIMESTAMP"
+            await conn.execute(text(f"ALTER TABLE sessions ADD COLUMN updated_at {col_type} NULL"))
+
+        # Check if page_visits table exists
+        def check_tables(sync_conn):
+            inspector = inspect(sync_conn)
+            return inspector.get_table_names()
+            
+        tables = await conn.run_sync(check_tables)
+        if "page_visits" not in tables:
+            print("Creating page_visits table...")
+            if "postgresql" in DATABASE_URL:
+                await conn.execute(text("""
+                    CREATE TABLE page_visits (
+                        id VARCHAR PRIMARY KEY,
+                        session_id VARCHAR NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                        page_url VARCHAR NOT NULL,
+                        page_title VARCHAR NULL,
+                        visited_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        renderer_type VARCHAR NULL,
+                        screenshot_url VARCHAR NULL,
+                        metadata JSONB NULL
+                    )
+                """))
+            else:
+                await conn.execute(text("""
+                    CREATE TABLE page_visits (
+                        id VARCHAR PRIMARY KEY,
+                        session_id VARCHAR NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                        page_url VARCHAR NOT NULL,
+                        page_title VARCHAR NULL,
+                        visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        renderer_type VARCHAR NULL,
+                        screenshot_url VARCHAR NULL,
+                        metadata JSON NULL
+                    )
+                """))
+            print("[OK] page_visits table created successfully!")
+        else:
+            # Check page_visits columns
+            def check_page_visits(sync_conn):
+                inspector = inspect(sync_conn)
+                return [c["name"] for c in inspector.get_columns("page_visits")]
+            
+            pv_cols = await conn.run_sync(check_page_visits)
+            if "metadata" not in pv_cols:
+                print("Adding metadata to page_visits table...")
+                col_type = "JSONB" if "postgresql" in DATABASE_URL else "JSON"
+                await conn.execute(text(f"ALTER TABLE page_visits ADD COLUMN metadata {col_type} NULL"))
 
         # Check markers columns
         def check_markers(sync_conn):
@@ -62,40 +113,79 @@ async def run_migration():
         if "agent_version" not in marker_cols:
             print("Adding agent_version to markers table...")
             await conn.execute(text("ALTER TABLE markers ADD COLUMN agent_version VARCHAR NULL DEFAULT '1.0'"))
+        if "page_visit_id" not in marker_cols:
+            print("Adding page_visit_id to markers table...")
+            await conn.execute(text("ALTER TABLE markers ADD COLUMN page_visit_id VARCHAR NULL REFERENCES page_visits(id) ON DELETE SET NULL"))
+        if "updated_at" not in marker_cols:
+            print("Adding updated_at to markers table...")
+            col_type = "TIMESTAMP WITH TIME ZONE" if "postgresql" in DATABASE_URL else "TIMESTAMP"
+            await conn.execute(text(f"ALTER TABLE markers ADD COLUMN updated_at {col_type} NULL"))
 
-        # Check if page_visits table exists
-        def check_tables(sync_conn):
-            inspector = inspect(sync_conn)
-            return inspector.get_table_names()
-            
-        tables = await conn.run_sync(check_tables)
-        if "page_visits" not in tables:
-            print("Creating page_visits table...")
+        # Check if audit_artifacts table exists
+        if "audit_artifacts" not in tables:
+            print("Creating audit_artifacts table...")
             if "postgresql" in DATABASE_URL:
                 await conn.execute(text("""
-                    CREATE TABLE page_visits (
+                    CREATE TABLE audit_artifacts (
                         id VARCHAR PRIMARY KEY,
                         session_id VARCHAR NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-                        page_url VARCHAR NOT NULL,
-                        page_title VARCHAR NULL,
-                        visited_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        renderer_type VARCHAR NULL,
-                        screenshot_url VARCHAR NULL
+                        page_visit_id VARCHAR NULL REFERENCES page_visits(id) ON DELETE SET NULL,
+                        kind VARCHAR NOT NULL,
+                        payload JSONB NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     )
                 """))
             else:
                 await conn.execute(text("""
-                    CREATE TABLE page_visits (
+                    CREATE TABLE audit_artifacts (
                         id VARCHAR PRIMARY KEY,
                         session_id VARCHAR NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-                        page_url VARCHAR NOT NULL,
-                        page_title VARCHAR NULL,
-                        visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        renderer_type VARCHAR NULL,
-                        screenshot_url VARCHAR NULL
+                        page_visit_id VARCHAR NULL REFERENCES page_visits(id) ON DELETE SET NULL,
+                        kind VARCHAR NOT NULL,
+                        payload JSON NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """))
-            print("[OK] page_visits table created successfully!")
+            print("[OK] audit_artifacts table created successfully!")
+
+        # Safety Sequential Renumbering of markers to prevent unique constraint failures
+        print("Renumbering existing markers sequentially per session...")
+        sessions_res = await conn.execute(text("SELECT DISTINCT session_id FROM markers"))
+        session_ids = [r[0] for r in sessions_res.fetchall()]
+        for s_id in session_ids:
+            markers_res = await conn.execute(
+                text("SELECT id FROM markers WHERE session_id = :sid ORDER BY created_at ASC, id ASC"),
+                {"sid": s_id}
+            )
+            marker_rows = markers_res.fetchall()
+            for idx, row in enumerate(marker_rows, start=1):
+                await conn.execute(
+                    text("UPDATE markers SET marker_number = :num WHERE id = :mid"),
+                    {"num": idx, "mid": row[0]}
+                )
+        print("[OK] Renumbering completed successfully!")
+
+        # Create Database Indexes to speed up lookups (Safe for both Postgres and SQLite)
+        print("Creating performance indexes...")
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_markers_session_id ON markers (session_id)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_markers_page_url ON markers (page_url)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_markers_page_visit_id ON markers (page_visit_id)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_markers_created_at ON markers (created_at)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_page_visits_session_id ON page_visits (session_id)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_page_visits_page_url ON page_visits (page_url)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions (created_at)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_artifacts_session_id ON audit_artifacts (session_id)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_artifacts_page_visit_id ON audit_artifacts (page_visit_id)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_artifacts_created_at ON audit_artifacts (created_at)"))
+        print("[OK] Indexes created successfully!")
+
+        # Create Unique Index (serves as unique constraint on SQLite/PostgreSQL)
+        print("Creating unique index uq_session_marker_number on markers...")
+        # Check if the unique constraint or unique index already exists
+        # In SQLite, CREATE UNIQUE INDEX IF NOT EXISTS is safe.
+        # In PostgreSQL, CREATE UNIQUE INDEX IF NOT EXISTS is safe.
+        await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_session_marker_number ON markers (session_id, marker_number)"))
+        print("[OK] Unique constraint index created successfully!")
 
 if __name__ == "__main__":
     asyncio.run(run_migration())

@@ -289,8 +289,10 @@ async def proxy_initial(session_id: str, db: AsyncSession = Depends(get_db)):
                 response.headers["X-PixelMark-Page"] = base_url
                 
                 # Strip dynamic security headers
-                response.headers.pop("Content-Security-Policy", None)
-                response.headers.pop("X-Frame-Options", None)
+                if "Content-Security-Policy" in response.headers:
+                    del response.headers["Content-Security-Policy"]
+                if "X-Frame-Options" in response.headers:
+                    del response.headers["X-Frame-Options"]
                 return response
             else:
                 return Response(content=resp.content, media_type=content_type)
@@ -358,8 +360,10 @@ async def proxy_page(session_id: str, url: str, db: AsyncSession = Depends(get_d
                 response.headers["X-PixelMark-Page"] = url
                 
                 # Strip security headers
-                response.headers.pop("Content-Security-Policy", None)
-                response.headers.pop("X-Frame-Options", None)
+                if "Content-Security-Policy" in response.headers:
+                    del response.headers["Content-Security-Policy"]
+                if "X-Frame-Options" in response.headers:
+                    del response.headers["X-Frame-Options"]
                 return response
             else:
                 return Response(content=resp.content, media_type=content_type)

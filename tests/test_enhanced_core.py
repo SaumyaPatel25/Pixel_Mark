@@ -131,20 +131,20 @@ async def test_proxy_initial(test_setup):
 async def test_proxy_navigation(test_setup):
     session = test_setup["session"]
     async with httpx.AsyncClient(app=app, base_url="http://test") as client:
-        # Navigate to example.com/about within the session
-        response = await client.get(f"/proxy/session/{session.id}/page?url=https%3A%2F%2Fexample.com%2Fabout")
+        # Navigate to iana.org/domains/example within the session
+        response = await client.get(f"/proxy/session/{session.id}/page?url=https%3A%2F%2Fiana.org%2Fdomains%2Fexample")
         assert response.status_code == 200
         assert "pixelmark-agent.js" in response.text
         
         # Verify visit was recorded
         async with TestSessionLocal() as db:
             visits = (await db.execute(select(PageVisit).where(PageVisit.session_id == session.id))).scalars().all()
-            assert any(v.page_url == "https://example.com/about" for v in visits)
+            assert any(v.page_url == "https://iana.org/domains/example" for v in visits)
             
             # Check session current URL updated
             res = await db.execute(select(Session).where(Session.id == session.id))
             sess = res.scalar_one()
-            assert sess.current_page_url == "https://example.com/about"
+            assert sess.current_page_url == "https://iana.org/domains/example"
 
 @pytest.mark.asyncio
 async def test_proxy_blocks_ssrf(test_setup):

@@ -40,19 +40,30 @@ class SessionCreate(BaseModel):
     project_id: str
     title: Optional[str] = None
 
-class SessionOut(BaseModel):
+class SessionRead(BaseModel):
     id: str
     project_id: str
     title: Optional[str]
     current_page_url: Optional[str] = None
-    pages_visited: Optional[int] = 0
+    pages_visited_count: int = 0
+    pages_visited: Optional[int] = 0  # backward compatibility mapping
     created_at: datetime
+    updated_at: Optional[datetime] = None
     class Config: from_attributes = True
+
+class SessionOut(SessionRead):
+    pass
+
+class SessionUpdate(BaseModel):
+    title: Optional[str] = None
+    current_page_url: Optional[str] = None
+    pages_visited_count: Optional[int] = None
 
 # Markers
 class MarkerCreate(BaseModel):
     session_id: Optional[str] = None
     project_id: Optional[str] = None
+    page_visit_id: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
     url: Optional[str] = None
@@ -80,9 +91,10 @@ class MarkerUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
 
-class MarkerOut(BaseModel):
+class MarkerRead(BaseModel):
     id: str
     session_id: str
+    page_visit_id: Optional[str] = None
     title: Optional[str]
     description: Optional[str]
     url: Optional[str]
@@ -106,7 +118,11 @@ class MarkerOut(BaseModel):
     status: StatusEnum
     ai_summary: Optional[str]
     created_at: datetime
+    updated_at: Optional[datetime] = None
     class Config: from_attributes = True
+
+class MarkerOut(MarkerRead):
+    pass
 
 # Share links
 class ShareLinkCreate(BaseModel):
@@ -179,8 +195,9 @@ class PageVisitCreate(BaseModel):
     page_title: Optional[str] = None
     renderer_type: Optional[str] = None
     screenshot_url: Optional[str] = None
+    visit_metadata: Optional[dict] = None
 
-class PageVisitOut(BaseModel):
+class PageVisitRead(BaseModel):
     id: str
     session_id: str
     page_url: str
@@ -188,6 +205,28 @@ class PageVisitOut(BaseModel):
     visited_at: datetime
     renderer_type: Optional[str]
     screenshot_url: Optional[str]
+    visit_metadata: Optional[dict] = None
     class Config: from_attributes = True
+
+class PageVisitOut(PageVisitRead):
+    pass
+
+# Stats and Grouped Queries
+class SessionStatsRead(BaseModel):
+    total: int
+    by_priority: dict
+    by_status: dict
+    by_renderer: dict
+    pages_visited: int
+    unique_pages: int
+
+class PageMarkersGroup(BaseModel):
+    page_url: str
+    page_title: Optional[str] = None
+    marker_count: int
+    markers: List[MarkerOut]
+
+class PageGroupedMarkersRead(BaseModel):
+    pages: List[PageMarkersGroup]
 
 

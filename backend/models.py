@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Enum as SAEnum
+from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Enum as SAEnum, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -99,21 +99,36 @@ class Session(Base):
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=True)
     current_page_url: Mapped[str] = mapped_column(String, nullable=True)
-    pages_visited: Mapped[int] = mapped_column(nullable=True, default=0)
-    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    pages_visited_count: Mapped[int] = mapped_column("pages_visited", nullable=True, default=0)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    
     project: Mapped["Project"] = relationship(back_populates="sessions")
     markers: Mapped[list["Marker"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     share_links: Mapped[list["ShareLink"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     page_visits: Mapped[list["PageVisit"]] = relationship(back_populates="session", cascade="all, delete-orphan")
 
+    @property
+    def pages_visited(self) -> int:
+        return self.pages_visited_count or 0
+
+    @pages_visited.setter
+    def pages_visited(self, value: int) -> None:
+        self.pages_visited_count = value
+
 class Marker(Base):
     __tablename__ = "markers"
+    __table_args__ = (
+        UniqueConstraint("session_id", "marker_number", name="uq_session_marker_number"),
+    )
+    
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False, index=True)
+    page_visit_id: Mapped[str] = mapped_column(ForeignKey("page_visits.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String, nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     url: Mapped[str] = mapped_column(String, nullable=True)
-    page_url: Mapped[str] = mapped_column(String, nullable=True)
+    page_url: Mapped[str] = mapped_column(String, nullable=True, index=True)
     page_title: Mapped[str] = mapped_column(String, nullable=True)
     renderer_type: Mapped[str] = mapped_column(String, nullable=True, default="unknown")
     canvas_context: Mapped[dict] = mapped_column(JSON, nullable=True)
@@ -133,8 +148,11 @@ class Marker(Base):
     status: Mapped[StatusEnum] = mapped_column(SAEnum(StatusEnum), default=StatusEnum.open)
     assignee_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=True)
     ai_summary: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    
     session: Mapped["Session"] = relationship(back_populates="markers")
+    page_visit: Mapped["PageVisit"] = relationship()
 
 class ShareLink(Base):
     __tablename__ = "share_links"
@@ -150,10 +168,24 @@ class ShareLink(Base):
 class PageVisit(Base):
     __tablename__ = "page_visits"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False)
-    page_url: Mapped[str] = mapped_column(String, nullable=False)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False, index=True)
+    page_url: Mapped[str] = mapped_column(String, nullable=False, index=True)
     page_title: Mapped[str] = mapped_column(String, nullable=True)
     visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     renderer_type: Mapped[str] = mapped_column(String, nullable=True)
     screenshot_url: Mapped[str] = mapped_column(String, nullable=True)
+    visit_metadata: Mapped[dict] = mapped_column("metadata", JSON, nullable=True)
+    
     session: Mapped["Session"] = relationship(back_populates="page_visits")
+
+class AuditArtifact(Base):
+    __tablename__ = "audit_artifacts"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    page_visit_id: Mapped[str] = mapped_column(ForeignKey("page_visits.id", ondelete="SET NULL"), nullable=True, index=True)
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    session: Mapped["Session"] = relationship()
+    page_visit: Mapped["PageVisit"] = relationship()
