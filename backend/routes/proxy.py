@@ -28,9 +28,9 @@ async def record_page_visit(
         select(PageVisit).where(
             PageVisit.session_id == session_id,
             PageVisit.page_url == page_url
-        )
+        ).order_by(PageVisit.visited_at.desc())
     )
-    pv = result.scalar_one_or_none()
+    pv = result.scalars().first()
     
     if pv:
         pv.visit_count = (pv.visit_count or 0) + 1
