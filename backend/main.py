@@ -63,7 +63,8 @@ async def proxy_fallback_middleware(request: Request, call_next):
     # 1. Determine if this path is reserved for the primary PixelMark backend API and static folders
     reserved_prefixes = (
         "/auth", "/projects", "/sessions", "/markers", "/canvas", "/shares", 
-        "/proxy", "/export", "/websocket", "/health", "/static", "/docs", "/openapi.json"
+        "/proxy", "/export", "/websocket", "/health", "/static", "/docs", "/openapi.json",
+        "/share-links", "/review"
     )
     is_reserved = any(path.startswith(prefix) for prefix in reserved_prefixes)
     
