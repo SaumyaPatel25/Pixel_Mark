@@ -4,11 +4,13 @@ interface UIState {
   isCommandCenterOpen: boolean;
   isExportPanelOpen: boolean;
   isDesignSystemOpen: boolean;
+  isSharePanelOpen: boolean;
   toasts: { id: string; message: string; type: 'success' | 'error' | 'info' }[];
   
   toggleCommandCenter: (open?: boolean) => void;
   toggleExportPanel: (open?: boolean) => void;
   toggleDesignSystem: (open?: boolean) => void;
+  toggleSharePanel: (open?: boolean) => void;
   addToast: (message: string, type: 'success' | 'error' | 'info') => void;
   removeToast: (id: string) => void;
 }
@@ -17,6 +19,7 @@ export const useUIStore = create<UIState>((set) => ({
   isCommandCenterOpen: true,
   isExportPanelOpen: false,
   isDesignSystemOpen: false,
+  isSharePanelOpen: false,
   toasts: [],
   
   toggleCommandCenter: (open) => set((state) => ({ 
@@ -27,6 +30,9 @@ export const useUIStore = create<UIState>((set) => ({
   })),
   toggleDesignSystem: (open) => set((state) => ({
     isDesignSystemOpen: open !== undefined ? open : !state.isDesignSystemOpen
+  })),
+  toggleSharePanel: (open) => set((state) => ({
+    isSharePanelOpen: open !== undefined ? open : !state.isSharePanelOpen
   })),
   addToast: (message, type) => {
     const id = Math.random().toString(36).substr(2, 9);

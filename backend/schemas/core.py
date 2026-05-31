@@ -83,6 +83,35 @@ class MarkerCreate(BaseModel):
     network_errors: Optional[List[Any]] = None
     screenshot_url: Optional[str] = None
     priority: Optional[PriorityEnum] = PriorityEnum.medium
+    is_inside_shadow_dom: Optional[bool] = False
+    shadow_root_depth: Optional[int] = None
+    shadow_host_tag: Optional[str] = None
+    shadow_host_id: Optional[str] = None
+    shadow_host_class_list: Optional[List[str]] = None
+    shadow_path: Optional[str] = None
+    
+    # Step 2B ingestion fields
+    share_token: Optional[str] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    viewport_x: Optional[float] = None
+    viewport_y: Optional[float] = None
+    element_selector: Optional[str] = None
+    element_text: Optional[str] = None
+    element_tag: Optional[str] = None
+    note: Optional[str] = None
+    severity: Optional[str] = "medium"
+    screenshot_required: Optional[bool] = False
+    created_via: Optional[str] = "agent"
+    share_link_id: Optional[str] = None
+    user_id: Optional[str] = None
+
+    # Step 2v2 structured issue fields
+    issue_type: Optional[str] = "other"  # layout | copy | interaction | navigation | rendering | canvas_webgl | other
+    aria_label: Optional[str] = None
+    aria_role: Optional[str] = None
+    bounding_box: Optional[dict] = None   # {x, y, width, height, top, right, bottom, left}
+    browser_info: Optional[dict] = None   # {name, version, os, platform, user_agent}
 
 class MarkerUpdate(BaseModel):
     status: Optional[StatusEnum] = None
@@ -95,51 +124,63 @@ class MarkerRead(BaseModel):
     id: str
     session_id: str
     page_visit_id: Optional[str] = None
-    title: Optional[str]
-    description: Optional[str]
-    url: Optional[str]
-    page_url: Optional[str]
-    page_title: Optional[str]
-    renderer_type: Optional[str]
-    canvas_context: Optional[dict]
+    title: Optional[str] = None
+    description: Optional[str] = None
+    url: Optional[str] = None
+    page_url: Optional[str] = None
+    page_title: Optional[str] = None
+    renderer_type: Optional[str] = None
+    canvas_context: Optional[dict] = None
     marker_number: int
-    agent_version: Optional[str]
-    xpath: Optional[str]
-    css_selector: Optional[str]
-    inner_text: Optional[str]
-    viewport: Optional[dict]
-    browser: Optional[str]
-    os: Optional[str]
-    scroll_position: Optional[dict]
-    console_errors: Optional[List[Any]]
-    network_errors: Optional[List[Any]]
-    screenshot_url: Optional[str]
+    agent_version: Optional[str] = None
+    xpath: Optional[str] = None
+    css_selector: Optional[str] = None
+    inner_text: Optional[str] = None
+    viewport: Optional[dict] = None
+    browser: Optional[str] = None
+    os: Optional[str] = None
+    scroll_position: Optional[dict] = None
+    console_errors: Optional[List[Any]] = None
+    network_errors: Optional[List[Any]] = None
+    screenshot_url: Optional[str] = None
     priority: PriorityEnum
     status: StatusEnum
-    ai_summary: Optional[str]
+    ai_summary: Optional[str] = None
+    is_inside_shadow_dom: Optional[bool] = False
+    shadow_root_depth: Optional[int] = None
+    shadow_host_tag: Optional[str] = None
+    shadow_host_id: Optional[str] = None
+    shadow_host_class_list: Optional[List[str]] = None
+    shadow_path: Optional[str] = None
+    
+    # Step 2B ingestion fields
+    x: Optional[float] = None
+    y: Optional[float] = None
+    viewport_x: Optional[float] = None
+    viewport_y: Optional[float] = None
+    element_selector: Optional[str] = None
+    element_text: Optional[str] = None
+    element_tag: Optional[str] = None
+    note: Optional[str] = None
+    severity: Optional[str] = "medium"
+    screenshot_required: Optional[bool] = False
+    created_via: Optional[str] = "agent"
+    share_link_id: Optional[str] = None
+    user_id: Optional[str] = None
+
+    # Step 2v2 structured issue fields
+    issue_type: Optional[str] = "other"
+    aria_label: Optional[str] = None
+    aria_role: Optional[str] = None
+    bounding_box: Optional[dict] = None
+    browser_info: Optional[dict] = None
+    
     created_at: datetime
     updated_at: Optional[datetime] = None
     class Config: from_attributes = True
 
 class MarkerOut(MarkerRead):
     pass
-
-# Share links
-class ShareLinkCreate(BaseModel):
-    session_id: str
-    can_comment: bool = True
-    password: Optional[str] = None
-    expires_at: Optional[datetime] = None
-
-class ShareLinkOut(BaseModel):
-    id: str
-    token: str
-    can_comment: bool
-    expires_at: Optional[datetime]
-    class Config: from_attributes = True
-
-class ShareLinkAccess(BaseModel):
-    password: Optional[str] = None
 
 # Environments
 class EnvironmentCreate(BaseModel):
@@ -196,6 +237,11 @@ class PageVisitCreate(BaseModel):
     renderer_type: Optional[str] = None
     screenshot_url: Optional[str] = None
     visit_metadata: Optional[dict] = None
+    
+    share_link_id: Optional[str] = None
+    page_order: Optional[int] = 1
+    time_on_page_seconds: Optional[int] = None
+    parent_page_id: Optional[str] = None
 
 class PageVisitRead(BaseModel):
     id: str
@@ -206,6 +252,16 @@ class PageVisitRead(BaseModel):
     renderer_type: Optional[str]
     screenshot_url: Optional[str]
     visit_metadata: Optional[dict] = None
+    
+    share_link_id: Optional[str] = None
+    page_order: Optional[int] = 1
+    first_visited_at: Optional[datetime] = None
+    last_visited_at: Optional[datetime] = None
+    visit_count: Optional[int] = 1
+    time_on_page_seconds: Optional[int] = None
+    screenshot_captured_at: Optional[datetime] = None
+    parent_page_id: Optional[str] = None
+    
     class Config: from_attributes = True
 
 class PageVisitOut(PageVisitRead):

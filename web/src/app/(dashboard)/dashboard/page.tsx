@@ -2,9 +2,12 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { Plus, FolderPlus, Globe, ArrowRight, Loader2, Layout } from 'lucide-react'
+import { ProjectCard } from '@/components/ProjectCard'
+
 
 interface Project {
   id: string
@@ -15,6 +18,7 @@ interface Project {
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
+  const router = useRouter()
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -143,38 +147,11 @@ export default function DashboardPage() {
         ) : projects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
-              <div 
+              <ProjectCard
                 key={project.id}
-                className="group bg-[#111118] border border-white/10 hover:border-purple-500/30 rounded-2xl p-6 transition-all duration-300 shadow-lg relative flex flex-col justify-between min-h-[160px]"
-              >
-                <div className="space-y-2">
-                  <h3 className="font-black text-lg tracking-tight group-hover:text-purple-400 transition-colors uppercase truncate pr-4">
-                    {project.name}
-                  </h3>
-                  {project.url && (
-                    <div className="flex items-center gap-1.5 opacity-40 text-xs">
-                      <Globe className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span className="truncate max-w-[200px] font-mono">{project.url}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6 flex justify-between items-center">
-                  <Link 
-                    href={`/project/${project.id}`} 
-                    className="text-xs text-white/60 hover:text-white flex items-center gap-1 font-bold group-hover:translate-x-0.5 transition-transform"
-                  >
-                    Open Inspection <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-
-                  <Link 
-                    href={`/canvas/${project.id}`} 
-                    className="text-xs text-purple-400 hover:text-purple-300 font-bold flex items-center gap-1"
-                  >
-                    Open Canvas →
-                  </Link>
-                </div>
-              </div>
+                project={project}
+                onClick={() => router.push(`/project/${project.id}`)}
+              />
             ))}
           </div>
         ) : (

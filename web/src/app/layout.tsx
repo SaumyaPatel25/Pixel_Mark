@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Entrext | Cosmic Audit",
+  title: "PixelMark | Cosmic Audit",
   description: "Capture visual feedback with precision targeting nodes and high-tech AI processing.",
 };
 

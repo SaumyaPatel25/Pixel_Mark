@@ -2,7 +2,13 @@
 
 import React, { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useMarkerStore } from '@/store/markerStore'
+import { 
+  useMarkerStore, 
+  groupMarkersByPage, 
+  getUniquePages, 
+  getRendererSummary, 
+  getPageThumbnailMap 
+} from '@/store/markerStore'
 import { api } from '@/lib/api'
 import { MarkerCard } from '@/components/command-center/MarkerCard'
 import { MarkerFilters } from '@/components/command-center/MarkerFilters'
@@ -19,6 +25,8 @@ import {
   CheckCircle,
   HelpCircle,
   X,
+  Monitor,
+  Image as ImageIcon,
 } from 'lucide-react'
 
 import { useSessionSocket } from '@/lib/useSessionSocket'
@@ -36,6 +44,10 @@ export default function SessionPage() {
   const [sessionTitle, setSessionTitle] = useState('UAT Observation Session')
   const [projectId, setProjectId] = useState<string | null>(null)
   
+  // Phase 3 Multi-page tab states
+  const [activeTab, setActiveTab] = useState('all') // 'all' or specific page_url
+  const [activeThumbnailZoom, setActiveThumbnailZoom] = useState<string | null>(null)
+
   // AI Panel
   const [isTriageLoading, setIsTriageLoading] = useState(false)
   const [isSummaryLoading, setIsSummaryLoading] = useState(false)
@@ -68,6 +80,17 @@ export default function SessionPage() {
     }
   }, [sessionId, fetchMarkers])
 
+  // Selectors
+  const uniquePages = useMemo(() => getUniquePages(markers), [markers])
+  const rendererSummary = useMemo(() => getRendererSummary(markers), [markers])
+  const pageThumbnails = useMemo(() => getPageThumbnailMap(markers), [markers])
+
+  // Filtered by Page tab selection
+  const tabFilteredMarkers = useMemo(() => {
+    if (activeTab === 'all') return filtered
+    return filtered.filter(m => (m.page_url || m.url || 'Unknown Page') === activeTab)
+  }, [filtered, activeTab])
+
   // Stats Calculator
   const stats = useMemo(() => {
     let critical = 0
@@ -80,8 +103,19 @@ export default function SessionPage() {
       if (m.status === 'resolved') resolved++
     })
 
-    return { total: markers.length, critical, open, resolved }
-  }, [markers])
+    const activeRenderers = Object.entries(rendererSummary)
+      .filter(([_, count]) => count > 0)
+      .map(([type]) => type === 'threejs' ? 'Three.js' : type === 'webgl' ? 'WebGL' : type === 'canvas2d' ? 'Canvas2D' : type === 'shadow_dom' ? 'Shadow DOM' : 'DOM')
+
+    return { 
+      total: markers.length, 
+      critical, 
+      open, 
+      resolved,
+      pagesVisited: uniquePages.length || 1,
+      renderers: activeRenderers.join(', ') || 'DOM'
+    }
+  }, [markers, uniquePages, rendererSummary])
 
   const handleExportMarkdown = async () => {
     try {
@@ -224,15 +258,11 @@ export default function SessionPage() {
         </div>
       </div>
 
-      {/* Stats Counter Substrate */}
-      <div className="max-w-6xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Premium Multi-page Stats Counter */}
+      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-[#111118] border border-white/10 rounded-2xl p-5 space-y-1">
           <span className="text-[10px] font-black uppercase tracking-wider text-white/20">Total Indicators</span>
           <p className="text-3xl font-black text-white">{stats.total}</p>
-        </div>
-        <div className="bg-[#111118] border border-white/10 rounded-2xl p-5 space-y-1">
-          <span className="text-[10px] font-black uppercase tracking-wider text-red-500/50">Critical Issues</span>
-          <p className="text-3xl font-black text-red-400">{stats.critical}</p>
         </div>
         <div className="bg-[#111118] border border-white/10 rounded-2xl p-5 space-y-1">
           <span className="text-[10px] font-black uppercase tracking-wider text-blue-500/50">Open State</span>
@@ -241,6 +271,14 @@ export default function SessionPage() {
         <div className="bg-[#111118] border border-white/10 rounded-2xl p-5 space-y-1">
           <span className="text-[10px] font-black uppercase tracking-wider text-green-500/50">Resolved State</span>
           <p className="text-3xl font-black text-green-400">{stats.resolved}</p>
+        </div>
+        <div className="bg-[#111118] border border-white/10 rounded-2xl p-5 space-y-1">
+          <span className="text-[10px] font-black uppercase tracking-wider text-purple-500/50">Pages Audited</span>
+          <p className="text-3xl font-black text-purple-400">{stats.pagesVisited}</p>
+        </div>
+        <div className="bg-[#111118] border border-white/10 rounded-2xl p-5 space-y-1 min-w-0">
+          <span className="text-[10px] font-black uppercase tracking-wider text-cyan-500/50 block">Renderers Active</span>
+          <p className="text-xs font-black text-cyan-400 truncate mt-2 font-mono uppercase tracking-widest" title={stats.renderers}>{stats.renderers}</p>
         </div>
       </div>
 
@@ -297,6 +335,99 @@ export default function SessionPage() {
         </div>
       )}
 
+      {/* Audited Page Screenshot Gallery */}
+      {uniquePages.length > 0 && (
+        <div className="max-w-6xl mx-auto space-y-3 pt-2">
+          <span className="text-[10px] font-black uppercase tracking-wider text-white/30 block mb-1">
+            Audited Substrates Gallery
+          </span>
+          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+            {uniquePages.map((p) => {
+              const screenshot = pageThumbnails[p.url]
+              return (
+                <div 
+                  key={p.url}
+                  onClick={() => setActiveTab(p.url)}
+                  className={`flex-shrink-0 cursor-pointer w-48 rounded-2xl overflow-hidden border bg-[#111118] transition-all relative ${
+                    activeTab === p.url ? 'border-purple-500 ring-1 ring-purple-500/50 shadow-purple-950/20' : 'border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="h-24 bg-black/40 relative group">
+                    {screenshot ? (
+                      <img 
+                        src={screenshot} 
+                        alt={p.title} 
+                        className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white/10 bg-[#0d0d14]">
+                        <ImageIcon className="w-8 h-8" />
+                      </div>
+                    )}
+                    
+                    {screenshot && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setActiveThumbnailZoom(screenshot)
+                        }}
+                        className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/80 text-white/60 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                        title="Zoom Screenshot"
+                      >
+                        <Layers className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="p-3 space-y-1">
+                    <p className="text-[10px] font-black text-white/80 truncate uppercase tracking-tight" title={p.title}>{p.title}</p>
+                    <p className="text-[8px] font-mono text-purple-400 truncate">{p.path}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Navigation Tabs Bar */}
+      {uniquePages.length > 0 && (
+        <div className="max-w-6xl mx-auto border-b border-white/5 pb-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`h-9 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 border ${
+                activeTab === 'all' 
+                  ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-950/30' 
+                  : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              All Pages
+              <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40'}`}>
+                {markers.length}
+              </span>
+            </button>
+
+            {uniquePages.map((p) => (
+              <button
+                key={p.url}
+                onClick={() => setActiveTab(p.url)}
+                className={`h-9 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 border truncate max-w-xs ${
+                  activeTab === p.url 
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-950/30' 
+                    : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                }`}
+                title={p.url}
+              >
+                {p.path}
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${activeTab === p.url ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40'}`}>
+                  {p.markerCount}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Toolbar Filters + Mode Toggles */}
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
         <MarkerFilters />
@@ -329,13 +460,13 @@ export default function SessionPage() {
             <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
             <p className="text-[10px] font-mono tracking-widest text-white/40 uppercase">Mapping Feedback Substrate...</p>
           </div>
-        ) : filtered.length > 0 ? (
+        ) : tabFilteredMarkers.length > 0 ? (
           <div
             className={`grid gap-6 ${
               viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'
             }`}
           >
-            {filtered.map((marker) => (
+            {tabFilteredMarkers.map((marker) => (
               <MarkerCard key={marker.id} marker={marker} />
             ))}
           </div>
@@ -349,6 +480,28 @@ export default function SessionPage() {
           </div>
         )}
       </div>
+
+      {/* Zoom Modal Overlay */}
+      {activeThumbnailZoom && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-200"
+          onClick={() => setActiveThumbnailZoom(null)}
+        >
+          <button
+            onClick={() => setActiveThumbnailZoom(null)}
+            className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 border border-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="max-w-4xl max-h-[80vh] rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black relative" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={activeThumbnailZoom} 
+              alt="Zoomed element context" 
+              className="w-full h-auto max-h-[80vh] object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

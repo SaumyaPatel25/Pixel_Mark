@@ -137,6 +137,29 @@ class Marker(Base):
     xpath: Mapped[str] = mapped_column(Text, nullable=True)
     css_selector: Mapped[str] = mapped_column(Text, nullable=True)
     inner_text: Mapped[str] = mapped_column(Text, nullable=True)
+    
+    # New Marker ingestion fields (Step 2B)
+    x: Mapped[float] = mapped_column(nullable=True)
+    y: Mapped[float] = mapped_column(nullable=True)
+    viewport_x: Mapped[float] = mapped_column(nullable=True)
+    viewport_y: Mapped[float] = mapped_column(nullable=True)
+    element_selector: Mapped[str] = mapped_column(Text, nullable=True)
+    element_text: Mapped[str] = mapped_column(Text, nullable=True)
+    element_tag: Mapped[str] = mapped_column(String, nullable=True)
+    note: Mapped[str] = mapped_column(Text, nullable=True)
+    severity: Mapped[str] = mapped_column(String, nullable=True, default="medium")
+    screenshot_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
+    created_via: Mapped[str] = mapped_column(String, default="agent", nullable=True)
+    share_link_id: Mapped[str] = mapped_column(ForeignKey("share_links.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # Step 2v2 — Structured issue context
+    issue_type: Mapped[str] = mapped_column(String, nullable=True, default="other")   # layout|copy|interaction|navigation|rendering|canvas_webgl|other
+    aria_label: Mapped[str] = mapped_column(String, nullable=True)
+    aria_role: Mapped[str] = mapped_column(String, nullable=True)
+    bounding_box: Mapped[dict] = mapped_column(JSON, nullable=True)    # {x,y,width,height,top,right,bottom,left}
+    browser_info: Mapped[dict] = mapped_column(JSON, nullable=True)    # {name,version,os,platform,user_agent}
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+
     viewport: Mapped[dict] = mapped_column(JSON, nullable=True)   # {width, height}
     browser: Mapped[str] = mapped_column(String, nullable=True)
     os: Mapped[str] = mapped_column(String, nullable=True)
@@ -148,33 +171,37 @@ class Marker(Base):
     status: Mapped[StatusEnum] = mapped_column(SAEnum(StatusEnum), default=StatusEnum.open)
     assignee_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=True)
     ai_summary: Mapped[str] = mapped_column(Text, nullable=True)
+    is_inside_shadow_dom: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
+    shadow_root_depth: Mapped[int] = mapped_column(nullable=True)
+    shadow_host_tag: Mapped[str] = mapped_column(String, nullable=True)
+    shadow_host_id: Mapped[str] = mapped_column(String, nullable=True)
+    shadow_host_class_list: Mapped[list] = mapped_column(JSON, nullable=True)
+    shadow_path: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
     
     session: Mapped["Session"] = relationship(back_populates="markers")
     page_visit: Mapped["PageVisit"] = relationship()
 
-class ShareLink(Base):
-    __tablename__ = "share_links"
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False)
-    token: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    can_comment: Mapped[bool] = mapped_column(Boolean, default=True)
-    password_hash: Mapped[str] = mapped_column(String, nullable=True)
-    expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    session: Mapped["Session"] = relationship(back_populates="share_links")
-
 class PageVisit(Base):
     __tablename__ = "page_visits"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False, index=True)
+    share_link_id: Mapped[str] = mapped_column(ForeignKey("share_links.id", ondelete="SET NULL"), nullable=True, index=True)
     page_url: Mapped[str] = mapped_column(String, nullable=False, index=True)
     page_title: Mapped[str] = mapped_column(String, nullable=True)
     visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     renderer_type: Mapped[str] = mapped_column(String, nullable=True)
     screenshot_url: Mapped[str] = mapped_column(String, nullable=True)
     visit_metadata: Mapped[dict] = mapped_column("metadata", JSON, nullable=True)
+    
+    page_order: Mapped[int] = mapped_column(nullable=True, default=1)
+    first_visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    visit_count: Mapped[int] = mapped_column(nullable=True, default=1)
+    time_on_page_seconds: Mapped[int] = mapped_column(nullable=True)
+    screenshot_captured_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
+    parent_page_id: Mapped[str] = mapped_column(ForeignKey("page_visits.id", ondelete="SET NULL"), nullable=True)
     
     session: Mapped["Session"] = relationship(back_populates="page_visits")
 

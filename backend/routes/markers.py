@@ -1,25 +1,66 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from models import Marker, Session, User
+from models import Marker, Session, User, ShareLink
 from schemas import MarkerCreate, MarkerUpdate, MarkerOut
 from dependencies import get_db, get_current_user
 import uuid
 import base64
 from websocket import manager
+from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/markers", tags=["markers"])
+
+async def mock_screenshot_capture_job(marker_id: str):
+    import asyncio
+    await asyncio.sleep(1)
+    print(f"[JOB] Enqueued screenshot captured successfully for marker {marker_id}")
 
 @router.post("/", response_model=MarkerOut)
 async def create_marker(
     data: MarkerCreate, 
     background_tasks: BackgroundTasks,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     session_id = data.session_id
+    share_link_id = None
+    user_id = None
+
+    # Try resolving user from Auth token first if present
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            from auth import decode_token
+            payload = decode_token(token)
+            user_id = payload.get("sub")
+        except Exception:
+            pass
+
+    # Resolve share token if present
+    if data.share_token:
+        share_query = select(ShareLink).where(ShareLink.token == data.share_token)
+        share_result = await db.execute(share_query)
+        share_link = share_result.scalar_one_or_none()
+        if not share_link:
+            raise HTTPException(status_code=404, detail="Invalid share token")
+        
+        if not share_link.is_active:
+            raise HTTPException(status_code=403, detail="This share link has been deactivated")
+        
+        if not share_link.can_comment:
+            raise HTTPException(status_code=403, detail="Commenting is disabled for this share link")
+            
+        if share_link.expires_at and share_link.expires_at < datetime.utcnow():
+            raise HTTPException(status_code=403, detail="This share link has expired")
+            
+        session_id = share_link.session_id
+        share_link_id = share_link.id
+
     if not session_id:
         if not data.project_id:
-            raise HTTPException(status_code=422, detail="Either session_id or project_id must be provided")
+            raise HTTPException(status_code=422, detail="Either session_id, project_id, or share_token must be provided")
         
         # Resolve or create a default session for this project_id
         result = await db.execute(
@@ -47,6 +88,24 @@ async def create_marker(
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
+    # 2-second double click deduplication for exact or near coordinate clicks
+    if data.x is not None and data.y is not None:
+        time_threshold = datetime.utcnow() - timedelta(seconds=2)
+        dup_query = select(Marker).where(
+            Marker.session_id == session_id,
+            Marker.page_url == data.page_url,
+            Marker.created_at >= time_threshold,
+            func.abs(Marker.x - data.x) < 5,
+            func.abs(Marker.y - data.y) < 5
+        )
+        dup_result = await db.execute(dup_query)
+        dup_marker = dup_result.scalars().first()
+        if dup_marker:
+            # Enqueue screenshot job on the existing duplicate if requested but not captured
+            if data.screenshot_required and not dup_marker.screenshot_url:
+                background_tasks.add_task(mock_screenshot_capture_job, dup_marker.id)
+            return dup_marker
+
     # Auto-increment marker_number within the session
     num_result = await db.execute(
         select(func.max(Marker.marker_number)).where(Marker.session_id == session_id)
@@ -57,13 +116,56 @@ async def create_marker(
     marker_data = data.model_dump()
     marker_data["session_id"] = session_id
     marker_data["marker_number"] = marker_number
+    marker_data["share_link_id"] = share_link_id
+    marker_data["user_id"] = user_id
+    
     if "project_id" in marker_data:
         del marker_data["project_id"]
+    if "share_token" in marker_data:
+        del marker_data["share_token"]
+
+    # Fill fallbacks for xpath, css_selector and inner_text if missing but provided in element_* fields
+    if not marker_data.get("css_selector") and marker_data.get("element_selector"):
+        marker_data["css_selector"] = marker_data["element_selector"]
+    if not marker_data.get("inner_text") and marker_data.get("element_text"):
+        marker_data["inner_text"] = marker_data["element_text"]
+    
+    # Custom visual fallbacks for title/description
+    if not marker_data.get("title"):
+        if marker_data.get("element_text"):
+            marker_data["title"] = f"Marker: {marker_data['element_text'][:20]}"
+        elif marker_data.get("element_tag"):
+            marker_data["title"] = f"Marker on <{marker_data['element_tag'].upper()}>"
+        else:
+            marker_data["title"] = f"Feedback Pin #{marker_number}"
+            
+    if not marker_data.get("description") and marker_data.get("note"):
+        marker_data["description"] = marker_data["note"]
+
+    # Priority mapping from severity
+    if marker_data.get("severity"):
+        sev = marker_data["severity"].lower()
+        if sev in ("critical", "high", "medium", "low"):
+            marker_data["priority"] = sev
 
     marker = Marker(id=str(uuid.uuid4()), **marker_data)
+
+    # Step 2v2 — explicitly assign new structured fields after construction
+    # to guarantee SQLAlchemy tracks them as dirty and includes them in INSERT.
+    marker.issue_type   = data.issue_type   or "other"
+    marker.aria_label   = data.aria_label
+    marker.aria_role    = data.aria_role
+    marker.bounding_box = data.bounding_box
+    marker.browser_info = data.browser_info
+
     db.add(marker)
     await db.commit()
     await db.refresh(marker)
+
+
+    # Enqueue background screenshot job if requested
+    if data.screenshot_required:
+        background_tasks.add_task(mock_screenshot_capture_job, marker.id)
 
     # Prepare serializable dict
     marker_dict = {
@@ -88,10 +190,38 @@ async def create_marker(
         "console_errors": marker.console_errors,
         "network_errors": marker.network_errors,
         "screenshot_url": marker.screenshot_url,
+        "is_inside_shadow_dom": marker.is_inside_shadow_dom,
+        "shadow_root_depth": marker.shadow_root_depth,
+        "shadow_host_tag": marker.shadow_host_tag,
+        "shadow_host_id": marker.shadow_host_id,
+        "shadow_host_class_list": marker.shadow_host_class_list,
+        "shadow_path": marker.shadow_path,
         "priority": getattr(marker.priority, "value", str(marker.priority)),
         "status": getattr(marker.status, "value", str(marker.status)),
         "ai_summary": marker.ai_summary,
-        "created_at": marker.created_at.isoformat() if marker.created_at else None
+        "created_at": marker.created_at.isoformat() if marker.created_at else None,
+        
+        # Step 2B visual ingestion fields
+        "x": marker.x,
+        "y": marker.y,
+        "viewport_x": marker.viewport_x,
+        "viewport_y": marker.viewport_y,
+        "element_selector": marker.element_selector,
+        "element_text": marker.element_text,
+        "element_tag": marker.element_tag,
+        "note": marker.note,
+        "severity": marker.severity,
+        "screenshot_required": marker.screenshot_required,
+        "created_via": marker.created_via,
+        "share_link_id": marker.share_link_id,
+        "user_id": marker.user_id,
+
+        # Step 2v2 structured issue fields
+        "issue_type": marker.issue_type,
+        "aria_label": marker.aria_label,
+        "aria_role": marker.aria_role,
+        "bounding_box": marker.bounding_box,
+        "browser_info": marker.browser_info,
     }
 
     # Broadcast severity + triage updates in the background
@@ -183,6 +313,12 @@ async def list_markers_by_page(session_id: str, db: AsyncSession = Depends(get_d
             "console_errors": m.console_errors,
             "network_errors": m.network_errors,
             "screenshot_url": m.screenshot_url,
+            "is_inside_shadow_dom": m.is_inside_shadow_dom,
+            "shadow_root_depth": m.shadow_root_depth,
+            "shadow_host_tag": m.shadow_host_tag,
+            "shadow_host_id": m.shadow_host_id,
+            "shadow_host_class_list": m.shadow_host_class_list,
+            "shadow_path": m.shadow_path,
             "priority": getattr(m.priority, "value", str(m.priority)),
             "status": getattr(m.status, "value", str(m.status)),
             "ai_summary": m.ai_summary,

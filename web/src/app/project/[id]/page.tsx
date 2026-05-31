@@ -6,13 +6,15 @@ import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircl
 import { Button } from '@/components/ui/button'
 import { ExportPanel } from '@/components/ExportPanel'
 import { DesignSystemPanel } from '@/components/DesignSystemPanel'
+import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
+import { ShareLinkButton } from '@/components/share/ShareLinkButton'
 import CommandCenter from '@/components/CommandCenter'
 import { Palette } from 'lucide-react'
 import { AuditSurface } from '@/components/audit/AuditSurface'
 import { api } from '@/lib/api'
 
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
-import { useOverlay as useEntrextOverlay } from '@/hooks/useOverlay'
+import { useOverlay as usePixelMarkOverlay } from '@/hooks/useOverlay'
 import { useScreenCapture } from '@/hooks/useScreenCapture'
 import { useProjectStore } from '@/store/projectStore'
 import { useCommentStore } from '@/store/commentStore'
@@ -53,9 +55,11 @@ export default function ProjectPage() {
     isCommandCenterOpen, 
     isExportPanelOpen, 
     isDesignSystemOpen,
+    isSharePanelOpen,
     toggleCommandCenter, 
     toggleExportPanel,
-    toggleDesignSystem
+    toggleDesignSystem,
+    toggleSharePanel
   } = useUIStore()
   
   const [proxyStatus, setProxyStatus] = useState<'loading' | 'ok' | 'advanced' | 'failed'>('loading')
@@ -129,7 +133,7 @@ export default function ProjectPage() {
   })
 
   // Phase 5: Screenshot-Enriched Overlay Hook
-  useEntrextOverlay({
+  usePixelMarkOverlay({
     projectId: id,
     iframeRef: iframeRef,
     captureScreen: screenCapture.capture,
@@ -265,6 +269,11 @@ export default function ProjectPage() {
             Export Audit
           </Button>
 
+          <ShareLinkButton 
+            onClick={() => toggleSharePanel()}
+            active={isSharePanelOpen}
+          />
+
           <div className="h-10 w-[1px] bg-white/5 mx-2" />
           
           <Button 
@@ -369,6 +378,12 @@ export default function ProjectPage() {
               commentCount={comments.length}
               onClose={() => toggleExportPanel(false)}
             />
+        )}
+        {isSharePanelOpen && (
+          <ShareLinkPanel 
+            sessionId={sessionId || ''} 
+            onClose={() => toggleSharePanel(false)} 
+          />
         )}
       </AnimatePresence>
     </div>

@@ -1,6 +1,6 @@
-// Entrext Extension: Content Script
+// PixelMark Extension: Content Script
 (function() {
-  console.log("Entrext Extension Content Script Loaded");
+  console.log("PixelMark Extension Content Script Loaded");
 
   let isEnabled = false;
   let activeProjectId = null;
@@ -14,7 +14,7 @@
     if (request.type === 'ENABLE_OVERLAY') {
       isEnabled = true;
       activeProjectId = request.projectId;
-      console.log("Entrext Feedback Mode Activated for Project:", activeProjectId);
+      console.log("PixelMark Feedback Mode Activated for Project:", activeProjectId);
       createGlobalBadge();
       sendResponse({ status: "success" });
     }
@@ -115,8 +115,8 @@
         console.error("Failed to save feedback");
       }
     } catch (err) {
-      console.error("Error communicating with Entrext Backend:", err);
-      alert("Backend unreachable. Ensure Entrext is running.");
+      console.error("Error communicating with PixelMark Backend:", err);
+      alert("Backend unreachable. Ensure PixelMark is running.");
     }
   }, true);
 

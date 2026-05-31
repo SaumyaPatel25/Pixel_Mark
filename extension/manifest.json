@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Entrext Extension Fallback",
+  "name": "PixelMark Extension Fallback",
   "version": "1.0",
-  "description": "Feedback tools for sites that the Entrext proxy cannot render.",
+  "description": "Feedback tools for sites that the PixelMark proxy cannot render.",
   "permissions": [
     "activeTab",
     "scripting",

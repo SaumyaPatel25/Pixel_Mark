@@ -75,7 +75,7 @@
 
   function postUp(data) {
     try {
-      window.parent.postMessage({ source: 'entrext-overlay', ...data }, '*')
+      window.parent.postMessage({ source: 'pixelmark-overlay', ...data }, '*')
     } catch(e) {
       console.warn('[Overlay] postMessage failed:', e)
     }

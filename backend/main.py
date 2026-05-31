@@ -8,7 +8,9 @@ from database import engine, Base
 import asyncio
 import logging
 
-from routes import auth, projects, sessions, markers, shares, proxy, export, websocket, canvas
+from routes import auth, projects, sessions, markers, proxy, export, websocket, canvas, shares
+from routers.share_links import router as share_links_router
+from routers.review import router as review_router
 
 logger = logging.getLogger("uvicorn")
 
@@ -57,19 +59,26 @@ from models import Session, Project, Environment
 @app.middleware("http")
 async def proxy_fallback_middleware(request: Request, call_next):
     path = request.url.path
-    # Capture _next assets, webpack chunks, or icons
-    if path.startswith("/_next/") or path in ("/icon.svg", "/favicon.ico") or path.endswith((".js", ".css", ".png", ".jpg", ".jpeg", ".woff2", ".woff", ".ttf")):
-        # Check if the path is actually handled by our mounted static files
-        if path.startswith("/static"):
-            return await call_next(request)
-            
+    
+    # 1. Determine if this path is reserved for the primary PixelMark backend API and static folders
+    reserved_prefixes = (
+        "/auth", "/projects", "/sessions", "/markers", "/canvas", "/shares", 
+        "/proxy", "/export", "/websocket", "/health", "/static", "/docs", "/openapi.json"
+    )
+    is_reserved = any(path.startswith(prefix) for prefix in reserved_prefixes)
+    
+    # 2. Trigger fallback proxy if the path is NOT reserved for PixelMark backend (so it's a website subpage/asset route)
+    if not is_reserved:
         referer = request.headers.get("referer", "")
         session_id = None
         
-        # 1. Try to extract session ID from Referer header
+        # Try to extract session ID from Referer header
         match = re.search(r"/proxy/session/([a-f0-9\-]{36})", referer)
         if match:
             session_id = match.group(1)
+        else:
+            # Fall back to session cookie
+            session_id = request.cookies.get("pixelmark_session_id")
             
         if session_id:
             async with AsyncSessionLocal() as db:
@@ -110,7 +119,33 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                 async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
                                     resp = await client.get(target_url, headers=headers)
                                     content_type = resp.headers.get("content-type", "application/octet-stream")
-                                    return FAResponse(content=resp.content, media_type=content_type, status_code=resp.status_code)
+                                    
+                                    if "text/html" in content_type:
+                                        from routes.proxy import rewrite_html, record_page_visit
+                                        
+                                        # Record the subpage visit history robustly using core logic
+                                        await record_page_visit(
+                                            db=db,
+                                            session_id=session.id,
+                                            page_url=target_url,
+                                            page_title=None
+                                        )
+                                        
+                                        api_base = os.getenv("API_BASE", "")
+                                        rewritten_html = rewrite_html(resp.text, session.id, target_url, base_url, api_base)
+                                        response = FAResponse(content=rewritten_html.encode("utf-8"), media_type="text/html")
+                                        
+                                        # Strip security headers
+                                        if "Content-Security-Policy" in response.headers:
+                                            del response.headers["Content-Security-Policy"]
+                                        if "X-Frame-Options" in response.headers:
+                                            del response.headers["X-Frame-Options"]
+                                    else:
+                                        response = FAResponse(content=resp.content, media_type=content_type, status_code=resp.status_code)
+                                    
+                                    # Set/Refresh session cookie
+                                    response.set_cookie("pixelmark_session_id", session_id, path="/", httponly=True, max_age=86400)
+                                    return response
                             except Exception as e:
                                 pass
                                 
@@ -136,6 +171,8 @@ app.include_router(sessions.router)
 app.include_router(markers.router)
 app.include_router(canvas.router)
 app.include_router(shares.router)
+app.include_router(share_links_router, prefix="/share-links", tags=["share-links"])
+app.include_router(review_router, prefix="/review", tags=["review"])
 app.include_router(proxy.router)
 app.include_router(export.router)
 app.include_router(websocket.router)
@@ -143,3 +180,75 @@ app.include_router(websocket.router)
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "2.0.0"}
+
+@app.post("/resolve-token/{token}")
+async def resolve_token(token: str, request: Request):
+    from database import AsyncSessionLocal
+    from models import ShareLink, Session, Project
+    from datetime import datetime
+    from auth import verify_password
+    from fastapi import HTTPException
+    from fastapi.responses import JSONResponse
+    
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    
+    password = body.get("password")
+    
+    async with AsyncSessionLocal() as session_db:
+        result = await session_db.execute(select(ShareLink).where(ShareLink.token == token))
+        link = result.scalar_one_or_none()
+        if not link:
+            return JSONResponse(status_code=404, content={"error": "not_found", "detail": "Invalid share link token"})
+            
+        # Check revoked
+        if link.is_active is False:
+            return JSONResponse(status_code=410, content={"error": "link_revoked", "detail": "Share link has been revoked"})
+            
+        # Check expiry
+        if link.expires_at and link.expires_at < datetime.utcnow():
+            return JSONResponse(status_code=410, content={"error": "link_expired", "detail": "Share link has expired"})
+            
+        # Check use limit
+        if link.max_uses and (link.use_count or 0) >= link.max_uses:
+            return JSONResponse(status_code=410, content={"error": "link_exhausted", "detail": "Share link has reached its maximum use limit"})
+            
+        # Check password
+        if link.password_hash:
+            if not password:
+                return JSONResponse(status_code=403, content={"error": "password_required", "detail": "Password required"})
+            if not verify_password(password, link.password_hash):
+                return JSONResponse(status_code=403, content={"error": "wrong_password", "detail": "Incorrect password"})
+                
+        # Get session details
+        session_result = await session_db.execute(select(Session).where(Session.id == link.session_id))
+        session = session_result.scalar_one_or_none()
+        if not session:
+            return JSONResponse(status_code=404, content={"error": "not_found", "detail": "Associated session not found"})
+            
+        project_result = await session_db.execute(select(Project).where(Project.id == session.project_id))
+        project = project_result.scalar_one_or_none()
+        if not project:
+            return JSONResponse(status_code=404, content={"error": "not_found", "detail": "Associated project not found"})
+        
+        # Increment use count
+        link.use_count = (link.use_count or 0) + 1
+        await session_db.commit()
+            
+        return {
+            "session_id": session.id,
+            "title": session.title,
+            "can_comment": link.can_comment,
+            "role": link.role or "tester",
+            "id": project.id,
+            "project_id": project.id,
+            "name": project.name,
+            "project_name": project.name,
+            "url": project.url,
+            "target_url": project.url,
+            "token": token,
+        }
+

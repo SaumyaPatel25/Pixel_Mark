@@ -84,7 +84,7 @@ export default function SettingsPage() {
       <div className="max-w-2xl mx-auto py-16 px-6">
         <header className="mb-12">
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-white/40 mt-2 text-sm">Manage your Entrext identity and preferences.</p>
+          <p className="text-white/40 mt-2 text-sm">Manage your PixelMark identity and preferences.</p>
         </header>
 
         <div className="space-y-6">
@@ -192,7 +192,7 @@ export default function SettingsPage() {
         </div>
 
         <footer className="mt-16 pt-8 border-t border-white/5 text-center">
-             <p className="text-[10px] text-white/10 uppercase tracking-[0.5em]">Entrext Identity Layer v1.0.4</p>
+             <p className="text-[10px] text-white/10 uppercase tracking-[0.5em]">PixelMark Identity Layer v1.0.4</p>
         </footer>
       </div>
     </div>

@@ -69,7 +69,7 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
       const downloadUrl = URL.createObjectURL(blob)
       const a        = document.createElement('a')
       a.href         = downloadUrl
-      a.download     = `entrext-export-${projectId.slice(0, 8)}.${ext}`
+      a.download     = `pixelmark-export-${projectId.slice(0, 8)}.${ext}`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

@@ -8,7 +8,7 @@ export const ThemeToggle = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark')
 
   useEffect(() => {
-    // Initial theme set to dark for Entrext premium feel
+    // Initial theme set to dark for PixelMark premium feel
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 

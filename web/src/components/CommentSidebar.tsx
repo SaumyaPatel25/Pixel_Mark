@@ -32,7 +32,7 @@ export default function CommentSidebar({
   const [commentText, setCommentText] = useState('')
 
   useEffect(() => {
-    const savedName = localStorage.getItem('entrext_tester_name')
+    const savedName = localStorage.getItem('pixelmark_tester_name')
     if (savedName) setTesterName(savedName)
   }, [])
 
@@ -55,7 +55,7 @@ export default function CommentSidebar({
     if (!commentText.trim()) return
     
     if (isTester && testerName.trim()) {
-      localStorage.setItem('entrext_tester_name', testerName)
+      localStorage.setItem('pixelmark_tester_name', testerName)
     }
     onAddComment(commentText, testerName)
     setCommentText('')

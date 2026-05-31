@@ -33,7 +33,7 @@ async def test_frontend_accessible():
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.get(VERCEL_URL)
         assert response.status_code == 200
-        assert "entrext" in response.text.lower()
+        assert "pixelmark" in response.text.lower()
         print("Frontend Accessible: PASS")
 
 @pytest.mark.asyncio

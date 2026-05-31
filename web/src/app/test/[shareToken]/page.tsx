@@ -29,7 +29,12 @@ export default function TesterPage() {
     async function initAudit() {
       try {
         // 1. Resolve token to project
-        const project = await api.shareLinks.resolve(shareToken)
+        const resolved = await api.shareLinks.resolve({ token: shareToken })
+        const project = {
+          id: resolved.session_id,
+          name: resolved.project_name || 'Project',
+          created_at: new Date().toISOString()
+        }
         setCurrentProject(project)
         
         // 2. Load existing comments

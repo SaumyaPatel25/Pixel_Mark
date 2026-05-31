@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 import uuid
 
-load_dotenv('c:/Users/saumy/OneDrive/Desktop/Entrext/backend/.env')
+load_dotenv('c:/Users/saumy/OneDrive/Desktop/PixelMark/backend/.env')
 
 url = os.environ.get("SUPABASE_URL")
 key = os.environ.get("SUPABASE_KEY")

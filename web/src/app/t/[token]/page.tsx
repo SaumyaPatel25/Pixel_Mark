@@ -154,7 +154,7 @@ export default function TesterLanding() {
 
         {/* Brand */}
         <div className="text-center mb-8">
-          <p className="text-purple-500 font-mono text-xs tracking-[0.4em] mb-4">ENTREXT</p>
+          <p className="text-purple-500 font-mono text-xs tracking-[0.4em] mb-4">PIXELMARK</p>
           <h1 className="text-white text-3xl font-bold leading-tight">{data?.project_name}</h1>
           {data?.project_description && (
             <p className="text-white/40 text-sm mt-2 leading-relaxed">{data.project_description}</p>
@@ -189,7 +189,7 @@ export default function TesterLanding() {
           Start Review Session →
         </motion.button>
 
-        <p className="text-white/15 text-[10px] text-center mt-4">Powered by Entrext · Visual Feedback Platform</p>
+        <p className="text-white/15 text-[10px] text-center mt-4">Powered by PixelMark · Visual Feedback Platform</p>
       </motion.div>
     </div>
   )

@@ -1,4 +1,4 @@
-# Entrext Setup Guide
+# PixelMark Setup Guide
 
 Follow these steps to initialize your local development environment.
 
@@ -87,7 +87,7 @@ ALTER TABLE share_links DISABLE ROW LEVEL SECURITY;
 
 ## 4. Launch
 
-Run from the **root directory** (`Entrext/`):
+Run from the **root directory** (`PixelMark/`):
 
 ```bash
 # Terminal 1 — Backend (Package Mode)

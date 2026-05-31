@@ -8,6 +8,7 @@ import { useRealtimeStore } from '@/store/realtimeStore'
 import { useOverlayStore } from '@/store/overlayStore'
 import { useProjectStore } from '@/store/projectStore'
 import { Button } from '@/components/ui/button'
+import { MarkerGroup } from '@/components/command-center/MarkerGroup'
 import { SessionReplay } from './SessionReplay'
 import { cn } from '@/lib/utils'
 
@@ -423,6 +424,21 @@ export default function CommandCenter() {
     return sortedComments.filter(c => c.page_url === activeTab)
   }, [sortedComments, activeTab])
 
+  const groupedComments = useMemo(() => {
+    const groups: Record<string, { pageTitle: string; markers: any[] }> = {}
+    filteredComments.forEach((c) => {
+      const url = c.page_url || 'Unknown Page'
+      if (!groups[url]) {
+        groups[url] = {
+          pageTitle: c.page_title || c.title || 'Untitled Page',
+          markers: []
+        }
+      }
+      groups[url].markers.push(c)
+    })
+    return Object.entries(groups)
+  }, [filteredComments])
+
   return (
     <motion.div className="fixed right-8 top-24 w-96 h-[calc(100vh-160px)] flex flex-col bg-[#121216]/95 backdrop-blur-3xl border border-white/5 rounded-[32px] z-50 shadow-2xl overflow-hidden">
       {/* Presence Bar */}
@@ -598,10 +614,21 @@ export default function CommandCenter() {
               <div className="h-[1px] flex-1 bg-white/[0.03] ml-4" />
            </div>
            
-           {filteredComments.length > 0 ? (
-              <div className="space-y-2">
-                {filteredComments.map((comment, index) => (
-                  <CommentCard key={comment.id} comment={comment} index={index} />
+           {groupedComments.length > 0 ? (
+              <div className="space-y-4">
+                {groupedComments.map(([pageUrl, group]) => (
+                  <MarkerGroup
+                    key={pageUrl}
+                    pageUrl={pageUrl}
+                    pageTitle={group.pageTitle}
+                    markers={group.markers}
+                  >
+                    <div className="space-y-2">
+                      {group.markers.map((comment, index) => (
+                        <CommentCard key={comment.id} comment={comment} index={index} />
+                      ))}
+                    </div>
+                  </MarkerGroup>
                 ))}
               </div>
            ) : (

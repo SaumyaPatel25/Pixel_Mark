@@ -120,6 +120,25 @@ async def run_migration():
             print("Adding updated_at to markers table...")
             col_type = "TIMESTAMP WITH TIME ZONE" if "postgresql" in DATABASE_URL else "TIMESTAMP"
             await conn.execute(text(f"ALTER TABLE markers ADD COLUMN updated_at {col_type} NULL"))
+        if "is_inside_shadow_dom" not in marker_cols:
+            print("Adding is_inside_shadow_dom to markers table...")
+            await conn.execute(text("ALTER TABLE markers ADD COLUMN is_inside_shadow_dom BOOLEAN DEFAULT FALSE"))
+        if "shadow_root_depth" not in marker_cols:
+            print("Adding shadow_root_depth to markers table...")
+            await conn.execute(text("ALTER TABLE markers ADD COLUMN shadow_root_depth INTEGER NULL"))
+        if "shadow_host_tag" not in marker_cols:
+            print("Adding shadow_host_tag to markers table...")
+            await conn.execute(text("ALTER TABLE markers ADD COLUMN shadow_host_tag VARCHAR NULL"))
+        if "shadow_host_id" not in marker_cols:
+            print("Adding shadow_host_id to markers table...")
+            await conn.execute(text("ALTER TABLE markers ADD COLUMN shadow_host_id VARCHAR NULL"))
+        if "shadow_host_class_list" not in marker_cols:
+            print("Adding shadow_host_class_list to markers table...")
+            col_type = "JSONB" if "postgresql" in DATABASE_URL else "JSON"
+            await conn.execute(text(f"ALTER TABLE markers ADD COLUMN shadow_host_class_list {col_type} NULL"))
+        if "shadow_path" not in marker_cols:
+            print("Adding shadow_path to markers table...")
+            await conn.execute(text("ALTER TABLE markers ADD COLUMN shadow_path TEXT NULL"))
 
         # Check if audit_artifacts table exists
         if "audit_artifacts" not in tables:

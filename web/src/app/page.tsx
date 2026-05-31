@@ -88,7 +88,7 @@ export default function Home() {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-purple-500/20">
             <Layout className="w-6 h-6" />
           </div>
-          <span className="font-black text-2xl tracking-tighter text-white">Entrext</span>
+          <span className="font-black text-2xl tracking-tighter text-white">PixelMark</span>
         </div>
         <div className="hidden lg:flex gap-10 text-[11px] font-bold uppercase tracking-[0.2em] text-white/40">
           <Link href="/dashboard" className="hover:text-white cursor-pointer transition-colors">Framework</Link>
@@ -203,7 +203,7 @@ export default function Home() {
                 </div>
                 <h2 className="text-5xl font-black leading-[1.1]">Resilience <br />by design.</h2>
                 <p className="text-lg text-white/40 leading-relaxed font-medium">
-                   Entrext doesn't just record pixels. It records intent. Our waterfall engine hunts for the most permanent DOM hooks, 
+                   PixelMark doesn't just record pixels. It records intent. Our waterfall engine hunts for the most permanent DOM hooks, 
                    ensuring your feedback remains valid across Git commits and CI/CD pipelines.
                 </p>
                 <div className="pt-4">
@@ -247,7 +247,7 @@ export default function Home() {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white">
             <Layout className="w-6 h-6" />
           </div>
-          <span className="font-extrabold text-2xl tracking-tighter">Entrext</span>
+          <span className="font-extrabold text-2xl tracking-tighter">PixelMark</span>
         </div>
         <p className="text-white/10 text-[10px] font-black uppercase tracking-[0.4em] text-center">
           Building the next generation of visual communication

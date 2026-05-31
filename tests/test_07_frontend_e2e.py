@@ -14,7 +14,7 @@ def test_login_page_renders():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(f"{VERCEL_URL}/login")
-        assert "Entrext" in page.title() or "Sign in" in page.content()
+        assert "PixelMark" in page.title() or "Sign in" in page.content()
         # Look for inputs by type
         assert page.locator('input[type="email"]').is_visible()
         assert page.locator('input[type="password"]').is_visible()

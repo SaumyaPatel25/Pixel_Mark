@@ -10,6 +10,11 @@ export interface Marker {
   title?: string | null
   description?: string | null
   url?: string | null
+  page_url?: string | null
+  page_title?: string | null
+  renderer_type?: string | null
+  canvas_context?: any | null
+  marker_number?: number | null
   xpath?: string | null
   css_selector?: string | null
   inner_text?: string | null
@@ -20,6 +25,12 @@ export interface Marker {
   console_errors?: string[] | null
   network_errors?: any[] | null
   screenshot_url?: string | null
+  is_inside_shadow_dom?: boolean | null
+  shadow_root_depth?: number | null
+  shadow_host_tag?: string | null
+  shadow_host_id?: string | null
+  shadow_host_class_list?: string[] | null
+  shadow_path?: string | null
   priority: Priority
   status: Status
   ai_summary?: string | null
@@ -114,3 +125,87 @@ export const useMarkerStore = create<MarkerStore>((set, get) => ({
     set({ filters: {}, filtered: get().markers })
   },
 }))
+
+// Phase 3 Multi-page State Selectors
+export function groupMarkersByPage(markers: Marker[]): Record<string, Marker[]> {
+  const grouped: Record<string, Marker[]> = {}
+  markers.forEach((m) => {
+    const url = m.page_url || m.url || 'Unknown Page'
+    if (!grouped[url]) grouped[url] = []
+    grouped[url].push(m)
+  })
+  return grouped
+}
+
+export interface UniquePageInfo {
+  url: string
+  path: string
+  title: string
+  markerCount: number
+  renderers: string[]
+}
+
+export function getUniquePages(markers: Marker[]): UniquePageInfo[] {
+  const grouped = groupMarkersByPage(markers)
+  return Object.entries(grouped).map(([url, list]) => {
+    let path = url
+    try {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const parsed = new URL(url)
+        path = parsed.pathname + parsed.search
+      }
+    } catch {
+      // Fallback
+    }
+    
+    // Clean up empty paths or root paths to show a better label
+    if (path === '/' || path === '') {
+      path = '/index'
+    }
+
+    const title = list[0]?.page_title || list[0]?.title || 'Untitled Page'
+    
+    const renderers = Array.from(new Set(
+      list.map(m => m.renderer_type || 'dom').filter(Boolean)
+    )) as string[]
+
+    return {
+      url,
+      path,
+      title,
+      markerCount: list.length,
+      renderers
+    }
+  })
+}
+
+export function getRendererSummary(markers: Marker[]): Record<string, number> {
+  const summary: Record<string, number> = {
+    dom: 0,
+    shadow_dom: 0,
+    canvas2d: 0,
+    webgl: 0,
+    threejs: 0,
+    unknown: 0
+  }
+  markers.forEach((m) => {
+    const r = (m.renderer_type || 'dom').toLowerCase()
+    if (r in summary) {
+      summary[r]++
+    } else {
+      summary.unknown = (summary.unknown || 0) + 1
+    }
+  })
+  return summary
+}
+
+export function getPageThumbnailMap(markers: Marker[]): Record<string, string> {
+  const map: Record<string, string> = {}
+  markers.forEach((m) => {
+    const url = m.page_url || m.url || 'Unknown Page'
+    if (!map[url] && m.screenshot_url) {
+      map[url] = m.screenshot_url
+    }
+  })
+  return map
+}

@@ -38,7 +38,7 @@ def run_services():
         backend_proc = subprocess.Popen(
             backend_cmd,
             cwd=root_dir,
-            env={**os.environ, "PYTHONPATH": root_dir}
+            env={**os.environ, "PYTHONPATH": f"{root_dir};{backend_dir}"}
         )
         processes.append(backend_proc)
 

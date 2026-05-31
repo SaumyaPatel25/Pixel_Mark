@@ -1,0 +1,151 @@
+/* PixelMark Lens - Premium UI Styles */
+body {
+  width: 320px;
+  background: #0A0A0C;
+  color: #FFFFFF;
+  font-family: 'Inter', -apple-system, sans-serif;
+  margin: 0;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 12px;
+}
+
+.logo {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.accent {
+  color: #A855F7;
+  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5));
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: full;
+  background: #444;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.pulse-dot.active {
+  background: #A855F7;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.6);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+label {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.key-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+  padding-right: 40px;
+  color: white;
+  font-size: 11px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+input:focus {
+  border-color: #A855F7;
+  background: rgba(168, 85, 247, 0.05);
+}
+
+.eye-toggle {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: white;
+  opacity: 0.3;
+  cursor: pointer;
+  font-size: 12px;
+  transition: opacity 0.2s;
+}
+
+.eye-toggle:hover {
+  opacity: 1;
+}
+
+.activate-btn {
+  background: #A855F7;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 10px 30px rgba(168, 85, 247, 0.3);
+}
+
+.activate-btn.active {
+  background: #1A1A1F;
+  color: #A855F7;
+  border: 1px solid #A855F7;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+}
+
+.activate-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.status-msg {
+  margin-top: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+}
+
+.footer {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.2);
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 12px;
+}

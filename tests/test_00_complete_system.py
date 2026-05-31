@@ -47,7 +47,7 @@ async def test_03_frontend_root():
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(VERCEL_URL)
         assert resp.status_code == 200
-        assert "entrext" in resp.text.lower()
+        assert "pixelmark" in resp.text.lower()
 
 @pytest.mark.asyncio
 async def test_04_cors_headers():

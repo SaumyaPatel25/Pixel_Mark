@@ -64,22 +64,36 @@ export interface ProjectCreate {
 
 export interface ShareLink {
   id: string
-  label: string
-  role: 'tester' | 'reviewer' | 'viewer'
+  session_id: string
   token: string
-  share_url: string
-  expires_at: string | null
-  max_uses: number | null
-  use_count: number
+  label: string | null
+  can_comment: boolean
   is_active: boolean
+  expires_at: string | null
+  accessed_count: number
   created_at: string
+  share_url: string
 }
 
 export interface ShareLinkCreate {
-  label: string
-  role: 'tester' | 'reviewer' | 'viewer'
-  expires_in_days?: number
-  max_uses?: number
+  session_id: string
+  label?: string
+  can_comment?: boolean
+  password?: string
+  expires_at?: string
+}
+
+export interface ShareLinkPublicRead {
+  token: string
+  session_id: string
+  can_comment: boolean
+  label: string | null
+  session_title: string | null
+  project_name: string | null
+}
+
+export interface ShareLinkAccess {
+  token: string
   password?: string
 }
 
@@ -101,6 +115,8 @@ export interface Comment {
   screenshot_url: string | null
   ai_summary?: string | null
   suggested_fix?: string | null
+  page_title?: string | null
+  title?: string | null
   created_at: string
   session_data?: any
 }
@@ -184,6 +200,15 @@ export const api = {
     async getSessionStats(sessionId: string) {
       return request(`/sessions/${sessionId}/stats`)
     },
+    async recordVisit(sessionId: string, pageUrl: string, pageTitle?: string, parentPageId?: string, shareToken?: string) {
+      const params = new URLSearchParams({ page_url: pageUrl })
+      if (pageTitle) params.append('page_title', pageTitle)
+      if (parentPageId) params.append('parent_page_id', parentPageId)
+      if (shareToken) params.append('share_token', shareToken)
+      return request(`/proxy/session/${sessionId}/page-visit?${params.toString()}`, {
+        method: 'POST'
+      })
+    },
   },
 
   // COMMENTS (Frontend calls it comments, Backend calls it markers)
@@ -262,24 +287,28 @@ export const api = {
 
   // SHARES
   shareLinks: {
-    async list(projectId: string): Promise<ShareLink[]> {
-      return request(`/shares/project/${projectId}`)
+    async list(sessionId: string): Promise<ShareLink[]> {
+      return request(`/share-links/session/${sessionId}`)
     },
-    async create(projectId: string, data: ShareLinkCreate): Promise<ShareLink> {
-      return request(`/shares/project/${projectId}`, {
+    async create(data: ShareLinkCreate): Promise<ShareLink> {
+      return request('/share-links/', {
         method: 'POST',
         body: JSON.stringify(data),
       })
     },
-    async revoke(projectId: string, linkId: string): Promise<void> {
-      return request(`/shares/project/${projectId}/${linkId}`, {
+    async revoke(linkId: string): Promise<void> {
+      return request(`/share-links/${linkId}`, {
         method: 'DELETE',
       })
     },
-    async resolve(token: string): Promise<any> {
-      return request(`/shares/access/${token}`, {
+    async resolve(data: ShareLinkAccess): Promise<ShareLinkPublicRead> {
+      return request('/share-links/resolve', {
         method: 'POST',
+        body: JSON.stringify(data),
       })
+    },
+    async getInfo(token: string): Promise<{ label: string | null; can_comment: boolean; is_password_protected: boolean }> {
+      return request(`/share-links/${token}/info`)
     },
   },
 
