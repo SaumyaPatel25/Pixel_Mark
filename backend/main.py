@@ -73,6 +73,8 @@ async def proxy_fallback_middleware(request: Request, call_next):
         referer = request.headers.get("referer", "")
         session_id = None
         
+        client_host = request.client.host if request.client else "unknown"
+        
         # Try to extract session ID from Referer header
         match = re.search(r"/proxy/session/([a-f0-9\-]{36})", referer)
         if match:
@@ -80,6 +82,11 @@ async def proxy_fallback_middleware(request: Request, call_next):
         else:
             # Fall back to session cookie
             session_id = request.cookies.get("pixelmark_session_id")
+            
+        if not session_id:
+            # Fall back to active IP session mapping
+            from routes.proxy import ACTIVE_IP_SESSIONS
+            session_id = ACTIVE_IP_SESSIONS.get(client_host)
             
         if session_id:
             async with AsyncSessionLocal() as db:
@@ -114,6 +121,25 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                 target_url = f"{target_url}?{request.url.query}"
                                 
                             try:
+                                # Check cache for asset requests (skip HTML pages to allow recording visits)
+                                if not path.endswith((".html", "/")):
+                                    from routes.proxy import get_cached_asset, prepare_proxy_response
+                                    cached_content, cached_type = get_cached_asset(target_url)
+                                    if cached_content is not None:
+                                        response = FAResponse(content=cached_content, media_type=cached_type)
+                                        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+                                        response.headers["X-PixelMark-Cache"] = "HIT"
+                                        response.set_cookie(
+                                            "pixelmark_session_id", 
+                                            session_id, 
+                                            path="/", 
+                                            httponly=True, 
+                                            max_age=86400,
+                                            samesite="none",
+                                            secure=True
+                                        )
+                                        return prepare_proxy_response(response)
+                                        
                                 headers = {
                                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                                 }
@@ -136,11 +162,20 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                         rewritten_html = rewrite_html(resp.text, session.id, target_url, base_url, api_base)
                                         response = FAResponse(content=rewritten_html.encode("utf-8"), media_type="text/html")
                                     else:
-                                        from routes.proxy import prepare_proxy_response
+                                        from routes.proxy import prepare_proxy_response, save_cached_asset
+                                        save_cached_asset(target_url, resp.content, content_type)
                                         response = FAResponse(content=resp.content, media_type=content_type, status_code=resp.status_code)
                                     
                                     # Set/Refresh session cookie
-                                    response.set_cookie("pixelmark_session_id", session_id, path="/", httponly=True, max_age=86400)
+                                    response.set_cookie(
+                                        "pixelmark_session_id", 
+                                        session_id, 
+                                        path="/", 
+                                        httponly=True, 
+                                        max_age=86400,
+                                        samesite="none",
+                                        secure=True
+                                    )
                                     return prepare_proxy_response(response)
                             except Exception as e:
                                 pass

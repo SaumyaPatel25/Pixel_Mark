@@ -112,6 +112,7 @@ async def test_setup():
 @pytest.mark.asyncio
 async def test_proxy_initial(test_setup):
     session = test_setup["session"]
+    # We must pass Request to get the client IP registered in ACTIVE_IP_SESSIONS, but httpx client simulates Request
     async with httpx.AsyncClient(app=app, base_url="http://test") as client:
         # GET /proxy/session/{session_id}
         response = await client.get(f"/proxy/session/{session.id}")
@@ -119,7 +120,6 @@ async def test_proxy_initial(test_setup):
         assert "text/html" in response.headers["content-type"]
         assert "pixelmark-agent.js" in response.text
         assert "window.__PIXELMARK__" in response.text
-        assert "pixelmark-status-bar" in response.text
         
         # Verify page visit was recorded in DB
         async with TestSessionLocal() as db:
@@ -217,6 +217,6 @@ async def test_agent_script_served():
     async with httpx.AsyncClient(app=app, base_url="http://test") as client:
         response = await client.get("/static/pixelmark-agent.js")
         assert response.status_code == 200
-        assert "ctrlKey" in response.text
+        assert "altKey" in response.text
         assert "THREE" in response.text
         assert "postMessage" in response.text

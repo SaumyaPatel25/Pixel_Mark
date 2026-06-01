@@ -63,16 +63,16 @@ def test_proxy_rewriter_all_rules():
     assert 'href="javascript:void(0)"' in rewritten
     
     # 3. Asset rewriting
-    assert 'href="/proxy/session/12345678-1234-1234-1234-123456789012/asset?url=https%3A//originalsite.com/style.css"' in rewritten
-    assert 'src="/proxy/session/12345678-1234-1234-1234-123456789012/asset?url=https%3A//originalsite.com/js/app.js"' in rewritten
-    assert 'src="/proxy/session/12345678-1234-1234-1234-123456789012/asset?url=https%3A//originalsite.com/logo.png"' in rewritten
-    assert 'src="/proxy/session/12345678-1234-1234-1234-123456789012/asset?url=https%3A//cdn.originalsite.com/video.mp4"' in rewritten
+    assert 'href="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/style.css"' in rewritten
+    assert 'src="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/js/app.js"' in rewritten
+    assert 'src="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/logo.png"' in rewritten
+    assert 'src="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/cdn.originalsite.com/video.mp4"' in rewritten
     
     # 4. srcset rewriting
-    assert 'srcset="/proxy/session/12345678-1234-1234-1234-123456789012/asset?url=https%3A//originalsite.com/logo.png 1x, /proxy/session/12345678-1234-1234-1234-123456789012/asset?url=https%3A//originalsite.com/logo%402x.png 2x"' in rewritten
+    assert 'srcset="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/logo.png 1x, /proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/logo@2x.png 2x"' in rewritten
     
     # 5. CSS inline background-image url() rewriting
-    assert 'style="background-image: url(\'/proxy/session/12345678-1234-1234-1234-123456789012/asset?url=https%3A//originalsite.com/images/bg.png\');' in rewritten
+    assert 'style="background-image: url(\'/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/images/bg.png\');' in rewritten
     
     # 6. Form actions rewriting
     assert 'action="/proxy/session/12345678-1234-1234-1234-123456789012/form?action=https%3A//originalsite.com/login"' in rewritten

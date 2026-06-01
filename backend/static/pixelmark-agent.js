@@ -883,8 +883,28 @@
   // ─── DOMContentLoaded init ────────────────────────────────────────────────
   function getAbsoluteTargetUrl() {
     try {
-      const targetBase = new URL(window.__PIXELMARK__?.pageUrl || window.location.href);
-      const resolved = new URL(window.location.pathname + window.location.search + window.location.hash, targetBase.origin);
+      window.__PIXELMARK__ = window.__PIXELMARK__ || {};
+      const targetBase = new URL(window.__PIXELMARK__.pageUrl || window.location.href);
+      
+      let path = window.location.pathname;
+      
+      // Strip proxy prefix if present
+      const proxyPrefixRegex = /^\/proxy\/session\/[a-f0-9\-]{36}(?:\/page|\/asset|\/form)?/i;
+      path = path.replace(proxyPrefixRegex, "");
+      if (!path.startsWith("/")) {
+        path = "/" + path;
+      }
+      
+      // Check if there is an explicit target 'url' query parameter (e.g. in /page?url=...)
+      const params = new URLSearchParams(window.location.search);
+      const queryUrl = params.get("url");
+      if (queryUrl) {
+        try {
+          return new URL(queryUrl).href;
+        } catch (e) {}
+      }
+      
+      const resolved = new URL(path + window.location.search + window.location.hash, targetBase.origin);
       return resolved.href;
     } catch (e) {
       return window.__PIXELMARK__?.pageUrl || window.location.href;

@@ -15,6 +15,9 @@ from datetime import datetime
 
 router = APIRouter(prefix="/proxy", tags=["proxy"])
 
+# Active IP sessions tracking for fallback resolution
+ACTIVE_IP_SESSIONS = {}
+
 # Async helper to record/upsert PageVisits cleanly
 async def record_page_visit(
     db: AsyncSession,
@@ -150,6 +153,7 @@ def prepare_proxy_response(response: Response) -> Response:
 @router.get("/session/{session_id}")
 async def proxy_initial(
     session_id: str,
+    request: Request,
     share_token: str = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -157,6 +161,9 @@ async def proxy_initial(
         uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid UUID format")
+        
+    client_host = request.client.host if request.client else "unknown"
+    ACTIVE_IP_SESSIONS[client_host] = session_id
         
     base_url, project_id = await resolve_session_base_url(session_id, db)
     
@@ -208,7 +215,15 @@ async def proxy_initial(
                 response.headers["X-PixelMark-Session"] = session_id
                 response.headers["X-PixelMark-Page"] = base_url
                 
-                response.set_cookie("pixelmark_session_id", session_id, path="/", httponly=True, max_age=86400)
+                response.set_cookie(
+                    "pixelmark_session_id", 
+                    session_id, 
+                    path="/", 
+                    httponly=True, 
+                    max_age=86400,
+                    samesite="none",
+                    secure=True
+                )
                 
                 return prepare_proxy_response(response)
             else:
@@ -226,6 +241,7 @@ async def proxy_initial(
 async def proxy_page(
     session_id: str,
     url: str,
+    request: Request,
     parent_page_id: str = Query(None),
     share_token: str = Query(None),
     db: AsyncSession = Depends(get_db)
@@ -234,6 +250,9 @@ async def proxy_page(
         uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid UUID format")
+        
+    client_host = request.client.host if request.client else "unknown"
+    ACTIVE_IP_SESSIONS[client_host] = session_id
         
     base_url, project_id = await resolve_session_base_url(session_id, db)
     
@@ -289,7 +308,15 @@ async def proxy_page(
                 response.headers["X-PixelMark-Session"] = session_id
                 response.headers["X-PixelMark-Page"] = url
                 
-                response.set_cookie("pixelmark_session_id", session_id, path="/", httponly=True, max_age=86400)
+                response.set_cookie(
+                    "pixelmark_session_id", 
+                    session_id, 
+                    path="/", 
+                    httponly=True, 
+                    max_age=86400,
+                    samesite="none",
+                    secure=True
+                )
                 
                 return prepare_proxy_response(response)
             else:
@@ -354,14 +381,29 @@ async def handle_proxy_asset_request(
 ):
     base_url, _ = await resolve_session_base_url(session_id, db)
     
+    is_third_party = False
+    try:
+        parsed_target = urllib.parse.urlparse(url)
+        parsed_base = urllib.parse.urlparse(base_url)
+        is_third_party = parsed_target.netloc != parsed_base.netloc
+    except Exception:
+        pass
+        
     if not is_ssrf_safe(url):
+        if is_third_party:
+            return prepare_proxy_response(Response(content=b"", status_code=204))
         raise HTTPException(status_code=403, detail="SSRF target blocked")
+        
     if not is_domain_allowed(url, base_url, is_asset=True):
         if ".js" in url or "javascript" in url:
             return prepare_proxy_response(Response(
                 content=f'console.warn("PixelMark Warning: Script asset blocked by domain scoping: {url}");'.encode("utf-8"),
                 media_type="application/javascript"
             ))
+        if is_third_party:
+            content = b"{}" if "json" in url or "config" in url else b""
+            media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
+            return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
         raise HTTPException(status_code=403, detail="Asset target blocked: Out of domain scope")
 
     cached_content, cached_type = get_cached_asset(url)
@@ -400,6 +442,10 @@ async def handle_proxy_asset_request(
                         content=f'console.warn("PixelMark Warning: Script asset returned status {resp.status_code}: {url}");'.encode("utf-8"),
                         media_type="application/javascript"
                     ))
+                if is_third_party:
+                    content = b"{}" if "json" in url or "config" in url else b""
+                    media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
+                    return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=resp.status_code))
                 raise HTTPException(status_code=resp.status_code, detail=f"Asset fetch returned {resp.status_code}")
                 
             content_type = resp.headers.get("content-type", "application/octet-stream")
@@ -415,6 +461,10 @@ async def handle_proxy_asset_request(
                 content=f'console.warn("PixelMark Warning: Script asset failed to connect: {url} ({str(e)})");'.encode("utf-8"),
                 media_type="application/javascript"
             ))
+        if is_third_party:
+            content = b"{}" if "json" in url or "config" in url else b""
+            media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
+            return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
         raise HTTPException(status_code=500, detail=str(e))
 
 
