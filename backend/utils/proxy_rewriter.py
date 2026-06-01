@@ -157,6 +157,18 @@ def rewrite_html(
     api_base_clean = api_base.rstrip('/')
     config_script = soup.new_tag("script")
     config_script.string = f"""
+    if (window.location.pathname.startsWith('/proxy/session/')) {{
+      var redirectPath = '/';
+      var params = new URLSearchParams(window.location.search);
+      var targetUrl = params.get('url');
+      if (targetUrl) {{
+        try {{
+          var parsed = new URL(targetUrl);
+          redirectPath = parsed.pathname + parsed.search + parsed.hash;
+        }} catch(e) {{}}
+      }}
+      window.location.replace(redirectPath);
+    }}
     window.__PIXELMARK_SESSION__ = {{
       session_id: "{session_id}",
       proxy_base_url: "{api_base_clean}/proxy/session/{session_id}"

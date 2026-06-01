@@ -9,6 +9,8 @@ SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 def run_test():
     print("🚀 Starting WebGL Visual E2E Test Sequence via Playwright", flush=True)
+    base_url = os.environ.get("BASE_URL", "http://localhost:3000").rstrip("/")
+    print(f"🌍 Using Base URL: {base_url}", flush=True)
     
     with sync_playwright() as p:
         # Launch Chromium headfully or headlessly
@@ -21,8 +23,8 @@ def run_test():
         page.on("console", lambda msg: print(f"🖥️ [Browser Console] {msg.type}: {msg.text}", flush=True))
         
         # 1. Navigate to landing page / register
-        print("🔗 Navigating to http://localhost:3000/register...", flush=True)
-        page.goto("http://localhost:3000/register")
+        print(f"🔗 Navigating to {base_url}/register...", flush=True)
+        page.goto(f"{base_url}/register")
         time.sleep(2)
         page.screenshot(path=str(SCREENSHOTS_DIR / "01_register_page.png"))
         print("📸 Saved 01_register_page.png", flush=True)
@@ -46,7 +48,7 @@ def run_test():
             # Fallback to login
             if "dashboard" not in page.url:
                 print("Trying fallback login...", flush=True)
-                page.goto("http://localhost:3000/login")
+                page.goto(f"{base_url}/login")
                 time.sleep(2)
                 page.fill("input[type='email']", email_addr)
                 page.fill("input[type='password']", "Password123!")

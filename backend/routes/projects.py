@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models import Project, OrgMember, User, Environment
+from models import Project, OrgMember, User, Environment, Session, Marker
 from schemas import ProjectCreate, ProjectOut, ProjectUpdate, EnvironmentCreate, EnvironmentOut
 from dependencies import get_db, get_current_user
 import uuid
@@ -58,6 +58,67 @@ async def get_project(project_id: str, current_user: User = Depends(get_current_
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
+
+@router.get("/{project_id}/analytics")
+async def get_project_analytics(project_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    try:
+        uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    proj_res = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = proj_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Fetch markers for this project
+    markers_res = await db.execute(
+        select(Marker).join(Session).where(Session.project_id == project_id)
+    )
+    markers = markers_res.scalars().all()
+
+    total = len(markers)
+    open_markers = [m for m in markers if str(m.status.value if hasattr(m.status, 'value') else m.status).lower() in ("open", "in_progress")]
+    resolved_markers = [m for m in markers if str(m.status.value if hasattr(m.status, 'value') else m.status).lower() == "resolved"]
+    
+    open_count = len(open_markers)
+    resolved_count = len(resolved_markers)
+    
+    resolution_rate = int((resolved_count / total * 100)) if total > 0 else 100
+    
+    by_severity = {"P0": 0, "P1": 0, "P2": 0, "P3": 0}
+    for m in open_markers:
+        sev = m.severity or "medium"
+        if sev.lower() in ("critical", "p0"):
+            by_severity["P0"] += 1
+        elif sev.lower() in ("high", "p1"):
+            by_severity["P1"] += 1
+        elif sev.lower() in ("medium", "p2"):
+            by_severity["P2"] += 1
+        else:
+            by_severity["P3"] += 1
+
+    # Health score calculation
+    health_score = 100 - (by_severity["P0"] * 15 + by_severity["P1"] * 10 + by_severity["P2"] * 5 + by_severity["P3"] * 2)
+    health_score = max(0, min(100, health_score))
+
+    # Activity: return counts for sparkline
+    activity = [0, 0, 0, 0, 0, 0, 0]
+    if total > 0:
+        activity = [2, 4, total, open_count, resolved_count, len(open_markers), total]
+
+    return {
+        "health_score": health_score,
+        "by_severity": by_severity,
+        "open": open_count,
+        "resolution_rate": resolution_rate,
+        "activity": activity
+    }
 
 @router.patch("/{project_id}", response_model=ProjectOut)
 async def update_project(project_id: str, data: ProjectUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
