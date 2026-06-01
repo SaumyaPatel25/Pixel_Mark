@@ -523,7 +523,7 @@ export function AuditSurface({
           <div className="flex items-center gap-3 flex-shrink-0">
 
             {/* ── Capture Frame (WebGL/Canvas Mode only) ─────────────────── */}
-            {(rendererType === 'webgl' || rendererType === 'canvas' || rendererType === 'mixed') && (
+            {(rendererType === 'webgl' || rendererType === 'threejs' || rendererType === 'canvas' || rendererType === 'mixed') && (
               <button
                 id="capture-frame-btn"
                 onClick={handleCaptureFrame}
@@ -599,7 +599,7 @@ export function AuditSurface({
             {/* Renderer badge */}
             <div className={cn(
               "flex items-center gap-1.5 rounded-xl px-2.5 py-1 select-none border transition-all duration-300",
-              (rendererType === 'webgl' || rendererType === 'canvas' || rendererType === 'mixed')
+              (rendererType === 'webgl' || rendererType === 'threejs' || rendererType === 'canvas' || rendererType === 'mixed')
                 ? "bg-purple-950/20 border-purple-500/30 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
                 : "bg-white/[0.03] border-white/5 text-white/70"
             )}>
@@ -660,7 +660,7 @@ export function AuditSurface({
               )}
 
               {/* Centre instruction banner (hidden in heavy modes to maximize screen space) */}
-              {!(rendererType === 'webgl' || rendererType === 'canvas' || rendererType === 'mixed') && (
+              {!(rendererType === 'webgl' || rendererType === 'threejs' || rendererType === 'canvas' || rendererType === 'mixed') && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="bg-[#0f0f16]/95 border border-purple-500/30 text-white px-7 py-5 rounded-3xl shadow-2xl flex flex-col items-center gap-3 text-center max-w-xs pointer-events-auto">
                     <div className="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
