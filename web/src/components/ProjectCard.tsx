@@ -99,7 +99,12 @@ export function ProjectCard({ project, onClick }: { project: any, onClick: () =>
     let active = true
     const fetchAnalytics = async () => {
       try {
-        const res = await fetch(`${BASE}/projects/${project.id}/analytics`)
+        const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
+        const headers: Record<string, string> = {}
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+        const res = await fetch(`${BASE}/projects/${project.id}/analytics`, { headers })
         const data = await res.json()
         if (active) {
           setAnalytics(data)
