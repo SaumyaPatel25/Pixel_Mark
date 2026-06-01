@@ -445,7 +445,7 @@ async def handle_proxy_asset_request(
                 if is_third_party:
                     content = b"{}" if "json" in url or "config" in url else b""
                     media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
-                    return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=resp.status_code))
+                    return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
                 raise HTTPException(status_code=resp.status_code, detail=f"Asset fetch returned {resp.status_code}")
                 
             content_type = resp.headers.get("content-type", "application/octet-stream")
