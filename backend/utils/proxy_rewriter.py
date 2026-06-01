@@ -167,7 +167,7 @@ def rewrite_html(
           redirectPath = parsed.pathname + parsed.search + parsed.hash;
         }} catch(e) {{}}
       }}
-      window.location.replace(redirectPath);
+      window.history.replaceState(null, '', redirectPath);
     }}
     window.__PIXELMARK_BASE__ = "{api_base_clean}/proxy/session/{session_id}";
     window.__PIXELMARK_SESSION__ = {{

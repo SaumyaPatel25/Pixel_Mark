@@ -881,6 +881,16 @@
   });
 
   // ─── DOMContentLoaded init ────────────────────────────────────────────────
+  function getAbsoluteTargetUrl() {
+    try {
+      const targetBase = new URL(window.__PIXELMARK__?.pageUrl || window.location.href);
+      const resolved = new URL(window.location.pathname + window.location.search + window.location.hash, targetBase.origin);
+      return resolved.href;
+    } catch (e) {
+      return window.__PIXELMARK__?.pageUrl || window.location.href;
+    }
+  }
+
   function setupNavigationInterceptor() {
     // 1. Intercept standard internal anchor clicks
     document.addEventListener("click", (e) => {
@@ -897,13 +907,14 @@
         return;
       }
 
-      // Resolve URL absolutely
-      const resolvedUrl = new URL(hrefStripped, window.location.href).href;
+      // Resolve URL absolutely relative to target base URL
+      const targetBase = window.__PIXELMARK__?.pageUrl || window.location.href;
+      const resolvedUrl = new URL(hrefStripped, targetBase).href;
       
       // Determine if it is internal to the proxied application
       const targetHost = new URL(resolvedUrl).host;
-      const currentHost = window.location.host;
-      const isInternal = targetHost === currentHost;
+      const originalHost = new URL(window.__PIXELMARK__?.pageUrl || window.location.href).host;
+      const isInternal = targetHost === originalHost;
 
       if (isInternal) {
         window.parent.postMessage({
@@ -911,7 +922,7 @@
           page_url: resolvedUrl,
           page_title: document.title || "",
           session_id: window.__PIXELMARK__.sessionId || "",
-          referrer_url: window.location.href
+          referrer_url: window.__last_page_url || targetBase
         }, "*");
       }
     }, true);
@@ -932,15 +943,16 @@
     window.addEventListener("popstate", handleSPAEvent);
 
     function handleSPAEvent() {
+      const targetUrl = getAbsoluteTargetUrl();
       window.parent.postMessage({
         type: "PIXELMARK_NAV",
-        page_url: window.location.href,
+        page_url: targetUrl,
         page_title: document.title || "",
         session_id: window.__PIXELMARK__.sessionId || "",
-        referrer_url: window.__last_page_url || window.location.href,
+        referrer_url: window.__last_page_url || targetUrl,
         is_spa: true
       }, "*");
-      window.__last_page_url = window.location.href;
+      window.__last_page_url = targetUrl;
     }
   }
 

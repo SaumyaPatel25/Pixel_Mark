@@ -14,6 +14,14 @@ ALLOWED_ASSET_DOMAINS = {
     "fonts.gstatic.com",
     "code.jquery.com",
     "maxcdn.bootstrapcdn.com",
+    "googleapis.com",
+    "google-analytics.com",
+    "googletagmanager.com",
+    "firebaseio.com",
+    "vercel.app",
+    "firebaseapp.com",
+    "aws.amazon.com",
+    "cloudfront.net",
 }
 
 def is_ssrf_safe(url: str) -> bool:
