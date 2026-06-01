@@ -69,6 +69,7 @@ export default function ProjectPage() {
   
   const screenCapture = useScreenCapture()
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const viewportHeight = useViewportHeight()
 
   // Retrieve or create active audit session on mount
   useEffect(() => {
@@ -232,7 +233,6 @@ export default function ProjectPage() {
     </div>
   )
 
-  const viewportHeight = useViewportHeight()
   const pageStyle = viewportHeight > 0 ? { height: `${viewportHeight}px` } : {}
 
   return (
