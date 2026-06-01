@@ -112,6 +112,11 @@ export function AuditSurface({
   const [isLoading, setIsLoading] = useState(true)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
+  // Heavy rendering states
+  const [fps, setFps] = useState<number | null>(null)
+  const [isStalled, setIsStalled] = useState(false)
+  const [isPerformanceSafe, setIsPerformanceSafe] = useState(true)
+
   // Feedback mode state
   const [feedbackModeActive, setFeedbackModeActive] = useState(false)
   const [manualPlacementMode, setManualPlacementMode] = useState(false)
@@ -128,6 +133,18 @@ export function AuditSurface({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [showElementPreview, setShowElementPreview] = useState(true)
+
+  useEffect(() => {
+    let t: any;
+    if (isLoading) {
+      t = setTimeout(() => {
+        setIsStalled(true)
+      }, 10000)
+    } else {
+      setIsStalled(false)
+    }
+    return () => clearTimeout(t)
+  }, [isLoading])
 
   const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
   const proxyUrl = `${API_BASE}/proxy/session/${sessionId}${shareToken ? `?share_token=${shareToken}` : ''}`
@@ -164,7 +181,11 @@ export function AuditSurface({
     setNoteText('')
     setSeverity('medium')
     setSubmitSuccess(false)
-    setShowElementPreview(true)
+    
+    // Collapse DOM element properties by default on heavy canvas targets
+    const isHeavy = ctx.renderer_type === 'webgl' || ctx.renderer_type === 'canvas' || ctx.renderer_type === 'mixed'
+    setShowElementPreview(!isHeavy)
+    
     setIsDrawerOpen(true)
     // Exit feedback mode once drawer opens (single click model)
     setFeedbackModeActive(false)
@@ -189,6 +210,14 @@ export function AuditSurface({
           })
           setRefreshTrigger(prev => prev + 1)
           if (onPageChanged) onPageChanged(data.url, data.title || '')
+          break
+
+        case 'PIXELMARK_PERFORMANCE_UPDATE':
+          setFps(data.fps)
+          break
+
+        case 'PIXELMARK_RENDERER_CHANGED':
+          setRendererType(data.rendererType || 'dom')
           break
 
         case 'PIXELMARK_NAV':
@@ -286,6 +315,15 @@ export function AuditSurface({
     setPageHistory(newHistory)
     if (iframeRef.current) {
       iframeRef.current.src = `${API_BASE}/proxy/session/${sessionId}/page?url=${encodeURIComponent(prevPage.url)}`
+    }
+  }
+
+  const handleCaptureFrame = () => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        { type: 'PIXELMARK_TRIGGER_FRAME_CAPTURE' },
+        '*'
+      )
     }
   }
 
@@ -484,6 +522,18 @@ export function AuditSurface({
           {/* Right: controls */}
           <div className="flex items-center gap-3 flex-shrink-0">
 
+            {/* ── Capture Frame (WebGL/Canvas Mode only) ─────────────────── */}
+            {(rendererType === 'webgl' || rendererType === 'canvas' || rendererType === 'mixed') && (
+              <button
+                id="capture-frame-btn"
+                onClick={handleCaptureFrame}
+                className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 active:scale-95 shadow-lg shadow-amber-950/20"
+              >
+                <Eye className="w-3.5 h-3.5 animate-pulse" />
+                Capture Frame
+              </button>
+            )}
+
             {/* ── PRIMARY CTA: Leave Feedback ────────────────────────────── */}
             <button
               id="leave-feedback-btn"
@@ -533,10 +583,28 @@ export function AuditSurface({
 
             <div className="h-4 w-px bg-white/10" />
 
+            {/* ── FPS/Performance indicator ──────────────────────────────── */}
+            {fps !== null && (
+              <div className={cn(
+                "flex items-center gap-1.5 rounded-xl px-2.5 py-1 select-none border transition-all text-[9px] font-black uppercase tracking-widest",
+                fps >= 45 ? "bg-emerald-950/20 border-emerald-500/20 text-emerald-400" :
+                fps >= 25 ? "bg-amber-950/20 border-amber-500/20 text-amber-400" :
+                "bg-rose-950/20 border-rose-500/20 text-rose-400 animate-pulse"
+              )}>
+                <span className="w-1 h-1 rounded-full bg-current animate-ping" />
+                {fps} FPS {fps < 30 ? "(Lagging)" : "(Fluid)"}
+              </div>
+            )}
+
             {/* Renderer badge */}
-            <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/5 rounded-xl px-2.5 py-1 select-none">
+            <div className={cn(
+              "flex items-center gap-1.5 rounded-xl px-2.5 py-1 select-none border transition-all duration-300",
+              (rendererType === 'webgl' || rendererType === 'canvas' || rendererType === 'mixed')
+                ? "bg-purple-950/20 border-purple-500/30 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+                : "bg-white/[0.03] border-white/5 text-white/70"
+            )}>
               <Monitor className="w-3.5 h-3.5 text-purple-400" />
-              <span className="text-[9px] font-black uppercase tracking-widest text-white/70">{rendererLabel}</span>
+              <span className="text-[9px] font-black uppercase tracking-widest">{rendererLabel} Mode</span>
             </div>
           </div>
         </div>
@@ -591,24 +659,26 @@ export function AuditSurface({
                 </div>
               )}
 
-              {/* Centre instruction banner */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="bg-[#0f0f16]/95 border border-purple-500/30 text-white px-7 py-5 rounded-3xl shadow-2xl flex flex-col items-center gap-3 text-center max-w-xs pointer-events-auto">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
-                    <Pin className="w-6 h-6 text-purple-400 animate-bounce" />
+              {/* Centre instruction banner (hidden in heavy modes to maximize screen space) */}
+              {!(rendererType === 'webgl' || rendererType === 'canvas' || rendererType === 'mixed') && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-[#0f0f16]/95 border border-purple-500/30 text-white px-7 py-5 rounded-3xl shadow-2xl flex flex-col items-center gap-3 text-center max-w-xs pointer-events-auto">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
+                      <Pin className="w-6 h-6 text-purple-400 animate-bounce" />
+                    </div>
+                    <div>
+                      <h4 className="text-[11px] font-black uppercase tracking-widest text-purple-400 mb-1">Click to Point at a Problem</h4>
+                      <p className="text-[10px] text-white/50 leading-relaxed">Click anywhere on the page to drop a feedback pin. A note drawer will open automatically.</p>
+                    </div>
+                    <button
+                      onClick={(ev) => { ev.stopPropagation(); setManualPlacementMode(false); setFeedbackModeActive(false) }}
+                      className="text-[9px] font-black uppercase text-white/30 hover:text-white/70 tracking-widest underline decoration-dotted transition-all"
+                    >
+                      Cancel
+                    </button>
                   </div>
-                  <div>
-                    <h4 className="text-[11px] font-black uppercase tracking-widest text-purple-400 mb-1">Click to Point at a Problem</h4>
-                    <p className="text-[10px] text-white/50 leading-relaxed">Click anywhere on the page to drop a feedback pin. A note drawer will open automatically.</p>
-                  </div>
-                  <button
-                    onClick={(ev) => { ev.stopPropagation(); setManualPlacementMode(false); setFeedbackModeActive(false) }}
-                    className="text-[9px] font-black uppercase text-white/30 hover:text-white/70 tracking-widest underline decoration-dotted transition-all"
-                  >
-                    Cancel
-                  </button>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -617,6 +687,55 @@ export function AuditSurface({
             <div className="absolute inset-0 bg-[#0a0a0f]/80 backdrop-blur-md flex flex-col items-center justify-center z-40">
               <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Loading page…</p>
+            </div>
+          )}
+
+          {/* ── Failure Recovery Overlay ─────────────────────────────── */}
+          {isStalled && (
+            <div className="absolute inset-0 bg-[#0a0a0f]/90 backdrop-blur-md flex flex-col items-center justify-center z-50 p-8 text-center select-text animate-in fade-in">
+              <AlertTriangle className="w-12 h-12 text-amber-500 mb-4 animate-bounce" />
+              <h3 className="text-white text-base font-black uppercase tracking-wider mb-2">Render Stalled / Failed</h3>
+              <p className="text-white/40 text-[10px] max-w-md leading-relaxed mb-6 uppercase tracking-wider">
+                This page is taking longer than expected to load. Heavy animation, WebGL assets, or proxy script limits can cause stalls.
+              </p>
+              
+              {/* Failed Network Assets */}
+              {captureCtx?.network_errors && captureCtx.network_errors.length > 0 && (
+                <div className="w-full max-w-md bg-white/[0.02] border border-white/5 rounded-2xl p-4 mb-6 text-left space-y-2">
+                  <span className="text-[8px] font-black text-rose-400 uppercase tracking-widest block mb-1">Failed Network Assets:</span>
+                  <div className="max-h-24 overflow-y-auto space-y-1.5 custom-scrollbar text-[10px] font-mono text-white/50">
+                    {captureCtx.network_errors.map((err: any, idx: number) => (
+                      <div key={idx} className="truncate" title={err.url}>
+                        ❌ {err.method} {err.url} ({err.status || 'Failed'})
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-4 flex-wrap justify-center">
+                <button
+                  onClick={() => {
+                    setIsLoading(true);
+                    setIsStalled(false);
+                    if (iframeRef.current) {
+                      iframeRef.current.src = iframeRef.current.src; // Reload
+                    }
+                  }}
+                  className="h-10 px-6 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-[10px] uppercase tracking-widest transition-all"
+                >
+                  Retry Render
+                </button>
+                <button
+                  onClick={() => {
+                    setIsLoading(false);
+                    setIsStalled(false);
+                  }}
+                  className="h-10 px-6 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-extrabold text-[10px] uppercase tracking-widest transition-all"
+                >
+                  Use Static Snapshot
+                </button>
+              </div>
             </div>
           )}
 

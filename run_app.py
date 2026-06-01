@@ -20,15 +20,14 @@ def run_services():
         backend_python,
         "-m", "uvicorn", "backend.main:app",
         "--host", "127.0.0.1",
-        "--port", "8765",
-        "--reload"
+        "--port", "8765"
     ]
     
     # 2. Frontend Command
     frontend_cmd = ["npm", "run", "dev"]
 
     print("\n" + "="*50)
-    print("🚀 ENT R E X T  -  F U L L S T A C K  L A U N C H E R")
+    print("LAUNCHING FULLSTACK APP...")
     print("="*50 + "\n")
     
     processes = []

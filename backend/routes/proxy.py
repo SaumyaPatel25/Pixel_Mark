@@ -10,6 +10,7 @@ import httpx
 import urllib.parse
 import uuid
 import os
+import hashlib
 from datetime import datetime
 
 router = APIRouter(prefix="/proxy", tags=["proxy"])
@@ -292,34 +293,143 @@ async def proxy_page(
         )
 
 
-@router.get("/session/{session_id}/asset")
-async def proxy_asset(
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+def get_cached_asset(url: str) -> tuple[bytes, str]:
+    url_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
+    cache_path = os.path.join(CACHE_DIR, url_hash)
+    meta_path = cache_path + ".meta"
+    if os.path.exists(cache_path) and os.path.exists(meta_path):
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                content_type = f.read().strip()
+            with open(cache_path, "rb") as f:
+                content = f.read()
+            return content, content_type
+        except Exception:
+            pass
+    return None, None
+
+def save_cached_asset(url: str, content: bytes, content_type: str):
+    cachable_types = ("image/", "font/", "application/javascript", "text/css", "application/wasm", "model/gltf", "application/octet-stream")
+    cachable_exts = (".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".glb", ".gltf", ".wasm", ".ico")
+    
+    parsed = urllib.parse.urlparse(url)
+    ext = os.path.splitext(parsed.path)[1].lower()
+    
+    should_cache = any(content_type.startswith(t) for t in cachable_types) or (ext in cachable_exts)
+    if not should_cache:
+        return
+        
+    url_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
+    cache_path = os.path.join(CACHE_DIR, url_hash)
+    meta_path = cache_path + ".meta"
+    try:
+        with open(cache_path, "wb") as f:
+            f.write(content)
+        with open(meta_path, "w", encoding="utf-8") as f:
+            f.write(content_type)
+    except Exception:
+        pass
+
+async def handle_proxy_asset_request(
     session_id: str,
     url: str,
-    db: AsyncSession = Depends(get_db)
+    request: Request,
+    db: AsyncSession
 ):
     base_url, _ = await resolve_session_base_url(session_id, db)
     
     if not is_ssrf_safe(url):
         raise HTTPException(status_code=403, detail="SSRF target blocked")
     if not is_domain_allowed(url, base_url, is_asset=True):
+        if ".js" in url or "javascript" in url:
+            return Response(
+                content=f'console.warn("PixelMark Warning: Script asset blocked by domain scoping: {url}");'.encode("utf-8"),
+                media_type="application/javascript"
+            )
         raise HTTPException(status_code=403, detail="Asset target blocked: Out of domain scope")
-        
+
+    cached_content, cached_type = get_cached_asset(url)
+    if cached_content is not None:
+        response = Response(content=cached_content, media_type=cached_type)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        response.headers["X-PixelMark-Cache"] = "HIT"
+        return response
+
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": request.headers.get("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
+            "Accept-Language": request.headers.get("accept-language", "en-US,en;q=0.9"),
             "X-PixelMark-Session": session_id
         }
+        
+        referer = request.headers.get("referer", "")
+        if referer:
+            parsed_referer = urllib.parse.urlparse(referer)
+            if "proxy/session" in parsed_referer.path:
+                query_params = urllib.parse.parse_qs(parsed_referer.query)
+                if 'url' in query_params:
+                    headers["Referer"] = query_params['url'][0]
+                else:
+                    parsed_target = urllib.parse.urlparse(url)
+                    headers["Referer"] = f"{parsed_target.scheme}://{parsed_target.netloc}/"
+            else:
+                headers["Referer"] = referer
+
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
             resp = await client.get(url, headers=headers)
+            
+            if resp.status_code >= 400:
+                if ".js" in url or "javascript" in url:
+                    return Response(
+                        content=f'console.warn("PixelMark Warning: Script asset returned status {resp.status_code}: {url}");'.encode("utf-8"),
+                        media_type="application/javascript"
+                    )
+                raise HTTPException(status_code=resp.status_code, detail=f"Asset fetch returned {resp.status_code}")
+                
             content_type = resp.headers.get("content-type", "application/octet-stream")
+            save_cached_asset(url, resp.content, content_type)
             
             response = Response(content=resp.content, media_type=content_type)
-            # Highly aggressive cache settings for assets to boost visual speed
+            for header_name in ("Content-Security-Policy", "X-Frame-Options", "Frame-Ancestors"):
+                if header_name in response.headers:
+                    del response.headers[header_name]
+                    
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            response.headers["X-PixelMark-Cache"] = "MISS"
             return response
     except Exception as e:
+        if ".js" in url or "javascript" in url:
+            return Response(
+                content=f'console.warn("PixelMark Warning: Script asset failed to connect: {url} ({str(e)})");'.encode("utf-8"),
+                media_type="application/javascript"
+            )
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/session/{session_id}/asset")
+async def proxy_asset(
+    session_id: str,
+    url: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    return await handle_proxy_asset_request(session_id, url, request, db)
+
+@router.get("/session/{session_id}/asset/{scheme}/{host}/{path:path}")
+async def proxy_asset_path(
+    session_id: str,
+    scheme: str,
+    host: str,
+    path: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    url = f"{scheme}://{host}/{path}"
+    if request.url.query:
+        url = f"{url}?{request.url.query}"
+    return await handle_proxy_asset_request(session_id, url, request, db)
 
 
 @router.post("/session/{session_id}/form")

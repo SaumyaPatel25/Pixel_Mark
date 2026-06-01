@@ -38,3 +38,8 @@ backend/screenshots/
 .env
 *.db
 __pycache__/
+
+# --- Cache and Scratch ---
+backend/cache/
+backend/scratch/
+tests/check_db_markers.py

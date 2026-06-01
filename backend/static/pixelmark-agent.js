@@ -11,6 +11,45 @@
 
   let feedbackModeActive = false;
 
+  // ─── RAF Hook & FPS Tracker ──────────────────────────────────────────────
+  let rAFCount = 0;
+  let rAFActive = false;
+  let frames = 0;
+  let fps = 60;
+  let lastFpsTime = window.performance ? window.performance.now() : Date.now();
+
+  const originalRAF = window.requestAnimationFrame;
+  window.requestAnimationFrame = function(cb) {
+    rAFCount++;
+    rAFActive = true;
+    return originalRAF.call(window, function(timestamp) {
+      frames++;
+      cb(timestamp);
+    });
+  };
+
+  function calculateFps() {
+    const now = window.performance ? window.performance.now() : Date.now();
+    if (now >= lastFpsTime + 1000) {
+      fps = Math.round((frames * 1000) / (now - lastFpsTime));
+      frames = 0;
+      lastFpsTime = now;
+      if (rAFCount > 0) {
+        rAFActive = true;
+      }
+      rAFCount = 0;
+
+      // Broadcast performance stats to parent
+      window.parent.postMessage({
+        type: "PIXELMARK_PERFORMANCE_UPDATE",
+        fps: fps,
+        rAFActive: rAFActive
+      }, "*");
+    }
+    originalRAF.call(window, calculateFps);
+  }
+  originalRAF.call(window, calculateFps);
+
   // ─── Circular buffer ─────────────────────────────────────────────────────
   function pushCircular(arr, item) {
     arr.push(item);
@@ -86,15 +125,54 @@
   // ─── Renderer detection ───────────────────────────────────────────────────
   function detectRenderer() {
     const canvases = document.querySelectorAll("canvas");
-    if (canvases.length === 0) return "dom";
+    const hasCanvas = canvases.length > 0;
+    const hasThree = typeof THREE !== "undefined" || !!window.__PIXELMARK__.threeRenderer;
+    const hasPixi = typeof PIXI !== "undefined" || !!window.PIXI;
+    const hasBabylon = typeof BABYLON !== "undefined" || !!window.BABYLON;
+    const hasPhaser = typeof Phaser !== "undefined" || !!window.Phaser;
+    const hasPlayCanvas = typeof pc !== "undefined" || !!window.pc;
 
-    for (const canvas of canvases) {
-      if (canvas.__three || window.THREE || canvas._threeRenderer) return "threejs";
-      if (typeof THREE !== "undefined") return "threejs";
-      const gl = canvas.getContext("webgl") || canvas.getContext("webgl2");
-      if (gl) return "webgl";
-      const ctx = canvas.getContext("2d");
-      if (ctx) return "canvas2d";
+    let hasWebGL = false;
+    let hasCanvas2D = false;
+    
+    if (hasCanvas) {
+      for (const canvas of canvases) {
+        try {
+          const gl = canvas.getContext("webgl") || canvas.getContext("webgl2") || canvas.getContext("experimental-webgl");
+          if (gl) {
+            hasWebGL = true;
+          } else {
+            const ctx = canvas.getContext("2d");
+            if (ctx) hasCanvas2D = true;
+          }
+        } catch (e) {}
+      }
+    }
+
+    // Check client-side routing / SPA frameworks
+    const hasSPA = !!(
+      window.next || 
+      window.__NEXT_DATA__ || 
+      window.react || 
+      window.__REACT_DEVTOOLS_GLOBAL_HOOK__ || 
+      window.vue || 
+      window.Svelte || 
+      window.angular ||
+      (window.history && window.history.pushState)
+    );
+
+    // Heuristic for mixed mode: has canvas/WebGL and a significant interactive DOM layout (headers, paragraphs, buttons)
+    const paragraphs = document.querySelectorAll("p, span, a, button, h1, h2, h3, h4, h5, h6, input, label").length;
+    const isMixed = (hasWebGL || hasCanvas2D) && paragraphs > 15;
+
+    if (hasThree || hasPixi || hasBabylon || hasPhaser || hasPlayCanvas || hasWebGL) {
+      return isMixed ? "mixed" : "webgl";
+    }
+    if (hasCanvas2D) {
+      return isMixed ? "mixed" : "canvas";
+    }
+    if (hasSPA) {
+      return "spa";
     }
     return "dom";
   }
@@ -537,10 +615,36 @@
     let canvasCtx = null;
 
     if (isCanvas) {
-      if (rendererType === "threejs") canvasCtx = getThreeJSContext(e, target);
-      else if (rendererType === "webgl") canvasCtx = getWebGLContext(e, target);
-      else canvasCtx = { type: "canvas2d", canvas_coords: { x: clickX, y: clickY } };
+      const canvasBbox = target.getBoundingClientRect();
+      const gl = target.getContext("webgl") || target.getContext("webgl2") || target.getContext("experimental-webgl");
+      let baseCtx = {};
+      if (rendererType === "threejs" || window.THREE || target.__three) {
+        baseCtx = getThreeJSContext(e, target);
+      } else if (gl) {
+        baseCtx = getWebGLContext(e, target) || {};
+      }
+      canvasCtx = {
+        ...baseCtx,
+        type: gl ? "webgl" : "canvas2d",
+        canvas_coords: { x: Math.round(clickX - canvasBbox.left), y: Math.round(clickY - canvasBbox.top) },
+        canvas_rect: {
+          x: Math.round(canvasBbox.x),
+          y: Math.round(canvasBbox.y),
+          width: Math.round(canvasBbox.width),
+          height: Math.round(canvasBbox.height),
+          top: Math.round(canvasBbox.top),
+          left: Math.round(canvasBbox.left)
+        },
+        scene_hint: (rendererType === "threejs" || window.THREE || target.__three) ? "Three.js Scene" : gl ? "WebGL Context" : "Canvas 2D Context",
+        pixel_ratio: window.devicePixelRatio || 1,
+        draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
+      };
+      
       try { screenshotDataUrl = target.toDataURL("image/png"); } catch (_) {}
+      
+      if (!domCtx.css_selector || domCtx.css_selector === "canvas" || domCtx.css_selector.split(" > ").pop() === "canvas") {
+        domCtx.css_selector = "visual-canvas-context";
+      }
     } else {
       screenshotDataUrl = await captureScreenshot(target);
     }
@@ -639,6 +743,81 @@
       if (data.sessionId) window.__PIXELMARK__.sessionId = data.sessionId;
       if (data.pageUrl) window.__PIXELMARK__.pageUrl = data.pageUrl;
     }
+
+    if (data.type === "PIXELMARK_TRIGGER_FRAME_CAPTURE") {
+      (async () => {
+        const canvases = document.querySelectorAll("canvas");
+        let screenshotDataUrl = null;
+        let canvasCtx = null;
+        let target = document.body;
+        
+        if (canvases.length > 0) {
+          // Use the largest canvas
+          let largestCanvas = canvases[0];
+          let largestArea = largestCanvas.width * largestCanvas.height;
+          for (const c of canvases) {
+            const area = c.width * c.height;
+            if (area > largestArea) {
+              largestCanvas = c;
+              largestArea = area;
+            }
+          }
+          target = largestCanvas;
+          try { screenshotDataUrl = largestCanvas.toDataURL("image/png"); } catch (_) {}
+          
+          const bbox = largestCanvas.getBoundingClientRect();
+          const gl = largestCanvas.getContext("webgl") || largestCanvas.getContext("webgl2") || largestCanvas.getContext("experimental-webgl");
+          canvasCtx = {
+            type: gl ? "webgl" : "canvas2d",
+            canvas_coords: { x: Math.round(window.innerWidth / 2 - bbox.left), y: Math.round(window.innerHeight / 2 - bbox.top) },
+            canvas_rect: {
+              x: Math.round(bbox.x),
+              y: Math.round(bbox.y),
+              width: Math.round(bbox.width),
+              height: Math.round(bbox.height),
+              top: Math.round(bbox.top),
+              left: Math.round(bbox.left)
+            },
+            scene_hint: gl ? "WebGL Context" : "Canvas 2D Context",
+            pixel_ratio: window.devicePixelRatio || 1,
+            draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
+          };
+        } else {
+          screenshotDataUrl = await captureScreenshot(target);
+        }
+        
+        window.parent.postMessage({
+          type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
+          session_id: window.__PIXELMARK__.sessionId,
+          page_url: window.__PIXELMARK__.pageUrl || window.location.href,
+          page_title: document.title,
+          x: Math.round(window.innerWidth / 2 + window.scrollX),
+          y: Math.round(window.innerHeight / 2 + window.scrollY),
+          viewport_x: Math.round(window.innerWidth / 2),
+          viewport_y: Math.round(window.innerHeight / 2),
+          element_selector: "visual-canvas-context",
+          element_text: "Captured Frame Viewport",
+          element_tag: "CANVAS",
+          aria_label: null,
+          aria_role: null,
+          bounding_box: getBoundingBox(target),
+          issue_type_hint: "canvas_webgl",
+          xpath: "",
+          viewport: getViewportContext().viewport,
+          scroll_position: getViewportContext().scroll_position,
+          renderer_type: window.__PIXELMARK__.rendererType,
+          canvas_context: canvasCtx,
+          screenshot_data_url: screenshotDataUrl,
+          screenshot_required: !!screenshotDataUrl,
+          console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
+          network_errors: window.__PIXELMARK__.networkErrors.slice(-10),
+          browser_info: getBrowserInfo(),
+          created_via: "fallback",
+          agent_version: window.__PIXELMARK__.agentVersion,
+          timestamp: new Date().toISOString(),
+        }, "*");
+      })();
+    }
   });
 
   // ─── DOMContentLoaded init ────────────────────────────────────────────────
@@ -719,6 +898,20 @@
 
     // Capture clicks — capture phase for maximum reliability across all sites
     document.addEventListener("click", handleFeedbackCapture, true);
+
+    // Periodic renderer type checks (useful for late-initialized WebGL canvases)
+    let lastDetectedType = window.__PIXELMARK__.rendererType;
+    setInterval(() => {
+      const currentType = detectRenderer();
+      if (currentType !== lastDetectedType) {
+        lastDetectedType = currentType;
+        window.__PIXELMARK__.rendererType = currentType;
+        window.parent.postMessage({
+          type: "PIXELMARK_RENDERER_CHANGED",
+          rendererType: currentType
+        }, "*");
+      }
+    }, 1000);
   });
 
   // Retry Three.js discovery after dynamic load
