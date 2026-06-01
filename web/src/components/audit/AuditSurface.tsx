@@ -633,7 +633,7 @@ export function AuditSurface({
             src={proxyUrl}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
             allow="accelerometer; autoplay; xr-spatial-tracking; clipboard-read; clipboard-write"
-            style={{ width: "100%", height: "100vh", border: "none" }}
+            style={{ width: "100%", height: "100%", minHeight: "100%", border: "none" }}
             onLoad={() => setIsLoading(false)}
             title="Proxied review site"
           />
@@ -756,10 +756,16 @@ export function AuditSurface({
         </div>
       </div>
 
-      {/* ── Right: Feedback Drawer ─────────────────────────────────────────── */}
+      {/* ── Right: Feedback Drawer (Fully Responsive) ────────────────────── */}
       <div className={cn(
-        "w-96 h-full bg-[#0d0d14] border-l border-white/5 flex flex-col z-50 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] absolute right-0",
-        isDrawerOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"
+        "bg-[#0d0d14] flex flex-col z-55 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] absolute",
+        // Mobile bottom sheet structure
+        "bottom-0 left-0 right-0 w-full h-[60dvh] max-h-[60dvh] rounded-t-[32px] border-t border-white/5",
+        // Desktop/Tablet side panel
+        "md:top-0 md:bottom-0 md:right-0 md:left-auto md:w-96 md:h-full md:rounded-t-none md:border-l md:border-t-0",
+        isDrawerOpen
+          ? "translate-x-0 translate-y-0 opacity-100"
+          : "opacity-0 pointer-events-none translate-y-full md:translate-y-0 md:translate-x-full"
       )}>
 
         {/* Drawer header */}

@@ -16,6 +16,7 @@ import { api } from '@/lib/api'
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { useOverlay as usePixelMarkOverlay } from '@/hooks/useOverlay'
 import { useScreenCapture } from '@/hooks/useScreenCapture'
+import { useViewportHeight } from '@/hooks/useViewportHeight'
 import { useProjectStore } from '@/store/projectStore'
 import { useCommentStore } from '@/store/commentStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
@@ -93,6 +94,17 @@ export default function ProjectPage() {
     }
     initSession()
   }, [id])
+
+  // Below tablet breakpoint, collapse the command center by default on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth < 1024) {
+        toggleCommandCenter(false)
+      } else {
+        toggleCommandCenter(true)
+      }
+    }
+  }, [toggleCommandCenter])
 
   // One-time init — offer screen capture when user first holds Ctrl
   useEffect(() => {
@@ -220,53 +232,61 @@ export default function ProjectPage() {
     </div>
   )
 
+  const viewportHeight = useViewportHeight()
+  const pageStyle = viewportHeight > 0 ? { height: `${viewportHeight}px` } : {}
+
   return (
-    <div className="h-screen bg-[#0a0a0b] flex flex-col overflow-hidden font-sans selection:bg-purple-500/30">
+    <div 
+      style={pageStyle}
+      className="h-screen bg-[#0a0a0b] flex flex-col overflow-hidden font-sans selection:bg-purple-500/30"
+    >
       {/* Premium Navigation Header */}
-      <header className="h-20 border-b border-white/[0.03] flex items-center justify-between px-8 bg-[#0a0a0b]/80 backdrop-blur-3xl z-40 relative">
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={() => router.push('/dashboard')}
-            className="w-10 h-10 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all shadow-xl"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          
-          <div className="h-10 w-[1px] bg-white/5" />
-          
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-black tracking-tighter text-white uppercase">{currentProject?.name}</h1>
-              <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] font-black text-cyan-400 uppercase tracking-widest">Active Audit</span>
+      <header className="min-h-16 h-auto md:h-20 py-3 md:py-0 border-b border-white/[0.03] flex flex-col md:flex-row items-center justify-between px-4 md:px-8 bg-[#0a0a0b]/80 backdrop-blur-3xl z-45 relative gap-3">
+        <div className="flex items-center justify-between w-full md:w-auto gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <button 
+              onClick={() => router.push('/dashboard')}
+              className="w-10 h-10 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all shadow-xl flex-shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            
+            <div className="h-10 w-[1px] bg-white/5 hidden sm:block flex-shrink-0" />
+            
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base md:text-lg font-black tracking-tighter text-white uppercase truncate max-w-[140px] sm:max-w-none">{currentProject?.name}</h1>
+                <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] font-black text-cyan-400 uppercase tracking-widest flex-shrink-0">Active Audit</span>
+              </div>
+              <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5 font-mono truncate max-w-[180px] sm:max-w-xs">{currentProject?.url}</p>
             </div>
-            <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5 font-mono truncate max-w-xs">{currentProject?.url}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 flex-wrap md:flex-nowrap justify-end w-full md:w-auto">
           {/* Design System Button */}
           <Button 
              onClick={() => toggleDesignSystem()}
              variant="outline"
              className={cn(
-               "rounded-2xl h-11 px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all",
+               "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
                isDesignSystemOpen ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/40" : "hover:bg-white/10"
              )}
           >
-             <Palette className="w-4 h-4 mr-2" />
-             Aesthetics Controller
+             <Palette className="w-4 h-4" />
+             <span className="hidden md:inline ml-2">Aesthetics Controller</span>
           </Button>
 
           <Button 
             onClick={() => toggleExportPanel()}
             variant="outline"
             className={cn(
-               "rounded-2xl h-11 px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all",
+               "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
                isExportPanelOpen ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/40" : "hover:bg-white/10"
             )}
           >
-            <Share2 className="w-4 h-4 mr-2" />
-            Export Audit
+            <Share2 className="w-4 h-4" />
+            <span className="hidden md:inline ml-2">Export Audit</span>
           </Button>
 
           <ShareLinkButton 
@@ -274,27 +294,29 @@ export default function ProjectPage() {
             active={isSharePanelOpen}
           />
 
-          <div className="h-10 w-[1px] bg-white/5 mx-2" />
+          <div className="h-10 w-[1px] bg-white/5 mx-1 md:mx-2 hidden sm:block flex-shrink-0" />
           
           <Button 
             onClick={() => toggleCommandCenter()}
             variant={isCommandCenterOpen ? 'default' : 'secondary'}
             className={cn(
-                "rounded-2xl h-11 px-6 text-[10px] font-black uppercase tracking-widest transition-all",
+                "rounded-2xl h-10 md:h-11 px-3 md:px-6 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
                 isCommandCenterOpen 
                     ? "bg-cyan-600 hover:bg-cyan-500 text-black shadow-lg shadow-cyan-900/40" 
                     : "bg-white/5 border border-white/5 text-white/60 hover:text-white"
             )}
           >
-            {isCommandCenterOpen ? <PanelRightClose className="w-4 h-4 mr-2" /> : <PanelRightOpen className="w-4 h-4 mr-2" />}
-            {isCommandCenterOpen ? 'Close Module' : 'Command Center'}
+            {isCommandCenterOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+            <span className="hidden md:inline ml-2">
+              {isCommandCenterOpen ? 'Close Module' : 'Command Center'}
+            </span>
           </Button>
         </div>
       </header>
       
       {/* Main Viewport Substrate */}
       <main className="flex-1 flex overflow-hidden relative" onMouseMove={handleMouseMove}>
-        <div className="flex-1 relative bg-black">
+        <div className="flex-1 relative bg-black h-full overflow-hidden">
           {/* Status Indicator */}
           <div className={cn(
             "absolute bottom-6 left-6 z-30 px-4 py-2 rounded-2xl backdrop-blur-2xl border transition-all flex items-center gap-3",
@@ -312,7 +334,7 @@ export default function ProjectPage() {
                  initial={{ x: -400, opacity: 0 }}
                  animate={{ x: 0, opacity: 1 }}
                  exit={{ x: -400, opacity: 0 }}
-                 className="absolute left-0 top-0 bottom-0 w-[400px] z-50 pointer-events-none"
+                 className="absolute left-0 top-0 bottom-0 w-full sm:w-[400px] z-50 pointer-events-none"
                >
                  <div className="p-6 h-full pointer-events-auto">
                     <DesignSystemPanel projectId={id} />
@@ -354,16 +376,34 @@ export default function ProjectPage() {
           )}
         </div>
 
-        {/* Command Center Slider */}
+        {/* Command Center Slider (Fully Responsive Layout Wrapper) */}
         <AnimatePresence>
             {isCommandCenterOpen && (
                 <motion.div
-                    initial={{ x: 400 }}
-                    animate={{ x: 0 }}
-                    exit={{ x: 400 }}
+                    initial={{ 
+                      x: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 0 : "100%",
+                      y: typeof window !== 'undefined' && window.innerWidth < 768 ? "100%" : 0,
+                    }}
+                    animate={{ x: 0, y: 0 }}
+                    exit={{ 
+                      x: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 400 : "100%",
+                      y: typeof window !== 'undefined' && window.innerWidth < 768 ? "100%" : 0,
+                    }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="w-[400px] bg-[#0c0c0e] border-l border-white/[0.03] shadow-2xl z-40 relative flex-shrink-0"
+                    className={cn(
+                      "bg-[#0c0c0e] shadow-2xl flex flex-col flex-shrink-0 transition-all duration-300",
+                      // Mobile: Bottom sheet styling
+                      "w-full h-[60dvh] absolute bottom-0 left-0 right-0 border-t border-white/[0.05] rounded-t-[32px] z-50 overflow-hidden",
+                      // Tablet: Side drawer overlay
+                      "md:w-[380px] md:h-full md:absolute md:top-0 md:right-0 md:bottom-0 md:left-auto md:border-l md:border-t-0 md:rounded-t-none md:z-50",
+                      // Desktop: Side-by-side layout
+                      "lg:relative lg:w-[400px] lg:z-40"
+                    )}
                 >
+                    {/* Swipe bar for mobile bottom sheet */}
+                    <div className="w-full flex justify-center py-2.5 md:hidden cursor-pointer" onClick={() => toggleCommandCenter()}>
+                      <div className="w-12 h-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
+                    </div>
                     <CommandCenter />
                 </motion.div>
             )}

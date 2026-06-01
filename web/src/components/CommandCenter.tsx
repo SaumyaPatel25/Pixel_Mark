@@ -440,7 +440,7 @@ export default function CommandCenter() {
   }, [filteredComments])
 
   return (
-    <motion.div className="fixed right-8 top-24 w-96 h-[calc(100vh-160px)] flex flex-col bg-[#121216]/95 backdrop-blur-3xl border border-white/5 rounded-[32px] z-50 shadow-2xl overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-[#121216]/95 overflow-hidden">
       {/* Presence Bar */}
       <div className="px-6 py-3 border-b border-white/[0.03] flex items-center justify-between bg-white/[0.02]">
          <div className="flex -space-x-2">
@@ -639,6 +639,6 @@ export default function CommandCenter() {
            )}
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }
