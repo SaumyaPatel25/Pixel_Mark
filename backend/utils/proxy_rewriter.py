@@ -169,6 +169,7 @@ def rewrite_html(
       }}
       window.location.replace(redirectPath);
     }}
+    window.__PIXELMARK_BASE__ = "{api_base_clean}/proxy/session/{session_id}";
     window.__PIXELMARK_SESSION__ = {{
       session_id: "{session_id}",
       proxy_base_url: "{api_base_clean}/proxy/session/{session_id}"
@@ -185,20 +186,33 @@ def rewrite_html(
     agent_script = soup.new_tag("script", src="/static/pixelmark-agent.js")
     agent_script["data-session-id"] = session_id
 
+    # Service worker disabler snippet tag
+    sw_disabler = soup.new_tag("script")
+    sw_disabler.string = """
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
+      });
+    }
+    """
+
     # Append config and agent at the start of head so they execute before other scripts
     if soup.head:
         existing_agents = soup.find_all("script", src=re.compile(r"pixelmark-agent\.js"))
         if not existing_agents:
             soup.head.insert(0, agent_script)
             soup.head.insert(0, config_script)
+        soup.head.append(sw_disabler)
     elif soup.body:
         existing_agents = soup.find_all("script", src=re.compile(r"pixelmark-agent\.js"))
         if not existing_agents:
             soup.body.insert(0, agent_script)
             soup.body.insert(0, config_script)
+        soup.body.insert(0, sw_disabler)
     else:
         soup.insert(0, agent_script)
         soup.insert(0, config_script)
+        soup.insert(0, sw_disabler)
 
     # ─── 7. Remove CSP / frame security restrictions ───
     for meta in soup.find_all("meta"):

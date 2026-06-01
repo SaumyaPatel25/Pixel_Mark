@@ -631,9 +631,9 @@ export function AuditSurface({
           <iframe
             ref={iframeRef}
             src={proxyUrl}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-            allow="clipboard-read; clipboard-write"
-            className="w-full h-full border-0 bg-white"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            allow="accelerometer; autoplay; xr-spatial-tracking"
+            style={{ width: "100%", height: "100vh", border: "none" }}
             onLoad={() => setIsLoading(false)}
             title="Proxied review site"
           />

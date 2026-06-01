@@ -122,7 +122,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                     content_type = resp.headers.get("content-type", "application/octet-stream")
                                     
                                     if "text/html" in content_type:
-                                        from routes.proxy import rewrite_html, record_page_visit
+                                        from routes.proxy import rewrite_html, record_page_visit, prepare_proxy_response
                                         
                                         # Record the subpage visit history robustly using core logic
                                         await record_page_visit(
@@ -135,18 +135,13 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                         api_base = os.getenv("API_BASE", "")
                                         rewritten_html = rewrite_html(resp.text, session.id, target_url, base_url, api_base)
                                         response = FAResponse(content=rewritten_html.encode("utf-8"), media_type="text/html")
-                                        
-                                        # Strip security headers
-                                        if "Content-Security-Policy" in response.headers:
-                                            del response.headers["Content-Security-Policy"]
-                                        if "X-Frame-Options" in response.headers:
-                                            del response.headers["X-Frame-Options"]
                                     else:
+                                        from routes.proxy import prepare_proxy_response
                                         response = FAResponse(content=resp.content, media_type=content_type, status_code=resp.status_code)
                                     
                                     # Set/Refresh session cookie
                                     response.set_cookie("pixelmark_session_id", session_id, path="/", httponly=True, max_age=86400)
-                                    return response
+                                    return prepare_proxy_response(response)
                             except Exception as e:
                                 pass
                                 

@@ -129,6 +129,24 @@ async def validate_public_access(session_id: str, share_token: str, db: AsyncSes
     return link
 
 
+def prepare_proxy_response(response: Response) -> Response:
+    headers_to_remove = [
+        "x-frame-options",
+        "content-security-policy",
+        "content-security-policy-report-only",
+        "x-content-type-options",
+        "permissions-policy",
+    ]
+    for h in list(response.headers.keys()):
+        if h.lower() in headers_to_remove:
+            response.headers.pop(h, None)
+            
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
+
 @router.get("/session/{session_id}")
 async def proxy_initial(
     session_id: str,
@@ -159,11 +177,11 @@ async def proxy_initial(
             resp = await client.get(base_url, headers=headers)
             
             if resp.status_code >= 400:
-                return Response(
+                return prepare_proxy_response(Response(
                     content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target site {base_url} returned status code {resp.status_code}.</p></body></html>",
                     media_type="text/html",
                     status_code=503
-                )
+                ))
                 
             content_type = resp.headers.get("content-type", "text/html")
             
@@ -192,20 +210,16 @@ async def proxy_initial(
                 
                 response.set_cookie("pixelmark_session_id", session_id, path="/", httponly=True, max_age=86400)
                 
-                if "Content-Security-Policy" in response.headers:
-                    del response.headers["Content-Security-Policy"]
-                if "X-Frame-Options" in response.headers:
-                    del response.headers["X-Frame-Options"]
-                return response
+                return prepare_proxy_response(response)
             else:
-                return Response(content=resp.content, media_type=content_type)
+                return prepare_proxy_response(Response(content=resp.content, media_type=content_type))
                 
     except Exception as e:
-        return Response(
+        return prepare_proxy_response(Response(
             content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target site {base_url} is unreachable.</p><p style='color:gray;'>{str(e)}</p></body></html>",
             media_type="text/html",
             status_code=503
-        )
+        ))
 
 
 @router.get("/session/{session_id}/page")
@@ -243,11 +257,11 @@ async def proxy_page(
             resp = await client.get(url, headers=headers)
             
             if resp.status_code >= 400:
-                return Response(
+                return prepare_proxy_response(Response(
                     content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target page {url} returned status code {resp.status_code}.</p></body></html>",
                     media_type="text/html",
                     status_code=503
-                )
+                ))
                 
             content_type = resp.headers.get("content-type", "text/html")
             
@@ -277,24 +291,21 @@ async def proxy_page(
                 
                 response.set_cookie("pixelmark_session_id", session_id, path="/", httponly=True, max_age=86400)
                 
-                if "Content-Security-Policy" in response.headers:
-                    del response.headers["Content-Security-Policy"]
-                if "X-Frame-Options" in response.headers:
-                    del response.headers["X-Frame-Options"]
-                return response
+                return prepare_proxy_response(response)
             else:
-                return Response(content=resp.content, media_type=content_type)
+                return prepare_proxy_response(Response(content=resp.content, media_type=content_type))
                 
     except Exception as e:
-        return Response(
+        return prepare_proxy_response(Response(
             content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target page {url} is unreachable.</p><p style='color:gray;'>{str(e)}</p></body></html>",
             media_type="text/html",
             status_code=503
-        )
+        ))
 
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
+
 
 def get_cached_asset(url: str) -> tuple[bytes, str]:
     url_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
@@ -310,6 +321,7 @@ def get_cached_asset(url: str) -> tuple[bytes, str]:
         except Exception:
             pass
     return None, None
+
 
 def save_cached_asset(url: str, content: bytes, content_type: str):
     cachable_types = ("image/", "font/", "application/javascript", "text/css", "application/wasm", "model/gltf", "application/octet-stream")
@@ -333,6 +345,7 @@ def save_cached_asset(url: str, content: bytes, content_type: str):
     except Exception:
         pass
 
+
 async def handle_proxy_asset_request(
     session_id: str,
     url: str,
@@ -345,10 +358,10 @@ async def handle_proxy_asset_request(
         raise HTTPException(status_code=403, detail="SSRF target blocked")
     if not is_domain_allowed(url, base_url, is_asset=True):
         if ".js" in url or "javascript" in url:
-            return Response(
+            return prepare_proxy_response(Response(
                 content=f'console.warn("PixelMark Warning: Script asset blocked by domain scoping: {url}");'.encode("utf-8"),
                 media_type="application/javascript"
-            )
+            ))
         raise HTTPException(status_code=403, detail="Asset target blocked: Out of domain scope")
 
     cached_content, cached_type = get_cached_asset(url)
@@ -356,7 +369,7 @@ async def handle_proxy_asset_request(
         response = Response(content=cached_content, media_type=cached_type)
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         response.headers["X-PixelMark-Cache"] = "HIT"
-        return response
+        return prepare_proxy_response(response)
 
     try:
         headers = {
@@ -383,30 +396,27 @@ async def handle_proxy_asset_request(
             
             if resp.status_code >= 400:
                 if ".js" in url or "javascript" in url:
-                    return Response(
+                    return prepare_proxy_response(Response(
                         content=f'console.warn("PixelMark Warning: Script asset returned status {resp.status_code}: {url}");'.encode("utf-8"),
                         media_type="application/javascript"
-                    )
+                    ))
                 raise HTTPException(status_code=resp.status_code, detail=f"Asset fetch returned {resp.status_code}")
                 
             content_type = resp.headers.get("content-type", "application/octet-stream")
             save_cached_asset(url, resp.content, content_type)
             
             response = Response(content=resp.content, media_type=content_type)
-            for header_name in ("Content-Security-Policy", "X-Frame-Options", "Frame-Ancestors"):
-                if header_name in response.headers:
-                    del response.headers[header_name]
-                    
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
             response.headers["X-PixelMark-Cache"] = "MISS"
-            return response
+            return prepare_proxy_response(response)
     except Exception as e:
         if ".js" in url or "javascript" in url:
-            return Response(
+            return prepare_proxy_response(Response(
                 content=f'console.warn("PixelMark Warning: Script asset failed to connect: {url} ({str(e)})");'.encode("utf-8"),
                 media_type="application/javascript"
-            )
+            ))
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/session/{session_id}/asset")
 async def proxy_asset(
@@ -416,6 +426,7 @@ async def proxy_asset(
     db: AsyncSession = Depends(get_db)
 ):
     return await handle_proxy_asset_request(session_id, url, request, db)
+
 
 @router.get("/session/{session_id}/asset/{scheme}/{host}/{path:path}")
 async def proxy_asset_path(
@@ -478,9 +489,9 @@ async def proxy_form(
                     api_base=api_base
                 )
                 response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
-                return response
+                return prepare_proxy_response(response)
             else:
-                return Response(content=resp.content, media_type=content_type)
+                return prepare_proxy_response(Response(content=resp.content, media_type=content_type))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -76,25 +76,65 @@
     });
   }, true);
 
-  // ─── Network error interception ───────────────────────────────────────────
-  const originalFetch = window.fetch;
-  window.fetch = async function(...args) {
+  // ─── Client-side Asset URL Rewrite Helper ─────────────────────────────────
+  function rewriteAssetUrl(url) {
+    if (!url || typeof url !== 'string') return url;
+    if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('javascript:')) {
+      return url;
+    }
+    if (url.includes('/proxy/session/')) {
+      return url;
+    }
+
+    let absoluteUrl = url;
     try {
-      const response = await originalFetch.apply(this, args);
+      const pageUrl = window.__PIXELMARK__?.pageUrl || window.location.href;
+      absoluteUrl = new URL(url, pageUrl).href;
+    } catch (e) {
+      return url;
+    }
+
+    const pmBase = window.__PIXELMARK_BASE__ || (window.__PIXELMARK_SESSION__?.proxy_base_url) || (window.__PIXELMARK__?.proxy_base_url);
+    if (pmBase) {
+      return `${pmBase}/asset?url=${encodeURIComponent(absoluteUrl)}`;
+    }
+    return url;
+  }
+
+  // ─── Network error interception & fetch/XHR proxy rewriting ─────────────
+  const originalFetch = window.fetch;
+  window.fetch = async function(input, init) {
+    let url = typeof input === 'string' ? input : input?.url;
+    if (url && typeof url === 'string') {
+      const rewritten = rewriteAssetUrl(url);
+      if (rewritten !== url) {
+        if (typeof input === 'string') {
+          input = rewritten;
+        } else if (input && typeof input === 'object') {
+          try {
+            input = new Request(rewritten, input);
+          } catch (e) {
+            try { Object.defineProperty(input, 'url', { value: rewritten }); } catch (_) {}
+          }
+        }
+      }
+    }
+    try {
+      const response = await originalFetch.call(this, input, init);
       if (response && response.status >= 400) {
         pushCircular(window.__PIXELMARK__.networkErrors, {
           url: response.url,
           status: response.status,
-          method: args[1]?.method || "GET",
+          method: init?.method || "GET",
           timestamp: new Date().toISOString()
         });
       }
       return response;
     } catch (err) {
       pushCircular(window.__PIXELMARK__.networkErrors, {
-        url: typeof args[0] === 'string' ? args[0] : args[0]?.url || "unknown",
+        url: typeof input === 'string' ? input : input?.url || "unknown",
         status: 0,
-        method: args[1]?.method || "GET",
+        method: init?.method || "GET",
         timestamp: new Date().toISOString()
       });
       throw err;
@@ -102,9 +142,12 @@
   };
 
   const originalXHROpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function(method, ...args) {
+  XMLHttpRequest.prototype.open = function(method, url, ...args) {
+    if (url && typeof url === 'string') {
+      url = rewriteAssetUrl(url);
+    }
     this._method = method;
-    return originalXHROpen.apply(this, [method, ...args]);
+    return originalXHROpen.apply(this, [method, url, ...args]);
   };
 
   const originalXHRSend = XMLHttpRequest.prototype.send;
@@ -711,14 +754,27 @@
     }, "*");
   }
 
-  // ─── pointerdown: block default only for feedback interactions ────────────
-  // NOTE: No ctrlKey checks anywhere.
-  document.addEventListener("pointerdown", (e) => {
-    if (e.altKey || feedbackModeActive) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }, true);
+  let isAgentReady = false;
+  let pointerListenersAttached = false;
+
+  function dispatchLayoutEvents() {
+    window.dispatchEvent(new Event('resize'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  }
+
+  function attachPointerListeners() {
+    if (pointerListenersAttached) return;
+    pointerListenersAttached = true;
+
+    document.addEventListener("pointerdown", (e) => {
+      if (e.altKey || feedbackModeActive) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+
+    document.addEventListener("click", handleFeedbackCapture, true);
+  }
 
   // ─── Page lifecycle messages to parent ────────────────────────────────────
   window.addEventListener("beforeunload", () => {
@@ -734,6 +790,10 @@
     if (!data || typeof data !== "object") return;
 
     if (data.type === "PIXELMARK_TOGGLE_MARKER_MODE") {
+      if (!isAgentReady) {
+        window.__pendingToggle = !!data.active;
+        return;
+      }
       feedbackModeActive = !!data.active;
       updateFeedbackModeUI();
     }
@@ -896,8 +956,30 @@
       rendererType: window.__PIXELMARK__.rendererType,
     }, "*");
 
-    // Capture clicks — capture phase for maximum reliability across all sites
-    document.addEventListener("click", handleFeedbackCapture, true);
+    // Check if it's a heavy render page (contains canvas or WebGL renderer)
+    const isHeavyPage = (window.__PIXELMARK__.rendererType === "webgl" || 
+                         window.__PIXELMARK__.rendererType === "mixed" || 
+                         document.querySelector("canvas") !== null);
+
+    if (isHeavyPage) {
+      // Delay enabling pointer listeners and overlay by 1500ms to let WebGL scene stabilize
+      setTimeout(() => {
+        isAgentReady = true;
+        attachPointerListeners();
+        
+        // Process any queued feedback mode toggles
+        if (typeof window.__pendingToggle !== 'undefined') {
+          feedbackModeActive = window.__pendingToggle;
+          delete window.__pendingToggle;
+          updateFeedbackModeUI();
+        }
+        
+        dispatchLayoutEvents();
+      }, 1500);
+    } else {
+      isAgentReady = true;
+      attachPointerListeners();
+    }
 
     // Periodic renderer type checks (useful for late-initialized WebGL canvases)
     let lastDetectedType = window.__PIXELMARK__.rendererType;
@@ -914,8 +996,23 @@
     }, 1000);
   });
 
-  // Retry Three.js discovery after dynamic load
-  setTimeout(discoverThreeScene, 500);
-  setTimeout(discoverThreeScene, 2000);
+  // Dispatch layout events immediately on script injection
+  dispatchLayoutEvents();
+
+  // Retry Three.js discovery and layout hints after dynamic load
+  setTimeout(() => {
+    discoverThreeScene();
+    dispatchLayoutEvents();
+  }, 500);
+
+  setTimeout(() => {
+    discoverThreeScene();
+    dispatchLayoutEvents();
+  }, 1500);
+
+  setTimeout(() => {
+    discoverThreeScene();
+    dispatchLayoutEvents();
+  }, 3000);
 
 })();
