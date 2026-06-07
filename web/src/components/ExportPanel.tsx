@@ -58,7 +58,13 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
       const url = `${BASE}/export?project_id=${projectId}&format=${format}`
       console.log('[Export] Fetching:', url)
 
-      const res = await fetch(url)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
+      const headers: Record<string, string> = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const res = await fetch(url, { headers })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err?.message ?? `HTTP ${res.status}`)
@@ -83,7 +89,12 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
 
   const copyMarkdown = async () => {
     try {
-      const res  = await fetch(`${BASE}/export?project_id=${projectId}&format=markdown`)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
+      const headers: Record<string, string> = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      const res  = await fetch(`${BASE}/export?project_id=${projectId}&format=markdown`, { headers })
       const text = await res.text()
       await navigator.clipboard.writeText(text)
       setCopied(true)
