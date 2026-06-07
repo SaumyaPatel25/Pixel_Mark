@@ -83,7 +83,7 @@ def test_protected_route_redirect():
         # Navigate to dashboard without login
         page.goto(f"{VERCEL_URL}/dashboard")
         # Should redirect to login
-        page.wait_for_url("**/login", timeout=10000)
+        page.wait_for_url(lambda url: "/login" in url, timeout=10000)
         assert "/login" in page.url
         browser.close()
         print("Protected Route Redirect: PASS")
