@@ -49,6 +49,16 @@ class SessionRead(BaseModel):
     pages_visited: Optional[int] = 0  # backward compatibility mapping
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    # Heavy render metadata (Step 2E)
+    renderer_type: Optional[str] = None
+    heavy_mode: bool = False
+    conservative_render_mode: bool = False
+    render_detected_at: Optional[datetime] = None
+    canvas_count: Optional[int] = None
+    has_webgl: Optional[bool] = None
+    has_three_js: Optional[bool] = None
+    
     class Config: from_attributes = True
 
 class SessionOut(SessionRead):
@@ -58,6 +68,20 @@ class SessionUpdate(BaseModel):
     title: Optional[str] = None
     current_page_url: Optional[str] = None
     pages_visited_count: Optional[int] = None
+    renderer_type: Optional[str] = None
+    heavy_mode: Optional[bool] = None
+    conservative_render_mode: Optional[bool] = None
+    render_detected_at: Optional[datetime] = None
+    canvas_count: Optional[int] = None
+    has_webgl: Optional[bool] = None
+    has_three_js: Optional[bool] = None
+
+class SessionRendererUpdate(BaseModel):
+    renderer_type: str
+    has_canvas: bool
+    canvas_count: int
+    raf_detected: bool
+    three_detected: bool
 
 # Markers
 class MarkerCreate(BaseModel):
@@ -96,6 +120,9 @@ class MarkerCreate(BaseModel):
     y: Optional[float] = None
     viewport_x: Optional[float] = None
     viewport_y: Optional[float] = None
+    norm_x: Optional[float] = None
+    norm_y: Optional[float] = None
+    canvas_snapshot: Optional[str] = None
     element_selector: Optional[str] = None
     element_text: Optional[str] = None
     element_tag: Optional[str] = None
@@ -158,6 +185,9 @@ class MarkerRead(BaseModel):
     y: Optional[float] = None
     viewport_x: Optional[float] = None
     viewport_y: Optional[float] = None
+    norm_x: Optional[float] = None
+    norm_y: Optional[float] = None
+    canvas_snapshot: Optional[str] = None
     element_selector: Optional[str] = None
     element_text: Optional[str] = None
     element_tag: Optional[str] = None

@@ -7,6 +7,8 @@ import { useCommentStore } from '@/store/commentStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
 import { useOverlayStore } from '@/store/overlayStore'
 import { useProjectStore } from '@/store/projectStore'
+import { useSessionStore } from '@/store/sessionStore'
+import { useUIStore } from '@/store/uiStore'
 import { Button } from '@/components/ui/button'
 import { MarkerGroup } from '@/components/command-center/MarkerGroup'
 import { SessionReplay } from './SessionReplay'
@@ -313,6 +315,7 @@ export default function CommandCenter() {
   const addComment = useCommentStore(state => state.addComment)
   const activeTesters = useRealtimeStore(state => state.activeTesters)
   const { pendingMarker, clearPending } = useOverlayStore()
+  const { heavy_mode } = useSessionStore()
 
   const [text, setText] = useState('')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -441,8 +444,8 @@ export default function CommandCenter() {
 
   return (
     <div className="w-full h-full flex flex-col bg-[#121216]/95 overflow-hidden">
-      {/* Presence Bar */}
-      <div className="px-6 py-3 border-b border-white/[0.03] flex items-center justify-between bg-white/[0.02]">
+      {/* Presence Bar (hidden on mobile to save vertical sheet space) */}
+      <div className="px-6 py-3 border-b border-white/[0.03] flex items-center justify-between bg-white/[0.02] max-md:hidden">
          <div className="flex -space-x-2">
             <AnimatePresence>
               {activeTesters.map((t) => (
@@ -472,12 +475,24 @@ export default function CommandCenter() {
           <h2 className="text-xl font-black tracking-tighter text-white">Command Center</h2>
           <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Audit Enrichment Stream</p>
         </div>
-        <button 
-          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-          className={`p-2 rounded-xl border transition-all ${isSettingsOpen ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-900/40' : 'bg-white/5 border-white/5 text-white/20 hover:text-white/40'}`}
-        >
-          <Activity className={`w-4 h-4 ${isSettingsOpen ? 'animate-spin-slow' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            aria-label="Toggle export settings"
+            className={`p-2 rounded-xl border transition-all focus:ring-2 focus:ring-cyan-400 outline-none ${isSettingsOpen ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-900/40' : 'bg-white/5 border-white/5 text-white/20 hover:text-white/40'}`}
+          >
+            <Activity className={`w-4 h-4 ${isSettingsOpen ? 'animate-spin-slow' : ''}`} />
+          </button>
+          
+          <button
+            id="close-command-center-btn"
+            onClick={() => useUIStore.getState().toggleCommandCenter(false)}
+            aria-label="Close Command Center Drawer"
+            className="p-2 rounded-xl bg-white/5 border border-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all lg:hidden focus:ring-2 focus:ring-cyan-400 outline-none"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Pages Tabs */}
@@ -538,23 +553,37 @@ export default function CommandCenter() {
               exit={{ height: 0, opacity: 0 }}
               className="space-y-4 pt-2"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-purple-500/10 border border-purple-500/20">
-                  <Code className="w-3 h-3 text-purple-400" />
-                  <span className="text-[9px] font-mono text-purple-400 font-bold">{pendingMarker.selector}</span>
+              {heavy_mode ? (
+                <div className="flex items-center justify-between bg-cyan-950/20 border border-cyan-500/20 p-3.5 rounded-2xl select-none">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-cyan-400 font-extrabold animate-pulse">⬡</span>
+                    <span className="text-[9px] font-black uppercase text-cyan-400 tracking-wider">WebGL / Canvas Target Selected</span>
+                  </div>
+                  <button onClick={clearPending} className="p-1 hover:bg-white/5 rounded-full transition-colors">
+                    <X className="w-4 h-4 text-white/40" />
+                  </button>
                 </div>
-                <button onClick={clearPending} className="p-1 hover:bg-white/5 rounded-full transition-colors">
-                  <X className="w-4 h-4 text-white/20" />
-                </button>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-purple-500/10 border border-purple-500/20">
+                      <Code className="w-3 h-3 text-purple-400" />
+                      <span className="text-[9px] font-mono text-purple-400 font-bold">{pendingMarker.selector}</span>
+                    </div>
+                    <button onClick={clearPending} className="p-1 hover:bg-white/5 rounded-full transition-colors">
+                      <X className="w-4 h-4 text-white/20" />
+                    </button>
+                  </div>
 
-              <ElementPreview
-                selector={pendingMarker.selector}
-                tagName={pendingMarker.tagName || 'ELEMENT'}
-                innerText={pendingMarker.innerText || ''}
-                xpath={pendingMarker.xpath || ''}
-                markerNumber={pendingMarker.number}
-              />
+                  <ElementPreview
+                    selector={pendingMarker.selector}
+                    tagName={pendingMarker.tagName || 'ELEMENT'}
+                    innerText={pendingMarker.innerText || ''}
+                    xpath={pendingMarker.xpath || ''}
+                    markerNumber={pendingMarker.number}
+                  />
+                </>
+              )}
               {!localStorage.getItem('tester_name') && (
                 <input
                   placeholder="Audit Signature (Your Name)"

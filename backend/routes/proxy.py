@@ -15,6 +15,9 @@ from datetime import datetime
 
 router = APIRouter(prefix="/proxy", tags=["proxy"])
 
+import logging
+logger = logging.getLogger("pixelmark.proxy")
+
 # Active IP sessions tracking for fallback resolution
 ACTIVE_IP_SESSIONS = {}
 
@@ -27,56 +30,61 @@ async def record_page_visit(
     share_link_id: str = None,
     parent_page_id: str = None
 ) -> PageVisit:
-    # Check if a PageVisit for this session + page_url exists
-    result = await db.execute(
-        select(PageVisit).where(
-            PageVisit.session_id == session_id,
-            PageVisit.page_url == page_url
-        ).order_by(PageVisit.visited_at.desc())
-    )
-    pv = result.scalars().first()
-    
-    if pv:
-        pv.visit_count = (pv.visit_count or 0) + 1
-        pv.last_visited_at = datetime.utcnow()
-        if page_title:
-            pv.page_title = page_title
-    else:
-        # Determine the page order
-        order_res = await db.execute(
-            select(func.count(PageVisit.id)).where(PageVisit.session_id == session_id)
+    try:
+        # Check if a PageVisit for this session + page_url exists
+        result = await db.execute(
+            select(PageVisit).where(
+                PageVisit.session_id == session_id,
+                PageVisit.page_url == page_url
+            ).order_by(PageVisit.visited_at.desc())
         )
-        count = order_res.scalar() or 0
+        pv = result.scalars().first()
         
-        pv = PageVisit(
-            id=str(uuid.uuid4()),
-            session_id=session_id,
-            page_url=page_url,
-            page_title=page_title,
-            share_link_id=share_link_id,
-            parent_page_id=parent_page_id,
-            page_order=count + 1,
-            visit_count=1,
-            first_visited_at=datetime.utcnow(),
-            last_visited_at=datetime.utcnow()
+        if pv:
+            pv.visit_count = (pv.visit_count or 0) + 1
+            pv.last_visited_at = datetime.utcnow()
+            if page_title:
+                pv.page_title = page_title
+        else:
+            # Determine the page order
+            order_res = await db.execute(
+                select(func.count(PageVisit.id)).where(PageVisit.session_id == session_id)
+            )
+            count = order_res.scalar() or 0
+            
+            pv = PageVisit(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                page_url=page_url,
+                page_title=page_title,
+                share_link_id=share_link_id,
+                parent_page_id=parent_page_id,
+                page_order=count + 1,
+                visit_count=1,
+                first_visited_at=datetime.utcnow(),
+                last_visited_at=datetime.utcnow()
+            )
+            db.add(pv)
+            
+        # Update session details
+        sess_res = await db.execute(
+            select(Session).where(Session.id == session_id)
         )
-        db.add(pv)
-        
-    # Update session details
-    sess_res = await db.execute(
-        select(Session).where(Session.id == session_id)
-    )
-    sess = sess_res.scalar_one_or_none()
-    if sess:
-        sess.current_page_url = page_url
-        sess.pages_visited = (sess.pages_visited or 0) + 1
-        
-    await db.commit()
-    return pv
+        sess = sess_res.scalar_one_or_none()
+        if sess:
+            sess.current_page_url = page_url
+            sess.pages_visited = (sess.pages_visited or 0) + 1
+            
+        await db.commit()
+        return pv
+    except Exception as e:
+        logger.error(f"[OBSERVABILITY] [PAGE_VISIT_RECORD_FAILURE] Failed to record page visit. session={session_id}, url={page_url}, error={str(e)}")
+        raise e
 
-async def resolve_session_base_url(session_id: str, db: AsyncSession) -> tuple[str, str]:
+
+async def resolve_session_base_url(session_id: str, db: AsyncSession) -> tuple[str, str, Session]:
     """
-    Given a session_id, queries session and project details and returns (base_url, project_id).
+    Given a session_id, queries session and project details and returns (base_url, project_id, session).
     Raises HTTPException if not found or config is missing.
     """
     result = await db.execute(select(Session).where(Session.id == session_id))
@@ -106,7 +114,7 @@ async def resolve_session_base_url(session_id: str, db: AsyncSession) -> tuple[s
     if not base_url:
         raise HTTPException(status_code=400, detail="No base URL configured for the project.")
         
-    return base_url, project.id
+    return base_url, project.id, session
 
 async def validate_public_access(session_id: str, share_token: str, db: AsyncSession) -> ShareLink:
     """
@@ -155,8 +163,12 @@ async def proxy_initial(
     session_id: str,
     request: Request,
     share_token: str = Query(None),
+    snapshot_mode: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
+    from utils.guardrails import check_navigation_loop
+    check_navigation_loop(request)
+    
     try:
         uuid.UUID(session_id)
     except ValueError:
@@ -165,7 +177,7 @@ async def proxy_initial(
     client_host = request.client.host if request.client else "unknown"
     ACTIVE_IP_SESSIONS[client_host] = session_id
         
-    base_url, project_id = await resolve_session_base_url(session_id, db)
+    base_url, project_id, session = await resolve_session_base_url(session_id, db)
     
     share_link_id = None
     if share_token:
@@ -208,7 +220,9 @@ async def proxy_initial(
                     session_id=session_id, 
                     page_url=base_url, 
                     base_url=base_url, 
-                    api_base=api_base
+                    api_base=api_base,
+                    conservative_render_mode=session.conservative_render_mode,
+                    snapshot_mode=snapshot_mode
                 )
                 
                 response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
@@ -244,8 +258,12 @@ async def proxy_page(
     request: Request,
     parent_page_id: str = Query(None),
     share_token: str = Query(None),
+    snapshot_mode: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
+    from utils.guardrails import check_navigation_loop
+    check_navigation_loop(request)
+
     try:
         uuid.UUID(session_id)
     except ValueError:
@@ -254,19 +272,19 @@ async def proxy_page(
     client_host = request.client.host if request.client else "unknown"
     ACTIVE_IP_SESSIONS[client_host] = session_id
         
-    base_url, project_id = await resolve_session_base_url(session_id, db)
+    base_url, project_id, session = await resolve_session_base_url(session_id, db)
     
     share_link_id = None
     if share_token:
         link = await validate_public_access(session_id, share_token, db)
         share_link_id = link.id
-
+ 
     # Enforce domain scoping and SSRF safety
     if not is_ssrf_safe(url):
         raise HTTPException(status_code=403, detail="SSRF target blocked: Loopback or private IP ranges are restricted.")
     if not is_domain_allowed(url, base_url):
         raise HTTPException(status_code=403, detail="Navigation blocked: Exiting session allowed domain boundary.")
-
+ 
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -301,7 +319,9 @@ async def proxy_page(
                     session_id=session_id, 
                     page_url=url, 
                     base_url=base_url, 
-                    api_base=api_base
+                    api_base=api_base,
+                    conservative_render_mode=session.conservative_render_mode,
+                    snapshot_mode=snapshot_mode
                 )
                 
                 response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
@@ -351,8 +371,8 @@ def get_cached_asset(url: str) -> tuple[bytes, str]:
 
 
 def save_cached_asset(url: str, content: bytes, content_type: str):
-    cachable_types = ("image/", "font/", "application/javascript", "text/css", "application/wasm", "model/gltf", "application/octet-stream")
-    cachable_exts = (".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".glb", ".gltf", ".wasm", ".ico")
+    cachable_types = ("image/", "font/", "application/javascript", "text/css", "application/wasm", "model/gltf", "application/octet-stream", "image/vnd.radiance")
+    cachable_exts = (".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".glb", ".gltf", ".wasm", ".ico", ".hdr", ".exr")
     
     parsed = urllib.parse.urlparse(url)
     ext = os.path.splitext(parsed.path)[1].lower()
@@ -372,29 +392,67 @@ def save_cached_asset(url: str, content: bytes, content_type: str):
     except Exception:
         pass
 
-
 async def handle_proxy_asset_request(
     session_id: str,
     url: str,
     request: Request,
     db: AsyncSession
 ):
-    base_url, _ = await resolve_session_base_url(session_id, db)
+    base_url, _, session = await resolve_session_base_url(session_id, db)
     
-    is_third_party = False
-    try:
+    # Store target origin from base_url
+    parsed_base = urllib.parse.urlparse(base_url)
+    target_origin = f"{parsed_base.scheme}://{parsed_base.netloc}"
+    
+    # If the URL is relative or lacks a host, resolve it against target origin
+    # to enforce target-origin asset resolution.
+    parsed_target = urllib.parse.urlparse(url)
+    if not parsed_target.netloc:
+        url = urllib.parse.urljoin(target_origin, url)
         parsed_target = urllib.parse.urlparse(url)
-        parsed_base = urllib.parse.urlparse(base_url)
-        is_third_party = parsed_target.netloc != parsed_base.netloc
-    except Exception:
-        pass
         
+    is_third_party = parsed_target.netloc != parsed_base.netloc
+        
+    # Guardrail: Circuit Breaker for failing asset routes
+    from utils.guardrails import check_circuit_breaker, record_domain_failure, record_domain_success, CircuitBreakerTripped
+    try:
+        check_circuit_breaker(url)
+    except CircuitBreakerTripped as cbt:
+        logger.warning(f"[CIRCUIT_BREAKER] [TRIPPED] Short-circuiting request to {url} immediately.")
+        return prepare_proxy_response(Response(content=b"", status_code=204))
+
+    # Check allow/block policy for third-party requests
+    if is_third_party:
+        is_analytics_or_tracker = any(domain in url for domain in (
+            "google-analytics.com", "googletagmanager.com", "mixpanel.com", 
+            "hotjar.com", "doubleclick.net", "facebook.net", "facebook.com", "amplitude.com"
+        ))
+        is_firebase_or_config = any(term in url.lower() for term in ("firebase", "webconfig", "bootstrap", "manifest.json", "config.json"))
+        
+        if is_analytics_or_tracker:
+            logger.info(f"[ASSET RESOLVER] [THIRD_PARTY POLICY] BLOCKED tracking/analytics request. Path: {request.url.path}, Resolved: {url}, Status: BLOCKED")
+            if ".js" in url or "javascript" in url:
+                return prepare_proxy_response(Response(
+                    content=f'console.warn("PixelMark Warning: Tracker request blocked safely: {url}");'.encode("utf-8"),
+                    media_type="application/javascript"
+                ))
+            content = b"{}" if "json" in url or "config" in url else b""
+            media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
+            return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
+        
+        elif is_firebase_or_config:
+            logger.info(f"[ASSET RESOLVER] [THIRD_PARTY POLICY] ALLOWED configuration request: {url}")
+        else:
+            logger.info(f"[ASSET RESOLVER] [THIRD_PARTY POLICY] ALLOWED standard CDN/asset request: {url}")
+
     if not is_ssrf_safe(url):
+        logger.warning(f"[ASSET RESOLVER] SSRF target blocked: {url}")
         if is_third_party:
             return prepare_proxy_response(Response(content=b"", status_code=204))
         raise HTTPException(status_code=403, detail="SSRF target blocked")
         
     if not is_domain_allowed(url, base_url, is_asset=True):
+        logger.warning(f"[ASSET RESOLVER] Asset domain scoping block: {url}")
         if ".js" in url or "javascript" in url:
             return prepare_proxy_response(Response(
                 content=f'console.warn("PixelMark Warning: Script asset blocked by domain scoping: {url}");'.encode("utf-8"),
@@ -408,6 +466,7 @@ async def handle_proxy_asset_request(
 
     cached_content, cached_type = get_cached_asset(url)
     if cached_content is not None:
+        logger.info(f"[ASSET RESOLVER] Requested URL: {request.url.path}, Resolved URL: {url}, Status: CACHE_HIT")
         response = Response(content=cached_content, media_type=cached_type)
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         response.headers["X-PixelMark-Cache"] = "HIT"
@@ -433,10 +492,35 @@ async def handle_proxy_asset_request(
             else:
                 headers["Referer"] = referer
 
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
-            resp = await client.get(url, headers=headers)
-            
+        # Manual redirect following & loop safety validation
+        current_url = url
+        redirect_count = 0
+        max_redirects = 5
+        resp = None
+        
+        async with httpx.AsyncClient(follow_redirects=False, timeout=10.0, verify=False) as client:
+            while redirect_count < max_redirects:
+                if not is_ssrf_safe(current_url):
+                    logger.warning(f"[REDIRECT SAFEGUARD] SSRF target blocked: {current_url}")
+                    return prepare_proxy_response(Response(content=b"", status_code=204))
+                if not is_domain_allowed(current_url, base_url, is_asset=True):
+                    logger.warning(f"[REDIRECT SAFEGUARD] Redirect escaped domain scope: {current_url}")
+                    return prepare_proxy_response(Response(content=b"", status_code=204))
+                
+                resp = await client.get(current_url, headers=headers)
+                if resp.status_code in (301, 302, 303, 307, 308):
+                    redirect_url = resp.headers.get("location", "")
+                    if not redirect_url:
+                        break
+                    current_url = urllib.parse.urljoin(current_url, redirect_url)
+                    redirect_count += 1
+                    logger.info(f"[REDIRECT SAFEGUARD] Following redirect {redirect_count}: {current_url}")
+                else:
+                    break
+
             if resp.status_code >= 400:
+                record_domain_failure(url)
+                logger.warning(f"[ASSET RESOLVER] Target server returned {resp.status_code} for URL: {url}")
                 if ".js" in url or "javascript" in url:
                     return prepare_proxy_response(Response(
                         content=f'console.warn("PixelMark Warning: Script asset returned status {resp.status_code}: {url}");'.encode("utf-8"),
@@ -446,16 +530,22 @@ async def handle_proxy_asset_request(
                     content = b"{}" if "json" in url or "config" in url else b""
                     media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
                     return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
-                raise HTTPException(status_code=resp.status_code, detail=f"Asset fetch returned {resp.status_code}")
+                # Return standard 204 graceful fallback rather than a 500 error
+                return prepare_proxy_response(Response(content=b"", status_code=204))
                 
             content_type = resp.headers.get("content-type", "application/octet-stream")
             save_cached_asset(url, resp.content, content_type)
             
+            record_domain_success(url)
+            logger.info(f"[ASSET RESOLVER] Requested URL: {request.url.path}, Resolved URL: {url}, Status: {resp.status_code}")
             response = Response(content=resp.content, media_type=content_type)
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
             response.headers["X-PixelMark-Cache"] = "MISS"
             return prepare_proxy_response(response)
+            
     except Exception as e:
+        record_domain_failure(url)
+        logger.error(f"[ASSET RESOLVER] Exception resolving asset {url}: {str(e)}")
         if ".js" in url or "javascript" in url:
             return prepare_proxy_response(Response(
                 content=f'console.warn("PixelMark Warning: Script asset failed to connect: {url} ({str(e)})");'.encode("utf-8"),
@@ -465,7 +555,8 @@ async def handle_proxy_asset_request(
             content = b"{}" if "json" in url or "config" in url else b""
             media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
             return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
-        raise HTTPException(status_code=500, detail=str(e))
+        # Graceful fallback response
+        return prepare_proxy_response(Response(content=b"", status_code=204))
 
 
 @router.get("/session/{session_id}/asset")
@@ -500,7 +591,7 @@ async def proxy_form(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    base_url, _ = await resolve_session_base_url(session_id, db)
+    base_url, _, session = await resolve_session_base_url(session_id, db)
     
     if not is_ssrf_safe(action):
         raise HTTPException(status_code=403, detail="SSRF target blocked")
@@ -536,7 +627,8 @@ async def proxy_form(
                     session_id=session_id, 
                     page_url=landing_url, 
                     base_url=base_url, 
-                    api_base=api_base
+                    api_base=api_base,
+                    conservative_render_mode=session.conservative_render_mode
                 )
                 response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
                 return prepare_proxy_response(response)
@@ -560,7 +652,7 @@ async def post_page_visit(
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid UUID format")
         
-    base_url, project_id = await resolve_session_base_url(session_id, db)
+    base_url, project_id, session = await resolve_session_base_url(session_id, db)
     
     share_link_id = None
     if share_token:

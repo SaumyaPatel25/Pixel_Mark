@@ -2,7 +2,7 @@ import httpx
 import json
 import uuid
 
-BASE_URL = "http://127.0.0.1:8765"
+BASE_URL = "http://127.0.0.1:8000"
 TOKEN_VALID = "VALID_TOKEN"
 TOKEN_INVALID = "INVALID_TOKEN"
 TOKEN_EXPIRED = "EXPIRED_TOKEN"

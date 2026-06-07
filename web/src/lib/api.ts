@@ -209,6 +209,12 @@ export const api = {
         method: 'POST'
       })
     },
+    async updateRenderer(sessionId: string, data: { renderer_type: string; has_canvas: boolean; canvas_count: number; raf_detected: boolean; three_detected: boolean }) {
+      return request(`/sessions/${sessionId}/renderer`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      })
+    },
   },
 
   // COMMENTS (Frontend calls it comments, Backend calls it markers)

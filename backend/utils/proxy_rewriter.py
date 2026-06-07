@@ -1,6 +1,9 @@
 import urllib.parse
 import re
+import logging
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger("pixelmark.proxy_rewriter")
 
 def rewrite_html(
     html: str, 
@@ -8,20 +11,25 @@ def rewrite_html(
     page_url: str, 
     base_url: str, 
     api_base: str = "",
-    allow_external_assets: bool = True
+    allow_external_assets: bool = True,
+    conservative_render_mode: bool = False,
+    snapshot_mode: bool = False
 ) -> str:
     """
     Rewrites a retrieved HTML page to stay inside the session's proxy.
     
     1. Anchors: stay in proxy (/proxy/session/{session_id}/page?url={encoded})
     2. Assets (img, script, link, video, source, srcset): route via /proxy/session/{session_id}/asset?url={encoded}
-    3. Inline CSS background images: rewritten via asset proxy
+    3. Inline CSS background images: rewritten via asset proxy (skipped in conservative mode)
     4. Forms: action routed via /proxy/session/{session_id}/form?action={encoded}
     5. JavaScript: Injects session configuration block
     6. Agent Injection: injects pixelmark-agent.js before </body>
     7. Neutralizes <base> tags.
     """
     import json
+    if snapshot_mode:
+        conservative_render_mode = True
+    logger.info(f"[PROXY_REWRITE] Starting HTML rewrite for session={session_id}, page_url={page_url}, conservative={conservative_render_mode}, snapshot={snapshot_mode}")
     soup = BeautifulSoup(html, "html.parser")
     
     # Extract allowed target domain info
@@ -30,7 +38,13 @@ def rewrite_html(
     
     # ─── 0. Neutralize <base href> tags to prevent context distortion ───
     for base_tag in soup.find_all("base"):
+        logger.info(f"[PROXY_REWRITE] Decomposing <base> tag")
         base_tag.decompose()
+        
+    if snapshot_mode:
+        logger.info("[PROXY_REWRITE] Snapshot Mode Active! Decomposing all script tags to disable dynamic runtime execution.")
+        for script_tag in soup.find_all("script"):
+            script_tag.decompose()
         
     # Helper to resolve relative path against current page URL
     def resolve_url(url: str) -> str:
@@ -48,9 +62,10 @@ def rewrite_html(
         return parsed.netloc == base_domain or not parsed.netloc
 
     # Helper to build path-based asset URL
-    def make_proxied_asset_url(url_val: str) -> str:
+    def make_proxied_asset_url(url_val: str, tag_name: str = "", attr_name: str = "") -> str:
         url_stripped = url_val.strip()
         if not url_stripped or url_stripped.startswith(("data:", "javascript:", "blob:")):
+            logger.info(f"[PROXY_REWRITE] Retaining raw schema URL for {tag_name}[{attr_name}]: {url_stripped}")
             return url_stripped
         
         abs_url = resolve_url(url_stripped)
@@ -62,9 +77,12 @@ def rewrite_html(
             path_part = f"{path_part}?{parsed.query}"
             
         if not host:
-            return f"/proxy/session/{session_id}/asset?url={urllib.parse.quote(abs_url)}"
+            proxied = f"/proxy/session/{session_id}/asset?url={urllib.parse.quote(abs_url)}"
+        else:
+            proxied = f"/proxy/session/{session_id}/asset/{scheme.lower()}/{host.lower()}/{path_part}"
             
-        return f"/proxy/session/{session_id}/asset/{scheme.lower()}/{host.lower()}/{path_part}"
+        logger.info(f"[PROXY_REWRITE] Rewriting asset {tag_name}[{attr_name}]: {url_stripped} -> {proxied}")
+        return proxied
 
     # ─── 1. Rewrite Anchor Links ───
     for a in soup.find_all("a", href=True):
@@ -77,9 +95,12 @@ def rewrite_html(
             
         abs_url = resolve_url(href)
         if is_internal(abs_url):
-            a["href"] = f"/proxy/session/{session_id}/page?url={urllib.parse.quote(abs_url)}"
+            proxied_href = f"/proxy/session/{session_id}/page?url={urllib.parse.quote(abs_url)}"
+            logger.info(f"[PROXY_REWRITE] Rewriting anchor link: {href} -> {proxied_href}")
+            a["href"] = proxied_href
         else:
             # External link: force open in a new window/tab to prevent frame escaping
+            logger.info(f"[PROXY_REWRITE] Setting external anchor link target to _blank: {href}")
             a["target"] = "_blank"
 
     # ─── 2. Rewrite Assets (src, href, video, source) ───
@@ -95,9 +116,15 @@ def rewrite_html(
         for el in soup.find_all(tag_name, **{attr: True}):
             url = el[attr].strip()
             if not url or url.startswith(("data:", "javascript:", "blob:")):
+                logger.info(f"[PROXY_REWRITE] Retaining raw schema asset {tag_name}[{attr}]: {url}")
                 continue
             
-            el[attr] = make_proxied_asset_url(url)
+            if tag_name == "script":
+                script_type = el.get("type", "")
+                if script_type == "module":
+                    logger.info(f"[PROXY_REWRITE] Preserving type='module' attribute on script element for {url}")
+                
+            el[attr] = make_proxied_asset_url(url, tag_name=tag_name, attr_name=attr)
 
     # ─── 2.5. Rewrite inline importmaps ───
     for el in soup.find_all("script", type="importmap"):
@@ -107,10 +134,11 @@ def rewrite_html(
                 if "imports" in data:
                     for k, v in data["imports"].items():
                         if isinstance(v, str) and not v.startswith(("data:", "blob:", "javascript:", "#")):
-                            data["imports"][k] = make_proxied_asset_url(v)
+                            data["imports"][k] = make_proxied_asset_url(v, tag_name="script[type=importmap]", attr_name=k)
                 el.string = json.dumps(data)
-            except Exception:
-                pass
+                logger.info("[PROXY_REWRITE] Successfully processed inline importmap script")
+            except Exception as e:
+                logger.warning(f"[PROXY_REWRITE] Failed parsing importmap: {str(e)}")
 
     # ─── 3. Rewrite srcset Attributes ───
     for el in soup.find_all(lambda t: t.has_attr("srcset")):
@@ -125,24 +153,28 @@ def rewrite_html(
                 continue
             img_url = subparts[0]
             if not img_url.startswith(("data:", "javascript:", "blob:")):
-                img_url = make_proxied_asset_url(img_url)
+                img_url = make_proxied_asset_url(img_url, tag_name=el.name, attr_name="srcset")
             if len(subparts) > 1:
                 new_parts.append(f"{img_url} {subparts[1]}")
             else:
                 new_parts.append(img_url)
+        logger.info(f"[PROXY_REWRITE] Rewriting srcset attributes for <{el.name}>")
         el["srcset"] = ", ".join(new_parts)
 
     # ─── 4. Rewrite CSS Inline background-image: url() ───
-    for el in soup.find_all(style=True):
-        style = el["style"]
-        # Match url('...') or url("...") or url(...)
-        urls = re.findall(r'url\(\s*[\'"]?([^\'")]+)[\'"]?\s*\)', style)
-        for u in urls:
-            if u.startswith(("data:", "javascript:", "blob:")):
-                continue
-            proxied_url = make_proxied_asset_url(u)
-            style = style.replace(u, proxied_url)
-        el["style"] = style
+    if conservative_render_mode:
+        logger.info("[PROXY_REWRITE] Skipping aggressive inline style URL rewriting in conservative mode")
+    else:
+        for el in soup.find_all(style=True):
+            style = el["style"]
+            # Match url('...') or url("...") or url(...)
+            urls = re.findall(r'url\(\s*[\'"]?([^\'")]+)[\'"]?\s*\)', style)
+            for u in urls:
+                if u.startswith(("data:", "javascript:", "blob:")):
+                    continue
+                proxied_url = make_proxied_asset_url(u, tag_name=el.name, attr_name="style_url")
+                style = style.replace(u, proxied_url)
+            el["style"] = style
 
     # ─── 5. Rewrite Form Actions ───
     for form in soup.find_all("form", action=True):
@@ -150,8 +182,9 @@ def rewrite_html(
         if not action or action.startswith(("javascript:", "#")):
             continue
         abs_url = resolve_url(action)
-        # Always route forms through the /form proxy path
-        form["action"] = f"/proxy/session/{session_id}/form?action={urllib.parse.quote(abs_url)}"
+        proxied_action = f"/proxy/session/{session_id}/form?action={urllib.parse.quote(abs_url)}"
+        logger.info(f"[PROXY_REWRITE] Rewriting form action: {action} -> {proxied_action}")
+        form["action"] = proxied_action
 
     # ─── 6. JavaScript Global Injections ───
     api_base_clean = api_base.rstrip('/')

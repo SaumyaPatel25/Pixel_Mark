@@ -10,7 +10,7 @@ router = APIRouter(prefix="/export", tags=["export"])
 
 @router.get("/session/{session_id}/markdown", response_class=PlainTextResponse)
 async def export_markdown(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = await db.execute(select(Marker).where(Marker.session_id == session_id))
+    result = await db.execute(select(Marker).where(Marker.session_id == session_id).order_by(Marker.marker_number.asc()))
     markers = result.scalars().all()
     
     # Group markers by page_url or url
@@ -56,7 +56,7 @@ async def export_markdown(session_id: str, db: AsyncSession = Depends(get_db), c
 
 @router.get("/session/{session_id}/csv")
 async def export_csv(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = await db.execute(select(Marker).where(Marker.session_id == session_id))
+    result = await db.execute(select(Marker).where(Marker.session_id == session_id).order_by(Marker.marker_number.asc()))
     markers = result.scalars().all()
     output = io.StringIO()
     writer = csv.writer(output)
@@ -81,7 +81,7 @@ async def export_csv(session_id: str, db: AsyncSession = Depends(get_db), curren
 
 @router.get("/session/{session_id}/json")
 async def export_json(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = await db.execute(select(Marker).where(Marker.session_id == session_id))
+    result = await db.execute(select(Marker).where(Marker.session_id == session_id).order_by(Marker.marker_number.asc()))
     markers = result.scalars().all()
     return JSONResponse([
         {

@@ -23,70 +23,103 @@ async def create_marker(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    session_id = data.session_id
-    share_link_id = None
-    user_id = None
+    import logging
+    logger = logging.getLogger("pixelmark.markers")
+    trace_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:8]
+    logger.info(f"[OBSERVABILITY] [MARKER_CREATE] [TRACE={trace_id}] Received marker creation request. session={data.session_id}, url={data.page_url}")
 
-    # Try resolving user from Auth token first if present
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-        try:
-            from auth import decode_token
-            payload = decode_token(token)
-            user_id = payload.get("sub")
-        except Exception:
-            pass
+    try:
+        session_id = data.session_id
+        share_link_id = None
+        user_id = None
 
-    # Resolve share token if present
-    if data.share_token:
-        share_query = select(ShareLink).where(ShareLink.token == data.share_token)
-        share_result = await db.execute(share_query)
-        share_link = share_result.scalar_one_or_none()
-        if not share_link:
-            raise HTTPException(status_code=404, detail="Invalid share token")
-        
-        if not share_link.is_active:
-            raise HTTPException(status_code=403, detail="This share link has been deactivated")
-        
-        if not share_link.can_comment:
-            raise HTTPException(status_code=403, detail="Commenting is disabled for this share link")
+        # Try resolving user from Auth token first if present
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            try:
+                from auth import decode_token
+                payload = decode_token(token)
+                user_id = payload.get("sub")
+            except Exception:
+                pass
+
+        # Resolve share token if present
+        if data.share_token:
+            share_query = select(ShareLink).where(ShareLink.token == data.share_token)
+            share_result = await db.execute(share_query)
+            share_link = share_result.scalar_one_or_none()
+            if not share_link:
+                logger.warning(f"[OBSERVABILITY] [MARKER_CREATE_VALIDATION_ERROR] [TRACE={trace_id}] Invalid share token provided: {data.share_token}")
+                raise HTTPException(status_code=404, detail="Invalid share token")
             
-        if share_link.expires_at and share_link.expires_at < datetime.utcnow():
-            raise HTTPException(status_code=403, detail="This share link has expired")
+            if not share_link.is_active:
+                logger.warning(f"[OBSERVABILITY] [MARKER_CREATE_VALIDATION_ERROR] [TRACE={trace_id}] Inactive share token: {data.share_token}")
+                raise HTTPException(status_code=403, detail="This share link has been deactivated")
             
-        session_id = share_link.session_id
-        share_link_id = share_link.id
+            if not share_link.can_comment:
+                logger.warning(f"[OBSERVABILITY] [MARKER_CREATE_VALIDATION_ERROR] [TRACE={trace_id}] Commenting disabled on share token: {data.share_token}")
+                raise HTTPException(status_code=403, detail="Commenting is disabled for this share link")
+                
+            if share_link.expires_at and share_link.expires_at < datetime.utcnow():
+                logger.warning(f"[OBSERVABILITY] [MARKER_CREATE_VALIDATION_ERROR] [TRACE={trace_id}] Expired share token: {data.share_token}")
+                raise HTTPException(status_code=403, detail="This share link has expired")
+                
+            session_id = share_link.session_id
+            share_link_id = share_link.id
 
-    if not session_id:
-        if not data.project_id:
-            raise HTTPException(status_code=422, detail="Either session_id, project_id, or share_token must be provided")
-        
-        # Resolve or create a default session for this project_id
-        result = await db.execute(
-            select(Session).where(Session.project_id == data.project_id).order_by(Session.created_at.desc())
-        )
-        session = result.scalars().first()
-        if not session:
-            session = Session(
-                id=str(uuid.uuid4()),
-                project_id=data.project_id,
-                title="Default Audit Session"
+        if not session_id:
+            if not data.project_id:
+                logger.warning(f"[OBSERVABILITY] [MARKER_CREATE_VALIDATION_ERROR] [TRACE={trace_id}] Missing session_id, project_id, and share_token")
+                raise HTTPException(status_code=422, detail="Either session_id, project_id, or share_token must be provided")
+            
+            # Resolve or create a default session for this project_id
+            result = await db.execute(
+                select(Session).where(Session.project_id == data.project_id).order_by(Session.created_at.desc())
             )
-            db.add(session)
-            await db.commit()
-            await db.refresh(session)
-        session_id = session.id
-    else:
+            session = result.scalars().first()
+            if not session:
+                session = Session(
+                    id=str(uuid.uuid4()),
+                    project_id=data.project_id,
+                    title="Default Audit Session"
+                )
+                db.add(session)
+                await db.commit()
+                await db.refresh(session)
+            session_id = session.id
+        else:
+            try:
+                uuid.UUID(session_id)
+            except ValueError:
+                logger.warning(f"[OBSERVABILITY] [MARKER_CREATE_VALIDATION_ERROR] [TRACE={trace_id}] Invalid UUID format for session_id: {session_id}")
+                raise HTTPException(status_code=422, detail="Invalid UUID format")
+                
+            result = await db.execute(select(Session).where(Session.id == session_id))
+            session = result.scalar_one_or_none()
+            if not session:
+                logger.warning(f"[OBSERVABILITY] [MARKER_CREATE_VALIDATION_ERROR] [TRACE={trace_id}] Session not found: {session_id}")
+                raise HTTPException(status_code=404, detail="Session not found")
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"[OBSERVABILITY] [MARKER_CREATE_ERROR] [TRACE={trace_id}] Unexpected validation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error resolving marker payload")
+
+    # Guardrail: Protect against duplicate marker spam
+    from utils.guardrails import check_duplicate_marker, GuardrailError
+    if data.x is not None and data.y is not None:
         try:
-            uuid.UUID(session_id)
-        except ValueError:
-            raise HTTPException(status_code=422, detail="Invalid UUID format")
-            
-        result = await db.execute(select(Session).where(Session.id == session_id))
-        session = result.scalar_one_or_none()
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+            check_duplicate_marker(
+                session_id=session_id,
+                page_url=data.page_url or "",
+                x=data.x,
+                y=data.y,
+                note=data.note or ""
+            )
+        except GuardrailError as ge:
+            logger.warning(f"[OBSERVABILITY] [MARKER_CREATE_VALIDATION_ERROR] [TRACE={trace_id}] Guardrail blocked duplicate: {ge.message}")
+            raise HTTPException(status_code=ge.status_code, detail=ge.message)
 
     # 2-second double click deduplication for exact or near coordinate clicks
     if data.x is not None and data.y is not None:
@@ -142,9 +175,9 @@ async def create_marker(
     if not marker_data.get("description") and marker_data.get("note"):
         marker_data["description"] = marker_data["note"]
 
-    # Priority mapping from severity
-    if marker_data.get("severity"):
-        sev = marker_data["severity"].lower()
+    # Priority mapping from severity (only if priority wasn't explicitly set)
+    if "priority" not in data.model_fields_set and "severity" in data.model_fields_set and data.severity:
+        sev = data.severity.lower()
         if sev in ("critical", "high", "medium", "low"):
             marker_data["priority"] = sev
 
@@ -206,6 +239,9 @@ async def create_marker(
         "y": marker.y,
         "viewport_x": marker.viewport_x,
         "viewport_y": marker.viewport_y,
+        "norm_x": marker.norm_x,
+        "norm_y": marker.norm_y,
+        "canvas_snapshot": marker.canvas_snapshot,
         "element_selector": marker.element_selector,
         "element_text": marker.element_text,
         "element_tag": marker.element_tag,
@@ -322,7 +358,32 @@ async def list_markers_by_page(session_id: str, db: AsyncSession = Depends(get_d
             "priority": getattr(m.priority, "value", str(m.priority)),
             "status": getattr(m.status, "value", str(m.status)),
             "ai_summary": m.ai_summary,
-            "created_at": m.created_at.isoformat() if m.created_at else None
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            
+            # Step 2B visual ingestion fields
+            "x": m.x,
+            "y": m.y,
+            "viewport_x": m.viewport_x,
+            "viewport_y": m.viewport_y,
+            "norm_x": m.norm_x,
+            "norm_y": m.norm_y,
+            "canvas_snapshot": m.canvas_snapshot,
+            "element_selector": m.element_selector,
+            "element_text": m.element_text,
+            "element_tag": m.element_tag,
+            "note": m.note,
+            "severity": m.severity,
+            "screenshot_required": m.screenshot_required,
+            "created_via": m.created_via,
+            "share_link_id": m.share_link_id,
+            "user_id": m.user_id,
+
+            # Step 2v2 structured issue fields
+            "issue_type": m.issue_type,
+            "aria_label": m.aria_label,
+            "aria_role": m.aria_role,
+            "bounding_box": m.bounding_box,
+            "browser_info": m.browser_info,
         })
         grouped[url]["marker_count"] += 1
         

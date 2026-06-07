@@ -105,7 +105,7 @@ def run_test():
         
         # 6. Verify visual presence of WebGL mode indicator badge and FPS counter
         print("🔍 Verifying WebGL mode label and FPS stats...", flush=True)
-        renderer_badge = page.locator("text=WebGL Mode")
+        renderer_badge = page.locator("text=WebGL / Canvas Mode")
         fps_badge = page.locator("text=FPS")
         
         has_webgl_badge = renderer_badge.count() > 0

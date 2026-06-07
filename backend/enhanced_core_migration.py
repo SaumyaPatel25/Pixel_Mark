@@ -40,6 +40,25 @@ async def run_migration():
             print("Adding updated_at to sessions table...")
             col_type = "TIMESTAMP WITH TIME ZONE" if "postgresql" in DATABASE_URL else "TIMESTAMP"
             await conn.execute(text(f"ALTER TABLE sessions ADD COLUMN updated_at {col_type} NULL"))
+        if "renderer_type" not in session_cols:
+            print("Adding renderer_type to sessions table...")
+            await conn.execute(text("ALTER TABLE sessions ADD COLUMN renderer_type VARCHAR NULL"))
+        if "heavy_mode" not in session_cols:
+            print("Adding heavy_mode to sessions table...")
+            await conn.execute(text("ALTER TABLE sessions ADD COLUMN heavy_mode BOOLEAN DEFAULT FALSE"))
+        if "render_detected_at" not in session_cols:
+            print("Adding render_detected_at to sessions table...")
+            col_type = "TIMESTAMP WITH TIME ZONE" if "postgresql" in DATABASE_URL else "TIMESTAMP"
+            await conn.execute(text(f"ALTER TABLE sessions ADD COLUMN render_detected_at {col_type} NULL"))
+        if "canvas_count" not in session_cols:
+            print("Adding canvas_count to sessions table...")
+            await conn.execute(text("ALTER TABLE sessions ADD COLUMN canvas_count INTEGER NULL"))
+        if "has_webgl" not in session_cols:
+            print("Adding has_webgl to sessions table...")
+            await conn.execute(text("ALTER TABLE sessions ADD COLUMN has_webgl BOOLEAN NULL"))
+        if "has_three_js" not in session_cols:
+            print("Adding has_three_js to sessions table...")
+            await conn.execute(text("ALTER TABLE sessions ADD COLUMN has_three_js BOOLEAN NULL"))
 
         # Check if page_visits table exists
         def check_tables(sync_conn):
@@ -123,6 +142,15 @@ async def run_migration():
         if "is_inside_shadow_dom" not in marker_cols:
             print("Adding is_inside_shadow_dom to markers table...")
             await conn.execute(text("ALTER TABLE markers ADD COLUMN is_inside_shadow_dom BOOLEAN DEFAULT FALSE"))
+        if "norm_x" not in marker_cols:
+            print("Adding norm_x to markers table...")
+            await conn.execute(text("ALTER TABLE markers ADD COLUMN norm_x FLOAT NULL"))
+        if "norm_y" not in marker_cols:
+            print("Adding norm_y to markers table...")
+            await conn.execute(text("ALTER TABLE markers ADD COLUMN norm_y FLOAT NULL"))
+        if "canvas_snapshot" not in marker_cols:
+            print("Adding canvas_snapshot to markers table...")
+            await conn.execute(text("ALTER TABLE markers ADD COLUMN canvas_snapshot TEXT NULL"))
         if "shadow_root_depth" not in marker_cols:
             print("Adding shadow_root_depth to markers table...")
             await conn.execute(text("ALTER TABLE markers ADD COLUMN shadow_root_depth INTEGER NULL"))

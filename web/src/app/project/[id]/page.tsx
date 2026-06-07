@@ -22,6 +22,7 @@ import { useCommentStore } from '@/store/commentStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
 import { useOverlayStore } from '@/store/overlayStore'
 import { useUIStore } from '@/store/uiStore'
+import { useSessionStore } from '@/store/sessionStore'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -62,6 +63,8 @@ export default function ProjectPage() {
     toggleDesignSystem,
     toggleSharePanel
   } = useUIStore()
+
+  const { heavy_mode, renderer_type } = useSessionStore()
   
   const [proxyStatus, setProxyStatus] = useState<'loading' | 'ok' | 'advanced' | 'failed'>('loading')
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -96,15 +99,63 @@ export default function ProjectPage() {
     initSession()
   }, [id])
 
-  // Below tablet breakpoint, collapse the command center by default on mount
+  // Below tablet breakpoint or in heavy mode, collapse the command center by default on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (window.innerWidth < 1024) {
+      if (window.innerWidth < 1024 || heavy_mode) {
         toggleCommandCenter(false)
       } else {
         toggleCommandCenter(true)
       }
     }
+  }, [toggleCommandCenter, heavy_mode])
+
+  // A11y Focus Management: shift focus to close button when opened, restore to trigger when closed
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (isCommandCenterOpen) {
+      setTimeout(() => {
+        const closeBtn = document.getElementById('close-command-center-btn') || document.getElementById('command-center-trigger')
+        if (closeBtn) closeBtn.focus()
+      }, 150)
+    } else {
+      const triggerBtn = document.getElementById('command-center-trigger')
+      if (triggerBtn) {
+        setTimeout(() => triggerBtn.focus(), 150)
+      }
+    }
+  }, [isCommandCenterOpen])
+
+  // Escape key listener to dismiss command center drawer on mobile/tablet
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isCommandCenterOpen) {
+        toggleCommandCenter(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isCommandCenterOpen, toggleCommandCenter])
+
+  // Listen for window resize to recover and adapt layout state cleanly
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    let wasMobile = window.innerWidth < 768
+    
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768
+      if (isMobile !== wasMobile) {
+        if (isMobile) {
+          toggleCommandCenter(false)
+        } else {
+          toggleCommandCenter(true)
+        }
+        wasMobile = isMobile
+      }
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [toggleCommandCenter])
 
   // One-time init — offer screen capture when user first holds Ctrl
@@ -188,6 +239,7 @@ export default function ProjectPage() {
 
   // Mouse Tracking
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (heavy_mode) return // Skip mouse cursor sync in heavy mode to reduce pointer listeners complexity
     const now = Date.now()
     if (now - lastEmitRef.current < 50) return
     lastEmitRef.current = now
@@ -241,7 +293,10 @@ export default function ProjectPage() {
       className="h-screen bg-[#0a0a0b] flex flex-col overflow-hidden font-sans selection:bg-purple-500/30"
     >
       {/* Premium Navigation Header */}
-      <header className="min-h-16 h-auto md:h-20 py-3 md:py-0 border-b border-white/[0.03] flex flex-col md:flex-row items-center justify-between px-4 md:px-8 bg-[#0a0a0b]/80 backdrop-blur-3xl z-45 relative gap-3">
+      <header className={cn(
+        "min-h-16 h-auto md:h-20 py-3 md:py-0 border-b border-white/[0.03] flex flex-col md:flex-row items-center justify-between px-4 md:px-8 bg-[#0a0a0b]/80 backdrop-blur-3xl z-45 relative gap-3",
+        heavy_mode && "max-md:absolute max-md:top-4 max-md:left-4 max-md:right-4 max-md:rounded-2xl max-md:border max-md:border-white/15 max-md:bg-[#0a0a0b]/90 max-md:shadow-2xl max-md:h-12 max-md:min-h-0 max-md:py-0 max-md:flex-row max-md:px-3 max-md:gap-1 max-md:w-auto"
+      )}>
         <div className="flex items-center justify-between w-full md:w-auto gap-4">
           <div className="flex items-center gap-4 min-w-0">
             <button 
@@ -253,7 +308,7 @@ export default function ProjectPage() {
             
             <div className="h-10 w-[1px] bg-white/5 hidden sm:block flex-shrink-0" />
             
-            <div className="min-w-0">
+            <div className={cn("min-w-0", heavy_mode && "max-md:hidden")}>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-base md:text-lg font-black tracking-tighter text-white uppercase truncate max-w-[140px] sm:max-w-none">{currentProject?.name}</h1>
                 <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] font-black text-cyan-400 uppercase tracking-widest flex-shrink-0">Active Audit</span>
@@ -263,14 +318,15 @@ export default function ProjectPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3 flex-wrap md:flex-nowrap justify-end w-full md:w-auto">
+        <div className={cn("flex items-center gap-2 md:gap-3 flex-wrap md:flex-nowrap justify-end w-full md:w-auto", heavy_mode && "max-md:w-auto max-md:flex-nowrap max-md:justify-end")}>
           {/* Design System Button */}
           <Button 
              onClick={() => toggleDesignSystem()}
              variant="outline"
              className={cn(
                "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
-               isDesignSystemOpen ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/40" : "hover:bg-white/10"
+               isDesignSystemOpen ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/40" : "hover:bg-white/10",
+               heavy_mode && "max-md:hidden"
              )}
           >
              <Palette className="w-4 h-4" />
@@ -282,32 +338,39 @@ export default function ProjectPage() {
             variant="outline"
             className={cn(
                "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
-               isExportPanelOpen ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/40" : "hover:bg-white/10"
+               isExportPanelOpen ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/40" : "hover:bg-white/10",
+               heavy_mode && "max-md:hidden"
             )}
           >
             <Share2 className="w-4 h-4" />
             <span className="hidden md:inline ml-2">Export Audit</span>
           </Button>
 
-          <ShareLinkButton 
-            onClick={() => toggleSharePanel()}
-            active={isSharePanelOpen}
-          />
+          <div className={cn("flex-shrink-0", heavy_mode && "max-md:hidden")}>
+            <ShareLinkButton 
+              onClick={() => toggleSharePanel()}
+              active={isSharePanelOpen}
+            />
+          </div>
 
           <div className="h-10 w-[1px] bg-white/5 mx-1 md:mx-2 hidden sm:block flex-shrink-0" />
-          
-          <Button 
+                    <Button 
+            id="command-center-trigger"
+            aria-label="Toggle Command Center"
+            aria-controls="command-center-drawer"
+            aria-expanded={isCommandCenterOpen}
             onClick={() => toggleCommandCenter()}
             variant={isCommandCenterOpen ? 'default' : 'secondary'}
             className={cn(
-                "rounded-2xl h-10 md:h-11 px-3 md:px-6 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
+                "rounded-2xl h-10 md:h-11 px-3 md:px-6 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0 focus:ring-2 focus:ring-cyan-400 outline-none",
                 isCommandCenterOpen 
                     ? "bg-cyan-600 hover:bg-cyan-500 text-black shadow-lg shadow-cyan-900/40" 
-                    : "bg-white/5 border border-white/5 text-white/60 hover:text-white"
+                    : "bg-white/5 border border-white/5 text-white/60 hover:text-white",
+                heavy_mode && "max-md:h-8 max-md:w-8 max-md:px-0 max-md:rounded-xl"
             )}
           >
             {isCommandCenterOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
-            <span className="hidden md:inline ml-2">
+            <span className={cn("hidden md:inline ml-2", heavy_mode && "max-md:hidden")}>
               {isCommandCenterOpen ? 'Close Module' : 'Command Center'}
             </span>
           </Button>
@@ -368,18 +431,35 @@ export default function ProjectPage() {
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#0a0a0b]">
-                        <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Negotiating Audit Session</p>
+                         <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
+                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Negotiating Audit Session</p>
                       </div>
                     )}
                 </div>
           )}
         </div>
 
+        {/* Tap-dismiss backdrop overlay for mobile/tablet drawer */}
+        <AnimatePresence>
+            {isCommandCenterOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.6 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => toggleCommandCenter(false)}
+                    className="absolute inset-0 bg-black/60 z-48 lg:hidden"
+                />
+            )}
+        </AnimatePresence>
+
         {/* Command Center Slider (Fully Responsive Layout Wrapper) */}
         <AnimatePresence>
             {isCommandCenterOpen && (
                 <motion.div
+                    id="command-center-drawer"
+                    role="dialog"
+                    aria-label="Command Center Feedback Stream"
+                    aria-modal="true"
                     initial={{ 
                       x: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 0 : "100%",
                       y: typeof window !== 'undefined' && window.innerWidth < 768 ? "100%" : 0,

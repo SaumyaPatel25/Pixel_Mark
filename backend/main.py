@@ -7,8 +7,7 @@ from contextlib import asynccontextmanager
 from database import engine, Base
 import asyncio
 import logging
-
-from routes import auth, projects, sessions, markers, proxy, export, websocket, canvas, shares
+from routes import auth, projects, sessions, markers, proxy, export, websocket, canvas, shares, flags
 from routers.share_links import router as share_links_router
 from routers.review import router as review_router
 
@@ -37,6 +36,13 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="PixelMark API", version="2.0.0", lifespan=lifespan)
+
+from errors import AppError, app_error_handler, validation_error_handler, unhandled_exception_handler
+from fastapi.exceptions import RequestValidationError
+
+app.add_exception_handler(AppError, app_error_handler)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 from config import settings
 
@@ -120,6 +126,45 @@ async def proxy_fallback_middleware(request: Request, call_next):
                             if request.url.query:
                                 target_url = f"{target_url}?{request.url.query}"
                                 
+                            from utils.ssrf_guard import is_ssrf_safe, is_domain_allowed
+                            import logging
+                            logger = logging.getLogger("pixelmark.proxy")
+                            
+                            # Enforce SSRF safety
+                            if not is_ssrf_safe(target_url):
+                                from routes.proxy import prepare_proxy_response
+                                logger.warning(f"[SSRF BLOCKED] Fallback block on: {target_url}")
+                                return prepare_proxy_response(FAResponse(content=b"SSRF Target Blocked", status_code=403))
+                                
+                            # Check allow/block policy for third-party requests
+                            parsed_target = urllib.parse.urlparse(target_url)
+                            parsed_base = urllib.parse.urlparse(base_url)
+                            is_third_party = parsed_target.netloc != parsed_base.netloc
+                            
+                            if is_third_party:
+                                is_analytics_or_tracker = any(domain in target_url for domain in (
+                                    "google-analytics.com", "googletagmanager.com", "mixpanel.com", 
+                                    "hotjar.com", "doubleclick.net", "facebook.net", "facebook.com", "amplitude.com"
+                                ))
+                                is_firebase_or_config = any(term in target_url.lower() for term in ("firebase", "webconfig", "bootstrap", "manifest.json", "config.json"))
+                                
+                                if is_analytics_or_tracker:
+                                    from routes.proxy import prepare_proxy_response
+                                    logger.info(f"[THIRD_PARTY POLICY] BLOCKED tracking/analytics fallback: {target_url}")
+                                    if ".js" in target_url or "javascript" in target_url:
+                                        return prepare_proxy_response(FAResponse(
+                                            content=f'console.warn("PixelMark Warning: Tracker request blocked safely: {target_url}");'.encode("utf-8"),
+                                            media_type="application/javascript"
+                                        ))
+                                    content = b"{}" if "json" in target_url or "config" in target_url else b""
+                                    media_type = "application/json" if "json" in target_url or "config" in target_url else "application/octet-stream"
+                                    return prepare_proxy_response(FAResponse(content=content, media_type=media_type, status_code=200))
+                                
+                                elif is_firebase_or_config:
+                                    logger.info(f"[THIRD_PARTY POLICY] ALLOWED fallback configuration request: {target_url}")
+                                else:
+                                    logger.info(f"[THIRD_PARTY POLICY] ALLOWED standard fallback CDN/asset request: {target_url}")
+
                             try:
                                 # Check cache for asset requests (skip HTML pages to allow recording visits)
                                 if not path.endswith((".html", "/")):
@@ -141,7 +186,8 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                         return prepare_proxy_response(response)
                                         
                                 headers = {
-                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                                    "X-PixelMark-Session": session_id
                                 }
                                 async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
                                     resp = await client.get(target_url, headers=headers)
@@ -158,8 +204,17 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                             page_title=None
                                         )
                                         
+                                        snapshot_mode = request.query_params.get("snapshot_mode") == "true"
                                         api_base = os.getenv("API_BASE", "")
-                                        rewritten_html = rewrite_html(resp.text, session.id, target_url, base_url, api_base)
+                                        rewritten_html = rewrite_html(
+                                            resp.text, 
+                                            session.id, 
+                                            target_url, 
+                                            base_url, 
+                                            api_base,
+                                            conservative_render_mode=session.conservative_render_mode,
+                                            snapshot_mode=snapshot_mode
+                                        )
                                         response = FAResponse(content=rewritten_html.encode("utf-8"), media_type="text/html")
                                     else:
                                         from routes.proxy import prepare_proxy_response, save_cached_asset
@@ -207,6 +262,7 @@ app.include_router(review_router, prefix="/review", tags=["review"])
 app.include_router(proxy.router)
 app.include_router(export.router)
 app.include_router(websocket.router)
+app.include_router(flags.router)
 
 @app.get("/health")
 async def health():

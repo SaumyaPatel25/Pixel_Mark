@@ -31,6 +31,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await api.auth.login(email, password)
           const token = res.access_token
           localStorage.setItem('pm_token', token)
+          document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
           set({ token })
           const meRes = await api.auth.me()
           set({ user: meRes })
@@ -45,6 +46,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await api.auth.register(email, password, name)
           const token = res.access_token
           localStorage.setItem('pm_token', token)
+          document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
           set({ token })
           const meRes = await api.auth.me()
           set({ user: meRes })
@@ -55,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         localStorage.removeItem('pm_token')
+        document.cookie = 'pm_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         set({ user: null, token: null })
       },
 

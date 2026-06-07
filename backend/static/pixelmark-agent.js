@@ -167,30 +167,83 @@
 
   // ─── Renderer detection ───────────────────────────────────────────────────
   function detectRenderer() {
-    const canvases = document.querySelectorAll("canvas");
+    const canvases = Array.from(document.querySelectorAll("canvas"));
     const hasCanvas = canvases.length > 0;
-    const hasThree = typeof THREE !== "undefined" || !!window.__PIXELMARK__.threeRenderer;
-    const hasPixi = typeof PIXI !== "undefined" || !!window.PIXI;
-    const hasBabylon = typeof BABYLON !== "undefined" || !!window.BABYLON;
-    const hasPhaser = typeof Phaser !== "undefined" || !!window.Phaser;
-    const hasPlayCanvas = typeof pc !== "undefined" || !!window.pc;
-
-    let hasWebGL = false;
-    let hasCanvas2D = false;
     
+    // 1. Canvas with non-zero dimensions
+    let hasNonZeroCanvas = false;
+    if (hasCanvas) {
+      for (const canvas of canvases) {
+        if (canvas.width > 0 && canvas.height > 0) {
+          hasNonZeroCanvas = true;
+          break;
+        }
+      }
+    }
+
+    // 2. WebGL contexts available
+    const webglCtxAvailable = !!(window.WebGLRenderingContext || window.WebGL2RenderingContext);
+
+    // 3. Canvas element has active WebGL context
+    let hasActiveWebGLContext = false;
+    let activeWebGL2Context = false;
+    let hasCanvas2D = false;
     if (hasCanvas) {
       for (const canvas of canvases) {
         try {
-          const gl = canvas.getContext("webgl") || canvas.getContext("webgl2") || canvas.getContext("experimental-webgl");
-          if (gl) {
-            hasWebGL = true;
+          const gl2 = canvas.getContext("webgl2");
+          if (gl2) {
+            hasActiveWebGLContext = true;
+            activeWebGL2Context = true;
           } else {
-            const ctx = canvas.getContext("2d");
-            if (ctx) hasCanvas2D = true;
+            const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+            if (gl) {
+              hasActiveWebGLContext = true;
+            } else {
+              const ctx = canvas.getContext("2d");
+              if (ctx) hasCanvas2D = true;
+            }
           }
         } catch (e) {}
       }
     }
+
+    // 4. Global presence of Three.js / R3F / Babylon / pc / Phaser / PIXI
+    const hasThree = typeof THREE !== "undefined" || !!window.__PIXELMARK__?.threeRenderer || !!window.__r3f;
+    const hasPixi = typeof PIXI !== "undefined" || !!window.PIXI;
+    const hasBabylon = typeof BABYLON !== "undefined" || !!window.BABYLON;
+    const hasPhaser = typeof Phaser !== "undefined" || !!window.Phaser;
+    const hasPlayCanvas = typeof pc !== "undefined" || !!window.pc;
+    const threeDetected = hasThree || hasPixi || hasBabylon || hasPhaser || hasPlayCanvas;
+
+    // 5. requestAnimationFrame calls in a 1-second window
+    const rafDetected = rAFActive || (rAFCount > 3);
+
+    // 6. CSS animations or keyframes on > 10 elements
+    let cssAnimCount = 0;
+    try {
+      document.querySelectorAll("*").forEach(el => {
+        const styles = window.getComputedStyle(el);
+        if (styles.animationName && styles.animationName !== "none") {
+          cssAnimCount++;
+        }
+      });
+    } catch (e) {}
+    const hasCssAnimations = cssAnimCount > 10;
+
+    // 7. Large hero elements with transform/translate styles
+    let hasLargeHeroTransforms = false;
+    try {
+      document.querySelectorAll("*").forEach(el => {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > window.innerWidth * 0.5 && rect.height > window.innerHeight * 0.5) {
+          const styles = window.getComputedStyle(el);
+          if (styles.transform && styles.transform !== "none") {
+            hasLargeHeroTransforms = true;
+          }
+        }
+      });
+    } catch (e) {}
 
     // Check client-side routing / SPA frameworks
     const hasSPA = !!(
@@ -204,20 +257,25 @@
       (window.history && window.history.pushState)
     );
 
-    // Heuristic for mixed mode: has canvas/WebGL and a significant interactive DOM layout (headers, paragraphs, buttons)
+    // Mixed mode heuristic: has canvas/WebGL/Three and a significant DOM layout (> 15 interactive elements)
     const paragraphs = document.querySelectorAll("p, span, a, button, h1, h2, h3, h4, h5, h6, input, label").length;
-    const isMixed = (hasWebGL || hasCanvas2D) && paragraphs > 15;
+    const isMixed = (hasActiveWebGLContext || hasCanvas2D) && paragraphs > 15;
 
-    if (hasThree || hasPixi || hasBabylon || hasPhaser || hasPlayCanvas || hasWebGL) {
-      return isMixed ? "mixed" : "webgl";
+    let detectedType = "dom";
+    if (activeWebGL2Context) {
+      detectedType = isMixed ? "mixed" : "webgl2";
+    } else if (hasActiveWebGLContext) {
+      detectedType = isMixed ? "mixed" : "webgl";
+    } else if (hasCanvas2D) {
+      detectedType = isMixed ? "mixed" : "canvas2d";
+    } else if (hasSPA) {
+      detectedType = "spa";
     }
-    if (hasCanvas2D) {
-      return isMixed ? "mixed" : "canvas";
-    }
-    if (hasSPA) {
-      return "spa";
-    }
-    return "dom";
+
+    // Set globally on window
+    window.__PIXELMARK_RENDERER__ = detectedType;
+
+    return detectedType;
   }
 
   function discoverThreeScene() {
@@ -407,6 +465,22 @@
 
   // ─── DOM context builder ──────────────────────────────────────────────────
   function getDOMContext(element) {
+    const isHeavy = window.__PIXELMARK__.rendererType && window.__PIXELMARK__.rendererType !== "dom";
+    if (isHeavy) {
+      return {
+        xpath: "",
+        css_selector: "visual-canvas-context",
+        inner_text: "",
+        tag_name: element.tagName,
+        element_id: element.id || null,
+        class_list: Array.from(element.classList).slice(0, 10),
+        is_visible: true,
+        computed_role: null,
+        aria_label: element.getAttribute("aria-label") || null,
+        aria_role: element.getAttribute("role") || element.tagName.toLowerCase() || null,
+        placeholder: null,
+      };
+    }
     return {
       xpath: getXPath(element).substring(0, 200),
       css_selector: getCSSSelector(element).substring(0, 200),
@@ -737,6 +811,9 @@
       // Renderer
       renderer_type: shadowCtx.is_inside_shadow_dom ? "shadow_dom" : rendererType,
       canvas_context: canvasCtx,
+      norm_x: isCanvas && canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
+      norm_y: isCanvas && canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
+      canvas_snapshot: isCanvas ? screenshotDataUrl : null,
 
       // Screenshot
       screenshot_data_url: screenshotDataUrl,
@@ -768,10 +845,9 @@
 
     document.addEventListener("pointerdown", (e) => {
       if (e.altKey || feedbackModeActive) {
-        e.preventDefault();
         e.stopPropagation();
       }
-    }, true);
+    }, { passive: true, capture: true });
 
     document.addEventListener("click", handleFeedbackCapture, true);
   }
@@ -867,6 +943,9 @@
           scroll_position: getViewportContext().scroll_position,
           renderer_type: window.__PIXELMARK__.rendererType,
           canvas_context: canvasCtx,
+          norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
+          norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
+          canvas_snapshot: canvasCtx ? screenshotDataUrl : null,
           screenshot_data_url: screenshotDataUrl,
           screenshot_required: !!screenshotDataUrl,
           console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
@@ -976,6 +1055,42 @@
     }
   }
 
+  function postRendererDetected(rendererType) {
+    const canvases = document.querySelectorAll("canvas");
+    const hasThree = typeof THREE !== "undefined" || !!window.__PIXELMARK__?.threeRenderer || !!window.__r3f;
+    const hasPixi = typeof PIXI !== "undefined" || !!window.PIXI;
+    const hasBabylon = typeof BABYLON !== "undefined" || !!window.BABYLON;
+    const hasPhaser = typeof Phaser !== "undefined" || !!window.Phaser;
+    const hasPlayCanvas = typeof pc !== "undefined" || !!window.pc;
+    const threeDetected = hasThree || hasPixi || hasBabylon || hasPhaser || hasPlayCanvas;
+
+    window.parent.postMessage({
+      type: "PIXELMARK_RENDERER_DETECTED",
+      renderer_type: rendererType,
+      has_canvas: canvases.length > 0,
+      canvas_count: canvases.length,
+      raf_detected: rAFActive || (rAFCount > 3),
+      three_detected: threeDetected,
+      session_id: window.__PIXELMARK__.sessionId || ""
+    }, "*");
+  }
+
+  function initializeAgentListeners() {
+    if (isAgentReady) return;
+    isAgentReady = true;
+    attachPointerListeners();
+    
+    // Process any queued feedback mode toggles
+    if (typeof window.__pendingToggle !== 'undefined') {
+      feedbackModeActive = window.__pendingToggle;
+      delete window.__pendingToggle;
+      updateFeedbackModeUI();
+    }
+    
+    dispatchLayoutEvents();
+    window.dispatchEvent(new Event('resize'));
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     window.__PIXELMARK__.rendererType = detectRenderer();
     discoverThreeScene();
@@ -988,30 +1103,37 @@
       rendererType: window.__PIXELMARK__.rendererType,
     }, "*");
 
+    const currentRenderer = window.__PIXELMARK__.rendererType;
+    postRendererDetected(currentRenderer);
+
     // Check if it's a heavy render page (contains canvas or WebGL renderer)
-    const isHeavyPage = (window.__PIXELMARK__.rendererType === "webgl" || 
-                         window.__PIXELMARK__.rendererType === "mixed" || 
-                         document.querySelector("canvas") !== null);
+    const isHeavyPage = (currentRenderer !== "dom" && currentRenderer !== "spa") || 
+                         document.querySelector("canvas") !== null;
 
     if (isHeavyPage) {
-      // Delay enabling pointer listeners and overlay by 1500ms to let WebGL scene stabilize
-      setTimeout(() => {
-        isAgentReady = true;
-        attachPointerListeners();
-        
-        // Process any queued feedback mode toggles
-        if (typeof window.__pendingToggle !== 'undefined') {
-          feedbackModeActive = window.__pendingToggle;
-          delete window.__pendingToggle;
-          updateFeedbackModeUI();
-        }
-        
-        dispatchLayoutEvents();
-      }, 1500);
+      // Lazy listener binding: Non-blocking boot
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(() => {
+          setTimeout(initializeAgentListeners, 1000); // allow stable render setup
+        });
+      } else {
+        setTimeout(initializeAgentListeners, 2000);
+      }
     } else {
-      isAgentReady = true;
-      attachPointerListeners();
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(() => {
+          initializeAgentListeners();
+        });
+      } else {
+        setTimeout(initializeAgentListeners, 100);
+      }
     }
+
+    // Run detection again after 2000ms to catch late rendering elements
+    setTimeout(() => {
+      const lateRenderer = detectRenderer();
+      postRendererDetected(lateRenderer);
+    }, 2000);
 
     // Periodic renderer type checks (useful for late-initialized WebGL canvases)
     let lastDetectedType = window.__PIXELMARK__.rendererType;
@@ -1020,10 +1142,7 @@
       if (currentType !== lastDetectedType) {
         lastDetectedType = currentType;
         window.__PIXELMARK__.rendererType = currentType;
-        window.parent.postMessage({
-          type: "PIXELMARK_RENDERER_CHANGED",
-          rendererType: currentType
-        }, "*");
+        postRendererDetected(currentType);
       }
     }, 1000);
   });

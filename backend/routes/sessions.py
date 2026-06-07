@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from models import Session, PageVisit, Marker
-from schemas import SessionCreate, SessionOut, PageVisitOut
+from schemas import SessionCreate, SessionOut, PageVisitOut, SessionRendererUpdate
 from dependencies import get_db
 import uuid
 from datetime import datetime
@@ -128,4 +128,42 @@ async def get_session_pages(session_id: str, db: AsyncSession = Depends(get_db))
         select(PageVisit).where(PageVisit.session_id == session_id).order_by(PageVisit.visited_at.asc())
     )
     return result.scalars().all()
+
+@router.post("/{session_id}/renderer", response_model=SessionOut)
+async def update_session_renderer(
+    session_id: str,
+    data: SessionRendererUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    from utils.guardrails import check_render_retry_limits, GuardrailError
+    try:
+        check_render_retry_limits(session_id)
+    except GuardrailError as ge:
+        raise HTTPException(status_code=ge.status_code, detail=ge.message)
+
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    result = await db.execute(select(Session).where(Session.id == session_id))
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.renderer_type = data.renderer_type
+    session.heavy_mode = (data.renderer_type != "dom")
+    session.render_detected_at = datetime.utcnow()
+    session.canvas_count = data.canvas_count
+    session.has_webgl = (data.renderer_type in ["webgl", "webgl2", "mixed"])
+    session.has_three_js = data.three_detected
+
+    import logging
+    logger = logging.getLogger("pixelmark.sessions")
+    logger.info(f"[OBSERVABILITY] [RENDERER_DETECTED] Deployed agent detected renderer type: {data.renderer_type} for session={session_id}. has_webgl={session.has_webgl}, has_three_js={session.has_three_js}, canvas_count={data.canvas_count}")
+
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return session
 

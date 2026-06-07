@@ -4,7 +4,7 @@ import sys
 import time
 import uuid
 
-BASE_URL = "http://localhost:8765"
+BASE_URL = "http://localhost:8000"
 
 # Shared state to flow between classes
 class SharedState:

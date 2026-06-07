@@ -2,7 +2,7 @@ import httpx
 import pytest
 import uuid
 
-RAILWAY_URL = "https://pixelmark-production.up.railway.app"
+RAILWAY_URL = "http://localhost:8000"
 state = {
     "token": None,
     "session_id": None,
