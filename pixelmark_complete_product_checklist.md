@@ -29,12 +29,12 @@ SECTION 2 — AUTH
 SECTION 3 — PROJECT AND SESSION CRUD
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Create project works
-[ ] List projects works
-[ ] Edit project works
-[ ] Delete project works with cascade
-[ ] Create session with target URL works
-[ ] List sessions per project works
+[x] Create project works
+[x] List projects works
+[x] Edit project works
+[x] Delete project works with cascade
+[x] Create session with target URL works
+[x] List sessions per project works
 [ ] Session stores renderer_type and heavy_mode fields
 [ ] Session stores target origin correctly
 
@@ -82,18 +82,17 @@ SECTION 5 — MULTI-PAGE NAVIGATION
 SECTION 6 — SHARE LINKS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Generate Share Link button exists
-[ ] POST /share-links creates a token
-[ ] Generated URL uses deployed frontend URL
-[ ] Share URL opens in fresh browser context without auth
-[ ] Public review page loads correctly
-[ ] Session title and project name shown in public review
-[ ] Password-protected share link works
-[ ] Wrong password rejected with clear error
-[ ] Expired share link shows expired state
-[ ] Deactivated share link denied access
-[ ] Existing links listed in share panel
-[ ] Deactivate link works from the UI
+[x] POST /share-links creates a token
+[x] Generated URL uses deployed frontend URL
+[x] Share URL opens in fresh browser context without auth
+[x] Public review page loads correctly
+[x] Session title and project name shown in public review
+[x] Password-protected share link works
+[x] Wrong password rejected with clear error
+[x] Expired share link shows expired state
+[x] Deactivated share link denied access
+[x] Existing links listed in share panel
+[x] Deactivate link works from the UI
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SECTION 7 — MARKER CAPTURE
@@ -190,13 +189,13 @@ SECTION 12 — FIGMA-STYLE CANVAS
 SECTION 13 — EXPORT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Export Audit button works
-[ ] Markdown export includes all markers
-[ ] JSON export includes all markers with full context
-[ ] CSV export includes all markers
-[ ] Export respects page grouping
-[ ] Export includes selector, text, severity, issue type
-[ ] Export usable as a GitHub/Jira issue directly
+[x] Export Audit button works
+[x] Markdown export includes all markers
+[x] JSON export includes all markers with full context
+[x] CSV export includes all markers
+[x] Export respects page grouping
+[x] Export includes selector, text, severity, issue type
+[x] Export usable as a GitHub/Jira issue directly
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SECTION 14 — PRODUCTION HARDENING
@@ -216,16 +215,16 @@ SECTION 14 — PRODUCTION HARDENING
 SECTION 15 — LAUNCH READINESS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] All 13 production smoke tests pass
+[x] All 13 production smoke tests pass
 [ ] Heavy WebGL portfolio renders inside PixelMark
-[ ] Share link flow works end to end
-[ ] Marker capture works on DOM and canvas
-[ ] Multi-page navigation works for 3+ pages
+[x] Share link flow works end to end
+[x] Marker capture works on DOM and canvas
+[x] Multi-page navigation works for 3+ pages
 [ ] Mobile layout tested and correct
-[ ] No localhost in any network request
-[ ] No 404 on agent script
-[ ] No 500 on blocked runtime requests
-[ ] Incident response playbook ready
+[x] No localhost in any network request
+[x] No 404 on agent script
+[x] No 500 on blocked runtime requests
+[x] Incident response playbook ready
 [ ] Maintenance roadmap defined
 [ ] Launch support checklist active
 
