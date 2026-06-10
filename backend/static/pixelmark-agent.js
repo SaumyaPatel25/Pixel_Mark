@@ -2,16 +2,30 @@
   if (window.__PIXELMARK_INSTALLED__) return;
   window.__PIXELMARK_INSTALLED__ = true;
 
+  const TARGETURL = window.__PIXELMARK_TARGET_URL__ || window.PIXELMARKTARGETURL || window.location.href;
+  const TARGET_URL = TARGETURL;
+  const SESSION_ID = window.__PIXELMARK_SESSION_ID__ || null;
+
   // ─── Namespace ───────────────────────────────────────────────────────────
   window.__PIXELMARK__ = window.__PIXELMARK__ || {};
+  window.__PIXELMARK__.sessionId = SESSION_ID;
+  window.__PIXELMARK__.pageUrl = TARGET_URL;
   window.__PIXELMARK__.consoleErrors = [];
   window.__PIXELMARK__.networkErrors = [];
   window.__PIXELMARK__.rendererType = "dom";
-  window.__PIXELMARK__.agentVersion = "2.1.0";
+  window.__PIXELMARK__.agentVersion = "2.3.0";
+
+  window.PIXELMARK = window.PIXELMARK || {};
+  window.PIXELMARK.sessionId = window.PIXELMARK.sessionId || SESSION_ID;
+  window.PIXELMARK.pageUrl = window.PIXELMARK.pageUrl || TARGET_URL;
+  window.PIXELMARK.transportUrl = window.PIXELMARK.transportUrl || window.__PIXELMARK_TRANSPORT_URL__;
+  window.PIXELMARK.targetUrl = window.PIXELMARK.targetUrl || window.__PIXELMARK_TARGET_URL__;
+
+  window.lastpageurl = window.lastpageurl || window.__PIXELMARK_TARGET_URL__ || TARGET_URL;
 
   let feedbackModeActive = false;
 
-  // ─── RAF Hook & FPS Tracker ──────────────────────────────────────────────
+  // ─── RAF Hook & FPS Tracker ───────────────────────────────────────────────
   let rAFCount = 0;
   let rAFActive = false;
   let frames = 0;
@@ -50,13 +64,13 @@
   }
   originalRAF.call(window, calculateFps);
 
-  // ─── Circular buffer ─────────────────────────────────────────────────────
+  // ─── Circular buffer ──────────────────────────────────────────────────────
   function pushCircular(arr, item) {
     arr.push(item);
     if (arr.length > 20) arr.shift();
   }
 
-  // ─── Console error interception ──────────────────────────────────────────
+  // ─── Console error interception ───────────────────────────────────────────
   const originalConsoleError = console.error;
   console.error = function(...args) {
     const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
@@ -77,9 +91,11 @@
   }, true);
 
   // ─── Client-side Asset URL Rewrite Helper ─────────────────────────────────
-  function rewriteAssetUrl(url) {
+  function rewriteAssetUrl(url, method = 'GET') {
     if (!url || typeof url !== 'string') return url;
-    if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('javascript:')) {
+    const raw = url.trim();
+    if (!raw) return url;
+    if (raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('javascript:')) {
       return url;
     }
     if (url.includes('/proxy/session/')) {
@@ -88,9 +104,43 @@
 
     let absoluteUrl = url;
     try {
-      const pageUrl = window.__PIXELMARK__?.pageUrl || window.location.href;
+      const pageUrl = getAbsoluteTargetUrl();
       absoluteUrl = new URL(url, pageUrl).href;
     } catch (e) {
+      return url;
+    }
+
+    try {
+      const parsed = new URL(absoluteUrl);
+      const host = parsed.hostname.toLowerCase();
+      
+      const PASSTHROUGH_ORIGINS = [
+        'firebaseinstallations.googleapis.com',
+        'firebase.googleapis.com',
+        'identitytoolkit.googleapis.com',
+        'securetoken.googleapis.com',
+        'firebaseapp.com',
+        'auth0.com',
+        'accounts.google.com'
+      ];
+      
+      if (PASSTHROUGH_ORIGINS.some(o => host === o || host.endsWith('.' + o))) {
+        return absoluteUrl;
+      }
+      
+      const bypass = new Set([
+        'www.google-analytics.com', 'google-analytics.com',
+        'www.googletagmanager.com', 'googletagmanager.com',
+        'connect.facebook.net', 'static.hotjar.com', 'script.hotjar.com',
+        'segment.io', 'api.segment.io'
+      ]);
+      const suffix = ['.google-analytics.com', '.googletagmanager.com', '.hotjar.com', '.segment.io'];
+      
+      const isExact = bypass.has(host);
+      const isSuffix = suffix.some(s => host.endsWith(s));
+      const isGoogleCollect = (host === 'www.google.com' || host === 'google.com') && parsed.pathname.startsWith('/g/collect');
+      if (isExact || isSuffix || isGoogleCollect) return absoluteUrl;
+    } catch {
       return url;
     }
 
@@ -101,12 +151,13 @@
     return url;
   }
 
-  // ─── Network error interception & fetch/XHR proxy rewriting ─────────────
+  // ─── Network error interception & fetch/XHR proxy rewriting ────────────────
   const originalFetch = window.fetch;
   window.fetch = async function(input, init) {
     let url = typeof input === 'string' ? input : input?.url;
+    const method = (init && init.method) || (input && input.method) || 'GET';
     if (url && typeof url === 'string') {
-      const rewritten = rewriteAssetUrl(url);
+      const rewritten = rewriteAssetUrl(url, method);
       if (rewritten !== url) {
         if (typeof input === 'string') {
           input = rewritten;
@@ -125,7 +176,7 @@
         pushCircular(window.__PIXELMARK__.networkErrors, {
           url: response.url,
           status: response.status,
-          method: init?.method || "GET",
+          method: method,
           timestamp: new Date().toISOString()
         });
       }
@@ -134,7 +185,7 @@
       pushCircular(window.__PIXELMARK__.networkErrors, {
         url: typeof input === 'string' ? input : input?.url || "unknown",
         status: 0,
-        method: init?.method || "GET",
+        method: method,
         timestamp: new Date().toISOString()
       });
       throw err;
@@ -144,7 +195,7 @@
   const originalXHROpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function(method, url, ...args) {
     if (url && typeof url === 'string') {
-      url = rewriteAssetUrl(url);
+      url = rewriteAssetUrl(url, method);
     }
     this._method = method;
     return originalXHROpen.apply(this, [method, url, ...args]);
@@ -298,7 +349,6 @@
   }
 
   // ─── Issue type inference ─────────────────────────────────────────────────
-  // Maps element context → structured issue category
   function detectIssueType(element, rendererType) {
     if (rendererType === "threejs" || rendererType === "webgl") return "canvas_webgl";
     if (!element || element.nodeType !== Node.ELEMENT_NODE) return "other";
@@ -576,7 +626,7 @@
     } catch (err) { return null; }
   }
 
-  // ─── WebGL/Three.js context ───────────────────────────────────────────────
+  // ─── WebGL/Three.js context ────────────────────────────────────────────────
   function getThreeJSContext(e, canvas) {
     const renderer = window.__PIXELMARK__.threeRenderer;
     const scene = window.__PIXELMARK__.threeScene;
@@ -619,7 +669,7 @@
     };
   }
 
-  // ─── Visual confirmation pulse ────────────────────────────────────────────
+  // ─── Visual confirmation pulse ─────────────────────────────────────────────
   function showClickConfirmation(x, y) {
     const dot = document.createElement("div");
     dot.style.cssText = `
@@ -639,7 +689,7 @@
     setTimeout(() => { dot.remove(); style.remove(); }, 600);
   }
 
-  // ─── Feedback Mode HUD badge ──────────────────────────────────────────────
+  // ─── Feedback Mode HUD badge ───────────────────────────────────────────────
   let badgeEl = null;
 
   function updateFeedbackModeUI() {
@@ -669,11 +719,11 @@
           animation: pm-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
         `;
         const rendererLabel = window.__PIXELMARK__.rendererType !== "dom"
-          ? ` · ${window.__PIXELMARK__.rendererType.toUpperCase()}`
+          ? ` ┬╖ ${window.__PIXELMARK__.rendererType.toUpperCase()}`
           : "";
         badgeEl.innerHTML = `
           <span style="display:inline-block;width:7px;height:7px;background:#a78bfa;border-radius:50%;animation:pm-ping 1s infinite alternate;"></span>
-          Feedback Mode ON${rendererLabel} — Click to report
+          Feedback Mode ON${rendererLabel} ΓÇö Click to report
         `;
         const style = document.createElement("style");
         style.id = "pixelmark-hud-style";
@@ -693,32 +743,179 @@
     }
   }
 
-  // ─── Main capture handler ─────────────────────────────────────────────────
-  // NOTE: Ctrl is NOT checked here — only altKey and feedbackModeActive.
+  // ─── Hover Inspector ──────────────────────────────────────────────────────
+  class HoverInspector {
+    constructor() {
+      this.root = document.createElement('div');
+      this.root.id = INSPECTOR_ROOT_ID;
+      this.root.style.cssText = `position:fixed;pointer-events:none;z-index:2147483646;`;
+      document.body.appendChild(this.root);
+      this.box = document.createElement('div');
+      this.box.style.cssText = `border:2px solid #7c3aed;border-radius:4px;box-shadow:0 0 8px rgba(124,58,237,0.6);`;
+      this.tooltip = document.createElement('div');
+      this.tooltip.style.cssText = `position:absolute;background:#7c3aed;color:white;padding:2px 6px;font-size:10px;border-radius:3px;top:-24px;left:0;transform:translateX(-50%);white-space:nowrap;`;
+      this.root.appendChild(this.box);
+      this.root.appendChild(this.tooltip);
+      this.active = false;
+      this.bound = this.onMouseMove.bind(this);
+    }
+    start() {
+      if (this.active) return;
+      window.addEventListener('mousemove', this.bound);
+      this.active = true;
+    }
+    stop() {
+      if (!this.active) return;
+      window.removeEventListener('mousemove', this.bound);
+      this.root.style.display = 'none';
+      this.active = false;
+    }
+    onMouseMove(e) {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (!el || isPixelMarkOwnedNode(el) || el.id === INSPECTOR_ROOT_ID) {
+        this.root.style.display = 'none';
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      this.box.style.cssText = `position:absolute;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;border:2px solid #7c3aed;border-radius:4px;pointer-events:none;`;
+      const tag = el.tagName.toLowerCase();
+      const role = el.getAttribute('role') || '';
+      const hint = detectIssueType(el, window.__PIXELMARK__.rendererType);
+      this.tooltip.textContent = `${tag}${role ? '['+role+']' : ''} • ${hint}`;
+      this.tooltip.style.left = `${e.clientX}px`;
+      this.root.style.display = 'block';
+    }
+  }
+
+  const INSPECTOR_ROOT_ID = "pixelmark-inspector-root";
+  const hoverInspector = new HoverInspector();
+
+  // ─── Pin manager ──────────────────────────────────────────────────────────
+  class PinManager {
+    constructor() {
+      this.root = document.createElement('div');
+      this.root.id = PIN_ROOT_ID;
+      this.root.style.cssText = `position:fixed;pointer-events:none;z-index:2147483645;`;
+      document.body.appendChild(this.root);
+      this.pins = new Map();
+    }
+    createPin(payload) {
+      const id = payload.id || crypto.randomUUID();
+      const el = document.createElement('div');
+      el.dataset.pixelmarkPin = id;
+      el.style.cssText = `position:absolute;width:12px;height:12px;background:#7c3aed;border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.4);cursor:pointer;pointer-events:auto;`;
+      const { viewport_x, viewport_y } = payload.click || {};
+      if (viewport_x !== undefined && viewport_y !== undefined) {
+        el.style.left = `${viewport_x * 100}%`;
+        el.style.top = `${viewport_y * 100}%`;
+        el.style.transform = 'translate(-50%,-50%)';
+      } else if (payload.bounding_box) {
+        const { x, y, width, height } = payload.bounding_box;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        el.style.left = `${(x + width/2) / vw * 100}%`;
+        el.style.top = `${(y + height/2) / vh * 100}%`;
+        el.style.transform = 'translate(-50%,-50%)';
+      }
+      
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        window.parent.postMessage({ type: 'PIXELMARK_OPEN_FEEDBACK_DRAWER', payload }, '*');
+      });
+      this.root.appendChild(el);
+      this.pins.set(id, el);
+      return id;
+    }
+    removePin(id) {
+      const el = this.pins.get(id);
+      if (el) { el.remove(); this.pins.delete(id); }
+    }
+    clearAll() {
+      this.root.innerHTML = '';
+      this.pins.clear();
+    }
+  }
+  const PIN_ROOT_ID = "pixelmark-pin-root";
+  const pinManager = new PinManager();
+
+  // Helper to detect if a element is owned by PixelMark
+  function isPixelMarkOwnedNode(node) {
+    if (!node) return false;
+    if (node.id === PIN_ROOT_ID || node.id === INSPECTOR_ROOT_ID || node.id === "pixelmark-hud-badge") return true;
+    if (node.closest && (node.closest(`#${PIN_ROOT_ID}`) || node.closest(`#${INSPECTOR_ROOT_ID}`))) return true;
+    return false;
+  }
+
+  // ─── Payload builder (canonical) ──────────────────────────────────────────
+  function buildCapturePayload(event, target) {
+    const clickX = event.clientX, clickY = event.clientY;
+    const pageX = Math.round(clickX + window.scrollX), pageY = Math.round(clickY + window.scrollY);
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const viewportX = clickX / viewport.width, viewportY = clickY / viewport.height;
+    const rendererType = window.__PIXELMARK__.rendererType;
+    const domCtx = getDOMContext(target);
+    const viewportCtx = getViewportContext();
+    const shadowCtx = captureShadowContext(target);
+    const bbox = getBoundingBox(target);
+    const browserInfo = getBrowserInfo();
+    const issueHint = detectIssueType(target, rendererType);
+    const logicalUrl = getAbsoluteTargetUrl();
+    
+    const payload = {
+      id: crypto.randomUUID(),
+      session_id: SESSION_ID,
+      pageurl: logicalUrl,
+      page_url: logicalUrl,
+      page_title: document.title,
+      created_via: feedbackModeActive ? 'feedback-mode' : (event.altKey ? 'alt-click' : 'unknown'),
+      click: { page_x: pageX, page_y: pageY, viewport_x: viewportX, viewport_y: viewportY, client_x: clickX, client_y: clickY },
+      target: domCtx,
+      bounding_box: bbox,
+      viewport_context: viewportCtx,
+      shadow_context: shadowCtx,
+      issue_type_hint: issueHint,
+      renderer_type: rendererType,
+      screenshot: { method: null, data_url: null },
+      diagnostics: { console_errors: window.__PIXELMARK__.consoleErrors.slice(), network_errors: window.__PIXELMARK__.networkErrors.slice(), browser: browserInfo },
+    };
+    return payload;
+  }
+
+  // ─── Interaction Model ───────────────────────────────────────────────────
+  function toggleFeedbackMode(state) {
+    feedbackModeActive = typeof state === 'boolean' ? state : !feedbackModeActive;
+    updateFeedbackModeUI();
+    if (feedbackModeActive) hoverInspector.start(); else hoverInspector.stop();
+  }
+
+  // Keyboard shortcut – Alt+Shift+F
+  window.addEventListener('keydown', (e) => {
+    if (e.altKey && e.shiftKey && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      toggleFeedbackMode();
+    }
+  });
+
+  // Main capture handler – wired to click events when appropriate
   async function handleFeedbackCapture(e) {
-    // Determine trigger source
-    const isAltClick = e.altKey && !feedbackModeActive;
-    const isFeedbackModeClick = feedbackModeActive && !e.altKey;
+    const isAlt = e.altKey && !feedbackModeActive;
+    const isMode = feedbackModeActive && !e.altKey;
     const isBoth = e.altKey && feedbackModeActive;
-
-    if (!isAltClick && !isFeedbackModeClick && !isBoth) return;
-
-    // Throttle rapid double-clicks
+    if (!isAlt && !isMode && !isBoth) return;
+    
     const now = Date.now();
-    if (window.__lastFeedbackTime && (now - window.__lastFeedbackTime < 600)) return;
+    if (window.__lastFeedbackTime && (now - window.__lastFeedbackTime < 600)) return; // throttle
     window.__lastFeedbackTime = now;
-
+    
     e.preventDefault();
     e.stopPropagation();
-
-    const target = e.composedPath()?.[0] || e.target;
+    const target = e.composedPath?.()[0] || e.target;
     if (!target) return;
-
+    if (isPixelMarkOwnedNode(target)) return; // prevent self-capture
+    
     const clickX = e.clientX;
     const clickY = e.clientY;
     const pageX = Math.round(clickX + window.scrollX);
     const pageY = Math.round(clickY + window.scrollY);
-
     const rendererType = window.__PIXELMARK__.rendererType;
     const isCanvas = target.tagName === "CANVAS";
     const domCtx = getDOMContext(target);
@@ -766,22 +963,31 @@
       screenshotDataUrl = await captureScreenshot(target);
     }
 
-    // Show visual confirmation at click point
     showClickConfirmation(clickX, clickY);
 
-    // Resolve created_via
-    const createdVia = isAltClick ? "alt_click" : "agent";
+    const createdVia = isAlt ? "alt_click" : "agent";
+    const payload = buildCapturePayload(e, target);
+    
+    if (screenshotDataUrl) {
+      payload.screenshot.method = isCanvas ? 'toDataURL' : 'html2canvas';
+      payload.screenshot.data_url = screenshotDataUrl;
+    } else {
+      payload.screenshot.method = 'none';
+    }
 
-    // ── Send PIXELMARK_OPEN_FEEDBACK_DRAWER to parent (not direct save) ──
-    // Parent opens the drawer pre-filled with this capture context.
-    // The user can add a note, pick issue type, then submit.
+    pinManager.createPin(payload);
+
     window.parent.postMessage({
       type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
-
-      // Location
+      payload: payload,
+      
+      // Top-level fields for backwards compatibility
       session_id: window.__PIXELMARK__.sessionId,
-      page_url: window.__PIXELMARK__.pageUrl || window.location.href,
+      sessionid: window.__PIXELMARK__.sessionId,
+      page_url: getAbsoluteTargetUrl(),
+      pageurl: getAbsoluteTargetUrl(),
       page_title: document.title,
+      pagetitle: document.title,
       x: pageX,
       y: pageY,
       viewport_x: clickX,
@@ -795,7 +1001,7 @@
       aria_role: domCtx.aria_role || null,
       bounding_box: bbox,
 
-      // Issue type hint (parent can pre-select in drawer)
+      // Issue type hint
       issue_type_hint: issueTypeHint,
 
       // DOM depth context
@@ -831,13 +1037,8 @@
     }, "*");
   }
 
-  let isAgentReady = false;
+  // ─── Attach listeners ─────────────────────────────────────────────────────
   let pointerListenersAttached = false;
-
-  function dispatchLayoutEvents() {
-    window.dispatchEvent(new Event('resize'));
-    document.dispatchEvent(new Event('visibilitychange'));
-  }
 
   function attachPointerListeners() {
     if (pointerListenersAttached) return;
@@ -852,142 +1053,185 @@
     document.addEventListener("click", handleFeedbackCapture, true);
   }
 
-  // ─── Page lifecycle messages to parent ────────────────────────────────────
-  window.addEventListener("beforeunload", () => {
-    window.parent.postMessage({
-      type: "PIXELMARK_PAGE_UNLOAD",
-      fromUrl: window.__PIXELMARK__.pageUrl || window.location.href,
-    }, "*");
-  });
+  function attachListeners() {
+    attachPointerListeners();
 
-  // ─── Receive messages from parent ────────────────────────────────────────
-  window.addEventListener("message", (event) => {
-    const data = event.data;
-    if (!data || typeof data !== "object") return;
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
 
-    if (data.type === "PIXELMARK_TOGGLE_MARKER_MODE") {
-      if (!isAgentReady) {
-        window.__pendingToggle = !!data.active;
-        return;
-      }
-      feedbackModeActive = !!data.active;
-      updateFeedbackModeUI();
-    }
-
-    // Parent can also set session/page context
-    if (data.type === "PIXELMARK_SET_CONTEXT") {
-      if (data.sessionId) window.__PIXELMARK__.sessionId = data.sessionId;
-      if (data.pageUrl) window.__PIXELMARK__.pageUrl = data.pageUrl;
-    }
-
-    if (data.type === "PIXELMARK_TRIGGER_FRAME_CAPTURE") {
-      (async () => {
-        const canvases = document.querySelectorAll("canvas");
-        let screenshotDataUrl = null;
-        let canvasCtx = null;
-        let target = document.body;
-        
-        if (canvases.length > 0) {
-          // Use the largest canvas
-          let largestCanvas = canvases[0];
-          let largestArea = largestCanvas.width * largestCanvas.height;
-          for (const c of canvases) {
-            const area = c.width * c.height;
-            if (area > largestArea) {
-              largestCanvas = c;
-              largestArea = area;
-            }
-          }
-          target = largestCanvas;
-          try { screenshotDataUrl = largestCanvas.toDataURL("image/png"); } catch (_) {}
-          
-          const bbox = largestCanvas.getBoundingClientRect();
-          const gl = largestCanvas.getContext("webgl") || largestCanvas.getContext("webgl2") || largestCanvas.getContext("experimental-webgl");
-          canvasCtx = {
-            type: gl ? "webgl" : "canvas2d",
-            canvas_coords: { x: Math.round(window.innerWidth / 2 - bbox.left), y: Math.round(window.innerHeight / 2 - bbox.top) },
-            canvas_rect: {
-              x: Math.round(bbox.x),
-              y: Math.round(bbox.y),
-              width: Math.round(bbox.width),
-              height: Math.round(bbox.height),
-              top: Math.round(bbox.top),
-              left: Math.round(bbox.left)
-            },
-            scene_hint: gl ? "WebGL Context" : "Canvas 2D Context",
-            pixel_ratio: window.devicePixelRatio || 1,
-            draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
-          };
-        } else {
-          screenshotDataUrl = await captureScreenshot(target);
+      if (data.type === "PIXELMARK_TOGGLE_MARKER_MODE") {
+        if (!isAgentReady) {
+          window.__pendingToggle = !!data.active;
+          return;
         }
-        
+        feedbackModeActive = !!data.active;
+        updateFeedbackModeUI();
+        if (feedbackModeActive) hoverInspector.start(); else hoverInspector.stop();
+      }
+
+      if (data.type === "PIXELMARK_SET_CONTEXT") {
+        if (data.sessionId) {
+          window.__PIXELMARK__.sessionId = data.sessionId;
+          window.PIXELMARK.sessionId = data.sessionId;
+        }
+        if (data.pageUrl) {
+          window.__PIXELMARK__.pageUrl = data.pageUrl;
+          window.PIXELMARK.pageUrl = data.pageUrl;
+        }
+      }
+
+      if (data.type === "PIXELMARK_TRIGGER_FRAME_CAPTURE") {
+        (async () => {
+          const canvases = document.querySelectorAll("canvas");
+          let screenshotDataUrl = null;
+          let canvasCtx = null;
+          let target = document.body;
+          
+          if (canvases.length > 0) {
+            let largestCanvas = canvases[0];
+            let largestArea = largestCanvas.width * largestCanvas.height;
+            for (const c of canvases) {
+              const area = c.width * c.height;
+              if (area > largestArea) {
+                largestCanvas = c;
+                largestArea = area;
+              }
+            }
+            target = largestCanvas;
+            try { screenshotDataUrl = largestCanvas.toDataURL("image/png"); } catch (_) {}
+            
+            const bbox = largestCanvas.getBoundingClientRect();
+            const gl = largestCanvas.getContext("webgl") || largestCanvas.getContext("webgl2") || largestCanvas.getContext("experimental-webgl");
+            canvasCtx = {
+              type: gl ? "webgl" : "canvas2d",
+              canvas_coords: { x: Math.round(window.innerWidth / 2 - bbox.left), y: Math.round(window.innerHeight / 2 - bbox.top) },
+              canvas_rect: {
+                x: Math.round(bbox.x),
+                y: Math.round(bbox.y),
+                width: Math.round(bbox.width),
+                height: Math.round(bbox.height),
+                top: Math.round(bbox.top),
+                left: Math.round(bbox.left)
+              },
+              scene_hint: gl ? "WebGL Context" : "Canvas 2D Context",
+              pixel_ratio: window.devicePixelRatio || 1,
+              draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
+            };
+          } else {
+            screenshotDataUrl = await captureScreenshot(target);
+          }
+          
+          const payload = {
+            id: crypto.randomUUID(),
+            session_id: window.__PIXELMARK__.sessionId,
+            pageurl: getAbsoluteTargetUrl(),
+            page_url: getAbsoluteTargetUrl(),
+            page_title: document.title,
+            created_via: "fallback",
+            click: { page_x: Math.round(window.innerWidth / 2 + window.scrollX), page_y: Math.round(window.innerHeight / 2 + window.scrollY), viewport_x: 0.5, viewport_y: 0.5, client_x: Math.round(window.innerWidth / 2), client_y: Math.round(window.innerHeight / 2) },
+            target: { xpath: "", css_selector: "visual-canvas-context", inner_text: "Captured Frame Viewport", tag_name: "CANVAS", element_id: null, class_list: [], is_visible: true, computed_role: null, aria_label: null, aria_role: null, placeholder: null },
+            bounding_box: getBoundingBox(target),
+            viewport_context: getViewportContext(),
+            shadow_context: { is_inside_shadow_dom: false, shadow_root_depth: 0, shadow_host_tag: null, shadow_host_id: null, shadow_host_class_list: null, shadow_path: null },
+            issue_type_hint: "canvas_webgl",
+            renderer_type: window.__PIXELMARK__.rendererType,
+            screenshot: { method: 'fallback', data_url: screenshotDataUrl },
+            diagnostics: { console_errors: window.__PIXELMARK__.consoleErrors.slice(), network_errors: window.__PIXELMARK__.networkErrors.slice(), browser: getBrowserInfo() },
+          };
+
+          window.parent.postMessage({
+            type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
+            payload: payload,
+            session_id: window.__PIXELMARK__.sessionId,
+            sessionid: window.__PIXELMARK__.sessionId,
+            page_url: getAbsoluteTargetUrl(),
+            pageurl: getAbsoluteTargetUrl(),
+            page_title: document.title,
+            pagetitle: document.title,
+            x: Math.round(window.innerWidth / 2 + window.scrollX),
+            y: Math.round(window.innerHeight / 2 + window.scrollY),
+            viewport_x: Math.round(window.innerWidth / 2),
+            viewport_y: Math.round(window.innerHeight / 2),
+            element_selector: "visual-canvas-context",
+            element_text: "Captured Frame Viewport",
+            element_tag: "CANVAS",
+            aria_label: null,
+            aria_role: null,
+            bounding_box: getBoundingBox(target),
+            issue_type_hint: "canvas_webgl",
+            xpath: "",
+            viewport: getViewportContext().viewport,
+            scroll_position: getViewportContext().scroll_position,
+            renderer_type: window.__PIXELMARK__.rendererType,
+            canvas_context: canvasCtx,
+            norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
+            norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
+            canvas_snapshot: screenshotDataUrl,
+            screenshot_data_url: screenshotDataUrl,
+            screenshot_required: !!screenshotDataUrl,
+            console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
+            network_errors: window.__PIXELMARK__.networkErrors.slice(-10),
+            browser_info: getBrowserInfo(),
+            created_via: "fallback",
+            agent_version: window.__PIXELMARK__.agentVersion,
+            timestamp: new Date().toISOString(),
+          }, "*");
+        })();
+      }
+    });
+
+    window.addEventListener('pixelmark:navigation', (e) => {
+      const logicalTargetUrl = e.detail?.logicalTargetUrl;
+      if (!logicalTargetUrl) return;
+      try {
+        console.log("[PixelMark NAV] logicalTargetUrl=" + logicalTargetUrl);
+
+        const targetUrlObj = new URL(logicalTargetUrl);
+        const sessionUrlObj = new URL(window.__PIXELMARK_TARGET_URL__);
+        if (targetUrlObj.host !== sessionUrlObj.host) {
+          return;
+        }
+
         window.parent.postMessage({
-          type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
-          session_id: window.__PIXELMARK__.sessionId,
-          page_url: window.__PIXELMARK__.pageUrl || window.location.href,
+          type: 'PIXELMARK_NAV',
+          pageurl: logicalTargetUrl,
+          page_url: logicalTargetUrl,
+          pagetitle: document.title,
           page_title: document.title,
-          x: Math.round(window.innerWidth / 2 + window.scrollX),
-          y: Math.round(window.innerHeight / 2 + window.scrollY),
-          viewport_x: Math.round(window.innerWidth / 2),
-          viewport_y: Math.round(window.innerHeight / 2),
-          element_selector: "visual-canvas-context",
-          element_text: "Captured Frame Viewport",
-          element_tag: "CANVAS",
-          aria_label: null,
-          aria_role: null,
-          bounding_box: getBoundingBox(target),
-          issue_type_hint: "canvas_webgl",
-          xpath: "",
-          viewport: getViewportContext().viewport,
-          scroll_position: getViewportContext().scroll_position,
-          renderer_type: window.__PIXELMARK__.rendererType,
-          canvas_context: canvasCtx,
-          norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
-          norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
-          canvas_snapshot: canvasCtx ? screenshotDataUrl : null,
-          screenshot_data_url: screenshotDataUrl,
-          screenshot_required: !!screenshotDataUrl,
-          console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
-          network_errors: window.__PIXELMARK__.networkErrors.slice(-10),
-          browser_info: getBrowserInfo(),
-          created_via: "fallback",
-          agent_version: window.__PIXELMARK__.agentVersion,
-          timestamp: new Date().toISOString(),
-        }, "*");
-      })();
-    }
-  });
+          sessionid: window.PIXELMARK.sessionId,
+          session_id: window.PIXELMARK.sessionId,
+          referrerurl: window.lastpageurl || window.__PIXELMARK_TARGET_URL__,
+          referrer_url: window.lastpageurl || window.__PIXELMARK_TARGET_URL__,
+          isspa: true,
+          is_spa: true
+        }, '*');
+
+        window.lastpageurl = logicalTargetUrl;
+        window.PIXELMARK.pageUrl = logicalTargetUrl;
+        window.__PIXELMARK__.pageUrl = logicalTargetUrl;
+      } catch (err) {
+        console.error("[PixelMark NAV] Error handling navigation event", err);
+      }
+    });
+  }
 
   // ─── DOMContentLoaded init ────────────────────────────────────────────────
   function getAbsoluteTargetUrl() {
     try {
-      window.__PIXELMARK__ = window.__PIXELMARK__ || {};
-      const targetBase = new URL(window.__PIXELMARK__.pageUrl || window.location.href);
-      
-      let path = window.location.pathname;
-      
-      // Strip proxy prefix if present
-      const proxyPrefixRegex = /^\/proxy\/session\/[a-f0-9\-]{36}(?:\/page|\/asset|\/form)?/i;
-      path = path.replace(proxyPrefixRegex, "");
-      if (!path.startsWith("/")) {
-        path = "/" + path;
-      }
-      
-      // Check if there is an explicit target 'url' query parameter (e.g. in /page?url=...)
       const params = new URLSearchParams(window.location.search);
-      const queryUrl = params.get("url");
-      if (queryUrl) {
-        try {
-          return new URL(queryUrl).href;
-        } catch (e) {}
+      const urlParam = params.get('url');
+      if (urlParam) {
+        return new URL(urlParam).href;
       }
-      
-      const resolved = new URL(path + window.location.search + window.location.hash, targetBase.origin);
-      return resolved.href;
-    } catch (e) {
-      return window.__PIXELMARK__?.pageUrl || window.location.href;
+    } catch (_) {}
+    if (window.PIXELMARK && window.PIXELMARK.pageUrl) {
+      return window.PIXELMARK.pageUrl;
     }
+    if (window.__PIXELMARK_TARGET_URL__) {
+      return window.__PIXELMARK_TARGET_URL__;
+    }
+    return TARGETURL;
   }
 
   function setupNavigationInterceptor() {
@@ -1007,52 +1251,38 @@
       }
 
       // Resolve URL absolutely relative to target base URL
-      const targetBase = window.__PIXELMARK__?.pageUrl || window.location.href;
-      const resolvedUrl = new URL(hrefStripped, targetBase).href;
+      const targetBase = getAbsoluteTargetUrl();
+      let resolvedUrl;
+      try {
+        resolvedUrl = new URL(hrefStripped, targetBase).href;
+      } catch (_) {
+        return;
+      }
       
       // Determine if it is internal to the proxied application
       const targetHost = new URL(resolvedUrl).host;
-      const originalHost = new URL(window.__PIXELMARK__?.pageUrl || window.location.href).host;
+      const originalHost = new URL(targetBase).host;
       const isInternal = targetHost === originalHost;
 
       if (isInternal) {
         window.parent.postMessage({
           type: "PIXELMARK_NAV",
           page_url: resolvedUrl,
+          pageurl: resolvedUrl,
           page_title: document.title || "",
+          pagetitle: document.title || "",
           session_id: window.__PIXELMARK__.sessionId || "",
-          referrer_url: window.__last_page_url || targetBase
+          sessionid: window.__PIXELMARK__.sessionId || "",
+          referrer_url: window.lastpageurl || targetBase,
+          referrerurl: window.lastpageurl || targetBase,
+          isspa: false,
+          is_spa: false
         }, "*");
+        window.lastpageurl = resolvedUrl;
+        window.PIXELMARK.pageUrl = resolvedUrl;
+        window.__PIXELMARK__.pageUrl = resolvedUrl;
       }
     }, true);
-
-    // 2. Intercept SPA pushState / replaceState
-    const originalPushState = history.pushState;
-    history.pushState = function(state, unused, url) {
-      originalPushState.apply(this, arguments);
-      handleSPAEvent();
-    };
-
-    const originalReplaceState = history.replaceState;
-    history.replaceState = function(state, unused, url) {
-      originalReplaceState.apply(this, arguments);
-      handleSPAEvent();
-    };
-
-    window.addEventListener("popstate", handleSPAEvent);
-
-    function handleSPAEvent() {
-      const targetUrl = getAbsoluteTargetUrl();
-      window.parent.postMessage({
-        type: "PIXELMARK_NAV",
-        page_url: targetUrl,
-        page_title: document.title || "",
-        session_id: window.__PIXELMARK__.sessionId || "",
-        referrer_url: window.__last_page_url || targetUrl,
-        is_spa: true
-      }, "*");
-      window.__last_page_url = targetUrl;
-    }
   }
 
   function postRendererDetected(rendererType) {
@@ -1075,30 +1305,49 @@
     }, "*");
   }
 
+  function dispatchLayoutEvents() {
+    window.dispatchEvent(new Event('resize'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  }
+
   function initializeAgentListeners() {
     if (isAgentReady) return;
     isAgentReady = true;
-    attachPointerListeners();
+    attachListeners();
     
     // Process any queued feedback mode toggles
     if (typeof window.__pendingToggle !== 'undefined') {
       feedbackModeActive = window.__pendingToggle;
       delete window.__pendingToggle;
       updateFeedbackModeUI();
+      if (feedbackModeActive) hoverInspector.start(); else hoverInspector.stop();
     }
     
     dispatchLayoutEvents();
     window.dispatchEvent(new Event('resize'));
   }
 
+  let isAgentReady = false;
+
+  window.addEventListener("beforeunload", () => {
+    console.log("[PixelMark PAGEUNLOAD] logicalTargetUrl=" + getAbsoluteTargetUrl());
+    window.parent.postMessage({
+      type: "PIXELMARK_PAGE_UNLOAD",
+      fromUrl: getAbsoluteTargetUrl(),
+      fromurl: getAbsoluteTargetUrl(),
+    }, "*");
+  });
+
   document.addEventListener("DOMContentLoaded", () => {
     window.__PIXELMARK__.rendererType = detectRenderer();
     discoverThreeScene();
     setupNavigationInterceptor();
 
+    console.log("[PixelMark PAGELOAD] logicalTargetUrl=" + getAbsoluteTargetUrl());
     window.parent.postMessage({
       type: "PIXELMARK_PAGE_LOAD",
-      url: window.__PIXELMARK__.pageUrl || window.location.href,
+      url: getAbsoluteTargetUrl(),
+      pageurl: getAbsoluteTargetUrl(),
       title: document.title,
       rendererType: window.__PIXELMARK__.rendererType,
     }, "*");
@@ -1111,10 +1360,9 @@
                          document.querySelector("canvas") !== null;
 
     if (isHeavyPage) {
-      // Lazy listener binding: Non-blocking boot
       if (window.requestIdleCallback) {
         window.requestIdleCallback(() => {
-          setTimeout(initializeAgentListeners, 1000); // allow stable render setup
+          setTimeout(initializeAgentListeners, 1000);
         });
       } else {
         setTimeout(initializeAgentListeners, 2000);

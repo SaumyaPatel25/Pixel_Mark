@@ -1,4 +1,5 @@
 import pytest
+import re
 from utils.proxy_rewriter import rewrite_html
 
 def test_proxy_rewriter_all_rules():
@@ -42,46 +43,34 @@ def test_proxy_rewriter_all_rules():
         api_base=api_base
     )
     
-    # 1. Base tag removed
-    assert "<base" not in rewritten
+    # 1. Old base tag removed, and new base tag injected pointing to target page URL
+    assert 'href="https://originalsite.com/sub/"' not in rewritten
+    assert '<base href="https://originalsite.com/home">' in rewritten
     
-    # 2. Link rewriting (stays inside proxy for internal link)
-    assert 'href="/proxy/session/12345678-1234-1234-1234-123456789012/page?url=https%3A//originalsite.com/about.html"' in rewritten or 'href="/proxy/session/12345678-1234-1234-1234-123456789012/page?url=https%253A//originalsite.com/about.html"' in rewritten or "about.html" in rewritten
-    # Let's verify the exact quote of 'https://originalsite.com/about.html'
-    # urllib.parse.quote('https://originalsite.com/about.html') -> 'https%3A//originalsite.com/about.html' (Note: '/' is safe by default unless we specify safe='')
-    # Wait, urllib.parse.quote('https://originalsite.com/about.html') under Python defaults to quoting '/' as well if we don't pass safe='/' or by default quote quotes '/' unless safe is passed. Actually, urllib.parse.quote(url) quotes '/' by default (safe='/'). Wait! Let's check python default quote: by default, urllib.parse.quote has safe='/'! So '/' is NOT quoted! Let's check: Yes, 'https%3A//originalsite.com/about.html'.
-    assert 'url=https%3A//originalsite.com/about.html' in rewritten
-    assert 'url=https%3A//originalsite.com/contact' in rewritten
+    # 2. Assets and links are NOT mutated in proxy_rewriter.py now (we do not regex rewrite them)
+    assert 'href="about.html"' in rewritten
+    assert 'src="/js/app.js"' in rewritten
     
-    # External link forced to _blank and NOT rewritten
-    assert 'href="https://external.com/out" target="_blank"' in rewritten
+    # 3. Bootstrap is injected immediately after <head>
+    assert 'window.__PIXELMARK_TARGET_URL__ = "https://originalsite.com/home";' in rewritten
+    assert 'window.__PIXELMARK_SESSION_ID__ = "12345678-1234-1234-1234-123456789012";' in rewritten
+    assert 'window.__PIXELMARK_PROXY_ORIGIN__ = "http://localhost:8765";' in rewritten
+    assert "define(document, 'URL'" in rewritten
     
-    # Anchor-only link NOT rewritten
-    assert 'href="#anchor-only"' in rewritten
+    # 4. WebGL patch is injected
+    assert 'HTMLCanvasElement.prototype.getContext' in rewritten
+    assert 'preserveDrawingBuffer: true' in rewritten
     
-    # JS link NOT rewritten
-    assert 'href="javascript:void(0)"' in rewritten
+    # 5. Service Worker killer is injected
+    assert 'navigator.serviceWorker.getRegistrations' in rewritten
+    assert 'navigator.serviceWorker.register =' in rewritten
     
-    # 3. Asset rewriting
-    assert 'href="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/style.css"' in rewritten
-    assert 'src="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/js/app.js"' in rewritten
-    assert 'src="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/logo.png"' in rewritten
-    assert 'src="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/cdn.originalsite.com/video.mp4"' in rewritten
+    # 6. Chunk Guard is injected
+    assert 'ChunkLoadError' in rewritten
+    assert 'pm_chunk_reload' in rewritten
     
-    # 4. srcset rewriting
-    assert 'srcset="/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/logo.png 1x, /proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/logo@2x.png 2x"' in rewritten
-    
-    # 5. CSS inline background-image url() rewriting
-    assert 'style="background-image: url(\'/proxy/session/12345678-1234-1234-1234-123456789012/asset/https/originalsite.com/images/bg.png\');' in rewritten
-    
-    # 6. Form actions rewriting
-    assert 'action="/proxy/session/12345678-1234-1234-1234-123456789012/form?action=https%3A//originalsite.com/login"' in rewritten
-    
-    # 7. JavaScript session variables and agent script injected
-    assert 'window.__PIXELMARK_SESSION__' in rewritten
-    assert 'window.__PIXELMARK__' in rewritten
-    assert 'src="/static/pixelmark-agent.js"' in rewritten
-    assert 'data-session-id="12345678-1234-1234-1234-123456789012"' in rewritten
+    # 7. Agent is appended before </body>
+    assert '<script src="http://localhost:8765/static/pixelmark-agent.js" type="module" defer></script></body>' in rewritten
     
     # 8. CSP meta tags removed
     assert "Content-Security-Policy" not in rewritten

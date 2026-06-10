@@ -45,7 +45,7 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
   const [downloading, setDownloading] = useState(false)
   const [copied, setCopied] = useState(false)
   
-  const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8765'
+  const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765'
 
   const download = async () => {
     if (!projectId || projectId === 'undefined') {

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
+from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from dependencies import get_db
@@ -141,21 +142,93 @@ async def validate_public_access(session_id: str, share_token: str, db: AsyncSes
 
 
 def prepare_proxy_response(response: Response) -> Response:
-    headers_to_remove = [
+    HEADERS_TO_STRIP = [
         "x-frame-options",
         "content-security-policy",
         "content-security-policy-report-only",
-        "x-content-type-options",
         "permissions-policy",
     ]
-    for h in list(response.headers.keys()):
-        if h.lower() in headers_to_remove:
-            response.headers.pop(h, None)
-            
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
+
+    HEADERS_TO_ADD = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+    }
+
+    for header in HEADERS_TO_STRIP:
+        for k in list(response.headers.keys()):
+            if k.lower() == header:
+                response.headers.pop(k, None)
+
+    for key, value in HEADERS_TO_ADD.items():
+        response.headers[key] = value
+
     return response
+
+
+def set_cache_headers(response: Response, path: str, query: str = ""):
+    if path.startswith("/_next/static/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif "_rsc=" in query or path.endswith(".json"):
+        response.headers["Cache-Control"] = "private, no-cache, must-revalidate"
+    else:
+        response.headers["Cache-Control"] = "private, no-cache, must-revalidate"
+
+
+async def proxy_rsc_request(request: Request, target_url: str) -> Response:
+    headers_to_pass = {
+        k: v for k, v in request.headers.items()
+        if k.lower().startswith("next-") or k.lower() == "rsc"
+    }
+    client = httpx.AsyncClient(verify=False, timeout=30.0)
+    req = client.build_request(
+        request.method, target_url, headers=headers_to_pass
+    )
+    response = await client.send(req, stream=True)
+    
+    if "text/x-component" in response.headers.get("content-type", ""):
+        async def gen():
+            try:
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+            finally:
+                await response.aclose()
+                await client.aclose()
+                
+        resp_headers = dict(response.headers)
+        resp_headers.pop("content-encoding", None)
+        resp_headers.pop("content-length", None)
+        resp_headers["Cache-Control"] = "private, no-cache, must-revalidate"
+        
+        rsc_response = StreamingResponse(
+            gen(),
+            status_code=response.status_code,
+            media_type="text/x-component",
+            headers=resp_headers
+        )
+        return prepare_proxy_response(rsc_response)
+    else:
+        try:
+            content = await response.aread()
+            resp_headers = dict(response.headers)
+            resp_headers.pop("content-encoding", None)
+            resp_headers.pop("content-length", None)
+            
+            # Apply Cache-Control header policy (Prompt 12)
+            path = urllib.parse.urlparse(target_url).path
+            set_cache_headers(Response(content=content), path, urllib.parse.urlparse(target_url).query)
+            
+            FAResp = Response(
+                content=content,
+                status_code=response.status_code,
+                headers=resp_headers,
+                media_type=response.headers.get("content-type")
+            )
+            set_cache_headers(FAResp, path, urllib.parse.urlparse(target_url).query)
+            return prepare_proxy_response(FAResp)
+        finally:
+            await response.aclose()
+            await client.aclose()
 
 
 @router.get("/session/{session_id}")
@@ -187,6 +260,11 @@ async def proxy_initial(
     if not is_ssrf_safe(base_url):
         raise HTTPException(status_code=403, detail="SSRF target blocked: Loopback or private IP ranges are restricted.")
 
+    # Check if request is Next.js React Server Component (RSC) streaming request
+    is_rsc_request = "rsc" in request.headers or any(k.lower().startswith("next-") for k in request.headers.keys())
+    if is_rsc_request:
+        return await proxy_rsc_request(request, base_url)
+
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -214,7 +292,7 @@ async def proxy_initial(
                     share_link_id=share_link_id
                 )
                 
-                api_base = os.getenv("API_BASE", "")
+                api_base = os.getenv("API_BASE", "") or str(request.base_url)
                 rewritten_html = rewrite_html(
                     html=resp.text, 
                     session_id=session_id, 
@@ -239,9 +317,13 @@ async def proxy_initial(
                     secure=True
                 )
                 
+                # Apply Cache-Control header policy (Prompt 12)
+                set_cache_headers(response, urllib.parse.urlparse(base_url).path, request.url.query)
                 return prepare_proxy_response(response)
             else:
-                return prepare_proxy_response(Response(content=resp.content, media_type=content_type))
+                response = Response(content=resp.content, media_type=content_type)
+                set_cache_headers(response, urllib.parse.urlparse(base_url).path, request.url.query)
+                return prepare_proxy_response(response)
                 
     except Exception as e:
         return prepare_proxy_response(Response(
@@ -285,6 +367,11 @@ async def proxy_page(
     if not is_domain_allowed(url, base_url):
         raise HTTPException(status_code=403, detail="Navigation blocked: Exiting session allowed domain boundary.")
  
+    # Check if request is Next.js React Server Component (RSC) streaming request
+    is_rsc_request = "rsc" in request.headers or any(k.lower().startswith("next-") for k in request.headers.keys())
+    if is_rsc_request:
+        return await proxy_rsc_request(request, url)
+
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -313,7 +400,7 @@ async def proxy_page(
                     parent_page_id=parent_page_id
                 )
                 
-                api_base = os.getenv("API_BASE", "")
+                api_base = os.getenv("API_BASE", "") or str(request.base_url)
                 rewritten_html = rewrite_html(
                     html=resp.text, 
                     session_id=session_id, 
@@ -338,9 +425,13 @@ async def proxy_page(
                     secure=True
                 )
                 
+                # Apply Cache-Control header policy (Prompt 12)
+                set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
                 return prepare_proxy_response(response)
             else:
-                return prepare_proxy_response(Response(content=resp.content, media_type=content_type))
+                response = Response(content=resp.content, media_type=content_type)
+                set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
+                return prepare_proxy_response(response)
                 
     except Exception as e:
         return prepare_proxy_response(Response(
@@ -421,27 +512,35 @@ async def handle_proxy_asset_request(
         logger.warning(f"[CIRCUIT_BREAKER] [TRIPPED] Short-circuiting request to {url} immediately.")
         return prepare_proxy_response(Response(content=b"", status_code=204))
 
-    # Check allow/block policy for third-party requests
+    # Check allow/block policy for third-party requests (Prompt 10)
     if is_third_party:
-        is_analytics_or_tracker = any(domain in url for domain in (
-            "google-analytics.com", "googletagmanager.com", "mixpanel.com", 
-            "hotjar.com", "doubleclick.net", "facebook.net", "facebook.com", "amplitude.com"
-        ))
-        is_firebase_or_config = any(term in url.lower() for term in ("firebase", "webconfig", "bootstrap", "manifest.json", "config.json"))
+        BLOCKED_EXTERNAL_ORIGINS = [
+            "firebase.googleapis.com",
+            "firebaseinstallations.googleapis.com",
+            "firebaseapp.com",
+            "firestore.googleapis.com",
+            "google-analytics.com",
+            "analytics.google.com",
+            "googletagmanager.com",
+            "hotjar.com",
+            "segment.io",
+        ]
+        hostname = parsed_target.netloc.lower()
+        is_blocked = any(hostname == origin or hostname.endswith("." + origin) for origin in BLOCKED_EXTERNAL_ORIGINS)
         
-        if is_analytics_or_tracker:
-            logger.info(f"[ASSET RESOLVER] [THIRD_PARTY POLICY] BLOCKED tracking/analytics request. Path: {request.url.path}, Resolved: {url}, Status: BLOCKED")
+        if is_blocked:
+            logger.info(f"[ASSET RESOLVER] [THIRD_PARTY POLICY] BLOCKED external SDK/tracker request: {url}")
             if ".js" in url or "javascript" in url:
                 return prepare_proxy_response(Response(
-                    content=f'console.warn("PixelMark Warning: Tracker request blocked safely: {url}");'.encode("utf-8"),
+                    content=f'console.warn("Blocked by PixelMark proxy: {url}");'.encode("utf-8"),
                     media_type="application/javascript"
                 ))
-            content = b"{}" if "json" in url or "config" in url else b""
-            media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
-            return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
-        
-        elif is_firebase_or_config:
-            logger.info(f"[ASSET RESOLVER] [THIRD_PARTY POLICY] ALLOWED configuration request: {url}")
+            from fastapi.responses import JSONResponse
+            return prepare_proxy_response(JSONResponse({
+                "error": "blocked_by_pixelmark_proxy",
+                "status": "mocked",
+                "projectId": "pixelmark-mock"
+            }, status_code=200))
         else:
             logger.info(f"[ASSET RESOLVER] [THIRD_PARTY POLICY] ALLOWED standard CDN/asset request: {url}")
 
@@ -462,15 +561,20 @@ async def handle_proxy_asset_request(
             content = b"{}" if "json" in url or "config" in url else b""
             media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
             return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
-        raise HTTPException(status_code=403, detail="Asset target blocked: Out of domain scope")
+    # Unconditional Next.js and RSC route forwarding (Prompts 2 and 11)
+    is_rsc_request = "rsc" in request.headers or any(k.lower().startswith("next-") for k in request.headers.keys())
+    if is_rsc_request or "/_next/" in url:
+        return await proxy_rsc_request(request, url)
 
-    cached_content, cached_type = get_cached_asset(url)
-    if cached_content is not None:
-        logger.info(f"[ASSET RESOLVER] Requested URL: {request.url.path}, Resolved URL: {url}, Status: CACHE_HIT")
-        response = Response(content=cached_content, media_type=cached_type)
-        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        response.headers["X-PixelMark-Cache"] = "HIT"
-        return prepare_proxy_response(response)
+    # Only cache GET requests
+    if request.method == "GET":
+        cached_content, cached_type = get_cached_asset(url)
+        if cached_content is not None:
+            logger.info(f"[ASSET RESOLVER] Requested URL: {request.url.path}, Resolved URL: {url}, Status: CACHE_HIT")
+            response = Response(content=cached_content, media_type=cached_type)
+            set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
+            response.headers["X-PixelMark-Cache"] = "HIT"
+            return prepare_proxy_response(response)
 
     try:
         headers = {
@@ -479,6 +583,10 @@ async def handle_proxy_asset_request(
             "X-PixelMark-Session": session_id
         }
         
+        # Pass along Content-Type for POST requests
+        if request.headers.get("content-type"):
+            headers["Content-Type"] = request.headers.get("content-type")
+
         referer = request.headers.get("referer", "")
         if referer:
             parsed_referer = urllib.parse.urlparse(referer)
@@ -507,7 +615,14 @@ async def handle_proxy_asset_request(
                     logger.warning(f"[REDIRECT SAFEGUARD] Redirect escaped domain scope: {current_url}")
                     return prepare_proxy_response(Response(content=b"", status_code=204))
                 
-                resp = await client.get(current_url, headers=headers)
+                if request.method == "POST":
+                    body = await request.body()
+                    resp = await client.post(current_url, content=body, headers=headers)
+                elif request.method == "OPTIONS":
+                    resp = await client.options(current_url, headers=headers)
+                else:
+                    resp = await client.get(current_url, headers=headers)
+
                 if resp.status_code in (301, 302, 303, 307, 308):
                     redirect_url = resp.headers.get("location", "")
                     if not redirect_url:
@@ -534,12 +649,13 @@ async def handle_proxy_asset_request(
                 return prepare_proxy_response(Response(content=b"", status_code=204))
                 
             content_type = resp.headers.get("content-type", "application/octet-stream")
-            save_cached_asset(url, resp.content, content_type)
+            if request.method == "GET":
+                save_cached_asset(url, resp.content, content_type)
             
             record_domain_success(url)
             logger.info(f"[ASSET RESOLVER] Requested URL: {request.url.path}, Resolved URL: {url}, Status: {resp.status_code}")
-            response = Response(content=resp.content, media_type=content_type)
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            response = Response(content=resp.content, status_code=resp.status_code, media_type=content_type)
+            set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
             response.headers["X-PixelMark-Cache"] = "MISS"
             return prepare_proxy_response(response)
             
@@ -559,7 +675,7 @@ async def handle_proxy_asset_request(
         return prepare_proxy_response(Response(content=b"", status_code=204))
 
 
-@router.get("/session/{session_id}/asset")
+@router.api_route("/session/{session_id}/asset", methods=["GET", "POST", "OPTIONS"])
 async def proxy_asset(
     session_id: str,
     url: str,
@@ -569,7 +685,7 @@ async def proxy_asset(
     return await handle_proxy_asset_request(session_id, url, request, db)
 
 
-@router.get("/session/{session_id}/asset/{scheme}/{host}/{path:path}")
+@router.api_route("/session/{session_id}/asset/{scheme}/{host}/{path:path}", methods=["GET", "POST", "OPTIONS"])
 async def proxy_asset_path(
     session_id: str,
     scheme: str,
@@ -621,7 +737,7 @@ async def proxy_form(
                     page_title=None
                 )
                 
-                api_base = os.getenv("API_BASE", "")
+                api_base = os.getenv("API_BASE", "") or str(request.base_url)
                 rewritten_html = rewrite_html(
                     html=resp.text, 
                     session_id=session_id, 

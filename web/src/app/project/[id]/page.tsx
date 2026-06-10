@@ -29,7 +29,22 @@ import { AnimatePresence, motion } from 'framer-motion'
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
 const WS_BASE  = (process.env.NEXT_PUBLIC_WS_BASE  || 'ws://localhost:8765').replace(/\/$/, '')
 
+const drawerVariants = {
+  open: { x: 0, y: 0 },
+  closed: (custom: { isMobile: boolean; isDesktop: boolean }) => ({
+    x: custom.isDesktop ? 400 : (custom.isMobile ? 0 : "100%"),
+    y: custom.isMobile ? "100%" : 0
+  })
+}
+
 export default function ProjectPage() {
+  const [hasMounted, setHasMounted] = useState(false)
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
+
+  const isMobile = hasMounted ? window.innerWidth < 768 : false
+  const isDesktop = hasMounted ? window.innerWidth >= 1024 : false
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : ''
   const router = useRouter()
@@ -460,15 +475,11 @@ export default function ProjectPage() {
                     role="dialog"
                     aria-label="Command Center Feedback Stream"
                     aria-modal="true"
-                    initial={{ 
-                      x: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 0 : "100%",
-                      y: typeof window !== 'undefined' && window.innerWidth < 768 ? "100%" : 0,
-                    }}
-                    animate={{ x: 0, y: 0 }}
-                    exit={{ 
-                      x: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 400 : "100%",
-                      y: typeof window !== 'undefined' && window.innerWidth < 768 ? "100%" : 0,
-                    }}
+                    custom={{ isMobile, isDesktop }}
+                    variants={drawerVariants}
+                    initial={false}
+                    animate={isCommandCenterOpen ? "open" : "closed"}
+                    exit="closed"
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                     className={cn(
                       "bg-[#0c0c0e] shadow-2xl flex flex-col flex-shrink-0 transition-all duration-300",

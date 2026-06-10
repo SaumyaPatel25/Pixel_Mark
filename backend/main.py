@@ -49,7 +49,8 @@ from config import settings
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
-    "https://web-zeta-sable-82.vercel.app",
+    "http://127.0.0.1:3000",
+    "https://tailwindcss.com",
 ]
 
 if settings.frontend_url and settings.frontend_url not in ALLOWED_ORIGINS:
@@ -136,34 +137,93 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                 logger.warning(f"[SSRF BLOCKED] Fallback block on: {target_url}")
                                 return prepare_proxy_response(FAResponse(content=b"SSRF Target Blocked", status_code=403))
                                 
-                            # Check allow/block policy for third-party requests
+                            # Unconditional forwarding for /_next/ routes (Prompt 2)
+                            if path.startswith("/_next/"):
+                                try:
+                                    parsed_base = urllib.parse.urlparse(base_url)
+                                    from fastapi.responses import StreamingResponse
+                                    from routes.proxy import prepare_proxy_response
+                                    client = httpx.AsyncClient(verify=False, timeout=30.0)
+                                    headers = {
+                                        k: v for k, v in request.headers.items()
+                                        if k.lower() not in ("host", "connection", "accept-encoding")
+                                    }
+                                    headers["Host"] = parsed_base.netloc
+                                    headers["X-PixelMark-Session"] = session_id
+                                    
+                                    req = client.build_request(
+                                        request.method,
+                                        target_url,
+                                        headers=headers,
+                                        content=await request.body() if request.method in ("POST", "PUT", "PATCH") else None
+                                    )
+                                    resp = await client.send(req, stream=True)
+                                    
+                                    async def gen():
+                                        try:
+                                            async for chunk in resp.aiter_bytes():
+                                                yield chunk
+                                        finally:
+                                            await resp.aclose()
+                                            await client.aclose()
+                                            
+                                    resp_headers = dict(resp.headers)
+                                    resp_headers.pop("content-encoding", None)
+                                    resp_headers.pop("content-length", None)
+                                    
+                                    response = StreamingResponse(
+                                        gen(),
+                                        status_code=resp.status_code,
+                                        media_type=resp.headers.get("content-type"),
+                                        headers=resp_headers
+                                    )
+                                    return prepare_proxy_response(response)
+                                except Exception as e:
+                                    logger.error(f"[PROXY_NEXT] Failed to proxy next route {target_url}: {str(e)}")
+                                    from routes.proxy import prepare_proxy_response
+                                    return prepare_proxy_response(FAResponse(content=b"", status_code=204))
+                                
+                            # Check allow/block policy for third-party requests (Prompt 10)
                             parsed_target = urllib.parse.urlparse(target_url)
                             parsed_base = urllib.parse.urlparse(base_url)
                             is_third_party = parsed_target.netloc != parsed_base.netloc
                             
                             if is_third_party:
-                                is_analytics_or_tracker = any(domain in target_url for domain in (
-                                    "google-analytics.com", "googletagmanager.com", "mixpanel.com", 
-                                    "hotjar.com", "doubleclick.net", "facebook.net", "facebook.com", "amplitude.com"
-                                ))
-                                is_firebase_or_config = any(term in target_url.lower() for term in ("firebase", "webconfig", "bootstrap", "manifest.json", "config.json"))
+                                BLOCKED_EXTERNAL_ORIGINS = [
+                                    "firebase.googleapis.com",
+                                    "firebaseapp.com",
+                                    "firestore.googleapis.com",
+                                    "google-analytics.com",
+                                    "analytics.google.com",
+                                    "googletagmanager.com",
+                                    "hotjar.com",
+                                    "segment.io",
+                                ]
+                                hostname = parsed_target.netloc.lower()
+                                is_blocked = any(hostname == origin or hostname.endswith("." + origin) for origin in BLOCKED_EXTERNAL_ORIGINS)
                                 
-                                if is_analytics_or_tracker:
+                                if is_blocked:
                                     from routes.proxy import prepare_proxy_response
-                                    logger.info(f"[THIRD_PARTY POLICY] BLOCKED tracking/analytics fallback: {target_url}")
+                                    logger.info(f"[THIRD_PARTY POLICY] BLOCKED fallback external SDK/tracker request: {target_url}")
                                     if ".js" in target_url or "javascript" in target_url:
                                         return prepare_proxy_response(FAResponse(
-                                            content=f'console.warn("PixelMark Warning: Tracker request blocked safely: {target_url}");'.encode("utf-8"),
+                                            content=f'console.warn("Blocked by PixelMark proxy: {target_url}");'.encode("utf-8"),
                                             media_type="application/javascript"
                                         ))
-                                    content = b"{}" if "json" in target_url or "config" in target_url else b""
-                                    media_type = "application/json" if "json" in target_url or "config" in target_url else "application/octet-stream"
-                                    return prepare_proxy_response(FAResponse(content=content, media_type=media_type, status_code=200))
-                                
-                                elif is_firebase_or_config:
-                                    logger.info(f"[THIRD_PARTY POLICY] ALLOWED fallback configuration request: {target_url}")
+                                    from fastapi.responses import JSONResponse
+                                    return prepare_proxy_response(JSONResponse({
+                                        "error": "blocked_by_pixelmark_proxy",
+                                        "status": "mocked",
+                                        "projectId": "pixelmark-mock"
+                                    }, status_code=200))
                                 else:
                                     logger.info(f"[THIRD_PARTY POLICY] ALLOWED standard fallback CDN/asset request: {target_url}")
+
+                            # Check if request is Next.js React Server Component (RSC) streaming request
+                            is_rsc_request = "rsc" in request.headers or any(k.lower().startswith("next-") for k in request.headers.keys())
+                            if is_rsc_request:
+                                from routes.proxy import proxy_rsc_request
+                                return await proxy_rsc_request(request, target_url)
 
                             try:
                                 # Check cache for asset requests (skip HTML pages to allow recording visits)
@@ -172,7 +232,8 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                     cached_content, cached_type = get_cached_asset(target_url)
                                     if cached_content is not None:
                                         response = FAResponse(content=cached_content, media_type=cached_type)
-                                        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+                                        from routes.proxy import set_cache_headers
+                                        set_cache_headers(response, urllib.parse.urlparse(target_url).path, request.url.query)
                                         response.headers["X-PixelMark-Cache"] = "HIT"
                                         response.set_cookie(
                                             "pixelmark_session_id", 
@@ -205,7 +266,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                         )
                                         
                                         snapshot_mode = request.query_params.get("snapshot_mode") == "true"
-                                        api_base = os.getenv("API_BASE", "")
+                                        api_base = os.getenv("API_BASE", "") or str(request.base_url)
                                         rewritten_html = rewrite_html(
                                             resp.text, 
                                             session.id, 
@@ -216,10 +277,14 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                             snapshot_mode=snapshot_mode
                                         )
                                         response = FAResponse(content=rewritten_html.encode("utf-8"), media_type="text/html")
+                                        from routes.proxy import set_cache_headers
+                                        set_cache_headers(response, urllib.parse.urlparse(target_url).path, request.url.query)
                                     else:
                                         from routes.proxy import prepare_proxy_response, save_cached_asset
                                         save_cached_asset(target_url, resp.content, content_type)
                                         response = FAResponse(content=resp.content, media_type=content_type, status_code=resp.status_code)
+                                        from routes.proxy import set_cache_headers
+                                        set_cache_headers(response, urllib.parse.urlparse(target_url).path, request.url.query)
                                     
                                     # Set/Refresh session cookie
                                     response.set_cookie(
@@ -240,7 +305,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://.*\.tailwindcss\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

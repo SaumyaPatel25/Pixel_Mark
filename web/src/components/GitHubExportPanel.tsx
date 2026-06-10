@@ -11,7 +11,7 @@ export function GitHubExportPanel({ projectId }: { projectId: string }) {
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<any>(null)
   
-  const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8765'
+  const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765'
 
   const saveConfig = async () => {
     setSaving(true)

@@ -1,256 +1,467 @@
 import urllib.parse
 import re
+import os
 import logging
-from bs4 import BeautifulSoup
+import json
 
 logger = logging.getLogger("pixelmark.proxy_rewriter")
 
+
+# ── STEP 1 ────────────────────────────────────────────────────────────────────
+def inject_bootstrap(html: str, page_url: str, session_id: str, proxy_base_url: str, api_base: str) -> str:
+    """
+    Injects a bootstrap script as the FIRST <script> inside <head>.
+    If <head> exists, prepend to head. If missing, create one.
+    Exposes __PIXELMARK_SESSION_ID__, __PIXELMARK_PROXY_ORIGIN__, __PIXELMARK_TRANSPORT_URL__,
+    __PIXELMARK_TARGET_URL__ and window.PIXELMARK globals.
+    """
+    # Safe JSON serializations to prevent injection/syntax errors
+    escaped_session = json.dumps(str(session_id))
+    escaped_proxy_origin = json.dumps(api_base.rstrip('/'))
+    escaped_logical_target_url = json.dumps(page_url)
+    
+    transport_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/page?url={urllib.parse.quote(page_url)}"
+    escaped_transport_url = json.dumps(transport_url)
+    
+    bootstrap = f"""<!-- PIXELMARK_BOOTSTRAP_START -->
+<script>
+window.__PIXELMARK_SESSION_ID__ = {escaped_session};
+window.__PIXELMARK_PROXY_ORIGIN__ = {escaped_proxy_origin};
+window.__PIXELMARK_TRANSPORT_URL__ = {escaped_transport_url};
+window.__PIXELMARK_TARGET_URL__ = {escaped_logical_target_url};
+
+window.PIXELMARK = window.PIXELMARK || {{}};
+window.PIXELMARK.sessionId = window.__PIXELMARK_SESSION_ID__;
+window.PIXELMARK.pageUrl = window.__PIXELMARK_TARGET_URL__;
+window.PIXELMARK.transportUrl = window.__PIXELMARK_TRANSPORT_URL__;
+window.PIXELMARK.targetUrl = window.__PIXELMARK_TARGET_URL__;
+
+console.debug("[PixelMark URL Model] targetUrl=" + window.__PIXELMARK_TARGET_URL__);
+console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPORT_URL__);
+
+(function() {{
+  const nativePushState = History.prototype.pushState;
+  const nativeReplaceState = History.prototype.replaceState;
+
+  function getCurrentLogicalUrl() {{
+    try {{
+      const params = new URLSearchParams(window.location.search);
+      const urlParam = params.get('url');
+      if (urlParam) {{
+        return new URL(urlParam).href;
+      }}
+    }} catch (_) {{}}
+    return window.__PIXELMARK_TARGET_URL__;
+  }}
+
+  function resolveLogicalTargetUrl(inputUrl) {{
+    try {{
+      if (!inputUrl) return window.__PIXELMARK_TARGET_URL__;
+      const resolved = new URL(String(inputUrl), window.__PIXELMARK_TARGET_URL__);
+      return resolved.href;
+    }} catch (e) {{
+      return window.__PIXELMARK_TARGET_URL__;
+    }}
+  }}
+
+  function normalizeToTransportUrl(inputUrl) {{
+    try {{
+      if (inputUrl === null || inputUrl === undefined || String(inputUrl).trim() === '') {{
+        return window.location.pathname + window.location.search + window.location.hash;
+      }}
+      const str = String(inputUrl);
+      if (str.startsWith('/proxy/session/')) {{
+        return str;
+      }}
+      try {{
+        const parsedProxy = new URL(str);
+        if (parsedProxy.origin === window.__PIXELMARK_PROXY_ORIGIN__ && parsedProxy.pathname.startsWith('/proxy/session/')) {{
+          return parsedProxy.pathname + parsedProxy.search + parsedProxy.hash;
+        }}
+      }} catch (_) {{}}
+
+      const resolved = new URL(str, window.__PIXELMARK_TARGET_URL__);
+      const targetOrigin = new URL(window.__PIXELMARK_TARGET_URL__).origin;
+
+      if (resolved.origin === targetOrigin) {{
+        return '/proxy/session/' + window.__PIXELMARK_SESSION_ID__ + '/page?url=' + encodeURIComponent(resolved.href);
+      }} else {{
+        return window.location.pathname + window.location.search + window.location.hash;
+      }}
+    }} catch (e) {{
+      return window.location.pathname + window.location.search + window.location.hash;
+    }}
+  }}
+
+  History.prototype.pushState = function(state, unused, url) {{
+    const logicalTargetUrl = resolveLogicalTargetUrl(url);
+    const safeTransportUrl = normalizeToTransportUrl(url);
+    console.debug("[PixelMark History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=pushState");
+    try {{
+      nativePushState.call(this, state, unused || '', safeTransportUrl);
+    }} catch (err) {{
+      try {{
+        nativePushState.call(this, state, unused || '', window.location.pathname + window.location.search);
+      }} catch (_) {{}}
+    }}
+    window.__PIXELMARK_TARGET_URL__ = logicalTargetUrl;
+    if (window.PIXELMARK) {{
+      window.PIXELMARK.pageUrl = logicalTargetUrl;
+      window.PIXELMARK.targetUrl = logicalTargetUrl;
+    }}
+    try {{
+      const baseTag = document.querySelector('base');
+      if (baseTag) {{
+        baseTag.setAttribute('href', logicalTargetUrl);
+      }}
+    }} catch (_) {{}}
+    window.dispatchEvent(new CustomEvent('pixelmark:navigation', {{
+      detail: {{
+        type: 'pushState',
+        logicalTargetUrl: logicalTargetUrl,
+        transportUrl: safeTransportUrl
+      }}
+    }}));
+  }};
+
+  History.prototype.replaceState = function(state, unused, url) {{
+    const logicalTargetUrl = resolveLogicalTargetUrl(url);
+    const safeTransportUrl = normalizeToTransportUrl(url);
+    console.debug("[PixelMark History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=replaceState");
+    try {{
+      nativeReplaceState.call(this, state, unused || '', safeTransportUrl);
+    }} catch (err) {{
+      try {{
+        nativeReplaceState.call(this, state, unused || '', window.location.pathname + window.location.search);
+      }} catch (_) {{}}
+    }}
+    window.__PIXELMARK_TARGET_URL__ = logicalTargetUrl;
+    if (window.PIXELMARK) {{
+      window.PIXELMARK.pageUrl = logicalTargetUrl;
+      window.PIXELMARK.targetUrl = logicalTargetUrl;
+    }}
+    try {{
+      const baseTag = document.querySelector('base');
+      if (baseTag) {{
+        baseTag.setAttribute('href', logicalTargetUrl);
+      }}
+    }} catch (_) {{}}
+    window.dispatchEvent(new CustomEvent('pixelmark:navigation', {{
+      detail: {{
+        type: 'replaceState',
+        logicalTargetUrl: logicalTargetUrl,
+        transportUrl: safeTransportUrl
+      }}
+    }}));
+  }};
+
+  history.pushState = History.prototype.pushState.bind(history);
+  history.replaceState = History.prototype.replaceState.bind(history);
+
+  window.addEventListener('popstate', function() {{
+    const logicalTargetUrl = getCurrentLogicalUrl();
+    const transportUrl = window.location.pathname + window.location.search + window.location.hash;
+    window.__PIXELMARK_TARGET_URL__ = logicalTargetUrl;
+    if (window.PIXELMARK) {{
+      window.PIXELMARK.pageUrl = logicalTargetUrl;
+      window.PIXELMARK.targetUrl = logicalTargetUrl;
+    }}
+    try {{
+      const baseTag = document.querySelector('base');
+      if (baseTag) {{
+        baseTag.setAttribute('href', logicalTargetUrl);
+      }}
+    }} catch (_) {{}}
+    console.debug("[PixelMark History Shim] input=" + window.location.href + " logical=" + logicalTargetUrl + " transport=" + transportUrl + " type=popstate");
+    window.dispatchEvent(new CustomEvent('pixelmark:navigation', {{
+      detail: {{
+        type: 'popstate',
+        logicalTargetUrl: logicalTargetUrl,
+        transportUrl: transportUrl
+      }}
+    }}));
+  }});
+
+  function getLogicalUrlObject() {{
+    try {{
+      return new URL(getCurrentLogicalUrl());
+    }} catch (e) {{
+      try {{
+        return new URL(window.__PIXELMARK_TARGET_URL__);
+      }} catch (_) {{
+        return {{
+          href: window.__PIXELMARK_TARGET_URL__,
+          origin: '',
+          protocol: '',
+          host: '',
+          hostname: '',
+          pathname: '',
+          search: '',
+          hash: ''
+        }};
+      }}
+    }}
+  }}
+
+  const define = (obj, prop, getter) => {{
+    try {{ Object.defineProperty(obj, prop, {{ get: getter, configurable: true }}); }} catch(e) {{}}
+  }};
+  
+  define(document, 'URL', () => getLogicalUrlObject().href);
+  define(document, 'documentURI', () => getLogicalUrlObject().href);
+  define(document, 'baseURI', () => getLogicalUrlObject().href);
+  define(document, 'referrer', () => '');
+
+  define(window.location, 'href', () => getLogicalUrlObject().href);
+  define(window.location, 'origin', () => getLogicalUrlObject().origin);
+  define(window.location, 'protocol', () => getLogicalUrlObject().protocol);
+  define(window.location, 'host', () => getLogicalUrlObject().host);
+  define(window.location, 'hostname', () => getLogicalUrlObject().hostname);
+  define(window.location, 'pathname', () => getLogicalUrlObject().pathname);
+  define(window.location, 'search', () => getLogicalUrlObject().search);
+  define(window.location, 'hash', () => getLogicalUrlObject().hash);
+
+  window.__PIXELMARK_LOGICAL_LOCATION__ = {{
+    get href() {{ return getLogicalUrlObject().href; }},
+    get origin() {{ return getLogicalUrlObject().origin; }},
+    get host() {{ return getLogicalUrlObject().host; }},
+    get hostname() {{ return getLogicalUrlObject().hostname; }},
+    get protocol() {{ return getLogicalUrlObject().protocol; }},
+    get pathname() {{ return getLogicalUrlObject().pathname; }},
+    get search() {{ return getLogicalUrlObject().search; }},
+    get hash() {{ return getLogicalUrlObject().hash; }},
+    assign: function(url) {{ window.location.assign(url); }},
+    replace: function(url) {{ window.location.replace(url); }},
+    reload: function(force) {{ window.location.reload(force); }},
+    toString: function() {{ return getLogicalUrlObject().href; }}
+  }};
+
+  window.__PIXELMARK_GET_LOGICAL_URL__ = function() {{
+    return getLogicalUrlObject().href;
+  }};
+  
+  // Ensure window.lastpageurl is set initially
+  window.lastpageurl = window.__PIXELMARK_TARGET_URL__;
+}})();
+</script>
+<!-- PIXELMARK_BOOTSTRAP_END -->"""
+
+    head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+    if head_match:
+        idx = head_match.end()
+        return html[:idx] + f"\n{bootstrap}\n" + html[idx:]
+    else:
+        # head tag missing, create one
+        html_match = re.search(r'<html\b[^>]*>', html, re.IGNORECASE)
+        head_html = f"<head>\n{bootstrap}\n</head>"
+        if html_match:
+            idx = html_match.end()
+            return html[:idx] + f"\n{head_html}\n" + html[idx:]
+        else:
+            return f"{head_html}\n" + html
+
+
+# ── STEP 2 ────────────────────────────────────────────────────────────────────
+def inject_webgl_patch(html: str) -> str:
+    """
+    Forces preserveDrawingBuffer: true on WebGL/WebGL2 context creation so canvases can be captured.
+    """
+    patch = """<script>
+(function() {
+  try {
+    var _origGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function(type, attribs) {
+      var rest = Array.prototype.slice.call(arguments, 2);
+      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+        var newAttribs = Object.assign({}, attribs || {}, { preserveDrawingBuffer: true });
+        return _origGetContext.call(this, type, newAttribs);
+      }
+      return _origGetContext.apply(this, arguments);
+    };
+  } catch(e) {}
+})();
+</script>"""
+    head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+    if head_match:
+        idx = head_match.end()
+        return html[:idx] + f"\n{patch}\n" + html[idx:]
+    return patch + html
+
+
+# ── STEP 3 ────────────────────────────────────────────────────────────────────
+def inject_sw_killer(html: str) -> str:
+    """
+    Unregisters Service Workers to prevent proxy routing bypass.
+    """
+    sw_killer = """<script>
+(function() {
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) { regs[i].unregister(); }
+      }).catch(function() {});
+      var _origRegister = navigator.serviceWorker.register;
+      navigator.serviceWorker.register = function(scriptURL, options) {
+        console.log('[PixelMark] Service Worker registration blocked:', scriptURL);
+        return Promise.resolve({
+          scope: options && options.scope ? options.scope : '/',
+          active: null, installing: null, waiting: null,
+          unregister: function() { return Promise.resolve(true); },
+          addEventListener: function() {}, removeEventListener: function() {}
+        });
+      };
+    }
+  } catch(e) {}
+})();
+</script>"""
+    head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+    if head_match:
+        idx = head_match.end()
+        return html[:idx] + f"\n{sw_killer}\n" + html[idx:]
+    return sw_killer + html
+
+
+# ── STEP 4 ────────────────────────────────────────────────────────────────────
+def inject_base_tag(html: str, target_url: str) -> str:
+    """
+    Injects/updates a <base href="..."> tag pointing to the target URL.
+    """
+    base_regex = re.compile(r'<base\s+[^>]*>', re.IGNORECASE)
+    if base_regex.search(html):
+        html = base_regex.sub(f'<base href="{target_url}">', html, count=1)
+    else:
+        base_tag = f'<base href="{target_url}">'
+        head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+        if head_match:
+            idx = head_match.end()
+            html = html[:idx] + f"\n{base_tag}\n" + html[idx:]
+        else:
+            html = f"{base_tag}\n" + html
+    return html
+
+
+# ── STEP 5 ────────────────────────────────────────────────────────────────────
+def inject_chunk_guard(html: str) -> str:
+    """
+    Recovers from stale Next.js/Webpack chunk load failures by triggering a reload.
+    """
+    guard = """<script>
+(function() {
+  try {
+    var PATTERNS = ['ChunkLoadError','Loading chunk','module factory is not available','Failed to fetch dynamically imported module'];
+    var KEY = 'pm_chunk_reload';
+    var COOLDOWN = 30000;
+    function matches(m) {
+      if (!m) return false;
+      for (var i = 0; i < PATTERNS.length; i++) {
+        if (String(m).indexOf(PATTERNS[i]) !== -1) return true;
+      }
+      return false;
+    }
+    function tryReload() {
+      try {
+        var last = Number(sessionStorage.getItem(KEY) || 0);
+        if (Date.now() - last < COOLDOWN) return;
+        sessionStorage.setItem(KEY, String(Date.now()));
+      } catch(e) {}
+      location.reload();
+    }
+    window.addEventListener('error', function(e) {
+      var m = (e.error && e.error.message) || e.message;
+      if (matches(m)) { e.preventDefault(); tryReload(); }
+    }, true);
+    window.addEventListener('unhandledrejection', function(e) {
+      var m = (e.reason && e.reason.message) || e.reason;
+      if (matches(m)) { e.preventDefault(); tryReload(); }
+    });
+  } catch(e) {}
+})();
+</script>"""
+    head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+    if head_match:
+        idx = head_match.end()
+        return html[:idx] + f"\n{guard}\n" + html[idx:]
+    return guard + html
+
+
+# ── STEP 6 ────────────────────────────────────────────────────────────────────
+def inject_agent(html: str, agent_url: str) -> str:
+    """
+    Appends the PixelMark agent script tag just before </body>.
+    """
+    if not agent_url:
+        return html
+    agent_tag = f'<script src="{agent_url}" type="module" defer></script>'
+    if "</body>" in html:
+        return html.replace("</body>", f"{agent_tag}</body>", 1)
+    elif "</BODY>" in html:
+        return html.replace("</BODY>", f"{agent_tag}</BODY>", 1)
+    return html + agent_tag
+
+
+# ── Main entry point ───────────────────────────────────────────────────────────
 def rewrite_html(
-    html: str, 
-    session_id: str, 
-    page_url: str, 
-    base_url: str, 
+    html: str,
+    session_id: str,
+    page_url: str,
+    base_url: str,
     api_base: str = "",
-    allow_external_assets: bool = True,
     conservative_render_mode: bool = False,
-    snapshot_mode: bool = False
+    snapshot_mode: bool = False,
 ) -> str:
     """
-    Rewrites a retrieved HTML page to stay inside the session's proxy.
-    
-    1. Anchors: stay in proxy (/proxy/session/{session_id}/page?url={encoded})
-    2. Assets (img, script, link, video, source, srcset): route via /proxy/session/{session_id}/asset?url={encoded}
-    3. Inline CSS background images: rewritten via asset proxy (skipped in conservative mode)
-    4. Forms: action routed via /proxy/session/{session_id}/form?action={encoded}
-    5. JavaScript: Injects session configuration block
-    6. Agent Injection: injects pixelmark-agent.js before </body>
-    7. Neutralizes <base> tags.
+    Rewrites a proxied HTML payload before it reaches the browser.
     """
-    import json
+    logger.info(
+        f"[PROXY_REWRITE] Starting HTML rewrite for session={session_id}, "
+        f"page_url={page_url}, snapshot={snapshot_mode}"
+    )
+
+    # snapshot_mode: strip all script tags so runtime JS doesn't execute
     if snapshot_mode:
-        conservative_render_mode = True
-    logger.info(f"[PROXY_REWRITE] Starting HTML rewrite for session={session_id}, page_url={page_url}, conservative={conservative_render_mode}, snapshot={snapshot_mode}")
-    soup = BeautifulSoup(html, "html.parser")
-    
-    # Extract allowed target domain info
-    parsed_base = urllib.parse.urlparse(base_url)
-    base_domain = parsed_base.netloc
-    
-    # ─── 0. Neutralize <base href> tags to prevent context distortion ───
-    for base_tag in soup.find_all("base"):
-        logger.info(f"[PROXY_REWRITE] Decomposing <base> tag")
-        base_tag.decompose()
-        
-    if snapshot_mode:
-        logger.info("[PROXY_REWRITE] Snapshot Mode Active! Decomposing all script tags to disable dynamic runtime execution.")
-        for script_tag in soup.find_all("script"):
-            script_tag.decompose()
-        
-    # Helper to resolve relative path against current page URL
-    def resolve_url(url: str) -> str:
-        url_stripped = url.strip()
-        if not url_stripped:
-            return ""
-        # Keep protocol-relative URLs as absolute HTTP/S
-        if url_stripped.startswith("//"):
-            return f"{parsed_base.scheme}:{url_stripped}"
-        return urllib.parse.urljoin(page_url, url_stripped)
+        logger.info(
+            "[PROXY_REWRITE] Snapshot Mode Active — stripping all script tags."
+        )
+        html = re.sub(
+            r"<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>",
+            "",
+            html,
+            flags=re.IGNORECASE,
+        )
 
-    # Helper to check if URL is within target domain
-    def is_internal(url: str) -> bool:
-        parsed = urllib.parse.urlparse(url)
-        return parsed.netloc == base_domain or not parsed.netloc
+    # Derive proxy base URL (full session path for the agent)
+    proxy_base_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}"
 
-    # Helper to build path-based asset URL
-    def make_proxied_asset_url(url_val: str, tag_name: str = "", attr_name: str = "") -> str:
-        url_stripped = url_val.strip()
-        if not url_stripped or url_stripped.startswith(("data:", "javascript:", "blob:")):
-            logger.info(f"[PROXY_REWRITE] Retaining raw schema URL for {tag_name}[{attr_name}]: {url_stripped}")
-            return url_stripped
-        
-        abs_url = resolve_url(url_stripped)
-        parsed = urllib.parse.urlparse(abs_url)
-        scheme = parsed.scheme or "http"
-        host = parsed.netloc
-        path_part = parsed.path.lstrip("/")
-        if parsed.query:
-            path_part = f"{path_part}?{parsed.query}"
-            
-        if not host:
-            proxied = f"/proxy/session/{session_id}/asset?url={urllib.parse.quote(abs_url)}"
-        else:
-            proxied = f"/proxy/session/{session_id}/asset/{scheme.lower()}/{host.lower()}/{path_part}"
-            
-        logger.info(f"[PROXY_REWRITE] Rewriting asset {tag_name}[{attr_name}]: {url_stripped} -> {proxied}")
-        return proxied
+    # Agent script URL — env override or default to /static/ path
+    agent_script_url = os.getenv(
+        "PROXY_AGENT_SCRIPT_URL",
+        f"{api_base.rstrip('/')}/static/pixelmark-agent.js",
+    )
 
-    # ─── 1. Rewrite Anchor Links ───
-    for a in soup.find_all("a", href=True):
-        href = a["href"].strip()
-        if not href or href.startswith(("javascript:", "mailto:", "tel:", "data:")):
-            continue
-        # Skip pure anchor clicks (hash-only)
-        if href.startswith("#"):
-            continue
-            
-        abs_url = resolve_url(href)
-        if is_internal(abs_url):
-            proxied_href = f"/proxy/session/{session_id}/page?url={urllib.parse.quote(abs_url)}"
-            logger.info(f"[PROXY_REWRITE] Rewriting anchor link: {href} -> {proxied_href}")
-            a["href"] = proxied_href
-        else:
-            # External link: force open in a new window/tab to prevent frame escaping
-            logger.info(f"[PROXY_REWRITE] Setting external anchor link target to _blank: {href}")
-            a["target"] = "_blank"
+    # 1. Bootstrap — window.__PIXELMARK_TARGET_URL__, SESSION_ID, BASE
+    html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
 
-    # ─── 2. Rewrite Assets (src, href, video, source) ───
-    asset_tags = [
-        ("link", "href"),
-        ("script", "src"),
-        ("img", "src"),
-        ("video", "src"),
-        ("source", "src"),
-        ("iframe", "src")
-    ]
-    for tag_name, attr in asset_tags:
-        for el in soup.find_all(tag_name, **{attr: True}):
-            url = el[attr].strip()
-            if not url or url.startswith(("data:", "javascript:", "blob:")):
-                logger.info(f"[PROXY_REWRITE] Retaining raw schema asset {tag_name}[{attr}]: {url}")
-                continue
-            
-            if tag_name == "script":
-                script_type = el.get("type", "")
-                if script_type == "module":
-                    logger.info(f"[PROXY_REWRITE] Preserving type='module' attribute on script element for {url}")
-                
-            el[attr] = make_proxied_asset_url(url, tag_name=tag_name, attr_name=attr)
+    # 2. WebGL patch — preserveDrawingBuffer before any canvas library runs
+    html = inject_webgl_patch(html)
 
-    # ─── 2.5. Rewrite inline importmaps ───
-    for el in soup.find_all("script", type="importmap"):
-        if el.string:
-            try:
-                data = json.loads(el.string)
-                if "imports" in data:
-                    for k, v in data["imports"].items():
-                        if isinstance(v, str) and not v.startswith(("data:", "blob:", "javascript:", "#")):
-                            data["imports"][k] = make_proxied_asset_url(v, tag_name="script[type=importmap]", attr_name=k)
-                el.string = json.dumps(data)
-                logger.info("[PROXY_REWRITE] Successfully processed inline importmap script")
-            except Exception as e:
-                logger.warning(f"[PROXY_REWRITE] Failed parsing importmap: {str(e)}")
+    # 3. Service Worker killer — unregister + mock register()
+    html = inject_sw_killer(html)
 
-    # ─── 3. Rewrite srcset Attributes ───
-    for el in soup.find_all(lambda t: t.has_attr("srcset")):
-        srcset = el["srcset"]
-        new_parts = []
-        for part in srcset.split(","):
-            part = part.strip()
-            if not part:
-                continue
-            subparts = part.split()
-            if not subparts:
-                continue
-            img_url = subparts[0]
-            if not img_url.startswith(("data:", "javascript:", "blob:")):
-                img_url = make_proxied_asset_url(img_url, tag_name=el.name, attr_name="srcset")
-            if len(subparts) > 1:
-                new_parts.append(f"{img_url} {subparts[1]}")
-            else:
-                new_parts.append(img_url)
-        logger.info(f"[PROXY_REWRITE] Rewriting srcset attributes for <{el.name}>")
-        el["srcset"] = ", ".join(new_parts)
+    # 4. Base tag — resolve all relative assets against target URL
+    html = inject_base_tag(html, page_url)
 
-    # ─── 4. Rewrite CSS Inline background-image: url() ───
-    if conservative_render_mode:
-        logger.info("[PROXY_REWRITE] Skipping aggressive inline style URL rewriting in conservative mode")
-    else:
-        for el in soup.find_all(style=True):
-            style = el["style"]
-            # Match url('...') or url("...") or url(...)
-            urls = re.findall(r'url\(\s*[\'"]?([^\'")]+)[\'"]?\s*\)', style)
-            for u in urls:
-                if u.startswith(("data:", "javascript:", "blob:")):
-                    continue
-                proxied_url = make_proxied_asset_url(u, tag_name=el.name, attr_name="style_url")
-                style = style.replace(u, proxied_url)
-            el["style"] = style
+    # 5. Chunk Guard — recover from bfcache stale chunk errors
+    html = inject_chunk_guard(html)
 
-    # ─── 5. Rewrite Form Actions ───
-    for form in soup.find_all("form", action=True):
-        action = form["action"].strip()
-        if not action or action.startswith(("javascript:", "#")):
-            continue
-        abs_url = resolve_url(action)
-        proxied_action = f"/proxy/session/{session_id}/form?action={urllib.parse.quote(abs_url)}"
-        logger.info(f"[PROXY_REWRITE] Rewriting form action: {action} -> {proxied_action}")
-        form["action"] = proxied_action
+    # 6. Agent — append-only before </body>, never touch existing scripts
+    html = inject_agent(html, agent_script_url)
 
-    # ─── 6. JavaScript Global Injections ───
-    api_base_clean = api_base.rstrip('/')
-    config_script = soup.new_tag("script")
-    config_script.string = f"""
-    if (window.location.pathname.startsWith('/proxy/session/')) {{
-      var redirectPath = '/';
-      var params = new URLSearchParams(window.location.search);
-      var targetUrl = params.get('url');
-      if (targetUrl) {{
-        try {{
-          var parsed = new URL(targetUrl);
-          redirectPath = parsed.pathname + parsed.search + parsed.hash;
-        }} catch(e) {{}}
-      }}
-      window.history.replaceState(null, '', redirectPath);
-    }}
-    window.__PIXELMARK_BASE__ = "{api_base_clean}/proxy/session/{session_id}";
-    window.__PIXELMARK_SESSION__ = {{
-      session_id: "{session_id}",
-      proxy_base_url: "{api_base_clean}/proxy/session/{session_id}"
-    }};
-    window.__PIXELMARK__ = {{
-      sessionId: "{session_id}",
-      pageUrl: "{page_url}",
-      apiBase: "{api_base}",
-      agentVersion: "2.1.0"
-    }};
-    """
-    
-    # Injected agent script tag
-    agent_script = soup.new_tag("script", src="/static/pixelmark-agent.js")
-    agent_script["data-session-id"] = session_id
+    # Remove CSP / frame security meta tags (http-equiv fallback)
+    html = re.sub(
+        r'<meta\s+[^>]*http-equiv=["\']?(?:content-security-policy|x-frame-options|frame-ancestors)["\']?[^>]*>',
+        "",
+        html,
+        flags=re.IGNORECASE,
+    )
 
-    # Service worker disabler snippet tag
-    sw_disabler = soup.new_tag("script")
-    sw_disabler.string = """
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(r => r.unregister());
-      });
-    }
-    """
-
-    # Append config and agent at the start of head so they execute before other scripts
-    if soup.head:
-        existing_agents = soup.find_all("script", src=re.compile(r"pixelmark-agent\.js"))
-        if not existing_agents:
-            soup.head.insert(0, agent_script)
-            soup.head.insert(0, config_script)
-        soup.head.append(sw_disabler)
-    elif soup.body:
-        existing_agents = soup.find_all("script", src=re.compile(r"pixelmark-agent\.js"))
-        if not existing_agents:
-            soup.body.insert(0, agent_script)
-            soup.body.insert(0, config_script)
-        soup.body.insert(0, sw_disabler)
-    else:
-        soup.insert(0, agent_script)
-        soup.insert(0, config_script)
-        soup.insert(0, sw_disabler)
-
-    # ─── 7. Remove CSP / frame security restrictions ───
-    for meta in soup.find_all("meta"):
-        http_equiv = meta.get("http-equiv", "").lower()
-        if http_equiv in ("content-security-policy", "x-frame-options", "frame-ancestors"):
-            meta.decompose()
-
-    return str(soup)
+    return html
