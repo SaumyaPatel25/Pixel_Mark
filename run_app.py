@@ -12,7 +12,7 @@ def run_services():
     
     # Check if backend venv exists
     if not os.path.exists(backend_python):
-        print(f"❌ Error: Backend virtualenv not found at {backend_python}")
+        print(f"[ERROR] Backend virtualenv not found at {backend_python}")
         return
 
     # 1. Backend Command (Running from root directory)
@@ -20,7 +20,8 @@ def run_services():
         backend_python,
         "-m", "uvicorn", "backend.main:app",
         "--host", "127.0.0.1",
-        "--port", "8765"
+        "--port", "8765",
+        "--reload"
     ]
     
     # 2. Frontend Command
@@ -33,7 +34,7 @@ def run_services():
     processes = []
     try:
         # Launch Backend
-        print(f"📡 [BACKEND] Starting on http://localhost:8765...")
+        print(f"[BACKEND] Starting on http://localhost:8765...")
         backend_proc = subprocess.Popen(
             backend_cmd,
             cwd=root_dir,
@@ -45,7 +46,7 @@ def run_services():
         time.sleep(2)
 
         # Launch Frontend
-        print(f"🎨 [FRONTEND] Starting on http://localhost:3000...")
+        print(f"[FRONTEND] Starting on http://localhost:3000...")
         frontend_proc = subprocess.Popen(
             frontend_cmd,
             cwd=frontend_dir,
@@ -53,7 +54,7 @@ def run_services():
         )
         processes.append(frontend_proc)
 
-        print("\n✨ ALL SYSTEMS OPERATIONAL")
+        print("\nALL SYSTEMS OPERATIONAL")
         print("--------------------------------------------------")
         print("Frontend: http://localhost:3000")
         print("Backend:  http://localhost:8765")
@@ -70,7 +71,7 @@ def run_services():
                 break
                 
     except KeyboardInterrupt:
-        print("\n🛑 SHUTTING DOWN...")
+        print("\nSHUTTING DOWN...")
     finally:
         for p in processes:
             try:
@@ -78,7 +79,7 @@ def run_services():
                 subprocess.run(['taskkill', '/F', '/T', '/PID', str(p.pid)], capture_output=True)
             except:
                 p.terminate()
-        print("👋 Services stopped. Re-run 'python run_app.py' to restart.")
+        print("Services stopped. Re-run 'python run_app.py' to restart.")
 
 if __name__ == "__main__":
     run_services()

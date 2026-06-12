@@ -10,7 +10,7 @@ import { Loader2, AlertCircle } from 'lucide-react'
 import { useProjectStore } from '@/store/projectStore'
 import { useCommentStore } from '@/store/commentStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
-import { useOverlayStore } from '@/store/overlayStore'
+
 
 export default function TesterPage() {
   const params = useParams()

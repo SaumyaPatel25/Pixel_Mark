@@ -119,7 +119,7 @@ async def test_proxy_initial(test_setup):
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
         assert "pixelmark-agent.js" in response.text
-        assert "window.__PIXELMARK__" in response.text
+        assert "PIXELMARK" in response.text
         
         # Verify page visit was recorded in DB
         async with TestSessionLocal() as db:

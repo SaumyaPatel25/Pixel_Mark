@@ -241,21 +241,17 @@
     let hasCanvas2D = false;
     if (hasCanvas) {
       for (const canvas of canvases) {
-        try {
-          const gl2 = canvas.getContext("webgl2");
-          if (gl2) {
+        var ctxType = canvas.__pixelmark_context_type;
+        if (ctxType) {
+          if (ctxType === "webgl2") {
             hasActiveWebGLContext = true;
             activeWebGL2Context = true;
-          } else {
-            const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-            if (gl) {
-              hasActiveWebGLContext = true;
-            } else {
-              const ctx = canvas.getContext("2d");
-              if (ctx) hasCanvas2D = true;
-            }
+          } else if (ctxType === "webgl" || ctxType === "experimental-webgl") {
+            hasActiveWebGLContext = true;
+          } else if (ctxType === "2d") {
+            hasCanvas2D = true;
           }
-        } catch (e) {}
+        }
       }
     }
 
@@ -493,7 +489,8 @@
         selector += `[aria-label="${aLabel}"]`;
       } else if (current.className && typeof current.className === 'string') {
         const classes = Array.from(current.classList)
-          .filter(c => !c.startsWith("hover:") && !c.startsWith("focus:") && !c.startsWith("active:"))
+          .filter(c => !c.includes(':') && !c.includes('/') && !c.includes('[') && !c.includes(']'))
+          .map(c => CSS.escape(c))
           .join('.');
         if (classes) selector += '.' + classes;
       }
@@ -689,6 +686,121 @@
     setTimeout(() => { dot.remove(); style.remove(); }, 600);
   }
 
+  // ─── Cursor-reactive effect relay ───────────────────────────────────────────
+  //
+  // Many target sites have cursor-glow / spotlight / WebGL mouse-follow effects.
+  // When the site is inside a proxy iframe the browser delivers real mousemove
+  // events normally when the pointer is physically over the iframe.
+  // However, when the PixelMark overlay (in the parent) intercepts mouse events
+  // (e.g. in feedback mode, or when the drawer is open) the iframe stops
+  // receiving native pointer events and the cursor effects freeze.
+  //
+  // Fix: the parent sends PIXELMARK_CURSOR_MOVE messages with the pointer
+  // position (in iframe coordinate space). We relay them as synthetic
+  // mousemove + pointermove events on document so all listeners—including
+  // inline event handlers, addEventListener calls, and canvas RAF loops—
+  // receive continuous cursor updates.
+  //
+  // Rules:
+  //  • Only runs when feedback mode is OFF (when ON the overlay owns the cursor)
+  //  • Dispatches on document AND on every <canvas> element found
+  //  • Uses bubbling so any deeply-nested listener receives the event
+  //  • Does NOT create a continuous fake loop — only fires when the parent sends
+  //
+
+  let lastRelayX = -1;
+  let lastRelayY = -1;
+  let relayPending = false;
+
+  function relayCursorEvent(x, y) {
+    lastRelayX = x;
+    lastRelayY = y;
+
+    if (relayPending) return; // batch into next rAF
+    relayPending = true;
+
+    originalRAF.call(window, () => {
+      relayPending = false;
+      const cx = lastRelayX;
+      const cy = lastRelayY;
+
+      const makeEvent = (type) => {
+        try {
+          return new MouseEvent(type, {
+            bubbles: true,
+            cancelable: false,
+            clientX: cx,
+            clientY: cy,
+            screenX: cx,
+            screenY: cy,
+            movementX: 0,
+            movementY: 0,
+            view: window
+          });
+        } catch (e) { return null; }
+      };
+
+      const makePointer = (type) => {
+        try {
+          return new PointerEvent(type, {
+            bubbles: true,
+            cancelable: false,
+            clientX: cx,
+            clientY: cy,
+            screenX: cx,
+            screenY: cy,
+            pointerId: 1,
+            pointerType: 'mouse',
+            isPrimary: true,
+            view: window
+          });
+        } catch (e) { return null; }
+      };
+
+      // 1. Fire on document so global listeners receive it
+      try {
+        const mm = makeEvent('mousemove');
+        const pm = makePointer('pointermove');
+        if (mm) document.dispatchEvent(mm);
+        if (pm) document.dispatchEvent(pm);
+      } catch (_) {}
+
+      // 2. Also fire on every canvas so WebGL/Three.js effects that listen
+      //    directly on canvas elements receive the move.
+      try {
+        document.querySelectorAll('canvas').forEach(canvas => {
+          try {
+            const rect = canvas.getBoundingClientRect();
+            // Only relay when the logical cursor is within (or near) canvas bounds
+            const margin = 64;
+            if (
+              cx >= rect.left - margin && cx <= rect.right + margin &&
+              cy >= rect.top - margin && cy <= rect.bottom + margin
+            ) {
+              const cMM = makeEvent('mousemove');
+              const cPM = makePointer('pointermove');
+              if (cMM) canvas.dispatchEvent(cMM);
+              if (cPM) canvas.dispatchEvent(cPM);
+            }
+          } catch (_) {}
+        });
+      } catch (_) {}
+
+      // 3. Update any global cursor state objects the site might be reading
+      //    (common patterns: window.mouse, window.cursor, window.mousePos, etc.)
+      try {
+        const cursorObj = window.mouse || window.cursor || window.mousePos ||
+                          window.Mouse || window.Cursor || null;
+        if (cursorObj && typeof cursorObj === 'object') {
+          if ('x' in cursorObj) cursorObj.x = cx;
+          if ('y' in cursorObj) cursorObj.y = cy;
+          if ('clientX' in cursorObj) cursorObj.clientX = cx;
+          if ('clientY' in cursorObj) cursorObj.clientY = cy;
+        }
+      } catch (_) {}
+    });
+  }
+
   // ─── Feedback Mode HUD badge ───────────────────────────────────────────────
   let badgeEl = null;
 
@@ -846,7 +958,7 @@
   }
 
   // ─── Payload builder (canonical) ──────────────────────────────────────────
-  function buildCapturePayload(event, target) {
+  function buildCapturePayload(event, target, canvasCtx = null) {
     const clickX = event.clientX, clickY = event.clientY;
     const pageX = Math.round(clickX + window.scrollX), pageY = Math.round(clickY + window.scrollY);
     const viewport = { width: window.innerWidth, height: window.innerHeight };
@@ -868,6 +980,13 @@
       page_title: document.title,
       created_via: feedbackModeActive ? 'feedback-mode' : (event.altKey ? 'alt-click' : 'unknown'),
       click: { page_x: pageX, page_y: pageY, viewport_x: viewportX, viewport_y: viewportY, client_x: clickX, client_y: clickY },
+      x: pageX,
+      y: pageY,
+      viewport_x: clickX,
+      viewport_y: clickY,
+      canvas_context: canvasCtx,
+      norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
+      norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
       target: domCtx,
       bounding_box: bbox,
       viewport_context: viewportCtx,
@@ -966,7 +1085,7 @@
     showClickConfirmation(clickX, clickY);
 
     const createdVia = isAlt ? "alt_click" : "agent";
-    const payload = buildCapturePayload(e, target);
+    const payload = buildCapturePayload(e, target, canvasCtx);
     
     if (screenshotDataUrl) {
       payload.screenshot.method = isCanvas ? 'toDataURL' : 'html2canvas';
@@ -975,8 +1094,7 @@
       payload.screenshot.method = 'none';
     }
 
-    pinManager.createPin(payload);
-
+    
     window.parent.postMessage({
       type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
       payload: payload,
@@ -1037,6 +1155,105 @@
     }, "*");
   }
 
+  window.__trackedPins = [];
+
+  function resolveAndSendPins() {
+    if (!window.__trackedPins || !window.__trackedPins.length) return;
+    const currentUrl = getAbsoluteTargetUrl();
+
+    // Filter pins that belong to the current page
+    const pinsToResolve = window.__trackedPins.filter(pin => {
+      return pin.pageUrl === currentUrl;
+    });
+
+    const currentScrollX = window.scrollX || 0;
+    const currentScrollY = window.scrollY || 0;
+
+    const resolvedPins = pinsToResolve.map(pin => {
+      let el = null;
+      let resolved = false;
+      let pageX = null;
+      let pageY = null;
+      let source = "none";
+
+      if (pin.selector && pin.selector !== "visual-canvas-context") {
+        try { el = document.querySelector(pin.selector); } catch(e) {}
+      }
+      if (!el && pin.xpath) {
+        try {
+          const result = document.evaluate(
+            pin.xpath,
+            document,
+            null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE,
+            null
+          );
+          el = result.singleNodeValue;
+        } catch(e) {}
+      }
+
+      if (el instanceof Element) {
+        try {
+          const rect = el.getBoundingClientRect();
+          // Calculate stable page coordinates: viewport rect + current scroll
+          pageX = rect.left + currentScrollX + rect.width / 2;
+          pageY = rect.top + currentScrollY + Math.min(16, rect.height / 2);
+          resolved = true;
+          source = "element";
+        } catch (e) {
+          console.error("[PixelMark Agent] failed getBoundingClientRect for element", e);
+        }
+      }
+
+      if (!resolved && pin.boundingBox) {
+        const captureScrollX = pin.scrollPosition?.x || 0;
+        const captureScrollY = pin.scrollPosition?.y || 0;
+        const width = pin.boundingBox.width || 0;
+        const height = pin.boundingBox.height || 0;
+        const left = pin.boundingBox.left !== undefined ? pin.boundingBox.left : pin.boundingBox.x || 0;
+        const top = pin.boundingBox.top !== undefined ? pin.boundingBox.top : pin.boundingBox.y || 0;
+
+        // Bounding box is viewport-relative at capture time. Subtract scroll context at capture time,
+        // then add current scroll (so pageX/pageY are absolute page coordinates)
+        pageX = left + captureScrollX + width / 2;
+        pageY = top + captureScrollY + Math.min(16, height / 2);
+        resolved = true;
+        source = "bbox";
+      }
+
+      if (!resolved) {
+        // Fallback to page coordinates
+        pageX = pin.x || 0;
+        pageY = pin.y || 0;
+        resolved = true;
+        source = "pagexy";
+      }
+
+      return {
+        id: pin.id,
+        pageX: Math.round(pageX),
+        pageY: Math.round(pageY),
+        source: source
+      };
+    });
+
+    console.log(`[PixelMark Agent] Resolved ${resolvedPins.length} pins`);
+
+    window.parent.postMessage({
+      type: "PIXELMARK_PINS_RESOLVED",
+      resolvedPins: resolvedPins
+    }, "*");
+  }
+
+  let resolveTimeout = null;
+  function throttleResolvePins() {
+    if (resolveTimeout) return;
+    resolveTimeout = setTimeout(() => {
+      resolveTimeout = null;
+      resolveAndSendPins();
+    }, 16);
+  }
+
   // ─── Attach listeners ─────────────────────────────────────────────────────
   let pointerListenersAttached = false;
 
@@ -1050,15 +1267,83 @@
       }
     }, { passive: true, capture: true });
 
+    // Relay native mousemove events from within the iframe up to the parent
+    // so the parent can echo them back to sites that need cross-document mouse tracking.
+    // This is intentionally passive and fires only when the pointer is inside the iframe.
+    let nativeMoveThrottle = null;
+    document.addEventListener('mousemove', (e) => {
+      if (feedbackModeActive) return;
+      if (nativeMoveThrottle) return;
+      nativeMoveThrottle = setTimeout(() => { nativeMoveThrottle = null; }, 16);
+      window.parent.postMessage({
+        type: 'PIXELMARK_IFRAME_MOUSEMOVE',
+        x: e.clientX,
+        y: e.clientY
+      }, '*');
+    }, { passive: true });
+
     document.addEventListener("click", handleFeedbackCapture, true);
   }
 
   function attachListeners() {
+    // Dispatch scroll events to parent so pins can stay anchored to the page
+    window.addEventListener('scroll', () => {
+      window.parent.postMessage({
+        type: 'PIXELMARK_SCROLL',
+        scrollX: window.scrollX,
+        scrollY: window.scrollY
+      }, '*');
+      throttleResolvePins();
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+      window.parent.postMessage({
+        type: 'PIXELMARK_RESIZE',
+        width: window.innerWidth,
+        height: window.innerHeight
+      }, '*');
+      throttleResolvePins();
+    }, { passive: true });
+
+    // Keyboard shortcut – Ctrl+Z or Cmd+Z for undo
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        const target = e.target;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+          return;
+        }
+        e.preventDefault();
+        window.parent.postMessage({ type: 'PIXELMARK_UNDO_LAST' }, '*');
+      }
+    });
+
+    // Attach a MutationObserver to catch layout changes / dynamic shifts
+    if (typeof MutationObserver !== 'undefined') {
+      const observer = new MutationObserver(throttleResolvePins);
+      observer.observe(document.body || document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true
+      });
+    }
+
     attachPointerListeners();
 
     window.addEventListener("message", (event) => {
       const data = event.data;
       if (!data || typeof data !== "object") return;
+
+      if (data.type === "PIXELMARK_TRACK_PINS") {
+        window.__trackedPins = data.pins || [];
+        resolveAndSendPins();
+      }
+
+      // ── Cursor relay — receive parent cursor position and re-emit as real events
+      if (data.type === "PIXELMARK_CURSOR_MOVE") {
+        if (typeof data.x === 'number' && typeof data.y === 'number') {
+          relayCursorEvent(data.x, data.y);
+        }
+      }
 
       if (data.type === "PIXELMARK_TOGGLE_MARKER_MODE") {
         if (!isAgentReady) {
@@ -1130,6 +1415,13 @@
             page_title: document.title,
             created_via: "fallback",
             click: { page_x: Math.round(window.innerWidth / 2 + window.scrollX), page_y: Math.round(window.innerHeight / 2 + window.scrollY), viewport_x: 0.5, viewport_y: 0.5, client_x: Math.round(window.innerWidth / 2), client_y: Math.round(window.innerHeight / 2) },
+            x: Math.round(window.innerWidth / 2 + window.scrollX),
+            y: Math.round(window.innerHeight / 2 + window.scrollY),
+            viewport_x: Math.round(window.innerWidth / 2),
+            viewport_y: Math.round(window.innerHeight / 2),
+            canvas_context: canvasCtx,
+            norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
+            norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
             target: { xpath: "", css_selector: "visual-canvas-context", inner_text: "Captured Frame Viewport", tag_name: "CANVAS", element_id: null, class_list: [], is_visible: true, computed_role: null, aria_label: null, aria_role: null, placeholder: null },
             bounding_box: getBoundingBox(target),
             viewport_context: getViewportContext(),

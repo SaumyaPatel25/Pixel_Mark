@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, Check, Sparkles, Activity, Code, Lightbulb, ChevronDown, ChevronUp, AlertCircle, X, Send } from 'lucide-react'
 import { useCommentStore } from '@/store/commentStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
-import { useOverlayStore } from '@/store/overlayStore'
+import { useCaptureStore } from '@/store/overlayStore'
 import { useProjectStore } from '@/store/projectStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { useUIStore } from '@/store/uiStore'
@@ -13,6 +13,9 @@ import { Button } from '@/components/ui/button'
 import { MarkerGroup } from '@/components/command-center/MarkerGroup'
 import { SessionReplay } from './SessionReplay'
 import { cn } from '@/lib/utils'
+import { api } from '@/lib/api'
+import { normalizeCapturePayload } from '@/utils/normalizeCapturePayload'
+
 
 const SEVERITY_STYLES: any = {
   P0: 'bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.2)]',
@@ -309,12 +312,33 @@ const CommentCard = React.memo(({ comment, index }: { comment: any, index: numbe
 
 import { GitHubExportPanel } from './GitHubExportPanel'
 
-export default function CommandCenter() {
+interface CommandCenterProps {
+  sessionId?: string | null
+}
+
+export default function CommandCenter({ sessionId }: CommandCenterProps) {
   const { currentProject } = useProjectStore()
   const comments = useCommentStore(state => state.comments)
   const addComment = useCommentStore(state => state.addComment)
   const activeTesters = useRealtimeStore(state => state.activeTesters)
-  const { pendingMarker, clearPending } = useOverlayStore()
+  const { selectedCaptureId, capturesById, closeFeedbackDrawer } = useCaptureStore()
+  const rawCapture = selectedCaptureId ? capturesById[selectedCaptureId] : null
+  
+  // Safe field lookups supporting normalized and raw contexts
+  const pendingMarker = rawCapture ? {
+    id: rawCapture.id,
+    selector: rawCapture.target?.selector || '',
+    tagName: rawCapture.target?.tagName || '',
+    innerText: rawCapture.target?.text || (rawCapture.target as any)?.innerText || '',
+    xpath: rawCapture.target?.xpath || '',
+    pageUrl: rawCapture.pageUrl || '',
+    x: rawCapture.coordinates?.pageX ?? (rawCapture as any).source?.x ?? 0,
+    y: rawCapture.coordinates?.pageY ?? (rawCapture as any).source?.y ?? 0,
+    number: 1, // Visual placeholder
+    screenshot: rawCapture.screenshots?.cropDataUrl || rawCapture.screenshots?.fullPageDataUrl || (rawCapture.screenshots as any)?.dataUrl || null,
+  } : null
+
+  const clearPending = closeFeedbackDrawer
   const { heavy_mode } = useSessionStore()
 
   const [text, setText] = useState('')
@@ -329,55 +353,82 @@ export default function CommandCenter() {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Sync comment field with active capture's userComment
+  React.useEffect(() => {
+    if (rawCapture) {
+      setText(rawCapture.userComment || '')
+    } else {
+      setText('')
+    }
+  }, [selectedCaptureId, rawCapture])
+
+  const isSubmitted = rawCapture?.status === 'submitted'
+  const isResolved = rawCapture?.status === 'resolved'
+  const isFailed = rawCapture?.status === 'failed'
+
   const handleSave = async () => {
-    if (!text.trim() || !currentProject || !pendingMarker) return
+    if (!text.trim() || !pendingMarker) return
+    if (!sessionId) {
+      setSaveError("No active session ID found. Cannot persist feedback.")
+      setSaveState('error')
+      return
+    }
     if (saveState === 'saving') return
 
     setSaveState('saving')
     setSaveError(null)
 
-    // ── Sanitize every field — coerce undefined/null/object → safe primitives ──
-    const safeStr  = (v: unknown): string =>
-      (v === null || v === undefined) ? '' : typeof v === 'string' ? v : String(v)
-
-    const safeNum  = (v: unknown): number =>
-      (v === null || v === undefined || isNaN(Number(v))) ? 0 : Number(v)
-
-    const safeShot = (v: unknown): string => {
-      if (typeof v === 'string' && v.startsWith('data:image')) return v
-      return ''   // Use empty string as safe null-equivalent
-    }
-
-    const payload = {
-      project_id:         safeStr(currentProject.id),
-      text:               text.trim(),
-      component_selector: safeStr(pendingMarker.selector),
-      xpath:              safeStr(pendingMarker.xpath),
-      tag_name:           safeStr(pendingMarker.tagName),
-      inner_text:         safeStr(pendingMarker.innerText),
-      page_url:           safeStr(pendingMarker.pageUrl) || window.location.href,
-      tester_name:        testerName || 'Anonymous',
-      x:                  safeNum(pendingMarker.x),
-      y:                  safeNum(pendingMarker.y),
-      marker_number:      safeNum(pendingMarker.number),
-      screenshot_url:     safeShot(pendingMarker.screenshot),
-      markerId:           pendingMarker.id,
-    }
-
-    // Log the payload before sending so we can inspect it in DevTools
-    console.log('[CommandCenter] Submitting payload:', JSON.stringify(payload, null, 2))
-
     try {
-      await addComment(payload)
+      const activeCapture = capturesById[pendingMarker.id]
+      if (!activeCapture) throw new Error("Capture context not found in store")
 
-      if (!localStorage.getItem('tester_name') && testerName) {
-        localStorage.setItem('tester_name', testerName)
+      const feedbackPayload = {
+        pageurl: activeCapture.pageUrl || window.location.href,
+        pagetitle: activeCapture.pageTitle || 'Untitled Page',
+        issuetype: activeCapture.issueType || 'other',
+        priority: activeCapture.priority || 'medium',
+        comment: text.trim(),
+        renderertype: activeCapture.rendererType || 'dom',
+        createdvia: activeCapture.createdVia || 'agent',
+        capturepayload: {
+          ...activeCapture,
+          userComment: text.trim(),
+        },
+      }
+
+      console.log('[PixelMark Submit] sending feedback payload:', feedbackPayload)
+      const created = await api.feedback.create(sessionId, feedbackPayload)
+
+      // Map backend record back into CapturePayload-compatible frontend object
+      const normalized = normalizeCapturePayload({
+        id: created.id,
+        status: created.status,
+        createdVia: created.createdvia,
+        timestamp: created.createdat,
+        sessionId: created.sessionid,
+        pageUrl: created.pageurl,
+        pageTitle: created.pagetitle,
+        rendererType: created.renderertype,
+        issueType: created.issuetype,
+        priority: created.priority,
+        userComment: created.comment,
+        ...created.capturepayload,
+      })
+
+      // Update store
+      useCaptureStore.getState().upsertCapture(normalized)
+      useCaptureStore.getState().markCaptureSubmitted(normalized.id)
+
+      console.log(`[PixelMark Submit] persisted capture ${normalized.id}`)
+
+      // Refresh threads
+      if (currentProject) {
+        useCommentStore.getState().loadComments(currentProject.id)
       }
 
       setSaveState('saved')
       setText('')
       
-      // Auto-close success state after 1.2s
       setTimeout(() => {
         setSaveState('idle')
         clearPending()
@@ -387,9 +438,59 @@ export default function CommandCenter() {
       const message = err instanceof Error ? err.message : 'Could not save comment'
       setSaveError(message)
       setSaveState('error')
+      useCaptureStore.getState().markCaptureFailed(pendingMarker.id, message)
       console.error('[CommandCenter] Save failed:', message)
     }
   }
+
+  const handleUpdate = async () => {
+    if (!text.trim() || !rawCapture || !sessionId) return
+    if (saveState === 'saving') return
+
+    setSaveState('saving')
+    setSaveError(null)
+
+    try {
+      const patch = {
+        comment: text.trim(),
+      }
+
+      const updated = await api.feedback.update(sessionId, rawCapture.id, patch)
+
+      const normalized = normalizeCapturePayload({
+        id: updated.id,
+        status: updated.status,
+        createdVia: updated.createdvia,
+        timestamp: updated.createdat,
+        sessionId: updated.sessionid,
+        pageUrl: updated.pageurl,
+        pageTitle: updated.pagetitle,
+        rendererType: updated.renderertype,
+        issueType: updated.issuetype,
+        priority: updated.priority,
+        userComment: updated.comment,
+        ...updated.capturepayload,
+      })
+
+      useCaptureStore.getState().upsertCapture(normalized)
+      
+      if (currentProject) {
+        useCommentStore.getState().loadComments(currentProject.id)
+      }
+
+      setSaveState('saved')
+      
+      setTimeout(() => {
+        setSaveState('idle')
+      }, 1200)
+
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not update comment'
+      setSaveError(message)
+      setSaveState('error')
+    }
+  }
+
 
   const [activeTab, setActiveTab] = useState<string>('all')
 
@@ -593,43 +694,75 @@ export default function CommandCenter() {
                 />
               )}
 
+              <div className="flex items-center justify-between text-[10px] text-white/50 bg-white/[0.02] border border-white/5 p-2.5 rounded-xl select-none">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold uppercase tracking-wider text-[8px] text-white/30">Status:</span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full font-black uppercase tracking-widest text-[8px]",
+                    isResolved ? "bg-green-500/10 border border-green-500/20 text-green-400" :
+                    isSubmitted ? "bg-teal-500/10 border border-teal-500/20 text-teal-400" :
+                    isFailed ? "bg-rose-500/10 border border-rose-500/20 text-rose-400" :
+                    "bg-purple-500/10 border border-purple-500/20 text-purple-400"
+                  )}>
+                    {rawCapture?.status || 'draft'}
+                  </span>
+                </div>
+                {rawCapture?.status !== 'draft' && rawCapture?.id && (
+                  <div className="font-mono text-[8px] text-white/30 select-text">
+                    ID: {rawCapture.id}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-3">
                 <textarea
                   placeholder="Describe the issue or improvement..."
                   value={text}
                   onChange={e => setText(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 focus:border-purple-500/50 outline-none transition-all resize-none min-h-[100px]"
+                  disabled={isResolved}
+                  className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 focus:border-purple-500/50 outline-none transition-all resize-none min-h-[100px] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 
-                <button
-                  onClick={handleSave}
-                  disabled={!text.trim() || saveState === 'saving' || saveState === 'saved'}
-                  className={[
-                      'w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl',
+                {isResolved ? (
+                  <button
+                    disabled
+                    className="w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-green-500/10 border border-green-500/20 text-green-400 cursor-not-allowed"
+                  >
+                    Resolved (Read Only)
+                  </button>
+                ) : (
+                  <button
+                    onClick={isSubmitted ? handleUpdate : handleSave}
+                    disabled={!text.trim() || saveState === 'saving' || (isSubmitted && text.trim() === (rawCapture?.userComment || ''))}
+                    className={cn(
+                      'w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl focus:ring-2 focus:ring-purple-500 outline-none',
                       saveState === 'saved'
-                      ? 'bg-green-600 text-white cursor-default'
-                      : saveState === 'error'
+                        ? 'bg-green-600 text-white cursor-default'
+                        : saveState === 'error'
                           ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/20'
-                          : 'bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-purple-900/20',
-                  ].join(' ')}
-                >
-                  {saveState === 'saving' ? (
+                          : 'bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-purple-900/20'
+                    )}
+                  >
+                    {saveState === 'saving' ? (
                       <span className="flex items-center justify-center gap-2">
                         <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         Syncing...
                       </span>
-                  ) : saveState === 'saved' ? (
-                      '✓ Published'
-                  ) : saveState === 'error' ? (
+                    ) : saveState === 'saved' ? (
+                      '✓ Synced'
+                    ) : saveState === 'error' ? (
                       '↺ Retry Submission'
-                  ) : (
+                    ) : isSubmitted ? (
+                      'Update Feedback'
+                    ) : (
                       'Submit Feedback'
-                  )}
-                </button>
+                    )}
+                  </button>
+                )}
 
                 {saveError && (
                   <p className="text-rose-400 text-[10px] font-bold text-center leading-snug animate-in fade-in slide-in-from-top-1">
-                      {saveError}
+                    {saveError}
                   </p>
                 )}
               </div>

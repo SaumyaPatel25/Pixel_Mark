@@ -1,4 +1,7 @@
 'use client'
+import { useCaptureStore } from '@/store/overlayStore'
+import { useUIStore } from '@/store/uiStore'
+import { normalizeCapturePayload } from '@/utils/normalizeCapturePayload'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
@@ -114,9 +117,222 @@ export function AuditSurface({
   const [isLoading, setIsLoading] = useState(true)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [failedAssets, setFailedAssets] = useState<{ url: string; critical: boolean }[]>([])
+  const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [scrollPos, setScrollPos] = useState({ x: 0, y: 0 })
+  const [resolvedPositions, setResolvedPositions] = useState<Record<string, { pageX: number; pageY: number; source: string }>>({})
+
+  // ─── Canvas/WebGL marker resolver ────────────────────────────────────────
+  //
+  // For canvas captures we CANNOT use DOM selectors. Instead we:
+  //   1. Find the best canvas in the live iframe
+  //   2. Use normX/normY (0..1) to compute pixel position within the canvas rect
+  //   3. Fall back to canvasCoords (pixels within canvas) if no norm data
+  //   4. Fall back to capture x/y as last resort
+  //
+  // All returned coords are VIEWPORT-relative (matching the overlay container).
+  // Do NOT subtract scrollPos — the overlay is position:absolute over the iframe
+  // which itself has no scroll; the scroll lives inside the iframe document.
+  // ─── Canvas/WebGL marker resolver ────────────────────────────────────────
+  //
+  // For canvas captures we CANNOT use DOM selectors. Instead we:
+  //   1. Find the best canvas in the live iframe
+  //   2. Use normX/normY (0..1) to compute pixel position within the canvas rect
+  //   3. Fall back to canvasCoords (pixels within canvas) if no norm data
+  //   4. Fall back to capture x/y as last resort
+  //
+  // All returned coords are VIEWPORT-relative (matching the overlay container).
+  const resolveCanvasMarkerPosition = useCallback((
+    capture: any,
+    scrollX: number,
+    scrollY: number,
+    iframeDocument?: Document | null
+  ): { left: number; top: number; source: string } => {
+    const cc = capture.canvasContext || capture.canvas_context
+    const normX: number | null = capture.coordinates?.normX ?? capture.normX ?? capture.norm_x ?? null
+    const normY: number | null = capture.coordinates?.normY ?? capture.normY ?? capture.norm_y ?? null
+
+    // Find best canvas candidate in the live iframe
+    let bestCanvas: Element | null = null
+    if (iframeDocument) {
+      try {
+        const canvases = Array.from(iframeDocument.querySelectorAll('canvas'))
+        if (canvases.length === 1) {
+          bestCanvas = canvases[0]
+        } else if (canvases.length > 1) {
+          // Prefer canvas whose CSS rect most closely matches capture canvasRect dimensions
+          const captureRect = cc?.canvas_rect
+          if (captureRect?.width && captureRect?.height) {
+            let minDiff = Infinity
+            for (const c of canvases) {
+              const r = c.getBoundingClientRect()
+              const diff = Math.abs(r.width - captureRect.width) + Math.abs(r.height - captureRect.height)
+              if (diff < minDiff) { minDiff = diff; bestCanvas = c }
+            }
+          } else {
+            // Prefer largest visible canvas
+            let largestArea = 0
+            for (const c of canvases) {
+              const r = c.getBoundingClientRect()
+              const area = r.width * r.height
+              if (area > largestArea) { largestArea = area; bestCanvas = c }
+            }
+          }
+        }
+      } catch {}
+    }
+
+    if (bestCanvas) {
+      try {
+        const rect = bestCanvas.getBoundingClientRect()
+        if (normX !== null && normY !== null) {
+          const left = rect.left + rect.width * normX
+          const top = rect.top + rect.height * normY
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[PixelMark Pin] canvas anchor ${capture.id} via normxy normX=${normX.toFixed(3)} normY=${normY.toFixed(3)} → left=${left.toFixed(1)} top=${top.toFixed(1)} canvasRect=${JSON.stringify({left: Math.round(rect.left), top: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height)})}`)
+          }
+          return { left, top, source: 'canvas_normxy' }
+        }
+        if (cc?.canvas_coords) {
+          const left = rect.left + (cc.canvas_coords.x || 0)
+          const top = rect.top + (cc.canvas_coords.y || 0)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[PixelMark Pin] canvas anchor ${capture.id} via canvascoords cx=${cc.canvas_coords.x} cy=${cc.canvas_coords.y} → left=${left.toFixed(1)} top=${top.toFixed(1)}`)
+          }
+          return { left, top, source: 'canvas_coords' }
+        }
+      } catch {}
+    }
+
+    const captureScrollX = capture.viewport?.scrollX || 0
+    const captureScrollY = capture.viewport?.scrollY || 0
+
+    // Last resort: use viewport coords from capture adjusted for scroll difference
+    const vx = capture.coordinates?.viewportX ?? capture.viewport_x ?? null
+    const vy = capture.coordinates?.viewportY ?? capture.viewport_y ?? null
+    if (vx !== null && vy !== null) {
+      if (vx > 1 || vy > 1) {
+        // Already in CSS pixels
+        const left = vx + (captureScrollX - scrollX)
+        const top = vy + (captureScrollY - scrollY)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[PixelMark Pin] canvas anchor ${capture.id} fallback viewportpx left=${left} top=${top}`)
+        }
+        return { left, top, source: 'canvas_fallback_viewportpx_scrolled' }
+      } else {
+        // Viewport coords stored as 0..1 ratio
+        const iw = (iframeDocument?.defaultView?.innerWidth) || window.innerWidth
+        const ih = (iframeDocument?.defaultView?.innerHeight) || window.innerHeight
+        const left = vx * iw + (captureScrollX - scrollX)
+        const top = vy * ih + (captureScrollY - scrollY)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[PixelMark Pin] canvas anchor ${capture.id} fallback viewportratio left=${left.toFixed(1)} top=${top.toFixed(1)}`)
+        }
+        return { left, top, source: 'canvas_fallback_viewportratio_scrolled' }
+      }
+    }
+    const px = capture.coordinates?.pageX ?? capture.x ?? 0
+    const py = capture.coordinates?.pageY ?? capture.y ?? 0
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[PixelMark Pin] canvas anchor ${capture.id} fallback pagexy left=${px - scrollX} top=${py - scrollY}`)
+    }
+    return { left: px - scrollX, top: py - scrollY, source: 'canvas_fallback_pagexy' }
+  }, [])
+
+  // ─── DOM marker resolver ───────────────────────────────────────────────────
+  //
+  // Returns VIEWPORT-relative coords (matching the overlay container).
+  const resolveMarkerPosition = useCallback((
+    capture: any,
+    scrollX: number,
+    scrollY: number,
+    iframeDocument?: Document | null
+  ) => {
+    let el: Element | null = null
+    let source = 'none'
+
+    // 1. Try live DOM lookup in the iframe (same-origin only)
+    if (iframeDocument) {
+      const sel = capture.target?.selector
+      if (sel && sel !== 'visual-canvas-context') {
+        try {
+          el = iframeDocument.querySelector(sel)
+          if (el) source = 'selector'
+        } catch {}
+      }
+      if (!el && capture.target?.xpath) {
+        try {
+          const res = iframeDocument.evaluate(
+            capture.target.xpath, iframeDocument, null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE, null
+          )
+          el = res.singleNodeValue as Element | null
+          if (el) source = 'xpath'
+        } catch {}
+      }
+    }
+
+    if (el instanceof Element) {
+      try {
+        // getBoundingClientRect is already viewport-relative in the iframe doc,
+        // which maps directly to the overlay container (overlay is inset-0 over iframe).
+        const rect = el.getBoundingClientRect()
+        const left = rect.left + rect.width / 2
+        const top = rect.top + Math.min(16, rect.height / 2)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[PixelMark Pin] dom anchor ${capture.id} via ${source} left=${left.toFixed(1)} top=${top.toFixed(1)}`)
+        }
+        return { left, top, source }
+      } catch {}
+    }
+
+    // 2. Stored bounding box (viewport-relative at capture time + scroll delta)
+    if (capture.boundingBox) {
+      const captureScrollX = capture.viewport?.scrollX || 0
+      const captureScrollY = capture.viewport?.scrollY || 0
+      const bbl = capture.boundingBox.left ?? capture.boundingBox.x ?? 0
+      const bbt = capture.boundingBox.top ?? capture.boundingBox.y ?? 0
+      const bbw = capture.boundingBox.width ?? 0
+      const bbh = capture.boundingBox.height ?? 0
+      // bbox was captured at viewport-relative position. Convert to page coords, then back to current viewport using reactive scroll.
+      const pageX = bbl + captureScrollX + bbw / 2
+      const pageY = bbt + captureScrollY + Math.min(16, bbh / 2)
+      const left = pageX - scrollX
+      const top = pageY - scrollY
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[PixelMark Pin] dom anchor ${capture.id} via bbox left=${left.toFixed(1)} top=${top.toFixed(1)} captureScroll=(${captureScrollX},${captureScrollY}) currentScroll=(${scrollX},${scrollY})`)
+      }
+      return { left, top, source: 'bbox' }
+    }
+
+    // 3. Viewport coords from capture (CSS pixels)
+    const vx = capture.coordinates?.viewportX ?? null
+    const vy = capture.coordinates?.viewportY ?? null
+    if (vx !== null && vy !== null && vx > 1) {
+      const captureScrollX = capture.viewport?.scrollX || 0
+      const captureScrollY = capture.viewport?.scrollY || 0
+      const left = vx + (captureScrollX - scrollX)
+      const top = vy + (captureScrollY - scrollY)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[PixelMark Pin] dom anchor ${capture.id} via viewportpx_scrolled left=${left} top=${top}`)
+      }
+      return { left, top, source: 'viewportpx_scrolled' }
+    }
+
+    // 4. Page x/y (absolute page coords) → convert to current viewport
+    const px = capture.coordinates?.pageX ?? capture.x ?? 0
+    const py = capture.coordinates?.pageY ?? capture.y ?? 0
+    const left = px - scrollX
+    const top = py - scrollY
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[PixelMark Pin] dom anchor ${capture.id} via pagexy left=${left.toFixed(1)} top=${top.toFixed(1)} pageXY=(${px},${py}) currentScroll=(${scrollX},${scrollY})`)
+    }
+    return { left, top, source: 'pagexy' }
+  }, [])
 
   // Feedback mode state
   const [feedbackModeActive, setFeedbackModeActive] = useState(false)
+  const captures = Object.values(useCaptureStore(state => state.capturesById))
   const [manualPlacementMode, setManualPlacementMode] = useState(false)
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 })
   const [isHoveringOverlay, setIsHoveringOverlay] = useState(false)
@@ -131,6 +347,61 @@ export function AuditSurface({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [showElementPreview, setShowElementPreview] = useState(true)
+
+  const selectedCaptureId = useCaptureStore(state => state.selectedCaptureId)
+  const isFeedbackDrawerOpen = useCaptureStore(state => state.isFeedbackDrawerOpen)
+  const activeCapture = useCaptureStore(state => selectedCaptureId ? state.capturesById[selectedCaptureId] : null)
+  const isSubmitted = activeCapture?.status === 'submitted'
+  const isResolved = activeCapture?.status === 'resolved'
+  const isFailed = activeCapture?.status === 'failed'
+
+  useEffect(() => {
+    setIsDrawerOpen(isFeedbackDrawerOpen)
+  }, [isFeedbackDrawerOpen])
+
+  useEffect(() => {
+    if (selectedCaptureId) {
+      const capture = useCaptureStore.getState().capturesById[selectedCaptureId]
+      if (capture) {
+        setCaptureCtx({
+          page_url: capture.pageUrl,
+          page_title: capture.pageTitle,
+          x: capture.coordinates.pageX || 0,
+          y: capture.coordinates.pageY || 0,
+          viewport_x: capture.coordinates.viewportX || 0,
+          viewport_y: capture.coordinates.viewportY || 0,
+          element_selector: capture.target.selector || '',
+          element_text: capture.target.text || '',
+          element_tag: capture.target.tagName || '',
+          aria_label: capture.target.ariaLabel,
+          aria_role: capture.target.ariaRole,
+          bounding_box: capture.boundingBox as any,
+          xpath: capture.target.xpath || '',
+          renderer_type: capture.rendererType,
+          canvas_context: capture.canvasContext,
+          screenshot_data_url: capture.screenshots.cropDataUrl || capture.screenshots.fullPageDataUrl,
+          screenshot_required: capture.screenshots.screenshotRequired,
+          viewport: capture.viewport as any,
+          scroll_position: { x: capture.viewport.scrollX || 0, y: capture.viewport.scrollY || 0 },
+          console_errors: capture.diagnostics.consoleErrors,
+          network_errors: capture.diagnostics.networkErrors,
+          browser_info: capture.diagnostics.browserInfo,
+          issue_type_hint: (capture.issueType || 'other') as IssueType,
+          created_via: capture.createdVia as CreatedVia,
+          agent_version: capture.agentVersion || '2.0',
+          timestamp: capture.timestamp
+        })
+        setNoteText(capture.userComment || '')
+        setIssueType((capture.issueType || 'other') as IssueType)
+        setSeverity((capture.priority || 'medium') as Severity)
+      }
+    } else {
+      setCaptureCtx(null)
+      setNoteText('')
+      setIssueType('other')
+      setSeverity('medium')
+    }
+  }, [selectedCaptureId])
 
   // Session / Heavy mode states
   const { setRendererType: setStoreRendererType, heavy_mode } = useSessionStore()
@@ -211,6 +482,22 @@ export function AuditSurface({
     return () => clearTimeout(t)
   }, [isLoading])
 
+  useEffect(() => {
+    if (!currentUrl || !sessionId) return
+
+    console.log(`[PixelMark Hydration] loading feedback for ${currentUrl}`)
+    
+    api.feedback.list(sessionId, currentUrl, shareToken)
+      .then((data) => {
+        const items = data.items || []
+        console.log(`[PixelMark Hydration] loaded ${items.length} items`)
+        useCaptureStore.getState().hydratePersistedFeedback(items)
+      })
+      .catch((err) => {
+        console.error('[PixelMark Hydration] failed to load feedback:', err)
+      })
+  }, [currentUrl, sessionId, shareToken])
+
   const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
   const proxyUrl = `${API_BASE}/proxy/session/${sessionId}${shareToken ? `?share_token=${shareToken}` : ''}`
 
@@ -241,21 +528,11 @@ export function AuditSurface({
   }, [feedbackModeActive, isLoading, notifyAgent])
 
   // ─── Open feedback drawer with context ───────────────────────────────────
-  const openFeedbackDrawer = useCallback((ctx: CaptureContext) => {
-    setCaptureCtx(ctx)
-    setIssueType(ctx.issue_type_hint || 'other')
-    setNoteText('')
-    setSeverity('medium')
-    setSubmitSuccess(false)
-    
-    // Collapse DOM element properties by default on heavy canvas targets
-    const isHeavy = ctx.renderer_type === 'webgl' || ctx.renderer_type === 'canvas' || ctx.renderer_type === 'mixed'
-    setShowElementPreview(!isHeavy)
-    
-    setIsDrawerOpen(true)
-    // Exit feedback mode once drawer opens (single click model)
-    setFeedbackModeActive(false)
-    setManualPlacementMode(false)
+  const openFeedbackDrawer = useCallback((ctx: any) => {
+    const payload = normalizeCapturePayload(ctx)
+    const id = useCaptureStore.getState().upsertCapture(payload)
+    useCaptureStore.getState().openFeedbackDrawer(id)
+    useUIStore.getState().toggleCommandCenter(true)
   }, [])
 
   // ─── Listen for messages from the agent ──────────────────────────────────
@@ -309,7 +586,19 @@ export function AuditSurface({
           if (data.renderer_type !== 'dom') {
             setTimeout(() => {
               try {
-                iframeRef.current?.contentWindow?.dispatchEvent(new Event('resize'));
+                let isSameOrigin = false;
+                try {
+                  if (iframeRef.current?.contentWindow) {
+                    const doc = iframeRef.current.contentWindow.document;
+                    isSameOrigin = !!doc;
+                  }
+                } catch (e) {
+                  isSameOrigin = false;
+                }
+
+                if (isSameOrigin) {
+                  iframeRef.current?.contentWindow?.dispatchEvent(new Event('resize'));
+                }
                 window.dispatchEvent(new Event('resize'));
               } catch (err) {
                 console.error('[AuditSurface] Failed to dispatch resize event to iframe:', err);
@@ -360,48 +649,54 @@ export function AuditSurface({
           }
           break
 
-        // ── NEW: Agent sends this instead of directly saving ──────────────
-        case 'PIXELMARK_OPEN_FEEDBACK_DRAWER':
-          openFeedbackDrawer(data as CaptureContext)
+        // ── Capture progress events ─────────────────────────────────────────
+        case 'PIXELMARK_CAPTURE_STARTED':
+          useCaptureStore.getState().setCaptureInProgress(true)
           break
 
-        // ── Legacy direct-save fallback (if old agent version sends this) ─
-        case 'PIXELMARK_CREATE_MARKER':
-          try {
-            const ctx: CaptureContext = {
-              page_url: data.page_url,
-              page_title: data.page_title,
-              x: data.x,
-              y: data.y,
-              viewport_x: data.viewport_x,
-              viewport_y: data.viewport_y,
-              element_selector: data.element_selector || '',
-              element_text: data.element_text || '',
-              element_tag: data.element_tag || '',
-              aria_label: null,
-              aria_role: null,
-              bounding_box: null,
-              xpath: data.xpath || '',
-              is_inside_shadow_dom: false,
-              renderer_type: data.renderer_type || 'dom',
-              canvas_context: data.canvas_context || null,
-              screenshot_data_url: data.screenshot_data_url || null,
-              screenshot_required: !!data.screenshot_data_url,
-              viewport: { width: window.innerWidth, height: window.innerHeight },
-              scroll_position: { x: 0, y: 0 },
-              console_errors: [],
-              network_errors: [],
-              browser_info: null,
-              issue_type_hint: 'other',
-              created_via: 'agent',
-              agent_version: '1.x',
-              timestamp: new Date().toISOString(),
-            }
-            openFeedbackDrawer(ctx)
-          } catch (err) {
-            console.error('[AuditSurface] Legacy marker event failed:', err)
+        case 'PIXELMARK_CAPTURE_COMPLETED':
+          useCaptureStore.getState().setCaptureInProgress(false)
+          break
+
+        // ── Open feedback drawer — canonical handler (normalizes payload) ───
+        case 'PIXELMARK_OPEN_FEEDBACK_DRAWER': {
+          const rawData = data.payload ? { ...data, ...data.payload } : data
+          const normalized = normalizeCapturePayload(rawData)
+          const captureId = useCaptureStore.getState().upsertCapture(normalized)
+          useCaptureStore.getState().openFeedbackDrawer(captureId)
+          useUIStore.getState().toggleCommandCenter(true)
+          break
+        }
+
+        case 'PIXELMARK_SCROLL':
+          setScrollPos({ x: data.scrollX || 0, y: data.scrollY || 0 })
+          break
+
+        case 'PIXELMARK_PINS_RESOLVED': {
+          console.log(`[PixelMark Pin] recomputed ${data.resolvedPins?.length} markers`)
+          setResolvedPositions(prev => {
+            const next = { ...prev }
+            data.resolvedPins?.forEach((p: any) => {
+              if (p.source !== 'none') {
+                next[p.id] = { pageX: p.pageX, pageY: p.pageY, source: p.source }
+              }
+            })
+            return next
+          })
+          break
+        }
+
+        case 'PIXELMARK_UNDO_LAST':
+          useCaptureStore.getState().undoLastLocalCapture()
+          break
+
+        // ── Open specific existing capture ────────────────────────────────
+        case 'PIXELMARK_OPEN_CAPTURE': {
+          if (data.id) {
+            useCaptureStore.getState().openFeedbackDrawer(data.id)
           }
           break
+        }
 
         case 'EXIT_AUDIT':
           window.location.href = '/dashboard'
@@ -412,6 +707,76 @@ export function AuditSurface({
     window.addEventListener('message', handleAgentMessage)
     return () => window.removeEventListener('message', handleAgentMessage)
   }, [sessionId, projectId, shareToken, onMarkerCreated, onPageChanged, openFeedbackDrawer])
+
+  // Send pins to the iframe agent for element tracking
+  useEffect(() => {
+    if (isLoading || !iframeRef.current?.contentWindow) return
+
+    const pins = captures.map(c => ({
+      id: c.id,
+      selector: c.target?.selector,
+      xpath: c.target?.xpath,
+      boundingBox: c.boundingBox,
+      x: c.coordinates?.pageX ?? 0,
+      y: c.coordinates?.pageY ?? 0,
+      scrollPosition: {
+        x: c.viewport?.scrollX,
+        y: c.viewport?.scrollY
+      },
+      pageUrl: c.pageUrl
+    }))
+
+    console.log(`[PixelMark Pin] tracking ${pins.length} pins`)
+    iframeRef.current.contentWindow.postMessage({
+      type: 'PIXELMARK_TRACK_PINS',
+      pins
+    }, '*')
+  }, [captures, currentUrl, isLoading])
+
+  // Parent keyboard shortcut Ctrl+Z / Cmd+Z for undo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        const target = e.target as HTMLElement
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+          return
+        }
+        e.preventDefault()
+        useCaptureStore.getState().undoLastLocalCapture()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  // ─── Cursor relay: forward cursor coords to iframe so cursor-reactive
+  //     backgrounds (spotlight/glow/WebGL mouse effects) keep working when
+  //     the PixelMark overlay captures pointer events in feedback mode.
+  //
+  //  • When feedback mode is OFF the parent echoes PIXELMARK_IFRAME_MOUSEMOVE
+  //    messages (sent by the agent) straight back as PIXELMARK_CURSOR_MOVE so
+  //    the relay loop is self-sustaining while the pointer is inside the iframe.
+  //  • When feedback mode is ON the manual overlay's onMouseMove (see below)
+  //    sends PIXELMARK_CURSOR_MOVE directly, keeping effects live even though
+  //    the overlay intercepts native pointer events.
+  useEffect(() => {
+    const handleIframeMouseMove = (event: MessageEvent) => {
+      const data = event.data
+      if (!data || data.type !== 'PIXELMARK_IFRAME_MOUSEMOVE') return
+      // Echo back to iframe only when feedback mode is OFF — in that case the
+      // parent overlay is NOT intercepting events so no relay is needed for native
+      // events, but we still forward to keep WebGL global-state cursors updated.
+      if (feedbackModeActive) return
+      if (iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(
+          { type: 'PIXELMARK_CURSOR_MOVE', x: data.x, y: data.y },
+          '*'
+        )
+      }
+    }
+    window.addEventListener('message', handleIframeMouseMove)
+    return () => window.removeEventListener('message', handleIframeMouseMove)
+  }, [feedbackModeActive])
 
   // ─── Page back navigation ─────────────────────────────────────────────────
   const handleGoBack = () => {
@@ -481,107 +846,135 @@ export function AuditSurface({
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
-    setHoverPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+    const localX = e.clientX - rect.left
+    const localY = e.clientY - rect.top
+    setHoverPos({ x: localX, y: localY })
+
+    // Relay cursor position to iframe so cursor-reactive effects (spotlight,
+    // WebGL mouse-follow, canvas trails) keep working while the overlay is
+    // intercepting pointer events in feedback / manual-placement mode.
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        { type: 'PIXELMARK_CURSOR_MOVE', x: localX, y: localY },
+        '*'
+      )
+    }
   }
 
   // ─── Drawer submit ────────────────────────────────────────────────────────
   const handleDrawerSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!sessionId) return
     setIsSubmitting(true)
+    setSubmitError(null)
 
     const ctx = captureCtx
+    const activeId = selectedCaptureId
 
     try {
-      const payload: Record<string, any> = {
-        session_id: sessionId,
-        project_id: projectId === 'public' ? null : projectId,
-        share_token: shareToken || null,
-
-        // Location
-        page_url: ctx?.page_url || currentUrl,
-        page_title: ctx?.page_title || currentTitle,
-        x: ctx?.x ?? manualCoords.px,
-        y: ctx?.y ?? manualCoords.py,
-        viewport_x: ctx?.viewport_x ?? (manualCoords.px - window.scrollX),
-        viewport_y: ctx?.viewport_y ?? (manualCoords.py - window.scrollY),
-
-        // Element context
-        element_selector: ctx?.element_selector || '',
-        element_text: ctx?.element_text || '',
-        element_tag: ctx?.element_tag || 'UNKNOWN',
-        xpath: ctx?.xpath || null,
-        css_selector: ctx?.element_selector || null,
-        inner_text: ctx?.element_text || null,
-        aria_label: ctx?.aria_label || null,
-        aria_role: ctx?.aria_role || null,
-        bounding_box: ctx?.bounding_box || null,
-
-        // Feedback data from user
-        issue_type: issueType,
-        note: noteText.trim() || null,
-        description: noteText.trim() || ctx?.element_text || '',
-        severity,
-        priority: severity,
-
-        // Title auto-generated
-        title: noteText.trim()
-          ? noteText.trim().slice(0, 40) + (noteText.length > 40 ? '…' : '')
-          : `${ISSUE_TYPES.find(t => t.value === issueType)?.label || 'Issue'}: ${ctx?.element_text?.slice(0, 30) || 'Manual Marker'}`,
-
-        // Renderer
-        renderer_type: ctx?.renderer_type || rendererType,
-        canvas_context: ctx?.canvas_context || null,
-
-        // Viewport + browser
-        viewport: ctx?.viewport || { width: window.innerWidth, height: window.innerHeight },
-        scroll_position: ctx?.scroll_position || { x: window.scrollX, y: window.scrollY },
-        browser_info: ctx?.browser_info || null,
-        browser: ctx?.browser_info?.name || 'Unknown',
-        os: ctx?.browser_info?.os || 'Unknown',
-
-        // Diagnostics
-        console_errors: ctx?.console_errors || [],
-        network_errors: ctx?.network_errors || [],
-
-        // Shadow DOM
-        is_inside_shadow_dom: ctx?.is_inside_shadow_dom || false,
-        shadow_path: ctx?.shadow_path || null,
-
-        // Meta
-        screenshot_required: ctx?.screenshot_required || false,
-        screenshot_url: null,
-        created_via: ctx?.created_via || 'manual',
-        agent_version: ctx?.agent_version || '2.1.0',
-      }
-
-      const createdMarker = await api.markers.createMarker(payload)
-
-      // Upload screenshot if we have one
-      if (ctx?.screenshot_data_url) {
-        try {
-          const res = await fetch(ctx.screenshot_data_url)
-          const blob = await res.blob()
-          const updated = await api.markers.uploadScreenshot(createdMarker.id, blob)
-          if (onMarkerCreated) onMarkerCreated(updated)
-        } catch (_) {
-          if (onMarkerCreated) onMarkerCreated(createdMarker)
+      if (isSubmitted) {
+        // Update flow
+        if (!activeId) throw new Error("No active capture ID found")
+        const patch = {
+          comment: noteText.trim(),
+          issuetype: issueType,
+          priority: severity,
         }
+        console.log('[PixelMark Submit] updating feedback payload:', patch)
+        const updated = await api.feedback.update(sessionId, activeId, patch, shareToken)
+        
+        // Map backend record back into CapturePayload-compatible frontend object
+        const normalized = normalizeCapturePayload({
+          id: updated.id,
+          status: updated.status,
+          createdVia: updated.createdvia,
+          timestamp: updated.createdat,
+          sessionId: updated.sessionid,
+          pageUrl: updated.pageurl,
+          pageTitle: updated.pagetitle,
+          rendererType: updated.renderertype,
+          issueType: updated.issuetype,
+          priority: updated.priority,
+          comment: updated.comment,
+          ...updated.capturepayload,
+        })
+        
+        useCaptureStore.getState().upsertCapture(normalized)
+        useCaptureStore.getState().markCaptureSubmitted(normalized.id)
+        
+        if (onMarkerCreated) onMarkerCreated(normalized)
+        setSubmitSuccess(true)
+        setTimeout(() => {
+          setSubmitSuccess(false)
+        }, 1200)
       } else {
-        if (onMarkerCreated) onMarkerCreated(createdMarker)
-      }
+        // Create flow
+        if (!activeId) throw new Error("No active capture ID found")
+        const currentCapture = useCaptureStore.getState().capturesById[activeId]
+        if (!currentCapture) throw new Error("Capture context not found in store")
 
-      setSubmitSuccess(true)
-      setTimeout(() => {
-        setIsDrawerOpen(false)
-        setCaptureCtx(null)
-        setNoteText('')
-        setSeverity('medium')
-        setIssueType('other')
-        setSubmitSuccess(false)
-      }, 1100)
-    } catch (err) {
-      console.error('[AuditSurface] Marker save failed:', err)
-      alert('Error saving feedback. Please check your connection.')
+        // Build FeedbackCreate payload
+        const feedbackPayload = {
+          pageurl: currentCapture.pageUrl || currentUrl || window.location.href,
+          pagetitle: currentCapture.pageTitle || currentTitle || 'Untitled Page',
+          issuetype: issueType,
+          priority: severity,
+          comment: noteText.trim(),
+          renderertype: currentCapture.rendererType || rendererType || 'dom',
+          createdvia: currentCapture.createdVia || 'manual',
+          capturepayload: {
+            ...currentCapture,
+            userComment: noteText.trim(),
+            priority: severity,
+            issueType: issueType,
+          },
+          share_token: shareToken || null,
+        }
+
+        console.log('[PixelMark Submit] sending feedback payload:', feedbackPayload)
+        const created = await api.feedback.create(sessionId, feedbackPayload, shareToken)
+
+        // Map backend record back into CapturePayload-compatible frontend object
+        const normalized = normalizeCapturePayload({
+          id: created.id,
+          status: created.status,
+          createdVia: created.createdvia,
+          timestamp: created.createdat,
+          sessionId: created.sessionid,
+          pageUrl: created.pageurl,
+          pageTitle: created.pagetitle,
+          rendererType: created.renderertype,
+          issueType: created.issuetype,
+          priority: created.priority,
+          comment: created.comment,
+          ...created.capturepayload,
+        })
+
+        // Remove old temporary draft ID if it was different
+        if (normalized.id !== activeId) {
+          useCaptureStore.getState().removeCapture(activeId)
+        }
+        useCaptureStore.getState().upsertCapture(normalized)
+        useCaptureStore.getState().markCaptureSubmitted(normalized.id)
+
+        if (onMarkerCreated) onMarkerCreated(normalized)
+        setSubmitSuccess(true)
+        setTimeout(() => {
+          setIsDrawerOpen(false)
+          setCaptureCtx(null)
+          setNoteText('')
+          setSeverity('medium')
+          setIssueType('other')
+          setSubmitSuccess(false)
+        }, 1100)
+      }
+    } catch (err: unknown) {
+      console.error('[AuditSurface] Feedback submission failed:', err)
+      const message = err instanceof Error ? err.message : 'Could not save feedback'
+      setSubmitError(message)
+      if (activeId) {
+        useCaptureStore.getState().markCaptureFailed(activeId, message)
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -665,6 +1058,11 @@ export function AuditSurface({
             </button>
 
             {/* ── SECONDARY: Advanced Marker Mode toggle (hidden on mobile) ── */}
+            <div className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 select-none border bg-white/[0.03] border-white/5 max-md:hidden">
+              <button onClick={() => setDeviceViewport('mobile')} className={`p-1 rounded-lg transition-colors ${deviceViewport === 'mobile' ? 'bg-purple-500 text-white' : 'text-white/40 hover:text-white'}`} title="Mobile (375px)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></button>
+              <button onClick={() => setDeviceViewport('tablet')} className={`p-1 rounded-lg transition-colors ${deviceViewport === 'tablet' ? 'bg-purple-500 text-white' : 'text-white/40 hover:text-white'}`} title="Tablet (768px)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></button>
+              <button onClick={() => setDeviceViewport('desktop')} className={`p-1 rounded-lg transition-colors ${deviceViewport === 'desktop' ? 'bg-purple-500 text-white' : 'text-white/40 hover:text-white'}`} title="Desktop (100%)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
+            </div>
             <div className="flex items-center gap-2 bg-white/[0.03] border border-white/5 px-3 py-1 rounded-xl max-md:hidden">
               <label htmlFor="marker-mode-switch" className="text-[9px] font-black text-white/40 uppercase tracking-widest cursor-pointer select-none">
                 Alt+Click
@@ -756,8 +1154,12 @@ export function AuditSurface({
         {/* ── Viewport frame ───────────────────────────────────────────── */}
         <div
           ref={containerRef}
+          onMouseMove={handleMouseMove}
           className={cn(
             "flex-1 relative bg-white transition-all duration-300",
+            deviceViewport === 'mobile' ? 'max-w-[375px] mx-auto h-full border-x border-white/10' :
+            deviceViewport === 'tablet' ? 'max-w-[768px] mx-auto h-full border-x border-white/10' :
+            'w-full h-full',
             feedbackModeActive
               ? "ring-2 ring-purple-600 ring-offset-2 ring-offset-[#0a0a0f] shadow-[0_0_50px_rgba(124,58,237,0.25)]"
               : ""
@@ -768,7 +1170,7 @@ export function AuditSurface({
             src={proxyUrl}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
             allow="accelerometer; autoplay; xr-spatial-tracking; clipboard-read; clipboard-write"
-            style={{ width: "100%", height: "100%", minHeight: "100%", border: "none" }}
+            style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', pointerEvents: 'auto', display: 'block' }}
             onLoad={() => setIsLoading(false)}
             title="Proxied review site"
           />
@@ -863,12 +1265,14 @@ export function AuditSurface({
           )}
 
           {/* ── Manual placement overlay ────────────────────────────────── */}
+          {/* Only rendered when feedback mode is ON — pointer-events:auto only then */}
           {manualPlacementMode && (
             <div
               onClick={handleOverlayClick}
               onMouseMove={handleMouseMove}
               onMouseEnter={() => setIsHoveringOverlay(true)}
               onMouseLeave={() => setIsHoveringOverlay(false)}
+              style={{ pointerEvents: 'auto' }}
               className="absolute inset-0 z-40 bg-black/20 backdrop-blur-[1px] cursor-crosshair select-none"
               aria-label="Click anywhere to place a feedback pin"
             >
@@ -906,9 +1310,108 @@ export function AuditSurface({
             </div>
           )}
 
+          
+          {/* ── Pin Overlay ─────────────────────────────────────────────── */}
+          {/* wrapper: pointer-events:none so it never blocks hover/cursor effects */}
+          <div className="absolute inset-0 z-42" style={{ pointerEvents: 'none' }}>
+            {captures.map((capture, index) => {
+              if (capture.pageUrl !== currentUrl) return null;
+
+              // Grab live iframe refs (cross-origin will throw → graceful fallback)
+              let iframeDoc: Document | null = null;
+              let iframeWin: Window | null = null;
+              try {
+                if (iframeRef.current?.contentWindow) {
+                  iframeWin = iframeRef.current.contentWindow;
+                  iframeDoc = iframeRef.current.contentWindow.document;
+                }
+              } catch {
+                // Cross-origin SecurityError — DOM resolution will be skipped
+              }
+
+              // Decide resolver: canvas/WebGL captures use the dedicated canvas resolver.
+              // All coordinates returned are VIEWPORT-relative (0,0 = top-left of iframe).
+              const isCanvasCapture =
+                capture.rendererType === 'webgl' ||
+                capture.rendererType === 'webgl2' ||
+                capture.rendererType === 'threejs' ||
+                capture.rendererType === 'canvas2d' ||
+                capture.rendererType === 'mixed' ||
+                capture.target?.selector === 'visual-canvas-context' ||
+                !!capture.canvasContext
+
+              let pinLeft: number, pinTop: number, pinSource: string;
+
+              // Prefer agent-resolved positions (from PIXELMARK_PINS_RESOLVED).
+              // These are page-space coords → convert to viewport-relative.
+              const agentResolved = resolvedPositions[capture.id]
+              if (agentResolved) {
+                // Agent sends pageX/pageY (absolute page coordinates).
+                // Subtract iframe scroll to get viewport-relative.
+                pinLeft = agentResolved.pageX - scrollPos.x
+                pinTop  = agentResolved.pageY  - scrollPos.y
+                pinSource = agentResolved.source + '_agent'
+              } else if (isCanvasCapture) {
+                const r = resolveCanvasMarkerPosition(capture, scrollPos.x, scrollPos.y, iframeDoc)
+                pinLeft = r.left
+                pinTop  = r.top
+                pinSource = r.source
+              } else {
+                const r = resolveMarkerPosition(capture, scrollPos.x, scrollPos.y, iframeDoc)
+                pinLeft = r.left
+                pinTop  = r.top
+                pinSource = r.source
+              }
+
+              const isActive = useCaptureStore.getState().selectedCaptureId === capture.id;
+              const isSubmitted = capture.status === 'submitted';
+              const isFailed = capture.status === 'failed';
+              const markerNumber = (useCaptureStore.getState().captureOrder?.indexOf(capture.id) ?? index) + 1;
+
+              return (
+                // Individual pin wrapper: position:absolute, pointer-events:none on wrapper,
+                // pointer-events:auto ONLY on the visible button. Hit area is exactly the button.
+                <div
+                  key={capture.id}
+                  style={{
+                    position: 'absolute',
+                    left: pinLeft,
+                    top: pinTop,
+                    transform: 'translate(-50%, -50%)',
+                    pointerEvents: 'none',
+                    zIndex: isActive ? 50 : 40,
+                  }}
+                  data-pin-id={capture.id}
+                  data-pin-source={pinSource}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      useCaptureStore.getState().selectCapture(capture.id)
+                      useCaptureStore.getState().openFeedbackDrawer(capture.id)
+                    }}
+                    style={{ pointerEvents: 'auto' }}
+                    className={`w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 cursor-pointer ${
+                      isActive ? 'ring-2 ring-white scale-110 shadow-2xl' : 'hover:scale-125'
+                    } ${
+                      isFailed
+                        ? 'bg-rose-500 border-rose-300 shadow-rose-900/50'
+                        : isSubmitted
+                          ? 'bg-teal-500 border-teal-300 shadow-teal-900/50'
+                          : 'bg-purple-600 border-purple-300 shadow-purple-900/50'
+                    }`}
+                    aria-label={`Open feedback pin ${isSubmitted ? '(submitted)' : isFailed ? '(failed)' : '(draft)'}`}
+                  >
+                    <span className="text-[10px] font-black text-white select-none">{markerNumber}</span>
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
           {/* ── Loading overlay ─────────────────────────────────────────── */}
           {isLoading && (
-            <div className="absolute inset-0 bg-[#0a0a0f]/80 backdrop-blur-md flex flex-col items-center justify-center z-40">
+            <div className="absolute inset-0 bg-[#0a0a0f]/80 backdrop-blur-md flex flex-col items-center justify-center z-48">
               <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Loading page…</p>
             </div>
@@ -1038,15 +1541,29 @@ export function AuditSurface({
               <Pin className="w-4 h-4 text-purple-400" />
             </div>
             <div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-white">Leave Feedback</h3>
-              <p className="text-[9px] text-white/30 font-bold uppercase tracking-wide mt-0.5">
-                {captureCtx?.created_via === 'manual' ? 'Manual pin drop' :
-                 captureCtx?.created_via === 'alt_click' ? 'Alt+click capture' : 'Element captured'}
-              </p>
+              <h3 className="text-xs font-black uppercase tracking-widest text-white">
+                {isSubmitted ? 'Feedback Item' : isResolved ? 'Resolved Feedback' : 'Leave Feedback'}
+              </h3>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={cn(
+                  "px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest text-[7px]",
+                  isResolved ? "bg-green-500/10 border border-green-500/20 text-green-400" :
+                  isSubmitted ? "bg-teal-500/10 border border-teal-500/20 text-teal-400" :
+                  isFailed ? "bg-rose-500/10 border border-rose-500/20 text-rose-400" :
+                  "bg-purple-500/10 border border-purple-500/20 text-purple-400"
+                )}>
+                  {activeCapture?.status || 'draft'}
+                </span>
+                {activeCapture?.id && (
+                  <span className="font-mono text-[7px] text-white/30">
+                    ID: {activeCapture.id}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button
-            onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null) }}
+            onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null); setManualPlacementMode(false); setFeedbackModeActive(false) }}
             aria-label="Close feedback drawer"
             className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none"
           >
@@ -1212,18 +1729,56 @@ export function AuditSurface({
                 Feedback Pinned!
               </div>
             ) : (
+              <>
+                {isResolved ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="h-12 w-full rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 font-extrabold text-[10px] uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    Resolved (Read Only)
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    aria-label={isSubmitted ? "Update feedback pin" : "Submit feedback pin"}
+                    className="h-12 w-full rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/40 disabled:text-white/30 text-white font-extrabold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-950/30 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : isSubmitted ? (
+                      <><Check className="w-3.5 h-3.5" /> Update Feedback</>
+                    ) : (
+                      <><Pin className="w-3.5 h-3.5" /> Submit Feedback</>
+                    )}
+                  </button>
+                )}
+              </>
+            )}
+            {submitError && (
+              <p className="text-rose-400 text-[10px] font-bold text-center leading-snug animate-in fade-in slide-in-from-top-1">
+                {submitError}
+              </p>
+            )}
+            {!isSubmitted && !isResolved && activeCapture && (
               <button
-                type="submit"
-                disabled={isSubmitting}
-                aria-label="Submit feedback pin"
-                className="h-12 w-full rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/40 disabled:text-white/30 text-white font-extrabold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-950/30 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                type="button"
+                onClick={() => {
+                  useCaptureStore.getState().removeLocalCapture(activeCapture.id);
+                  setIsDrawerOpen(false);
+                  setCaptureCtx(null);
+                  setManualPlacementMode(false);
+                  setFeedbackModeActive(false);
+                }}
+                className="h-10 w-full rounded-2xl bg-rose-950/30 border border-rose-500/30 hover:bg-rose-500/20 text-rose-400 font-extrabold text-[9px] uppercase tracking-widest transition-all focus:ring-2 focus:ring-rose-500 focus:outline-none"
               >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Pin className="w-3.5 h-3.5" /> Submit Feedback</>}
+                {activeCapture.status === 'failed' ? 'Discard Draft' : noteText.trim() ? 'Discard Draft' : 'Undo Marker'}
               </button>
             )}
             <button
               type="button"
-              onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null) }}
+              onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null); setManualPlacementMode(false); setFeedbackModeActive(false) }}
               className="h-10 w-full rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] text-white/50 hover:text-white/80 font-black text-[9px] uppercase tracking-widest transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none"
             >
               Cancel

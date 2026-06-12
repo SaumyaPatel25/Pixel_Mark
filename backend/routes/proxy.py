@@ -32,6 +32,20 @@ async def record_page_visit(
     parent_page_id: str = None
 ) -> PageVisit:
     try:
+        # Resolve parent_page_id URL to actual PageVisit ID if needed
+        if parent_page_id and (parent_page_id.startswith("http://") or parent_page_id.startswith("https://")):
+            parent_pv_res = await db.execute(
+                select(PageVisit).where(
+                    PageVisit.session_id == session_id,
+                    PageVisit.page_url == parent_page_id
+                ).order_by(PageVisit.visited_at.desc())
+            )
+            parent_pv = parent_pv_res.scalars().first()
+            if parent_pv:
+                parent_page_id = parent_pv.id
+            else:
+                parent_page_id = None
+
         # Check if a PageVisit for this session + page_url exists
         result = await db.execute(
             select(PageVisit).where(

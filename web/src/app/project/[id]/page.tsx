@@ -14,13 +14,13 @@ import { AuditSurface } from '@/components/audit/AuditSurface'
 import { api } from '@/lib/api'
 
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
-import { useOverlay as usePixelMarkOverlay } from '@/hooks/useOverlay'
+
 import { useScreenCapture } from '@/hooks/useScreenCapture'
 import { useViewportHeight } from '@/hooks/useViewportHeight'
 import { useProjectStore } from '@/store/projectStore'
 import { useCommentStore } from '@/store/commentStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
-import { useOverlayStore } from '@/store/overlayStore'
+
 import { useUIStore } from '@/store/uiStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { cn } from '@/lib/utils'
@@ -67,7 +67,7 @@ export default function ProjectPage() {
   } = useCommentStore()
 
   const { activeTesters, setConnected, updateCursor } = useRealtimeStore()
-  const { markers, pendingMarker, setMode, addMarker } = useOverlayStore()
+  
   const { 
     isCommandCenterOpen, 
     isExportPanelOpen, 
@@ -211,32 +211,6 @@ export default function ProjectPage() {
     enabled: !!id
   })
 
-  // Phase 5: Screenshot-Enriched Overlay Hook
-  usePixelMarkOverlay({
-    projectId: id,
-    iframeRef: iframeRef,
-    captureScreen: screenCapture.capture,
-    enabled: proxyStatus === 'ok',
-    onMarkerDropped: (payload) => {
-      const iframe = iframeRef.current
-      if (!iframe) return
-
-      const rect = iframe.getBoundingClientRect()
-      addMarker({
-        id: crypto.randomUUID(),
-        x: (payload.clientX / iframe.clientWidth) * 100,
-        y: (payload.clientY / iframe.clientHeight) * 100,
-        selector: payload.selector,
-        xpath: payload.xpath,
-        tagName: payload.tagName,
-        innerText: payload.innerText,
-        pageUrl: payload.pageUrl,
-        elementLabel: payload.tagName + (payload.innerText ? `: ${payload.innerText.slice(0, 20)}` : ''),
-        screenshot: payload.screenshot,
-      })
-      toggleCommandCenter(true)
-    }
-  })
 
   // Initial Sync
   useEffect(() => {
@@ -495,7 +469,7 @@ export default function ProjectPage() {
                     <div className="w-full flex justify-center py-2.5 md:hidden cursor-pointer" onClick={() => toggleCommandCenter()}>
                       <div className="w-12 h-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
                     </div>
-                    <CommandCenter />
+                    <CommandCenter sessionId={sessionId} />
                 </motion.div>
             )}
         </AnimatePresence>

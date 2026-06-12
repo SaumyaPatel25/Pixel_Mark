@@ -261,7 +261,118 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
             return f"{head_html}\n" + html
 
 
-# ── STEP 2 ────────────────────────────────────────────────────────────────────
+# ── STEP 2 (NEW) ───────────────────────────────────────────────────────────────
+def inject_cursor_relay_bridge(html: str) -> str:
+    """
+    Injects a cursor-relay bridge script that:
+    1. Pre-initializes common global cursor-state objects so cursor-reactive
+       effects don't crash when they read mouse state before the first real
+       mousemove event.
+    2. Patches common cursor-tracking patterns so they work in the proxied context.
+    3. Fires a synthetic mousemove at the viewport center on DOMContentLoaded
+       so spotlight / cursor-glow effects activate immediately without requiring
+       an initial physical mouse move.
+
+    This script must run BEFORE any site scripts, so it is injected as the
+    first child of <head> (right after the PixelMark bootstrap).
+    """
+    bridge = """\
+<script>
+(function() {
+  // ─── 1. Pre-initialize common global cursor-state patterns ──────────────
+  // Many cursor-reactive sites keep a global object they update on mousemove.
+  // We seed it with a center-of-viewport default so effects don't start at 0,0.
+  var _cx = Math.round((window.innerWidth  || 1280) / 2);
+  var _cy = Math.round((window.innerHeight || 800)  / 2);
+
+  function _seed(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    try { if ('x'       in obj) obj.x       = _cx; } catch(_) {}
+    try { if ('y'       in obj) obj.y       = _cy; } catch(_) {}
+    try { if ('clientX' in obj) obj.clientX = _cx; } catch(_) {}
+    try { if ('clientY' in obj) obj.clientY = _cy; } catch(_) {}
+  }
+
+  // Create proxy stubs so code that reads window.mouse / window.cursor /
+  // window.mousePos before setting them gets a valid object instead of
+  // undefined.  The stub is replaced by the site's own object if one is
+  // later assigned.
+  var _cursorStubs = {};
+  ['mouse','cursor','mousePos','Mouse','Cursor','pointer','pointerPos'].forEach(function(k) {
+    if (window[k] === undefined || window[k] === null) {
+      _cursorStubs[k] = { x: _cx, y: _cy, clientX: _cx, clientY: _cy };
+      try {
+        Object.defineProperty(window, k, {
+          get: function() { return _cursorStubs[k]; },
+          set: function(v) {
+            _cursorStubs[k] = v;
+            _seed(v);
+          },
+          configurable: true
+        });
+      } catch(_) {}
+    }
+  });
+
+  // ─── 2. Patch addEventListener to detect cursor-reactive listeners ────────
+  // If a site attaches mousemove/pointermove to window, document or body,
+  // flag the page so the PixelMark agent can optimise cursor relay frequency.
+  var _origAdd = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function(type, listener, opts) {
+    if (type === 'mousemove' || type === 'pointermove') {
+      try { window.__PIXELMARK_HAS_CURSOR_EFFECTS__ = true; } catch(_) {}
+    }
+    return _origAdd.call(this, type, listener, opts);
+  };
+
+  // ─── 3. Fire a synthetic center-of-viewport mousemove on DOMContentLoaded ─
+  // This ensures spotlight / glow / WebGL cursor effects activate immediately
+  // without requiring the user to physically move the mouse first.
+  function _dispatchCenter() {
+    var cx = Math.round((window.innerWidth  || 1280) / 2);
+    var cy = Math.round((window.innerHeight || 800)  / 2);
+    try {
+      var mm = new MouseEvent('mousemove', {
+        bubbles: true, cancelable: false,
+        clientX: cx, clientY: cy, screenX: cx, screenY: cy,
+        movementX: 0, movementY: 0, view: window
+      });
+      document.dispatchEvent(mm);
+      document.querySelectorAll('canvas').forEach(function(c) {
+        try { c.dispatchEvent(mm.constructor ? new mm.constructor('mousemove', mm) : mm); } catch(_) {}
+      });
+    } catch(_) {}
+    try {
+      var pm = new PointerEvent('pointermove', {
+        bubbles: true, cancelable: false,
+        clientX: cx, clientY: cy, screenX: cx, screenY: cy,
+        pointerId: 1, pointerType: 'mouse', isPrimary: true, view: window
+      });
+      document.dispatchEvent(pm);
+    } catch(_) {}
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(_dispatchCenter, 200);
+  } else {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(_dispatchCenter, 200);
+    });
+  }
+  // Also fire after a short delay to catch late-initialized effects
+  setTimeout(_dispatchCenter, 800);
+  setTimeout(_dispatchCenter, 2000);
+})();
+</script>"""
+
+    head_match = __import__('re').search(r'<head\b[^>]*>', html, __import__('re').IGNORECASE)
+    if head_match:
+        idx = head_match.end()
+        return html[:idx] + f"\n{bridge}\n" + html[idx:]
+    return bridge + html
+
+
+# ── STEP 3 ────────────────────────────────────────────────────────────────────
 def inject_webgl_patch(html: str) -> str:
     """
     Forces preserveDrawingBuffer: true on WebGL/WebGL2 context creation so canvases can be captured.
@@ -271,10 +382,12 @@ def inject_webgl_patch(html: str) -> str:
   try {
     var _origGetContext = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function(type, attribs) {
+      try { this.__pixelmark_context_type = type; } catch(_) {}
       var rest = Array.prototype.slice.call(arguments, 2);
       if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
         var newAttribs = Object.assign({}, attribs || {}, { preserveDrawingBuffer: true });
-        return _origGetContext.call(this, type, newAttribs);
+        var args = [type, newAttribs].concat(rest);
+        return _origGetContext.apply(this, args);
       }
       return _origGetContext.apply(this, arguments);
     };
@@ -440,6 +553,10 @@ def rewrite_html(
 
     # 1. Bootstrap — window.__PIXELMARK_TARGET_URL__, SESSION_ID, BASE
     html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
+
+    # 1.5. Cursor relay bridge — seed global cursor state and fire initial synthetic
+    #      mousemove so cursor-reactive backgrounds/WebGL effects activate immediately.
+    html = inject_cursor_relay_bridge(html)
 
     # 2. WebGL patch — preserveDrawingBuffer before any canvas library runs
     html = inject_webgl_patch(html)

@@ -354,4 +354,33 @@ export const api = {
       })
     },
   },
+
+  // FEEDBACK (Step 3)
+  feedback: {
+    async create(sessionId: string, data: any, shareToken?: string) {
+      const url = `/sessions/${sessionId}/feedback${shareToken ? `?share_token=${shareToken}` : ''}`
+      return request(url, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+    async list(sessionId: string, pageUrl?: string, shareToken?: string) {
+      const params = new URLSearchParams()
+      if (pageUrl) params.append('pageurl', pageUrl)
+      if (shareToken) params.append('share_token', shareToken)
+      const query = params.toString()
+      return request(`/sessions/${sessionId}/feedback${query ? `?${query}` : ''}`)
+    },
+    async get(sessionId: string, feedbackId: string, shareToken?: string) {
+      const url = `/sessions/${sessionId}/feedback/${feedbackId}${shareToken ? `?share_token=${shareToken}` : ''}`
+      return request(url)
+    },
+    async update(sessionId: string, feedbackId: string, patch: any, shareToken?: string) {
+      const url = `/sessions/${sessionId}/feedback/${feedbackId}${shareToken ? `?share_token=${shareToken}` : ''}`
+      return request(url, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      })
+    },
+  },
 }

@@ -141,7 +141,7 @@ class MarkerCreate(BaseModel):
     browser_info: Optional[dict] = None   # {name, version, os, platform, user_agent}
 
 class MarkerUpdate(BaseModel):
-    status: Optional[StatusEnum] = None
+    status: Optional[str] = None
     priority: Optional[PriorityEnum] = None
     assignee_id: Optional[str] = None
     title: Optional[str] = None
@@ -171,7 +171,7 @@ class MarkerRead(BaseModel):
     network_errors: Optional[List[Any]] = None
     screenshot_url: Optional[str] = None
     priority: PriorityEnum
-    status: StatusEnum
+    status: str
     ai_summary: Optional[str] = None
     is_inside_shadow_dom: Optional[bool] = False
     shadow_root_depth: Optional[int] = None
@@ -205,12 +205,66 @@ class MarkerRead(BaseModel):
     bounding_box: Optional[dict] = None
     browser_info: Optional[dict] = None
     
+    # Step 3 feedback models
+    project_id: Optional[str] = None
+    comment: Optional[str] = None
+    capture_payload: Optional[dict] = None
+    coordinates: Optional[dict] = None
+    target: Optional[dict] = None
+    source: Optional[dict] = None
+    screenshots: Optional[dict] = None
+    diagnostics: Optional[dict] = None
+    created_by: Optional[str] = None
+    parent_page_id: Optional[str] = None
+    
     created_at: datetime
     updated_at: Optional[datetime] = None
     class Config: from_attributes = True
 
 class MarkerOut(MarkerRead):
     pass
+
+# Feedback schemas (Step 3)
+class FeedbackCreate(BaseModel):
+    pageurl: str
+    pagetitle: Optional[str] = None
+    issuetype: Optional[str] = "other"
+    priority: Optional[str] = "medium"
+    comment: Optional[str] = ""
+    renderertype: Optional[str] = "dom"
+    createdvia: Optional[str] = "agent"
+    capturepayload: dict
+    share_token: Optional[str] = None
+
+class FeedbackUpdate(BaseModel):
+    status: Optional[str] = None
+    issuetype: Optional[str] = None
+    priority: Optional[str] = None
+    comment: Optional[str] = None
+
+class FeedbackOut(BaseModel):
+    id: str
+    sessionid: str
+    pageurl: str
+    pagetitle: Optional[str] = None
+    status: str
+    issuetype: Optional[str] = None
+    priority: Optional[str] = None
+    comment: Optional[str] = None
+    renderertype: Optional[str] = None
+    createdvia: Optional[str] = None
+    createdat: datetime
+    updatedat: Optional[datetime] = None
+    capturepayload: Optional[dict] = None
+    
+    # Metadata for frontend mapping
+    project_id: Optional[str] = None
+    marker_number: Optional[int] = None
+    share_link_id: Optional[str] = None
+
+class FeedbackListOut(BaseModel):
+    items: List[FeedbackOut]
+    total: int
 
 # Environments
 class EnvironmentCreate(BaseModel):

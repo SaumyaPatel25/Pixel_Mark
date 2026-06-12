@@ -1,8 +1,12 @@
 import httpx
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend'))
+from main import app
 import pytest
 import uuid
 
-RAILWAY_URL = "http://localhost:8000"
+RAILWAY_URL = "http://test"
 state = {
     "token": None,
     "session_id": None,
@@ -15,7 +19,7 @@ state = {
 @pytest.fixture(scope="module", autouse=True)
 async def setup_data():
     email = f"qatest_{uuid.uuid4().hex[:6]}@pixelmark.dev"
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         # Register
         resp = await client.post(
             f"{RAILWAY_URL}/auth/register",
@@ -34,7 +38,7 @@ async def setup_data():
         state["session_id"] = resp.json()["id"]
 
 async def test_create_share_link_basic():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.post(
             f"{RAILWAY_URL}/shares/",
@@ -50,7 +54,7 @@ async def test_create_share_link_basic():
         print(f"\nCreate Share Link Basic: PASS (Token: {state['share_token']})")
 
 async def test_create_share_link_readonly():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.post(
             f"{RAILWAY_URL}/shares/",
@@ -62,7 +66,7 @@ async def test_create_share_link_readonly():
         print("Create Share Link Readonly: PASS")
 
 async def test_create_share_link_with_password():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.post(
             f"{RAILWAY_URL}/shares/",
@@ -74,7 +78,7 @@ async def test_create_share_link_with_password():
         print("Create Share Link Protected: PASS")
 
 async def test_list_share_links():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.get(f"{RAILWAY_URL}/shares/session/{state['session_id']}", headers=headers)
         assert response.status_code == 200
@@ -84,7 +88,7 @@ async def test_list_share_links():
         print("List Share Links: PASS")
 
 async def test_access_share_link_no_auth_needed():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         # Client-facing endpoint should not need Bearer token
         response = await client.post(f"{RAILWAY_URL}/shares/access/{state['share_token']}", json={})
         assert response.status_code == 200
@@ -93,21 +97,21 @@ async def test_access_share_link_no_auth_needed():
         print("Access Share Link No Auth: PASS")
 
 async def test_access_share_link_returns_session_info():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         response = await client.post(f"{RAILWAY_URL}/shares/access/{state['share_token']}", json={})
         assert response.status_code == 200
         assert response.json()["can_comment"] is True
         print("Access Share Link Info: PASS")
 
 async def test_access_readonly_link():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         response = await client.post(f"{RAILWAY_URL}/shares/access/{state['readonly_token']}", json={})
         assert response.status_code == 200
         assert response.json()["can_comment"] is False
         print("Access Readonly Link: PASS")
 
 async def test_access_protected_link_wrong_password():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         response = await client.post(
             f"{RAILWAY_URL}/shares/access/{state['protected_token']}",
             json={"password": "wrongpassword"}
@@ -116,7 +120,7 @@ async def test_access_protected_link_wrong_password():
         print("Access Protected Link Wrong Password Rejected: PASS")
 
 async def test_access_protected_link_correct_password():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         response = await client.post(
             f"{RAILWAY_URL}/shares/access/{state['protected_token']}",
             json={"password": "testpass123"}
@@ -125,13 +129,13 @@ async def test_access_protected_link_correct_password():
         print("Access Protected Link Correct Password: PASS")
 
 async def test_access_invalid_token():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         response = await client.post(f"{RAILWAY_URL}/shares/access/totally-fake-token-xyz123", json={})
         assert response.status_code == 404
         print("Access Invalid Token Rejected: PASS")
 
 async def test_delete_share_link():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.delete(f"{RAILWAY_URL}/shares/{state['share_id']}", headers=headers)
         assert response.status_code == 200
@@ -139,7 +143,7 @@ async def test_delete_share_link():
         print("Delete Share Link: PASS")
 
 async def test_deleted_link_returns_404():
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         response = await client.post(f"{RAILWAY_URL}/shares/access/{state['share_token']}", json={})
         assert response.status_code == 404
         print("Access Deleted Link Rejected: PASS")
