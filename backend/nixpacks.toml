@@ -1,0 +1,21 @@
+[phases.setup]
+nixPkgs = [
+    "...",
+    "glib",
+    "nss",
+    "nspr",
+    "atk",
+    "cups",
+    "libdrm",
+    "libxkbcommon",
+    "mesa",
+    "alsa-lib",
+    "xorg.libXcomposite",
+    "xorg.libXdamage",
+    "xorg.libXext",
+    "xorg.libXfixes",
+    "xorg.libXrandr",
+    "xorg.libgbm",
+    "pango",
+    "cairo"
+]
