@@ -1,7 +1,7 @@
 'use client'
 import { useCaptureStore } from '@/store/overlayStore'
 import { useUIStore } from '@/store/uiStore'
-import { normalizeCapturePayload } from '@/utils/normalizeCapturePayload'
+import { normalizeCapturePayload, normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
@@ -14,8 +14,36 @@ import { cn } from '@/lib/utils'
 import PageTabBar from '@/components/session/PageTabBar'
 import { useSessionStore } from '@/store/sessionStore'
 import { SupportDiagnosticsPanel } from '@/components/audit/SupportDiagnosticsPanel'
-
-// ─── Types ───────────────────────────────────────────────────────────────────
+import { useScreenshotStore } from '@/store/screenshotStore'
+import { ScreenshotPermissionBanner } from '@/components/audit/ScreenshotPermissionBanner'
+import { RegionSelectionOverlay } from '@/components/audit/RegionSelectionOverlay'
+import { MarkerPinLayer } from '@/components/audit/MarkerPinLayer'
+// ─── Collapsible list helper component (Phase 3.5 Upgrade) ────────────────────
+const CollapsibleList = ({ title, count, items, renderItem }: { title: string; count: number; items: any[]; renderItem: (item: any, idx: number) => React.ReactNode }) => {
+  const [open, setOpen] = useState(false)
+  if (count === 0) return (
+    <div className="text-[9px] text-white/20 uppercase font-black tracking-wider py-1 pl-1">
+      No {title}
+    </div>
+  )
+  return (
+    <div className="border border-white/5 rounded-xl overflow-hidden mt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] text-[9px] font-bold uppercase tracking-wider text-white/50"
+      >
+        <span>{title} ({count})</span>
+        <ChevronDown className={cn("w-3 h-3 text-white/30 transition-transform", open ? "rotate-180" : "")} />
+      </button>
+      {open && (
+        <div className="p-2 bg-black/25 space-y-1.5 max-h-40 overflow-y-auto">
+          {items.map(renderItem)}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface AuditSurfaceProps {
   sessionId: string
@@ -37,11 +65,14 @@ interface CaptureContext {
   y: number
   viewport_x: number
   viewport_y: number
+  displayX?: number
+  displayY?: number
 
   // Element context
   element_selector: string
   element_text: string
   element_tag: string
+  element_id?: string | null
   aria_label: string | null
   aria_role: string | null
   bounding_box: Record<string, number> | null
@@ -58,6 +89,9 @@ interface CaptureContext {
   // Screenshot
   screenshot_data_url: string | null
   screenshot_required: boolean
+  screenshottype?: string | null
+  screenshotttype?: string | null
+  screenshotsource?: string | null
 
   // Viewport
   viewport: { width: number; height: number }
@@ -109,6 +143,19 @@ export function AuditSurface({
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const screenshotMode = useScreenshotStore(state => state.screenshotMode)
+  const screenshotPermission = useScreenshotStore(state => state.screenshotPermission)
+
+  useEffect(() => {
+    const { screenshotPermission, setPermission } = useScreenshotStore.getState()
+    if (screenshotPermission === 'idle') {
+      setPermission('pending')
+    }
+    return () => {
+      useScreenshotStore.getState().teardown()
+    }
+  }, [])
+
   // Page state
   const [currentUrl, setCurrentUrl] = useState('')
   const [currentTitle, setCurrentTitle] = useState('')
@@ -120,219 +167,11 @@ export function AuditSurface({
   const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [scrollPos, setScrollPos] = useState({ x: 0, y: 0 })
-  const [resolvedPositions, setResolvedPositions] = useState<Record<string, { pageX: number; pageY: number; source: string }>>({})
-
-  // ─── Canvas/WebGL marker resolver ────────────────────────────────────────
-  //
-  // For canvas captures we CANNOT use DOM selectors. Instead we:
-  //   1. Find the best canvas in the live iframe
-  //   2. Use normX/normY (0..1) to compute pixel position within the canvas rect
-  //   3. Fall back to canvasCoords (pixels within canvas) if no norm data
-  //   4. Fall back to capture x/y as last resort
-  //
-  // All returned coords are VIEWPORT-relative (matching the overlay container).
-  // Do NOT subtract scrollPos — the overlay is position:absolute over the iframe
-  // which itself has no scroll; the scroll lives inside the iframe document.
-  // ─── Canvas/WebGL marker resolver ────────────────────────────────────────
-  //
-  // For canvas captures we CANNOT use DOM selectors. Instead we:
-  //   1. Find the best canvas in the live iframe
-  //   2. Use normX/normY (0..1) to compute pixel position within the canvas rect
-  //   3. Fall back to canvasCoords (pixels within canvas) if no norm data
-  //   4. Fall back to capture x/y as last resort
-  //
-  // All returned coords are VIEWPORT-relative (matching the overlay container).
-  const resolveCanvasMarkerPosition = useCallback((
-    capture: any,
-    scrollX: number,
-    scrollY: number,
-    iframeDocument?: Document | null
-  ): { left: number; top: number; source: string } => {
-    const cc = capture.canvasContext || capture.canvas_context
-    const normX: number | null = capture.coordinates?.normX ?? capture.normX ?? capture.norm_x ?? null
-    const normY: number | null = capture.coordinates?.normY ?? capture.normY ?? capture.norm_y ?? null
-
-    // Find best canvas candidate in the live iframe
-    let bestCanvas: Element | null = null
-    if (iframeDocument) {
-      try {
-        const canvases = Array.from(iframeDocument.querySelectorAll('canvas'))
-        if (canvases.length === 1) {
-          bestCanvas = canvases[0]
-        } else if (canvases.length > 1) {
-          // Prefer canvas whose CSS rect most closely matches capture canvasRect dimensions
-          const captureRect = cc?.canvas_rect
-          if (captureRect?.width && captureRect?.height) {
-            let minDiff = Infinity
-            for (const c of canvases) {
-              const r = c.getBoundingClientRect()
-              const diff = Math.abs(r.width - captureRect.width) + Math.abs(r.height - captureRect.height)
-              if (diff < minDiff) { minDiff = diff; bestCanvas = c }
-            }
-          } else {
-            // Prefer largest visible canvas
-            let largestArea = 0
-            for (const c of canvases) {
-              const r = c.getBoundingClientRect()
-              const area = r.width * r.height
-              if (area > largestArea) { largestArea = area; bestCanvas = c }
-            }
-          }
-        }
-      } catch {}
-    }
-
-    if (bestCanvas) {
-      try {
-        const rect = bestCanvas.getBoundingClientRect()
-        if (normX !== null && normY !== null) {
-          const left = rect.left + rect.width * normX
-          const top = rect.top + rect.height * normY
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`[PixelMark Pin] canvas anchor ${capture.id} via normxy normX=${normX.toFixed(3)} normY=${normY.toFixed(3)} → left=${left.toFixed(1)} top=${top.toFixed(1)} canvasRect=${JSON.stringify({left: Math.round(rect.left), top: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height)})}`)
-          }
-          return { left, top, source: 'canvas_normxy' }
-        }
-        if (cc?.canvas_coords) {
-          const left = rect.left + (cc.canvas_coords.x || 0)
-          const top = rect.top + (cc.canvas_coords.y || 0)
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`[PixelMark Pin] canvas anchor ${capture.id} via canvascoords cx=${cc.canvas_coords.x} cy=${cc.canvas_coords.y} → left=${left.toFixed(1)} top=${top.toFixed(1)}`)
-          }
-          return { left, top, source: 'canvas_coords' }
-        }
-      } catch {}
-    }
-
-    const captureScrollX = capture.viewport?.scrollX || 0
-    const captureScrollY = capture.viewport?.scrollY || 0
-
-    // Last resort: use viewport coords from capture adjusted for scroll difference
-    const vx = capture.coordinates?.viewportX ?? capture.viewport_x ?? null
-    const vy = capture.coordinates?.viewportY ?? capture.viewport_y ?? null
-    if (vx !== null && vy !== null) {
-      if (vx > 1 || vy > 1) {
-        // Already in CSS pixels
-        const left = vx + (captureScrollX - scrollX)
-        const top = vy + (captureScrollY - scrollY)
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[PixelMark Pin] canvas anchor ${capture.id} fallback viewportpx left=${left} top=${top}`)
-        }
-        return { left, top, source: 'canvas_fallback_viewportpx_scrolled' }
-      } else {
-        // Viewport coords stored as 0..1 ratio
-        const iw = (iframeDocument?.defaultView?.innerWidth) || window.innerWidth
-        const ih = (iframeDocument?.defaultView?.innerHeight) || window.innerHeight
-        const left = vx * iw + (captureScrollX - scrollX)
-        const top = vy * ih + (captureScrollY - scrollY)
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[PixelMark Pin] canvas anchor ${capture.id} fallback viewportratio left=${left.toFixed(1)} top=${top.toFixed(1)}`)
-        }
-        return { left, top, source: 'canvas_fallback_viewportratio_scrolled' }
-      }
-    }
-    const px = capture.coordinates?.pageX ?? capture.x ?? 0
-    const py = capture.coordinates?.pageY ?? capture.y ?? 0
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[PixelMark Pin] canvas anchor ${capture.id} fallback pagexy left=${px - scrollX} top=${py - scrollY}`)
-    }
-    return { left: px - scrollX, top: py - scrollY, source: 'canvas_fallback_pagexy' }
-  }, [])
-
-  // ─── DOM marker resolver ───────────────────────────────────────────────────
-  //
-  // Returns VIEWPORT-relative coords (matching the overlay container).
-  const resolveMarkerPosition = useCallback((
-    capture: any,
-    scrollX: number,
-    scrollY: number,
-    iframeDocument?: Document | null
-  ) => {
-    let el: Element | null = null
-    let source = 'none'
-
-    // 1. Try live DOM lookup in the iframe (same-origin only)
-    if (iframeDocument) {
-      const sel = capture.target?.selector
-      if (sel && sel !== 'visual-canvas-context') {
-        try {
-          el = iframeDocument.querySelector(sel)
-          if (el) source = 'selector'
-        } catch {}
-      }
-      if (!el && capture.target?.xpath) {
-        try {
-          const res = iframeDocument.evaluate(
-            capture.target.xpath, iframeDocument, null,
-            XPathResult.FIRST_ORDERED_NODE_TYPE, null
-          )
-          el = res.singleNodeValue as Element | null
-          if (el) source = 'xpath'
-        } catch {}
-      }
-    }
-
-    if (el instanceof Element) {
-      try {
-        // getBoundingClientRect is already viewport-relative in the iframe doc,
-        // which maps directly to the overlay container (overlay is inset-0 over iframe).
-        const rect = el.getBoundingClientRect()
-        const left = rect.left + rect.width / 2
-        const top = rect.top + Math.min(16, rect.height / 2)
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[PixelMark Pin] dom anchor ${capture.id} via ${source} left=${left.toFixed(1)} top=${top.toFixed(1)}`)
-        }
-        return { left, top, source }
-      } catch {}
-    }
-
-    // 2. Stored bounding box (viewport-relative at capture time + scroll delta)
-    if (capture.boundingBox) {
-      const captureScrollX = capture.viewport?.scrollX || 0
-      const captureScrollY = capture.viewport?.scrollY || 0
-      const bbl = capture.boundingBox.left ?? capture.boundingBox.x ?? 0
-      const bbt = capture.boundingBox.top ?? capture.boundingBox.y ?? 0
-      const bbw = capture.boundingBox.width ?? 0
-      const bbh = capture.boundingBox.height ?? 0
-      // bbox was captured at viewport-relative position. Convert to page coords, then back to current viewport using reactive scroll.
-      const pageX = bbl + captureScrollX + bbw / 2
-      const pageY = bbt + captureScrollY + Math.min(16, bbh / 2)
-      const left = pageX - scrollX
-      const top = pageY - scrollY
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`[PixelMark Pin] dom anchor ${capture.id} via bbox left=${left.toFixed(1)} top=${top.toFixed(1)} captureScroll=(${captureScrollX},${captureScrollY}) currentScroll=(${scrollX},${scrollY})`)
-      }
-      return { left, top, source: 'bbox' }
-    }
-
-    // 3. Viewport coords from capture (CSS pixels)
-    const vx = capture.coordinates?.viewportX ?? null
-    const vy = capture.coordinates?.viewportY ?? null
-    if (vx !== null && vy !== null && vx > 1) {
-      const captureScrollX = capture.viewport?.scrollX || 0
-      const captureScrollY = capture.viewport?.scrollY || 0
-      const left = vx + (captureScrollX - scrollX)
-      const top = vy + (captureScrollY - scrollY)
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`[PixelMark Pin] dom anchor ${capture.id} via viewportpx_scrolled left=${left} top=${top}`)
-      }
-      return { left, top, source: 'viewportpx_scrolled' }
-    }
-
-    // 4. Page x/y (absolute page coords) → convert to current viewport
-    const px = capture.coordinates?.pageX ?? capture.x ?? 0
-    const py = capture.coordinates?.pageY ?? capture.y ?? 0
-    const left = px - scrollX
-    const top = py - scrollY
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[PixelMark Pin] dom anchor ${capture.id} via pagexy left=${left.toFixed(1)} top=${top.toFixed(1)} pageXY=(${px},${py}) currentScroll=(${scrollX},${scrollY})`)
-    }
-    return { left, top, source: 'pagexy' }
-  }, [])
-
+  const [resolvedPositions, setResolvedPositions] = useState<Record<string, { clientX: number; clientY: number; source: string }>>({})
   // Feedback mode state
   const [feedbackModeActive, setFeedbackModeActive] = useState(false)
   const captures = Object.values(useCaptureStore(state => state.capturesById))
+  const captureOrder = useCaptureStore(state => state.captureOrder)
   const [manualPlacementMode, setManualPlacementMode] = useState(false)
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 })
   const [isHoveringOverlay, setIsHoveringOverlay] = useState(false)
@@ -347,6 +186,107 @@ export function AuditSurface({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [showElementPreview, setShowElementPreview] = useState(true)
+  
+  // Collapsible Evidence Panel States (Phase 3.5 Upgrade)
+  const [screenshotPanelExpanded, setScreenshotPanelExpanded] = useState(true)
+  const [imgErrorId, setImgErrorId] = useState<string | null>(null)
+  const [domPanelExpanded, setDomPanelExpanded] = useState(true)
+  const [canvasPanelExpanded, setCanvasPanelExpanded] = useState(true)
+  const [diagnosticsPanelExpanded, setDiagnosticsPanelExpanded] = useState(false)
+  const [innerHTMLPanelExpanded, setInnerHTMLPanelExpanded] = useState(false)
+  
+  const [pendingRegionCaptureId, setPendingRegionCaptureId] = useState<string | null>(null)
+
+  const handleRegionConfirm = useCallback(async (rect: { x: number; y: number; width: number; height: number }) => {
+    let id = pendingRegionCaptureId
+    setPendingRegionCaptureId(null)
+    
+    useScreenshotStore.getState().setMode('element')
+
+    // If there is no pending capture ID, it means the user clicked the "Take Screenshot" button directly.
+    // We will create a new capture pin at the center of the region.
+    if (!id) {
+      const centerX = rect.x + rect.width / 2
+      const centerY = rect.y + rect.height / 2
+
+      let iframeLeft = 0
+      let iframeTop = 0
+      if (iframeRef.current) {
+        const iRect = iframeRef.current.getBoundingClientRect()
+        iframeLeft = iRect.left
+        iframeTop = iRect.top
+      }
+      
+      const vx = centerX - iframeLeft
+      const vy = centerY - iframeTop
+      const px = Math.round(vx + scrollPos.x)
+      const py = Math.round(vy + scrollPos.y)
+      
+      const regionCtx: CaptureContext = {
+        page_url: currentUrl,
+        page_title: currentTitle,
+        x: px,
+        y: py,
+        viewport_x: vx,
+        viewport_y: vy,
+        element_selector: '',
+        element_text: '',
+        element_tag: 'REGION',
+        aria_label: null,
+        aria_role: null,
+        bounding_box: {
+          x: rect.x - iframeLeft,
+          y: rect.y - iframeTop,
+          width: rect.width,
+          height: rect.height,
+          left: rect.x - iframeLeft,
+          top: rect.y - iframeTop,
+          right: rect.x - iframeLeft + rect.width,
+          bottom: rect.y - iframeTop + rect.height
+        } as any,
+        xpath: '',
+        renderer_type: rendererType,
+        canvas_context: null,
+        screenshot_data_url: 'pending',
+        screenshot_required: true,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        scroll_position: { x: scrollPos.x, y: scrollPos.y },
+        console_errors: [],
+        network_errors: [],
+        browser_info: null,
+        issue_type_hint: 'other',
+        created_via: 'manual',
+        agent_version: '2.1.0',
+        timestamp: new Date().toISOString(),
+      }
+
+      // Upsert and get ID
+      const payload = normalizeCapturePayload(regionCtx)
+      id = useCaptureStore.getState().upsertCapture(payload)
+      useCaptureStore.getState().openFeedbackDrawer(id)
+      useUIStore.getState().toggleCommandCenter(true)
+    }
+
+    const captureId = id; // save for closure
+
+    import('@/utils/captureOrchestrator').then(({ orchestrateScreenshot }) => {
+      orchestrateScreenshot(sessionId, currentUrl, 'region', rect, shareToken, iframeRef.current).then((res) => {
+        window.postMessage({
+          type: 'PIXELMARK_UPDATE_SCREENSHOT',
+          id: captureId,
+          screenshotdataurl: res.dataUrl,
+          screenshotsource: res.source,
+          screenshotrequired: true
+        }, '*')
+      }).catch(err => console.error('[AuditSurface] orchestration failed', err))
+    })
+  }, [pendingRegionCaptureId, sessionId, currentUrl, currentTitle, rendererType, shareToken])
+
+  const handleRegionCancel = useCallback(() => {
+    setPendingRegionCaptureId(null)
+    useScreenshotStore.getState().setMode('element')
+  }, [])
+
 
   const selectedCaptureId = useCaptureStore(state => state.selectedCaptureId)
   const isFeedbackDrawerOpen = useCaptureStore(state => state.isFeedbackDrawerOpen)
@@ -373,6 +313,7 @@ export function AuditSurface({
           element_selector: capture.target.selector || '',
           element_text: capture.target.text || '',
           element_tag: capture.target.tagName || '',
+          element_id: capture.target.elementId || '',
           aria_label: capture.target.ariaLabel,
           aria_role: capture.target.ariaRole,
           bounding_box: capture.boundingBox as any,
@@ -461,9 +402,21 @@ export function AuditSurface({
   // Escape key support to dismiss feedback drawer
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in input
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+
       if (e.key === 'Escape' && isDrawerOpen) {
         setIsDrawerOpen(false)
         setCaptureCtx(null)
+      }
+
+      if (e.key.toLowerCase() === 'e') {
+        useScreenshotStore.getState().setMode('element')
+      } else if (e.key.toLowerCase() === 'f') {
+        useScreenshotStore.getState().setMode('fullpage')
+      } else if (e.key.toLowerCase() === 'r') {
+        useScreenshotStore.getState().setMode('region')
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -481,6 +434,56 @@ export function AuditSurface({
     }
     return () => clearTimeout(t)
   }, [isLoading])
+
+  // Fetch session URL on mount to avoid race conditions with iframe postMessage
+  useEffect(() => {
+    if (!sessionId) return
+
+    let active = true
+
+    async function loadInitialUrl() {
+      try {
+        // First try getting session details
+        const session = await api.sessions.getSession(sessionId)
+        if (!active) return
+
+        if (session && session.current_page_url) {
+          console.log('[AuditSurface Init] Initializing currentUrl from session:', session.current_page_url)
+          setCurrentUrl(session.current_page_url)
+          return
+        }
+
+        // If session current_page_url is empty, fetch visits
+        const visits = await api.sessions.getVisits(sessionId)
+        if (!active) return
+
+        if (Array.isArray(visits) && visits.length > 0) {
+          const sorted = [...visits].sort((a, b) => (a.page_order || 0) - (b.page_order || 0))
+          console.log('[AuditSurface Init] Initializing currentUrl from visits:', sorted[0].page_url)
+          setCurrentUrl(sorted[0].page_url)
+          return
+        }
+
+        // Fallback: fetch project details
+        if (projectId) {
+          const project = await api.projects.get(projectId)
+          if (!active) return
+          if (project && project.url) {
+            console.log('[AuditSurface Init] Initializing currentUrl from project:', project.url)
+            setCurrentUrl(project.url)
+          }
+        }
+      } catch (err) {
+        console.error('[AuditSurface Init] Failed to resolve initial url:', err)
+      }
+    }
+
+    loadInitialUrl()
+
+    return () => {
+      active = false
+    }
+  }, [sessionId, projectId])
 
   useEffect(() => {
     if (!currentUrl || !sessionId) return
@@ -545,6 +548,7 @@ export function AuditSurface({
         case 'PIXELMARK_PAGE_LOAD':
           setCurrentUrl(data.url)
           setCurrentTitle(data.title || '')
+          setScrollPos({ x: data.scrollX || 0, y: data.scrollY || 0 })
           setRendererType(data.rendererType || 'dom')
           useSessionStore.getState().setRendererType(data.rendererType || 'dom')
           setIsLoading(false)
@@ -638,6 +642,7 @@ export function AuditSurface({
         case 'PIXELMARK_PAGE_UNLOAD':
           setIsLoading(true)
           setFailedAssets([])
+          setScrollPos({ x: 0, y: 0 })
           break
 
         case 'PIXELMARK_ASSET_ERROR':
@@ -659,12 +664,143 @@ export function AuditSurface({
           break
 
         // ── Open feedback drawer — canonical handler (normalizes payload) ───
+        case 'PIXELMARKOPENFEEDBACKDRAWER':
         case 'PIXELMARK_OPEN_FEEDBACK_DRAWER': {
           const rawData = data.payload ? { ...data, ...data.payload } : data
           const normalized = normalizeCapturePayload(rawData)
+
+          // If it's an existing pin, don't trigger new screenshot orchestration or overwrite
+          const existingCapture = useCaptureStore.getState().capturesById[normalized.id]
+          if (existingCapture) {
+            console.log(`[Markers] opened id=${normalized.id}`)
+            useCaptureStore.getState().selectCapture(normalized.id)
+            useCaptureStore.getState().openFeedbackDrawer(normalized.id)
+            useUIStore.getState().toggleCommandCenter(true)
+            break
+          }
+
+          // Compute coordinates once using the new helper
+          const coords = normalizeMarkerCoordinates(normalized)
+          normalized.displayX = coords.displayX
+          normalized.displayY = coords.displayY
+          normalized.pageX = coords.pageX
+          normalized.pageY = coords.pageY
+
+          console.log(`[Markers] created id=${normalized.id} x=${normalized.displayX} y=${normalized.displayY} source=${coords.source}`)
+
+          normalized.screenshotdataurl = 'pending';
           const captureId = useCaptureStore.getState().upsertCapture(normalized)
           useCaptureStore.getState().openFeedbackDrawer(captureId)
           useUIStore.getState().toggleCommandCenter(true)
+          console.log(`[Markers] opened id=${captureId}`)
+
+          const pageUrl = normalized.pageUrl || currentUrl;
+          const { screenshotMode } = useScreenshotStore.getState();
+
+          const runBackgroundScreenshot = (capId: string, url: string, bbox: any) => {
+            useScreenshotStore.getState().setScreenshotState('capturing', null, null, null);
+
+            let cropRect = undefined;
+            if (screenshotMode === 'element' && bbox) {
+              const bb = bbox as any;
+              cropRect = { x: bb.left || bb.x || 0, y: bb.top || bb.y || 0, width: bb.width || 0, height: bb.height || 0 };
+            }
+
+            Promise.all([
+              import('@/utils/captureOrchestrator'),
+            ]).then(([{ orchestrateScreenshot, createDetailedPlaceholderScreenshot }]) => {
+              orchestrateScreenshot(sessionId, url, screenshotMode, cropRect, shareToken, iframeRef.current)
+                .then((res) => {
+                  useScreenshotStore.getState().setScreenshotState('success', res.dataUrl, res.source, null);
+
+                  window.postMessage({
+                    type: 'PIXELMARK_UPDATE_SCREENSHOT',
+                    id: capId,
+                    screenshotdataurl: res.dataUrl,
+                    screenshotsource: res.source,
+                    screenshotrequired: true
+                  }, '*');
+                })
+                .catch((err) => {
+                  console.error('[PixelMark Screenshot] background capture failed:', err);
+                  
+                  // Fail-soft: generate detailed placeholder PNG
+                  const fallbackPng = createDetailedPlaceholderScreenshot({
+                    url: pageUrl,
+                    title: normalized.pageTitle || currentTitle,
+                    tag: normalized.target.tagName || 'ELEMENT',
+                    selector: normalized.target.selector || '',
+                    reason: err.message || String(err),
+                    timestamp: new Date().toISOString()
+                  });
+
+                  useScreenshotStore.getState().setScreenshotState('failed', fallbackPng, 'placeholder-error', err.message || String(err));
+
+                  window.postMessage({
+                    type: 'PIXELMARK_UPDATE_SCREENSHOT',
+                    id: capId,
+                    screenshotdataurl: fallbackPng,
+                    screenshotsource: 'failed-fallback',
+                    screenshotrequired: false
+                  }, '*');
+                });
+            }).catch((err) => {
+              console.error('[PixelMark Screenshot] failed to import orchestrator:', err);
+              useScreenshotStore.getState().setScreenshotState('failed', null, null, err.message || String(err));
+            });
+          };
+
+          if (screenshotMode === 'region') {
+            setPendingRegionCaptureId(captureId)
+          } else {
+            // Asynchronous non-blocking background capture
+            setTimeout(() => {
+              runBackgroundScreenshot(captureId, pageUrl, normalized.boundingBox);
+            }, screenshotMode === 'fullpage' ? 300 : 0);
+          }
+
+          break
+        }
+
+        case 'PIXELMARK_UPDATE_SCREENSHOT': {
+          // Log screenshot received status (Part 2)
+          const strategy = data.screenshotsource || data.screenshottype || data.screenshotttype || 'none';
+          const hasScreenshot = !!data.screenshotdataurl;
+          console.log(`[PixelMark Drawer] screenshot received: ${hasScreenshot ? 'yes' : 'no'} strategy=${strategy}`);
+
+          if (data.id) {
+            const existing = useCaptureStore.getState().capturesById[data.id]
+            if (existing) {
+              const updatedScreenshots = {
+                ...existing.screenshots,
+                cropDataUrl: data.screenshotdataurl,
+                fullPageDataUrl: data.screenshotdataurl,
+                canvasSnapshot: data.canvasSnapshot || data.screenshotdataurl,
+                screenshotRequired: !!data.screenshotdataurl
+              }
+              
+              useCaptureStore.getState().updateCaptureDraft(data.id, {
+                screenshots: updatedScreenshots,
+                screenshottype: data.screenshottype || strategy,
+                screenshotttype: data.screenshotttype || strategy,
+                screenshotsource: data.screenshotsource || strategy,
+                screenshottimestamp: data.screenshottimestamp,
+                screenshotdataurl: data.screenshotdataurl,
+                screenshotrequired: !!data.screenshotdataurl,
+              })
+
+              if (selectedCaptureId === data.id) {
+                setCaptureCtx(prev => prev ? {
+                  ...prev,
+                  screenshot_data_url: data.screenshotdataurl,
+                  screenshottype: data.screenshottype || strategy,
+                  screenshotttype: data.screenshotttype || strategy,
+                  screenshotsource: data.screenshotsource || strategy,
+                  screenshottimestamp: data.screenshottimestamp,
+                } : null)
+              }
+            }
+          }
           break
         }
 
@@ -678,7 +814,7 @@ export function AuditSurface({
             const next = { ...prev }
             data.resolvedPins?.forEach((p: any) => {
               if (p.source !== 'none') {
-                next[p.id] = { pageX: p.pageX, pageY: p.pageY, source: p.source }
+                next[p.id] = { clientX: p.clientX, clientY: p.clientY, source: p.source }
               }
             })
             return next
@@ -705,10 +841,25 @@ export function AuditSurface({
     }
 
     window.addEventListener('message', handleAgentMessage)
-    return () => window.removeEventListener('message', handleAgentMessage)
+    
+    const handleCustomOpen = (e: Event) => {
+      const customEvent = e as CustomEvent
+      const payload = customEvent.detail
+      if (payload && payload.id) {
+        console.log(`[PixelMark Pins] CustomEvent PIXELMARKOPENFEEDBACKDRAWER received for id=${payload.id}`)
+        useCaptureStore.getState().selectCapture(payload.id)
+        useCaptureStore.getState().openFeedbackDrawer(payload.id)
+        useUIStore.getState().toggleCommandCenter(true)
+      }
+    }
+    window.addEventListener('PIXELMARKOPENFEEDBACKDRAWER', handleCustomOpen)
+
+    return () => {
+      window.removeEventListener('message', handleAgentMessage)
+      window.removeEventListener('PIXELMARKOPENFEEDBACKDRAWER', handleCustomOpen)
+    }
   }, [sessionId, projectId, shareToken, onMarkerCreated, onPageChanged, openFeedbackDrawer])
 
-  // Send pins to the iframe agent for element tracking
   useEffect(() => {
     if (isLoading || !iframeRef.current?.contentWindow) return
 
@@ -719,6 +870,8 @@ export function AuditSurface({
       boundingBox: c.boundingBox,
       x: c.coordinates?.pageX ?? 0,
       y: c.coordinates?.pageY ?? 0,
+      viewportX: c.coordinates?.viewportX,
+      viewportY: c.coordinates?.viewportY,
       scrollPosition: {
         x: c.viewport?.scrollX,
         y: c.viewport?.scrollY
@@ -804,34 +957,51 @@ export function AuditSurface({
   // ─── Manual overlay click (fallback) ─────────────────────────────────────
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const xPct = ((e.clientX - rect.left) / rect.width) * 100
-    const yPct = ((e.clientY - rect.top) / rect.height) * 100
-    const px = Math.round(e.clientX - rect.left + window.scrollX)
-    const py = Math.round(e.clientY - rect.top + window.scrollY)
-    setManualCoords({ x: xPct, y: yPct, px, py })
+    const cRect = containerRef.current.getBoundingClientRect()
+    const iRect = iframeRef.current ? iframeRef.current.getBoundingClientRect() : cRect
+    const vx = e.clientX - iRect.left
+    const vy = e.clientY - iRect.top
+
+    const bbox = {
+      x: vx - 6,
+      y: vy - 6,
+      width: 12,
+      height: 12,
+      left: vx - 6,
+      top: vy - 6,
+      right: vx + 6,
+      bottom: vy + 6
+    } as any
+
+    const stable = normalizeMarkerCoordinates(e);
+
+    const xPct = ((e.clientX - iRect.left) / iRect.width) * 100
+    const yPct = ((e.clientY - iRect.top) / iRect.height) * 100
+    setManualCoords({ x: xPct, y: yPct, px: stable.displayX, py: stable.displayY })
 
     // Build a lightweight context for the drawer
     const manualCtx: CaptureContext = {
       page_url: currentUrl,
       page_title: currentTitle,
-      x: px,
-      y: py,
-      viewport_x: e.clientX - rect.left,
-      viewport_y: e.clientY - rect.top,
+      x: stable.pageX,
+      y: stable.pageY,
+      displayX: stable.displayX,
+      displayY: stable.displayY,
+      viewport_x: vx,
+      viewport_y: vy,
       element_selector: '',
       element_text: '',
       element_tag: 'MANUAL',
       aria_label: null,
       aria_role: null,
-      bounding_box: null,
+      bounding_box: bbox,
       xpath: '',
       renderer_type: rendererType,
       canvas_context: null,
       screenshot_data_url: null,
       screenshot_required: false,
       viewport: { width: window.innerWidth, height: window.innerHeight },
-      scroll_position: { x: window.scrollX, y: window.scrollY },
+      scroll_position: { x: scrollPos.x, y: scrollPos.y },
       console_errors: [],
       network_errors: [],
       browser_info: null,
@@ -990,6 +1160,11 @@ export function AuditSurface({
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="w-full h-full flex bg-black relative select-none">
+      <ScreenshotPermissionBanner />
+      <RegionSelectionOverlay 
+        onConfirm={handleRegionConfirm} 
+        onCancel={handleRegionCancel} 
+      />
 
       {/* ── Left: Audit Surface ──────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
@@ -1036,13 +1211,28 @@ export function AuditSurface({
               </button>
             )}
 
+            {/* ── Take Screenshot CTA ────────────────────────────── */}
+            <button
+              id="take-screenshot-btn"
+              aria-label="Take a manual screenshot"
+              onClick={() => {
+                useScreenshotStore.getState().setMode('region');
+              }}
+              className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-4 flex items-center gap-1.5 transition-all border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+              Take Screenshot
+            </button>
+
             {/* ── PRIMARY CTA: Leave Feedback ────────────────────────────── */}
             <button
               id="leave-feedback-btn"
               aria-label="Leave visual feedback on the page"
               onClick={() => {
-                setFeedbackModeActive(true)
-                setManualPlacementMode(true)
+                const nextActive = !feedbackModeActive
+                setFeedbackModeActive(nextActive)
+                const isWebGL = rendererType === 'webgl' || rendererType === 'threejs'
+                setManualPlacementMode(nextActive && isWebGL)
               }}
               className={cn(
                 "h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-4 flex items-center gap-1.5 transition-all border focus:ring-2 focus:ring-purple-500 focus:outline-none",
@@ -1310,104 +1500,20 @@ export function AuditSurface({
             </div>
           )}
 
-          
-          {/* ── Pin Overlay ─────────────────────────────────────────────── */}
-          {/* wrapper: pointer-events:none so it never blocks hover/cursor effects */}
-          <div className="absolute inset-0 z-42" style={{ pointerEvents: 'none' }}>
-            {captures.map((capture, index) => {
-              if (capture.pageUrl !== currentUrl) return null;
-
-              // Grab live iframe refs (cross-origin will throw → graceful fallback)
-              let iframeDoc: Document | null = null;
-              let iframeWin: Window | null = null;
-              try {
-                if (iframeRef.current?.contentWindow) {
-                  iframeWin = iframeRef.current.contentWindow;
-                  iframeDoc = iframeRef.current.contentWindow.document;
-                }
-              } catch {
-                // Cross-origin SecurityError — DOM resolution will be skipped
-              }
-
-              // Decide resolver: canvas/WebGL captures use the dedicated canvas resolver.
-              // All coordinates returned are VIEWPORT-relative (0,0 = top-left of iframe).
-              const isCanvasCapture =
-                capture.rendererType === 'webgl' ||
-                capture.rendererType === 'webgl2' ||
-                capture.rendererType === 'threejs' ||
-                capture.rendererType === 'canvas2d' ||
-                capture.rendererType === 'mixed' ||
-                capture.target?.selector === 'visual-canvas-context' ||
-                !!capture.canvasContext
-
-              let pinLeft: number, pinTop: number, pinSource: string;
-
-              // Prefer agent-resolved positions (from PIXELMARK_PINS_RESOLVED).
-              // These are page-space coords → convert to viewport-relative.
-              const agentResolved = resolvedPositions[capture.id]
-              if (agentResolved) {
-                // Agent sends pageX/pageY (absolute page coordinates).
-                // Subtract iframe scroll to get viewport-relative.
-                pinLeft = agentResolved.pageX - scrollPos.x
-                pinTop  = agentResolved.pageY  - scrollPos.y
-                pinSource = agentResolved.source + '_agent'
-              } else if (isCanvasCapture) {
-                const r = resolveCanvasMarkerPosition(capture, scrollPos.x, scrollPos.y, iframeDoc)
-                pinLeft = r.left
-                pinTop  = r.top
-                pinSource = r.source
-              } else {
-                const r = resolveMarkerPosition(capture, scrollPos.x, scrollPos.y, iframeDoc)
-                pinLeft = r.left
-                pinTop  = r.top
-                pinSource = r.source
-              }
-
-              const isActive = useCaptureStore.getState().selectedCaptureId === capture.id;
-              const isSubmitted = capture.status === 'submitted';
-              const isFailed = capture.status === 'failed';
-              const markerNumber = (useCaptureStore.getState().captureOrder?.indexOf(capture.id) ?? index) + 1;
-
-              return (
-                // Individual pin wrapper: position:absolute, pointer-events:none on wrapper,
-                // pointer-events:auto ONLY on the visible button. Hit area is exactly the button.
-                <div
-                  key={capture.id}
-                  style={{
-                    position: 'absolute',
-                    left: pinLeft,
-                    top: pinTop,
-                    transform: 'translate(-50%, -50%)',
-                    pointerEvents: 'none',
-                    zIndex: isActive ? 50 : 40,
-                  }}
-                  data-pin-id={capture.id}
-                  data-pin-source={pinSource}
-                >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      useCaptureStore.getState().selectCapture(capture.id)
-                      useCaptureStore.getState().openFeedbackDrawer(capture.id)
-                    }}
-                    style={{ pointerEvents: 'auto' }}
-                    className={`w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 cursor-pointer ${
-                      isActive ? 'ring-2 ring-white scale-110 shadow-2xl' : 'hover:scale-125'
-                    } ${
-                      isFailed
-                        ? 'bg-rose-500 border-rose-300 shadow-rose-900/50'
-                        : isSubmitted
-                          ? 'bg-teal-500 border-teal-300 shadow-teal-900/50'
-                          : 'bg-purple-600 border-purple-300 shadow-purple-900/50'
-                    }`}
-                    aria-label={`Open feedback pin ${isSubmitted ? '(submitted)' : isFailed ? '(failed)' : '(draft)'}`}
-                  >
-                    <span className="text-[10px] font-black text-white select-none">{markerNumber}</span>
-                  </button>
-                </div>
-              )
-            })}
-          </div>
+          {/* ── Marker Pin Layer (Dedicated Portalled Layer) ────────────────── */}
+          <MarkerPinLayer
+            captures={captures}
+            currentUrl={currentUrl}
+            scrollPos={scrollPos}
+            resolvedPositions={resolvedPositions}
+            iframeNode={iframeRef.current}
+            selectedCaptureId={selectedCaptureId}
+            captureOrder={captureOrder}
+            onSelectPin={(id) => {
+              useCaptureStore.getState().selectCapture(id)
+              useCaptureStore.getState().openFeedbackDrawer(id)
+            }}
+          />
 
           {/* ── Loading overlay ─────────────────────────────────────────── */}
           {isLoading && (
@@ -1523,7 +1629,7 @@ export function AuditSurface({
         aria-label="Feedback Submission Drawer"
         aria-modal="true"
         className={cn(
-          "bg-[#0d0d14] flex flex-col z-55 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] absolute",
+          "bg-[#0d0d14] flex flex-col z-[2147483647] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] absolute",
           // Mobile bottom sheet structure
           "bottom-0 left-0 right-0 w-full h-[60dvh] max-h-[60dvh] rounded-t-[32px] border-t border-white/5",
           // Desktop/Tablet side panel
@@ -1574,68 +1680,337 @@ export function AuditSurface({
         <form onSubmit={handleDrawerSubmit} className="flex-1 overflow-y-auto flex flex-col">
           <div className="p-5 flex flex-col gap-5 flex-1">
 
-            {/* ── Element context preview ─────────────────────────────── */}
-            {captureCtx && captureCtx.element_tag !== 'MANUAL' && (captureCtx.element_selector || captureCtx.element_text) && (
-              <div className="bg-white/[0.025] border border-white/[0.06] rounded-2xl overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowElementPreview(p => !p)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.03] transition-all"
-                >
-                  <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Captured Element</span>
-                  <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", showElementPreview ? "rotate-180" : "")} />
-                </button>
-                {showElementPreview && (
-                  <div className="px-4 pb-4 space-y-2">
-                    {captureCtx.element_tag && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white/25 w-16">Tag</span>
-                        <span className="font-mono text-[10px] text-purple-300 bg-purple-900/20 px-2 py-0.5 rounded-md">&lt;{captureCtx.element_tag.toLowerCase()}&gt;</span>
+            {/* ── Collapsible Panel: Screenshot (Phase 3.5 Upgrade) ─── */}
+            <div className="border-b border-white/5 pb-2">
+              <button
+                type="button"
+                onClick={() => setScreenshotPanelExpanded(p => !p)}
+                className="w-full flex items-center justify-between py-2 text-left hover:text-white transition-all focus:outline-none"
+              >
+                <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Screenshot Evidence</span>
+                <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", screenshotPanelExpanded ? "rotate-180" : "")} />
+              </button>
+              {screenshotPanelExpanded && (
+                <div className="mt-2.5">
+                  <div className="flex items-center gap-2 mb-3 bg-white/5 p-1 rounded-xl w-fit">
+                    {(['element', 'fullpage', 'region'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => useScreenshotStore.getState().setMode(mode)}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                          screenshotMode === mode
+                            ? "bg-purple-600 text-white"
+                            : "text-white/40 hover:text-white/70 hover:bg-white/10"
+                        )}
+                      >
+                        {mode === 'element' ? 'Elem (E)' : mode === 'fullpage' ? 'Full (F)' : 'Region (R)'}
+                      </button>
+                    ))}
+                  </div>
+                  {(() => {
+                    const screenshotUrl = activeCapture?.screenshotdataurl || activeCapture?.screenshots?.cropDataUrl || activeCapture?.screenshots?.fullPageDataUrl || captureCtx?.screenshot_data_url
+                    const isScreenshotPending = screenshotUrl === 'pending' || activeCapture?.screenshottype === 'pending' || activeCapture?.screenshotttype === 'pending' || activeCapture?.screenshotsource === 'pending'
+                    const source = activeCapture?.screenshotsource || activeCapture?.screenshottype || activeCapture?.screenshotttype || captureCtx?.screenshotsource || captureCtx?.screenshottype || 'unknown'
+                    
+                    if (screenshotUrl && !isScreenshotPending) {
+                      const hasLoadError = imgErrorId === (activeCapture?.id || 'current')
+                      if (hasLoadError) {
+                        return (
+                          <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-2xl min-h-[120px] gap-2">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Failed to load screenshot</span>
+                            <span className="text-[8.5px] text-white/30 font-mono">Image load crashed</span>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="space-y-2">
+                          <div className="relative rounded-xl overflow-hidden border border-white/10">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={screenshotUrl}
+                              alt="Page snapshot at capture time"
+                              className="w-full object-cover"
+                              style={{ maxHeight: 240 }}
+                              onError={() => setImgErrorId(activeCapture?.id || 'current')}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-white/30 px-1">
+                            <span>Page snapshot at capture time</span>
+                            <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded text-[7px] font-mono">
+                              Source: {source}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    } else if (isScreenshotPending) {
+                      return (
+                        <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-2xl gap-2 min-h-[120px]">
+                          <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Generating screenshot...</span>
+                        </div>
+                      )
+                    } else {
+                      return (
+                        <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-2xl min-h-[80px]">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-white/30">Screenshot unavailable</span>
+                        </div>
+                      )
+                    }
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* ── Collapsible Panel: DOM Snapshot (Phase 3.5 Upgrade) ── */}
+            <div className="border-b border-white/5 pb-2">
+              <button
+                type="button"
+                onClick={() => setDomPanelExpanded(p => !p)}
+                className="w-full flex items-center justify-between py-2 text-left hover:text-white transition-all focus:outline-none"
+              >
+                <span className="text-[9px] font-black uppercase tracking-widest text-white/50">DOM Snapshot</span>
+                <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", domPanelExpanded ? "rotate-180" : "")} />
+              </button>
+              {domPanelExpanded && (
+                <div className="mt-2.5 space-y-3">
+                  {(() => {
+                    const domSnapshot = activeCapture?.domsnapshot || null
+                    const tag = domSnapshot?.tagname || activeCapture?.target?.tagName || captureCtx?.element_tag || 'UNKNOWN'
+                    const elemId = domSnapshot?.id || activeCapture?.target?.elementId || captureCtx?.element_id || ''
+                    const selector = domSnapshot?.cssselector || activeCapture?.target?.selector || captureCtx?.element_selector || ''
+                    const innerText = domSnapshot?.innerText || activeCapture?.target?.text || captureCtx?.element_text || ''
+                    const ancestors = domSnapshot?.ancestors || domSnapshot?.ancestorChain || []
+                    const bbox = domSnapshot?.boundingBox || activeCapture?.boundingBox || captureCtx?.bounding_box
+                    const innerHTML = domSnapshot?.innerHTML || ''
+
+                    // Ancestor Breadcrumb
+                    const breadcrumbParts = (ancestors || []).map((a: any) => {
+                      const aTag = (a.tagname || a.tagName || 'div').toLowerCase()
+                      const aId = a.id ? `#${a.id}` : ''
+                      return `${aTag}${aId}`
+                    })
+                    breadcrumbParts.reverse()
+                    breadcrumbParts.push(`${tag.toLowerCase()}${elemId ? `#${elemId}` : ''}`)
+                    const breadcrumb = breadcrumbParts.join(' > ')
+
+                    // Computed Styles layout/visual table
+                    const styles = domSnapshot?.computedStyles || {}
+                    const stylesToDisplay = [
+                      { label: 'Display', value: styles.display },
+                      { label: 'Position', value: styles.position },
+                      { label: 'Width', value: styles.width },
+                      { label: 'Height', value: styles.height },
+                      { label: 'Z-Index', value: styles.zIndex || styles['z-index'] },
+                      { label: 'Visibility', value: styles.visibility },
+                      { label: 'Opacity', value: styles.opacity },
+                    ].filter(s => s.value)
+
+                    return (
+                      <div className="space-y-3">
+                        {/* Tag + Id + Selector */}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] text-purple-300 bg-purple-900/20 px-2 py-0.5 rounded-md font-bold">&lt;{tag.toLowerCase()}&gt;</span>
+                            {elemId && <span className="font-mono text-[9px] text-white/40">#{elemId}</span>}
+                          </div>
+                          {selector && (
+                            <code className="text-[9px] text-emerald-400 font-mono block break-all leading-normal">{selector}</code>
+                          )}
+                        </div>
+
+                        {/* innerText preview */}
+                        {innerText && (
+                          <div className="text-[10px] text-white/60 bg-white/[0.01] border border-white/[0.04] p-2.5 rounded-xl leading-relaxed italic">
+                            "{innerText.slice(0, 120)}{innerText.length > 120 ? '...' : ''}"
+                          </div>
+                        )}
+
+                        {/* Computed Styles */}
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-white/25 block">Computed Styles</span>
+                          {stylesToDisplay.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono bg-white/[0.01] border border-white/[0.04] p-2 rounded-xl">
+                              {stylesToDisplay.map((s, idx) => (
+                                <div key={idx} className="flex justify-between border-b border-white/[0.03] pb-1">
+                                  <span className="text-white/40">{s.label}:</span>
+                                  <span className="text-purple-300 font-bold truncate max-w-[100px]">{s.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-[9px] text-white/30 italic pl-1">No computed styles available</span>
+                          )}
+                        </div>
+
+                        {/* Ancestor chain breadcrumb */}
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-white/20 block">Ancestor Breadcrumb</span>
+                          <div className="text-[9px] font-mono text-white/60 bg-white/[0.01] border border-white/[0.04] p-2 rounded-xl break-all">
+                            {breadcrumb}
+                          </div>
+                        </div>
+
+                        {/* Bounding Box */}
+                        {bbox && (
+                          <div className="text-[9px] font-mono text-white/40 pl-1">
+                            Bounds: {Math.round(bbox.width || 0)}×{Math.round(bbox.height || 0)} px @ ({Math.round(bbox.left || bbox.x || 0)}, {Math.round(bbox.top || bbox.y || 0)})
+                          </div>
+                        )}
+
+                        {/* Collapsible innerHTML */}
+                        {innerHTML && (
+                          <div className="border border-white/5 rounded-xl overflow-hidden mt-2">
+                            <button
+                              type="button"
+                              onClick={() => setInnerHTMLPanelExpanded(p => !p)}
+                              className="w-full flex items-center justify-between px-3 py-1.5 bg-white/[0.02] hover:bg-white/[0.04] text-[9px] font-bold uppercase tracking-wider text-white/40 focus:outline-none"
+                            >
+                              <span>View innerHTML</span>
+                              <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", innerHTMLPanelExpanded ? "rotate-180" : "")} />
+                            </button>
+                            {innerHTMLPanelExpanded && (
+                              <div className="p-3 bg-black/40 text-[9px] font-mono text-emerald-400 break-all whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                {innerHTML.slice(0, 800)}{innerHTML.length > 800 ? '\n... [truncated]' : ''}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {captureCtx.element_text && (
-                      <div className="flex items-start gap-2">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white/25 w-16 flex-shrink-0 pt-0.5">Text</span>
-                        <span className="text-[10px] text-white/60 leading-relaxed line-clamp-2 italic">"{captureCtx.element_text.slice(0, 80)}"</span>
-                      </div>
-                    )}
-                    {captureCtx.element_selector && (
-                      <div className="flex items-start gap-2">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white/25 w-16 flex-shrink-0 pt-0.5">Selector</span>
-                        <code className="text-[9px] text-emerald-400/80 font-mono leading-relaxed break-all line-clamp-2">{captureCtx.element_selector.slice(0, 100)}</code>
-                      </div>
-                    )}
-                    {captureCtx.aria_label && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white/25 w-16">ARIA</span>
-                        <span className="text-[9px] text-amber-400/80 font-mono">{captureCtx.aria_label}</span>
-                      </div>
-                    )}
-                    {captureCtx.bounding_box && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white/25 w-16">Bounds</span>
-                        <span className="text-[9px] font-mono text-white/40">
-                          {captureCtx.bounding_box.width}×{captureCtx.bounding_box.height} @ ({captureCtx.bounding_box.x},{captureCtx.bounding_box.y})
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* ── Collapsible Panel: Canvas details (Phase 3.5 Upgrade) ── */}
+            {(() => {
+              const canvasCtx = activeCapture?.canvasContext || captureCtx?.canvas_context
+              const canvasDom = activeCapture?.canvasdomsnapshot || null
+              const isCanvasRenderer = activeCapture?.rendererType === 'webgl' || activeCapture?.rendererType === 'threejs' || activeCapture?.rendererType === 'mixed' || !!canvasCtx || !!canvasDom
+
+              if (!isCanvasRenderer) return null
+              return (
+                <div className="border-b border-white/5 pb-2">
+                  <button
+                    type="button"
+                    onClick={() => setCanvasPanelExpanded(p => !p)}
+                    className="w-full flex items-center justify-between py-2 text-left hover:text-white transition-all focus:outline-none"
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Canvas & WebGL Details</span>
+                    <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", canvasPanelExpanded ? "rotate-180" : "")} />
+                  </button>
+                  {canvasPanelExpanded && (
+                    <div className="mt-2.5 space-y-2.5 bg-white/[0.01] border border-white/[0.04] p-3 rounded-2xl">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-white/40">Context Type:</span>
+                        <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase">
+                          {canvasDom?.activeContextType || canvasCtx?.type || 'unknown'}
                         </span>
                       </div>
-                    )}
-                    {/* Screenshot thumbnail */}
-                    {captureCtx.screenshot_data_url && (
-                      <div className="mt-2">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white/25 block mb-1.5">Screenshot</span>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={captureCtx.screenshot_data_url}
-                          alt="Captured element screenshot"
-                          className="w-full rounded-xl border border-white/10 object-cover"
-                          style={{ maxHeight: 120 }}
-                        />
+                      
+                      {canvasDom?.isFullscreen && (
+                        <div className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[8px] font-black uppercase tracking-wider">
+                          Fullscreen Canvas
+                        </div>
+                      )}
+                      
+                      {canvasDom?.boundingBox && (
+                        <div className="flex justify-between">
+                          <span className="text-[10px] text-white/40">CSS Rect Size:</span>
+                          <span className="text-[10px] font-mono text-white/70">
+                            {Math.round(canvasDom.boundingBox.width)}×{Math.round(canvasDom.boundingBox.height)} px
+                          </span>
+                        </div>
+                      )}
+
+                      {canvasCtx?.hit_detail && (
+                        <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-white/25 block">Three.js Intersect Hit</span>
+                          {canvasCtx.hit_detail.object_name && (
+                            <div className="flex justify-between text-[9px]">
+                              <span className="text-white/40">Object Name:</span>
+                              <span className="font-mono text-purple-300">{canvasCtx.hit_detail.object_name}</span>
+                            </div>
+                          )}
+                          {canvasCtx.hit_detail.object_type && (
+                            <div className="flex justify-between text-[9px]">
+                              <span className="text-white/40">Object Type:</span>
+                              <span className="font-mono text-white/70">{canvasCtx.hit_detail.object_type}</span>
+                            </div>
+                          )}
+                          {canvasCtx.hit_detail.distance !== undefined && (
+                            <div className="flex justify-between text-[9px]">
+                              <span className="text-white/40">Distance:</span>
+                              <span className="font-mono text-white/70">{Number(canvasCtx.hit_detail.distance).toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* ── Collapsible Panel: Diagnostics (Phase 3.5 Upgrade) ─── */}
+            <div className="border-b border-white/5 pb-2">
+              <button
+                type="button"
+                onClick={() => setDiagnosticsPanelExpanded(p => !p)}
+                className="w-full flex items-center justify-between py-2 text-left hover:text-white transition-all focus:outline-none"
+              >
+                <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Diagnostics & Logs</span>
+                <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", diagnosticsPanelExpanded ? "rotate-180" : "")} />
+              </button>
+              {diagnosticsPanelExpanded && (
+                <div className="mt-2.5 space-y-3">
+                  {/* Browser Info */}
+                  {(() => {
+                    const browserInfo = activeCapture?.diagnostics?.browserInfo || captureCtx?.browser_info
+                    if (!browserInfo) return null
+                    return (
+                      <div className="bg-white/[0.01] border border-white/[0.04] p-2.5 rounded-xl text-[10px] space-y-1">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-white/20 block">Browser environment</span>
+                        <div className="flex justify-between">
+                          <span className="text-white/40">Browser:</span>
+                          <span className="text-white/70">{browserInfo.name || 'Unknown'} {browserInfo.version || ''}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-white/40">OS:</span>
+                          <span className="text-white/70">{browserInfo.os || 'Unknown'}</span>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Console Errors */}
+                  <CollapsibleList
+                    title="Console Errors"
+                    count={activeCapture?.diagnostics?.consoleErrors?.length || captureCtx?.console_errors?.length || 0}
+                    items={activeCapture?.diagnostics?.consoleErrors || captureCtx?.console_errors || []}
+                    renderItem={(err, idx) => (
+                      <div key={idx} className="text-[9px] font-mono text-rose-400 bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg break-all">
+                        {err.message || String(err)}
                       </div>
                     )}
-                  </div>
-                )}
-              </div>
-            )}
+                  />
+
+                  {/* Network Errors */}
+                  <CollapsibleList
+                    title="Network Errors"
+                    count={activeCapture?.diagnostics?.networkErrors?.length || captureCtx?.network_errors?.length || 0}
+                    items={activeCapture?.diagnostics?.networkErrors || captureCtx?.network_errors || []}
+                    renderItem={(err, idx) => (
+                      <div key={idx} className="text-[9px] font-mono text-rose-400 bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg break-all">
+                        ❌ {err.method || 'GET'} {err.url || 'Unknown URL'} ({err.status || 'Failed'})
+                      </div>
+                    )}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* ── Issue Type picker ───────────────────────────────────── */}
             <div className="space-y-2.5">

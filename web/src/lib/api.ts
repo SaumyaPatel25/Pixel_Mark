@@ -383,4 +383,13 @@ export const api = {
       })
     },
   },
+  screenshot: {
+    async take(sessionId: string, targetUrl: string, shareToken?: string) {
+      const params = new URLSearchParams({ target_url: targetUrl })
+      if (shareToken) params.append('share_token', shareToken)
+      return request(`/sessions/${sessionId}/screenshot?${params.toString()}`, {
+        method: 'POST'
+      })
+    }
+  },
 }

@@ -512,8 +512,8 @@
 
   // ─── DOM context builder ──────────────────────────────────────────────────
   function getDOMContext(element) {
-    const isHeavy = window.__PIXELMARK__.rendererType && window.__PIXELMARK__.rendererType !== "dom";
-    if (isHeavy) {
+    const isCanvasElement = element.tagName === "CANVAS";
+    if (isCanvasElement) {
       return {
         xpath: "",
         css_selector: "visual-canvas-context",
@@ -592,35 +592,569 @@
   }
 
   // ─── Screenshot capture ───────────────────────────────────────────────────
+  // ─── Screenshot capture & Serialization (Phase 3.5 Upgrade) ────────────────
   async function loadHtml2Canvas() {
     if (window.html2canvas) return window.html2canvas;
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      script.onload = () => resolve(window.html2canvas);
-      script.onerror = () => resolve(null);
-      document.head.appendChild(script);
+    
+    const origin = window.__PIXELMARK_PROXY_ORIGIN__ || window.location.origin;
+    const localSrc = origin.replace(/\/$/, "") + "/static/html2canvas.min.js";
+    const cdnSrc = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    
+    function loadScriptWithTimeout(src, timeoutMs = 3000) {
+      return new Promise((resolve) => {
+        const script = document.createElement("script");
+        script.src = src;
+        const timer = setTimeout(() => {
+          script.onload = null;
+          script.onerror = null;
+          resolve(null);
+        }, timeoutMs);
+        script.onload = () => {
+          clearTimeout(timer);
+          resolve(window.html2canvas || null);
+        };
+        script.onerror = () => {
+          clearTimeout(timer);
+          resolve(null);
+        };
+        document.head.appendChild(script);
+      });
+    }
+
+    // First try local with 3s timeout
+    const loadedLocal = await loadScriptWithTimeout(localSrc, 3000);
+    if (loadedLocal) return loadedLocal;
+    
+    // Fallback to CDN with 3s timeout
+    return loadScriptWithTimeout(cdnSrc, 3000);
+  }
+
+  // Preload html2canvas early
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    loadHtml2Canvas().catch(() => {});
+  } else {
+    window.addEventListener("DOMContentLoaded", () => {
+      loadHtml2Canvas().catch(() => {});
     });
   }
 
-  async function captureScreenshot(element) {
+  function createHighlightOverlay(element) {
     try {
-      const html2canvas = await loadHtml2Canvas();
-      if (!html2canvas) return null;
-      const canvas = await html2canvas(document.body, { logging: false, useCORS: true, allowTaint: true });
       const rect = element.getBoundingClientRect();
-      const cropCanvas = document.createElement("canvas");
-      cropCanvas.width = 480;
-      cropCanvas.height = 320;
-      const ctx = cropCanvas.getContext("2d");
-      if (ctx) {
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        ctx.drawImage(canvas, Math.max(0, centerX - 240), Math.max(0, centerY - 160), 480, 320, 0, 0, 480, 320);
-        return cropCanvas.toDataURL("image/png");
+      const overlay = document.createElement('div');
+      overlay.id = 'pixelmark-screenshot-highlight';
+      overlay.style.position = 'absolute';
+      overlay.style.pointerEvents = 'none';
+      overlay.style.zIndex = '2147483647';
+      overlay.style.boxSizing = 'border-box';
+      overlay.style.border = '2px solid #7c3aed';
+      overlay.style.left = (rect.left + window.scrollX) + 'px';
+      overlay.style.top = (rect.top + window.scrollY) + 'px';
+      overlay.style.width = rect.width + 'px';
+      overlay.style.height = rect.height + 'px';
+      document.body.appendChild(overlay);
+      return overlay;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function createPlaceholderScreenshot({ title, subtitle, elementTag, selector, xpath, reason }) {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Dark background
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Purple border/accent line
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+
+      // Header block background
+      ctx.fillStyle = '#12121a';
+      ctx.fillRect(8, 8, canvas.width - 16, 60);
+      
+      // Header text
+      ctx.fillStyle = '#ef4444'; // Red-ish accent for warning
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText('⚠ SCREENSHOT UNAVAILABLE', 24, 44);
+
+      // Metadata text layout
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '12px sans-serif';
+      
+      let y = 100;
+      const drawField = (label, value) => {
+        if (!value) return;
+        ctx.fillStyle = '#a855f7'; // Purple label
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(label.toUpperCase() + ':', 24, y);
+        ctx.fillStyle = '#e2e8f0'; // White text
+        ctx.font = '11px sans-serif';
+        // Wrap text if too long
+        const maxW = canvas.width - 150;
+        if (ctx.measureText(value).width > maxW) {
+          const words = value.split(' ');
+          let line = '';
+          for (let n = 0; n < words.length; n++) {
+            let testLine = line + words[n] + ' ';
+            let testWidth = ctx.measureText(testLine).width;
+            if (testWidth > maxW && n > 0) {
+              ctx.fillText(line, 120, y);
+              line = words[n] + ' ';
+              y += 18;
+            } else {
+              line = testLine;
+            }
+          }
+          ctx.fillText(line, 120, y);
+        } else {
+          ctx.fillText(value, 120, y);
+        }
+        y += 24;
+      };
+
+      drawField('Page Title', title);
+      drawField('Element Tag', elementTag);
+      drawField('Selector', selector);
+      if (xpath) drawField('XPath', xpath);
+      drawField('Reason', reason);
+      drawField('Timestamp', subtitle || new Date().toISOString());
+
+      // Bottom watermark
+      ctx.fillStyle = '#a855f7';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText('PIXELMARK DIAGNOSTICS CAPTURE PIPELINE v3.5', 24, canvas.height - 24);
+
+      return canvas.toDataURL('image/png');
+    } catch (e) {
+      console.error("[PixelMark Capture] Failed to create placeholder canvas:", e);
+      return null;
+    }
+  }
+
+  function createDOMFallbackScreenshot({ target, reason }) {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Draw standard browser shell background
+      ctx.fillStyle = '#1e1e2e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Browser Header bar
+      ctx.fillStyle = '#11111b';
+      ctx.fillRect(0, 0, canvas.width, 40);
+
+      // Address bar
+      ctx.fillStyle = '#313244';
+      ctx.fillRect(80, 8, canvas.width - 100, 24);
+      
+      // Address bar text
+      ctx.fillStyle = '#a6adc8';
+      ctx.font = '10px monospace';
+      ctx.fillText(window.location.href, 90, 24);
+
+      // Mock tabs/dots
+      ctx.fillStyle = '#f38ba8'; // Red
+      ctx.beginPath(); ctx.arc(15, 20, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f9e2af'; // Yellow
+      ctx.beginPath(); ctx.arc(30, 20, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#a6e3a1'; // Green
+      ctx.beginPath(); ctx.arc(45, 20, 5, 0, Math.PI * 2); ctx.fill();
+
+      // Draw a wireframe representing the page shell
+      ctx.fillStyle = '#181825';
+      // Mock Sidebar
+      ctx.fillRect(10, 50, 80, 330);
+      // Mock Main Content
+      ctx.fillRect(100, 50, canvas.width - 110, 330);
+
+      // Get target bounding box
+      const rect = target.getBoundingClientRect();
+      const viewW = window.innerWidth || 1;
+      const viewH = window.innerHeight || 1;
+
+      // Scale the element's position to fit our mock viewport
+      const scaleX = (canvas.width - 110) / viewW;
+      const scaleY = 330 / viewH;
+
+      const mockX = 100 + rect.left * scaleX;
+      const mockY = 50 + rect.top * scaleY;
+      const mockW = Math.max(10, rect.width * scaleX);
+      const mockH = Math.max(10, rect.height * scaleY);
+
+      // Draw simulated other elements on page (wireframe)
+      ctx.fillStyle = '#313244';
+      const divs = document.querySelectorAll('div, section, header, nav, footer');
+      let count = 0;
+      for (let i = 0; i < divs.length && count < 15; i++) {
+        const d = divs[i];
+        if (d === target) continue;
+        const r = d.getBoundingClientRect();
+        if (r.width > 20 && r.height > 20) {
+          const dx = 100 + r.left * scaleX;
+          const dy = 50 + r.top * scaleY;
+          const dw = r.width * scaleX;
+          const dh = r.height * scaleY;
+          if (dx >= 100 && dx + dw <= canvas.width && dy >= 50 && dy + dh <= canvas.height) {
+            ctx.fillRect(dx, dy, dw, dh);
+            count++;
+          }
+        }
       }
-      return canvas.toDataURL("image/png");
-    } catch (err) { return null; }
+
+      // Draw highlighted target element in purple
+      ctx.strokeStyle = '#cba6f7'; // Lavender/purple outline
+      ctx.lineWidth = 2;
+      ctx.strokeRect(mockX, mockY, mockW, mockH);
+      ctx.fillStyle = 'rgba(203, 166, 247, 0.15)'; // Semitransparent fill
+      ctx.fillRect(mockX, mockY, mockW, mockH);
+
+      // Crop zoom overlay (inset in bottom right)
+      const zoomW = 200;
+      const zoomH = 120;
+      const zoomX = canvas.width - zoomW - 15;
+      const zoomY = canvas.height - zoomH - 15;
+
+      ctx.fillStyle = '#11111b';
+      ctx.strokeStyle = '#cba6f7';
+      ctx.lineWidth = 3;
+      ctx.fillRect(zoomX, zoomY, zoomW, zoomH);
+      ctx.strokeRect(zoomX, zoomY, zoomW, zoomH);
+
+      // Zoom Content: Text preview
+      ctx.fillStyle = '#cba6f7';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText(`CROP VIEWPORT PREVIEW: <${target.tagName.toLowerCase()}>`, zoomX + 10, zoomY + 20);
+
+      ctx.fillStyle = '#bac2de';
+      ctx.font = '9px monospace';
+      
+      const selector = getCSSSelector(target);
+      const cleanSelector = selector.length > 30 ? selector.substring(0, 27) + '...' : selector;
+      ctx.fillText(`Selector: ${cleanSelector}`, zoomX + 10, zoomY + 38);
+
+      const dimensions = `${Math.round(rect.width)}x${Math.round(rect.height)} @ (${Math.round(rect.left)}, ${Math.round(rect.top)})`;
+      ctx.fillText(`Bounds: ${dimensions}`, zoomX + 10, zoomY + 54);
+
+      // Text snippet
+      const textVal = (target.innerText || target.value || "").trim().replace(/\s+/g, ' ');
+      const cleanText = textVal.length > 50 ? textVal.substring(0, 47) + '...' : textVal;
+      if (cleanText) {
+        ctx.fillText(`Content: "${cleanText}"`, zoomX + 10, zoomY + 70);
+      }
+
+      // Diagnostic note
+      ctx.fillStyle = '#f38ba8';
+      ctx.fillText(`Note: ${reason}`, zoomX + 10, zoomY + 95);
+
+      // Overlay text title
+      ctx.fillStyle = '#cba6f7';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText('DOM VIEWPORT LAYOUT SHELL', 110, 80);
+
+      return canvas.toDataURL('image/png');
+    } catch (e) {
+      console.error("[PixelMark Capture] Failed to create DOM fallback viewport snapshot:", e);
+      return null;
+    }
+  }
+
+  async function getScreenshotData(target, rendererType) {
+    // Strategy is now handled in the parent shell via orchestrator
+    return {
+      dataUrl: null,
+      strategy: "pending",
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // ─── DOM snapshot serialization ───────────────────────────────────────────
+  function cleanInnerHTML(html) {
+    if (!html) return '';
+    html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    html = html.replace(/\s+on[a-z]+\s*=\s*(['"])(.*?)\1/gi, '');
+    html = html.replace(/\s+on[a-z]+\s*=\s*([^\s>]+)/gi, '');
+    try {
+      const proxyBase = window.location.origin + "/proxy/session/" + (window.__PIXELMARK__?.sessionId || "") + "/url/";
+      html = html.split(proxyBase).join("");
+      html = html.replace(/https?:\/\/localhost:\d+\/proxy\/session\/[a-f0-9-]+\/url\//gi, "");
+    } catch(e) {}
+    return html.trim();
+  }
+
+  function getRelevantComputedStyles(element) {
+    const styles = {};
+    try {
+      const computed = window.getComputedStyle(element);
+      const keys = [
+        'display', 'position', 'width', 'height', 'top', 'left', 'z-index',
+        'color', 'background-color', 'font-size', 'font-weight',
+        'visibility', 'opacity', 'overflow',
+        'border-radius', 'box-shadow'
+      ];
+      keys.forEach(k => {
+        const val = computed.getPropertyValue(k);
+        if (val) {
+          styles[k] = val;
+          if (k === 'z-index') {
+            styles['zIndex'] = val;
+          }
+        }
+      });
+
+      const flexGridKeys = [
+        'flex-direction', 'flex-wrap', 'justify-content', 'align-items', 'align-content',
+        'flex-grow', 'flex-shrink', 'flex-basis',
+        'grid-template-columns', 'grid-template-rows', 'grid-gap', 'gap'
+      ];
+      const displayVal = computed.getPropertyValue('display') || '';
+      if (displayVal.indexOf('flex') !== -1 || displayVal.indexOf('grid') !== -1) {
+        flexGridKeys.forEach(k => {
+          const val = computed.getPropertyValue(k);
+          if (val && val !== 'initial' && val !== 'unset' && val !== 'normal') {
+            styles[k] = val;
+          }
+        });
+      }
+    } catch (e) {}
+    return styles;
+  }
+
+  function getAncestorChain(element) {
+    const chain = [];
+    try {
+      let current = element.parentElement;
+      let depth = 0;
+      while (current && current.tagName !== 'HTML' && depth < 4) {
+        const classList = Array.from(current.classList || []).slice(0, 5);
+        chain.push({
+          tagname: current.tagName.toLowerCase(),
+          tagName: current.tagName.toLowerCase(),
+          id: current.id || null,
+          classlist: classList,
+          role: current.getAttribute('role') || null
+        });
+        if (current.tagName === 'BODY') break;
+        current = current.parentElement;
+        depth++;
+      }
+    } catch (e) {}
+    return chain;
+  }
+
+  function getSiblingInfo(sibling) {
+    if (!sibling || sibling.nodeType !== Node.ELEMENT_NODE) return null;
+    const classList = Array.from(sibling.classList || []).slice(0, 2);
+    const text = (sibling.innerText || sibling.textContent || '').trim().substring(0, 80);
+    return {
+      tagname: sibling.tagName.toLowerCase(),
+      id: sibling.id || null,
+      classlist: classList,
+      innerText: text
+    };
+  }
+
+  function getElementAttributes(element) {
+    const attrs = {};
+    try {
+      if (element.attributes) {
+        for (let i = 0; i < element.attributes.length; i++) {
+          const attr = element.attributes[i];
+          const name = attr.name.toLowerCase();
+          if (name.startsWith('on')) continue;
+          if (name === 'style' && attr.value.length > 100) continue;
+          attrs[attr.name] = attr.value;
+        }
+      }
+    } catch (e) {}
+    return attrs;
+  }
+
+  function capSnapshotSize(snapshot) {
+    let serialized = JSON.stringify(snapshot);
+    if (serialized.length <= 12288) return snapshot;
+
+    if (snapshot.innerHTML && snapshot.innerHTML.length > 100) {
+      snapshot.innerHTML = snapshot.innerHTML.substring(0, 100) + "... [truncated]";
+      serialized = JSON.stringify(snapshot);
+      if (serialized.length <= 12288) return snapshot;
+    }
+    
+    if (snapshot.innerHTML) {
+      snapshot.innerHTML = "[truncated due to size]";
+      serialized = JSON.stringify(snapshot);
+      if (serialized.length <= 12288) return snapshot;
+    }
+
+    if (snapshot.computedStyles) {
+      const minimalStyles = {};
+      const essentialKeys = ['display', 'position', 'width', 'height', 'z-index', 'zIndex'];
+      essentialKeys.forEach(k => {
+        if (snapshot.computedStyles[k] !== undefined) {
+          minimalStyles[k] = snapshot.computedStyles[k];
+        }
+      });
+      snapshot.computedStyles = minimalStyles;
+      serialized = JSON.stringify(snapshot);
+      if (serialized.length <= 12288) return snapshot;
+    }
+
+    snapshot.computedStyles = {};
+    return snapshot;
+  }
+
+  function serializeDOMSnapshot(element) {
+    if (!element) return null;
+    try {
+      const tagname = element.tagName.toLowerCase();
+      const id = element.id || null;
+      const classlist = Array.from(element.classList || []);
+      const attributes = getElementAttributes(element);
+      const innerText = (element.innerText || element.textContent || '').trim().substring(0, 500);
+      const innerHTML = cleanInnerHTML(element.innerHTML || '').substring(0, 2000);
+      const computedStyles = getRelevantComputedStyles(element);
+      
+      const bbox = element.getBoundingClientRect();
+      const boundingBox = {
+        x: bbox.x,
+        y: bbox.y,
+        width: bbox.width,
+        height: bbox.height,
+        top: bbox.top,
+        right: bbox.right,
+        bottom: bbox.bottom,
+        left: bbox.left
+      };
+      
+      const isVisible = !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
+      const domCtx = getDOMContext(element);
+      const xpath = domCtx.xpath || "";
+      const cssselector = domCtx.css_selector || "";
+      const ariaLabel = element.getAttribute('aria-label') || element.ariaLabel || null;
+      const ariaRole = element.getAttribute('role') || null;
+      const placeholder = element.getAttribute('placeholder') || null;
+      const rendererType = window.__PIXELMARK__?.rendererType || 'dom';
+      
+      const shadowCtx = captureShadowContext(element);
+      const previousSibling = getSiblingInfo(element.previousElementSibling);
+      const nextSibling = getSiblingInfo(element.nextElementSibling);
+      const ancestorChain = getAncestorChain(element);
+
+      const snapshot = {
+        tagname,
+        id,
+        classlist,
+        attributes,
+        innerText,
+        innerHTML,
+        computedStyles,
+        boundingBox,
+        isVisible,
+        xpath,
+        cssselector,
+        ariaLabel,
+        ariaRole,
+        placeholder,
+        rendererType,
+        shadow_context: shadowCtx,
+        previousSibling,
+        nextSibling,
+        ancestorChain,
+        ancestors: ancestorChain
+      };
+
+      return capSnapshotSize(snapshot);
+    } catch (err) {
+      console.error("[PixelMark Capture] error in serializeDOMSnapshot:", err);
+      return null;
+    }
+  }
+
+  function serializeCanvasDOMSnapshot(canvas, rendererType) {
+    if (!canvas || canvas.tagName !== 'CANVAS') return null;
+    try {
+      const tagname = 'canvas';
+      const id = canvas.id || null;
+      const classlist = Array.from(canvas.classList || []);
+      
+      const computed = window.getComputedStyle(canvas);
+      const styleAttributes = {
+        width: computed.getPropertyValue('width') || null,
+        height: computed.getPropertyValue('height') || null,
+        position: computed.getPropertyValue('position') || null,
+        'z-index': computed.getPropertyValue('z-index') || null
+      };
+
+      const bbox = canvas.getBoundingClientRect();
+      const boundingBox = {
+        x: bbox.x,
+        y: bbox.y,
+        width: bbox.width,
+        height: bbox.height,
+        top: bbox.top,
+        right: bbox.right,
+        bottom: bbox.bottom,
+        left: bbox.left
+      };
+
+      const parent = canvas.parentElement;
+      const parentInfo = parent ? {
+        tagname: parent.tagName.toLowerCase(),
+        id: parent.id || null,
+        classlist: Array.from(parent.classList || [])
+      } : null;
+
+      const siblingCount = parent ? parent.children.length - 1 : 0;
+      const isFullscreen = (bbox.width > window.innerWidth * 0.8) && (bbox.height > window.innerHeight * 0.8);
+
+      let activeContextType = null;
+      if (canvas.getContext("webgl2")) {
+        activeContextType = "webgl2";
+      } else if (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) {
+        activeContextType = "webgl";
+      } else if (canvas.getContext("2d")) {
+        activeContextType = "canvas-2d";
+      }
+
+      let rendererHint = 'unknown';
+      if (rendererType === 'threejs' || window.THREE || canvas.__three) {
+        rendererHint = 'three.js';
+      } else if (activeContextType === 'webgl2') {
+        rendererHint = 'webgl2';
+      } else if (activeContextType === 'webgl') {
+        rendererHint = 'webgl';
+      } else if (activeContextType === 'canvas-2d') {
+        rendererHint = 'canvas2d';
+      }
+
+      return {
+        tagname,
+        id,
+        classlist,
+        styleAttributes,
+        boundingBox,
+        parent: parentInfo,
+        siblingCount,
+        isFullscreen,
+        rendererHint,
+        activeContextType
+      };
+    } catch (e) {
+      console.error("[PixelMark Capture] error in serializeCanvasDOMSnapshot:", e);
+      return null;
+    }
   }
 
   // ─── WebGL/Three.js context ────────────────────────────────────────────────
@@ -962,7 +1496,6 @@
     const clickX = event.clientX, clickY = event.clientY;
     const pageX = Math.round(clickX + window.scrollX), pageY = Math.round(clickY + window.scrollY);
     const viewport = { width: window.innerWidth, height: window.innerHeight };
-    const viewportX = clickX / viewport.width, viewportY = clickY / viewport.height;
     const rendererType = window.__PIXELMARK__.rendererType;
     const domCtx = getDOMContext(target);
     const viewportCtx = getViewportContext();
@@ -979,11 +1512,22 @@
       page_url: logicalUrl,
       page_title: document.title,
       created_via: feedbackModeActive ? 'feedback-mode' : (event.altKey ? 'alt-click' : 'unknown'),
-      click: { page_x: pageX, page_y: pageY, viewport_x: viewportX, viewport_y: viewportY, client_x: clickX, client_y: clickY },
-      x: pageX,
-      y: pageY,
-      viewport_x: clickX,
-      viewport_y: clickY,
+      click: {
+        page_x: pageX,
+        page_y: pageY,
+        viewport_x: clickX,
+        viewport_y: clickY,
+        client_x: clickX,
+        client_y: clickY,
+        normalized_x: clickX / viewport.width,
+        normalized_y: clickY / viewport.height
+      },
+      displayX: clickX,
+        displayY: clickY,
+        pageX: pageX,
+        pageY: pageY,
+        viewport_x: clickX,
+        viewport_y: clickY,
       canvas_context: canvasCtx,
       norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
       norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
@@ -1015,144 +1559,214 @@
   });
 
   // Main capture handler – wired to click events when appropriate
-  async function handleFeedbackCapture(e) {
-    const isAlt = e.altKey && !feedbackModeActive;
-    const isMode = feedbackModeActive && !e.altKey;
-    const isBoth = e.altKey && feedbackModeActive;
-    if (!isAlt && !isMode && !isBoth) return;
-    
-    const now = Date.now();
-    if (window.__lastFeedbackTime && (now - window.__lastFeedbackTime < 600)) return; // throttle
-    window.__lastFeedbackTime = now;
-    
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.composedPath?.()[0] || e.target;
-    if (!target) return;
-    if (isPixelMarkOwnedNode(target)) return; // prevent self-capture
-    
-    const clickX = e.clientX;
-    const clickY = e.clientY;
-    const pageX = Math.round(clickX + window.scrollX);
-    const pageY = Math.round(clickY + window.scrollY);
-    const rendererType = window.__PIXELMARK__.rendererType;
-    const isCanvas = target.tagName === "CANVAS";
-    const domCtx = getDOMContext(target);
-    const viewCtx = getViewportContext();
-    const shadowCtx = captureShadowContext(target);
-    const bbox = getBoundingBox(target);
-    const browserInfo = getBrowserInfo();
-    const issueTypeHint = detectIssueType(target, rendererType);
+  function handleFeedbackCapture(e) {
+    try {
+      const isAlt = e.altKey;
+      const isMode = feedbackModeActive;
+      console.log("[PixelMark Pins] click captured. feedbackModeActive=" + feedbackModeActive + ", altKey=" + e.altKey);
+      if (!isAlt && !isMode) return;
+      
+      const now = Date.now();
+      if (window.__lastFeedbackTime && (now - window.__lastFeedbackTime < 600)) return; // throttle
+      window.__lastFeedbackTime = now;
+      
+      const target = e.composedPath?.()[0] || e.target;
+      if (!target) return;
+      if (isPixelMarkOwnedNode(target)) return; // prevent self-capture
+      
+      const clickX = e.clientX;
+      const clickY = e.clientY;
+      const pageX = Math.round(clickX + window.scrollX);
+      const pageY = Math.round(clickY + window.scrollY);
+      const rendererType = window.__PIXELMARK__.rendererType;
+      const isCanvas = target.tagName === "CANVAS";
+      const domCtx = getDOMContext(target);
+      const viewCtx = getViewportContext();
+      const shadowCtx = captureShadowContext(target);
+      const bbox = getBoundingBox(target);
+      const browserInfo = getBrowserInfo();
+      const issueTypeHint = detectIssueType(target, rendererType);
 
-    let screenshotDataUrl = null;
-    let canvasCtx = null;
+      // Synchronous DOM Snapshots (PART 2 & PART 3)
+      const startMs = performance.now();
+      const domSnapshot = serializeDOMSnapshot(target);
+      const canvasDomSnapshot = isCanvas ? serializeCanvasDOMSnapshot(target, rendererType) : null;
+      const domSnapshotStr = JSON.stringify(domSnapshot || {});
+      const domSnapshotKb = (domSnapshotStr.length / 1024).toFixed(2);
+      console.log(`[PixelMark Capture] domsnapshot size: ${domSnapshotKb}kb`);
 
-    if (isCanvas) {
-      const canvasBbox = target.getBoundingClientRect();
-      const gl = target.getContext("webgl") || target.getContext("webgl2") || target.getContext("experimental-webgl");
-      let baseCtx = {};
-      if (rendererType === "threejs" || window.THREE || target.__three) {
-        baseCtx = getThreeJSContext(e, target);
-      } else if (gl) {
-        baseCtx = getWebGLContext(e, target) || {};
+      let canvasCtx = null;
+      if (isCanvas) {
+        const canvasBbox = target.getBoundingClientRect();
+        const gl = target.getContext("webgl") || target.getContext("webgl2") || target.getContext("experimental-webgl");
+        let baseCtx = {};
+        if (rendererType === "threejs" || window.THREE || target.__three) {
+          baseCtx = getThreeJSContext(e, target);
+        } else if (gl) {
+          baseCtx = getWebGLContext(e, target) || {};
+        }
+        canvasCtx = {
+          ...baseCtx,
+          hit_detail: baseCtx.hit_found ? baseCtx : null,
+          type: gl ? "webgl" : "canvas2d",
+          canvas_coords: { x: Math.round(clickX - canvasBbox.left), y: Math.round(clickY - canvasBbox.top) },
+          canvas_rect: {
+            x: Math.round(canvasBbox.x),
+            y: Math.round(canvasBbox.y),
+            width: Math.round(canvasBbox.width),
+            height: Math.round(canvasBbox.height),
+            top: Math.round(canvasBbox.top),
+            left: Math.round(canvasBbox.left)
+          },
+          scene_hint: (rendererType === "threejs" || window.THREE || target.__three) ? "Three.js Scene" : gl ? "WebGL Context" : "Canvas 2D Context",
+          pixel_ratio: window.devicePixelRatio || 1,
+          draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
+        };
+        
+        if (!domCtx.css_selector || domCtx.css_selector === "canvas" || domCtx.css_selector.split(" > ").pop() === "canvas") {
+          domCtx.css_selector = "visual-canvas-context";
+        }
       }
-      canvasCtx = {
-        ...baseCtx,
-        type: gl ? "webgl" : "canvas2d",
-        canvas_coords: { x: Math.round(clickX - canvasBbox.left), y: Math.round(clickY - canvasBbox.top) },
-        canvas_rect: {
-          x: Math.round(canvasBbox.x),
-          y: Math.round(canvasBbox.y),
-          width: Math.round(canvasBbox.width),
-          height: Math.round(canvasBbox.height),
-          top: Math.round(canvasBbox.top),
-          left: Math.round(canvasBbox.left)
-        },
-        scene_hint: (rendererType === "threejs" || window.THREE || target.__three) ? "Three.js Scene" : gl ? "WebGL Context" : "Canvas 2D Context",
-        pixel_ratio: window.devicePixelRatio || 1,
-        draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
-      };
+
+      // Call preventDefault and stopPropagation ONLY after pin data is captured
+      e.preventDefault();
+      e.stopPropagation();
+
+      const createdVia = isAlt ? "alt_click" : "agent";
       
-      try { screenshotDataUrl = target.toDataURL("image/png"); } catch (_) {}
+      // Build canonical payload
+      const payload = buildCapturePayload(e, target, canvasCtx);
+      payload.domsnapshot = domSnapshot;
+      payload.canvasdomsnapshot = canvasDomSnapshot;
+
+      // Initially set screenshot to pending
+      payload.screenshot.data_url = 'pending';
+      payload.screenshot.method = 'pending';
       
-      if (!domCtx.css_selector || domCtx.css_selector === "canvas" || domCtx.css_selector.split(" > ").pop() === "canvas") {
-        domCtx.css_selector = "visual-canvas-context";
-      }
-    } else {
-      screenshotDataUrl = await captureScreenshot(target);
+      payload.screenshot_data_url = 'pending';
+      payload.screenshotdataurl = 'pending';
+      payload.screenshottype = 'pending';
+      payload.screenshotttype = 'pending';
+      payload.screenshotsource = 'pending';
+      payload.screenshottimestamp = new Date().toISOString();
+      payload.screenshot_required = true;
+      payload.screenshotrequired = true;
+
+      const elapsed = (performance.now() - startMs).toFixed(0);
+      console.log(`[PixelMark Capture] payload ready in ${elapsed}ms`);
+
+      // Post message to parent to open feedback drawer (PART 4)
+      window.parent.postMessage({
+        type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
+        payload: payload,
+        
+        // Top-level fields for backwards compatibility
+        session_id: window.__PIXELMARK__.sessionId,
+        sessionid: window.__PIXELMARK__.sessionId,
+        page_url: getAbsoluteTargetUrl(),
+        pageurl: getAbsoluteTargetUrl(),
+        page_title: document.title,
+        pagetitle: document.title,
+        displayX: clickX,
+        displayY: clickY,
+        pageX: pageX,
+        pageY: pageY,
+        viewport_x: clickX,
+        viewport_y: clickY,
+
+        // Element context
+        element_selector: domCtx.css_selector || "",
+        element_text: domCtx.inner_text || "",
+        element_tag: domCtx.tag_name || "",
+        aria_label: domCtx.aria_label || null,
+        aria_role: domCtx.aria_role || null,
+        bounding_box: bbox,
+
+        // Issue type hint
+        issue_type_hint: issueTypeHint,
+
+        // DOM depth context
+        xpath: domCtx.xpath || "",
+        ...shadowCtx,
+
+        // Viewport + scroll
+        viewport: viewCtx.viewport,
+        scroll_position: viewCtx.scroll_position,
+        device_pixel_ratio: viewCtx.device_pixel_ratio,
+        color_scheme: viewCtx.color_scheme,
+
+        // Renderer
+        renderer_type: shadowCtx.is_inside_shadow_dom ? "shadow_dom" : rendererType,
+        canvas_context: canvasCtx,
+        norm_x: isCanvas && canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
+        norm_y: isCanvas && canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
+        canvas_snapshot: null,
+
+        // Screenshot
+        screenshot_data_url: payload.screenshot_data_url,
+        screenshotdataurl: payload.screenshotdataurl,
+        screenshottype: payload.screenshottype,
+        screenshotttype: payload.screenshotttype,
+        screenshotsource: payload.screenshotsource,
+        screenshottimestamp: payload.screenshottimestamp,
+        screenshot_required: payload.screenshot_required,
+        screenshotrequired: payload.screenshotrequired,
+
+        // Snapshots
+        domsnapshot: domSnapshot,
+        canvasdomsnapshot: canvasDomSnapshot,
+
+        // Diagnostics
+        console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
+        network_errors: window.__PIXELMARK__.networkErrors.slice(-10),
+
+        // Meta
+        browser_info: browserInfo,
+        created_via: createdVia,
+        agent_version: window.__PIXELMARK__.agentVersion,
+        timestamp: new Date().toISOString(),
+      }, "*");
+
+      // Decoupled screenshot: Trigger async capture in the background
+      setTimeout(() => {
+        getScreenshotData(target, rendererType).then((result) => {
+          window.parent.postMessage({
+            type: "PIXELMARK_UPDATE_SCREENSHOT",
+            id: payload.id,
+            screenshotdataurl: result.dataUrl,
+            screenshot_data_url: result.dataUrl,
+            screenshottype: result.strategy,
+            screenshotttype: result.strategy,
+            screenshotsource: result.strategy,
+            screenshottimestamp: result.timestamp,
+            canvasSnapshot: isCanvas ? result.dataUrl : null
+          }, "*");
+          console.log(`[PixelMark Capture] background screenshot completed: strategy=${result.strategy}`);
+        }).catch((err) => {
+          console.error("[PixelMark Capture] background screenshot failed:", err);
+          window.parent.postMessage({
+            type: "PIXELMARK_UPDATE_SCREENSHOT",
+            id: payload.id,
+            screenshotdataurl: null,
+            screenshot_data_url: null,
+            screenshottype: 'failed',
+            screenshotttype: 'failed',
+            screenshotsource: 'failed',
+            screenshottimestamp: new Date().toISOString(),
+            canvasSnapshot: null
+          }, "*");
+        });
+      }, 0);
+
+      // Do NOT trigger any overlay UI before the pin is stored
+      showClickConfirmation(clickX, clickY);
+
+      console.log(`[PixelMark Pins] created x=${clickX} y=${clickY} source=iframe`);
+      console.log("[PixelMark Pins] clicked id=" + payload.id);
+      console.log("[PixelMark Pins] drawer opened from pin id=" + payload.id);
+    } catch (err) {
+      console.error("[PixelMark Agent] handleFeedbackCapture error:", err);
     }
-
-    showClickConfirmation(clickX, clickY);
-
-    const createdVia = isAlt ? "alt_click" : "agent";
-    const payload = buildCapturePayload(e, target, canvasCtx);
-    
-    if (screenshotDataUrl) {
-      payload.screenshot.method = isCanvas ? 'toDataURL' : 'html2canvas';
-      payload.screenshot.data_url = screenshotDataUrl;
-    } else {
-      payload.screenshot.method = 'none';
-    }
-
-    
-    window.parent.postMessage({
-      type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
-      payload: payload,
-      
-      // Top-level fields for backwards compatibility
-      session_id: window.__PIXELMARK__.sessionId,
-      sessionid: window.__PIXELMARK__.sessionId,
-      page_url: getAbsoluteTargetUrl(),
-      pageurl: getAbsoluteTargetUrl(),
-      page_title: document.title,
-      pagetitle: document.title,
-      x: pageX,
-      y: pageY,
-      viewport_x: clickX,
-      viewport_y: clickY,
-
-      // Element context
-      element_selector: domCtx.css_selector || "",
-      element_text: domCtx.inner_text || "",
-      element_tag: domCtx.tag_name || "",
-      aria_label: domCtx.aria_label || null,
-      aria_role: domCtx.aria_role || null,
-      bounding_box: bbox,
-
-      // Issue type hint
-      issue_type_hint: issueTypeHint,
-
-      // DOM depth context
-      xpath: domCtx.xpath || "",
-      ...shadowCtx,
-
-      // Viewport + scroll
-      viewport: viewCtx.viewport,
-      scroll_position: viewCtx.scroll_position,
-      device_pixel_ratio: viewCtx.device_pixel_ratio,
-      color_scheme: viewCtx.color_scheme,
-
-      // Renderer
-      renderer_type: shadowCtx.is_inside_shadow_dom ? "shadow_dom" : rendererType,
-      canvas_context: canvasCtx,
-      norm_x: isCanvas && canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
-      norm_y: isCanvas && canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
-      canvas_snapshot: isCanvas ? screenshotDataUrl : null,
-
-      // Screenshot
-      screenshot_data_url: screenshotDataUrl,
-      screenshot_required: !!screenshotDataUrl,
-
-      // Diagnostics
-      console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
-      network_errors: window.__PIXELMARK__.networkErrors.slice(-10),
-
-      // Meta
-      browser_info: browserInfo,
-      created_via: createdVia,
-      agent_version: window.__PIXELMARK__.agentVersion,
-      timestamp: new Date().toISOString(),
-    }, "*");
   }
 
   window.__trackedPins = [];
@@ -1166,14 +1780,11 @@
       return pin.pageUrl === currentUrl;
     });
 
-    const currentScrollX = window.scrollX || 0;
-    const currentScrollY = window.scrollY || 0;
-
     const resolvedPins = pinsToResolve.map(pin => {
       let el = null;
       let resolved = false;
-      let pageX = null;
-      let pageY = null;
+      let clientX = null;
+      let clientY = null;
       let source = "none";
 
       if (pin.selector && pin.selector !== "visual-canvas-context") {
@@ -1195,9 +1806,27 @@
       if (el instanceof Element) {
         try {
           const rect = el.getBoundingClientRect();
-          // Calculate stable page coordinates: viewport rect + current scroll
-          pageX = rect.left + currentScrollX + rect.width / 2;
-          pageY = rect.top + currentScrollY + Math.min(16, rect.height / 2);
+          let relX = 0.5;
+          let relY = 0.5;
+
+          const bbox = pin.boundingBox;
+          if (bbox && bbox.width && bbox.height) {
+            const origLeft = bbox.left !== undefined ? bbox.left : bbox.x || 0;
+            const origTop = bbox.top !== undefined ? bbox.top : bbox.y || 0;
+            
+            const clickVx = pin.viewportX !== undefined ? pin.viewportX : (pin.click?.viewport_x !== undefined ? pin.click.viewport_x : (pin.click?.client_x !== undefined ? pin.click.client_x : null));
+            const clickVy = pin.viewportY !== undefined ? pin.viewportY : (pin.click?.viewport_y !== undefined ? pin.click.viewport_y : (pin.click?.client_y !== undefined ? pin.click.client_y : null));
+
+            if (typeof clickVx === 'number' && typeof clickVy === 'number' && !isNaN(clickVx) && !isNaN(clickVy)) {
+              relX = (clickVx - origLeft) / bbox.width;
+              relY = (clickVy - origTop) / bbox.height;
+              relX = Math.max(0, Math.min(1, relX));
+              relY = Math.max(0, Math.min(1, relY));
+            }
+          }
+
+          clientX = rect.left + relX * rect.width;
+          clientY = rect.top + relY * rect.height;
           resolved = true;
           source = "element";
         } catch (e) {
@@ -1213,26 +1842,42 @@
         const left = pin.boundingBox.left !== undefined ? pin.boundingBox.left : pin.boundingBox.x || 0;
         const top = pin.boundingBox.top !== undefined ? pin.boundingBox.top : pin.boundingBox.y || 0;
 
-        // Bounding box is viewport-relative at capture time. Subtract scroll context at capture time,
-        // then add current scroll (so pageX/pageY are absolute page coordinates)
-        pageX = left + captureScrollX + width / 2;
-        pageY = top + captureScrollY + Math.min(16, height / 2);
+        let relX = 0.5;
+        let relY = 0.5;
+        
+        const clickVx = pin.viewportX !== undefined ? pin.viewportX : (pin.click?.viewport_x !== undefined ? pin.click.viewport_x : (pin.click?.client_x !== undefined ? pin.click.client_x : null));
+        const clickVy = pin.viewportY !== undefined ? pin.viewportY : (pin.click?.viewport_y !== undefined ? pin.click.viewport_y : (pin.click?.client_y !== undefined ? pin.click.client_y : null));
+        
+        if (typeof clickVx === 'number' && typeof clickVy === 'number' && !isNaN(clickVx) && !isNaN(clickVy)) {
+          relX = (clickVx - left) / width;
+          relY = (clickVy - top) / height;
+          relX = Math.max(0, Math.min(1, relX));
+          relY = Math.max(0, Math.min(1, relY));
+        }
+
+        // Bounding box is viewport-relative at capture time. Subtract scroll delta to get current viewport position.
+        const deltaX = window.scrollX - captureScrollX;
+        const deltaY = window.scrollY - captureScrollY;
+        clientX = (left + relX * width) - deltaX;
+        clientY = (top + relY * height) - deltaY;
         resolved = true;
         source = "bbox";
       }
 
       if (!resolved) {
-        // Fallback to page coordinates
-        pageX = pin.x || 0;
-        pageY = pin.y || 0;
+        // Fallback using page coordinates (x/y in payload) and current scroll
+        const pageX = pin.x || 0;
+        const pageY = pin.y || 0;
+        clientX = pageX - window.scrollX;
+        clientY = pageY - window.scrollY;
         resolved = true;
         source = "pagexy";
       }
 
       return {
         id: pin.id,
-        pageX: Math.round(pageX),
-        pageY: Math.round(pageY),
+        clientX: Math.round(clientX),
+        clientY: Math.round(clientY),
         source: source
       };
     });
@@ -1262,7 +1907,7 @@
     pointerListenersAttached = true;
 
     document.addEventListener("pointerdown", (e) => {
-      if (e.altKey || feedbackModeActive) {
+      if (feedbackModeActive) {
         e.stopPropagation();
       }
     }, { passive: true, capture: true });
@@ -1281,8 +1926,6 @@
         y: e.clientY
       }, '*');
     }, { passive: true });
-
-    document.addEventListener("click", handleFeedbackCapture, true);
   }
 
   function attachListeners() {
@@ -1294,7 +1937,7 @@
         scrollY: window.scrollY
       }, '*');
       throttleResolvePins();
-    }, { passive: true });
+    }, { passive: true, capture: true });
 
     window.addEventListener('resize', () => {
       window.parent.postMessage({
@@ -1328,150 +1971,150 @@
     }
 
     attachPointerListeners();
+  }
 
-    window.addEventListener("message", (event) => {
-      const data = event.data;
-      if (!data || typeof data !== "object") return;
+  function handleParentMessage(event) {
+    const data = event.data;
+    if (!data || typeof data !== "object") return;
 
-      if (data.type === "PIXELMARK_TRACK_PINS") {
-        window.__trackedPins = data.pins || [];
-        resolveAndSendPins();
+    if (data.type === "PIXELMARK_TRACK_PINS") {
+      window.__trackedPins = data.pins || [];
+      resolveAndSendPins();
+    }
+
+    // ── Cursor relay — receive parent cursor position and re-emit as real events
+    if (data.type === "PIXELMARK_CURSOR_MOVE") {
+      if (typeof data.x === 'number' && typeof data.y === 'number') {
+        relayCursorEvent(data.x, data.y);
       }
+    }
 
-      // ── Cursor relay — receive parent cursor position and re-emit as real events
-      if (data.type === "PIXELMARK_CURSOR_MOVE") {
-        if (typeof data.x === 'number' && typeof data.y === 'number') {
-          relayCursorEvent(data.x, data.y);
-        }
+    if (data.type === "PIXELMARK_TOGGLE_MARKER_MODE") {
+      feedbackModeActive = !!data.active;
+      updateFeedbackModeUI();
+      if (feedbackModeActive) hoverInspector.start(); else hoverInspector.stop();
+    }
+
+    if (data.type === "PIXELMARK_SET_CONTEXT") {
+      if (data.sessionId) {
+        window.__PIXELMARK__.sessionId = data.sessionId;
+        window.PIXELMARK.sessionId = data.sessionId;
       }
-
-      if (data.type === "PIXELMARK_TOGGLE_MARKER_MODE") {
-        if (!isAgentReady) {
-          window.__pendingToggle = !!data.active;
-          return;
-        }
-        feedbackModeActive = !!data.active;
-        updateFeedbackModeUI();
-        if (feedbackModeActive) hoverInspector.start(); else hoverInspector.stop();
+      if (data.pageUrl) {
+        window.__PIXELMARK__.pageUrl = data.pageUrl;
+        window.PIXELMARK.pageUrl = data.pageUrl;
       }
+    }
 
-      if (data.type === "PIXELMARK_SET_CONTEXT") {
-        if (data.sessionId) {
-          window.__PIXELMARK__.sessionId = data.sessionId;
-          window.PIXELMARK.sessionId = data.sessionId;
-        }
-        if (data.pageUrl) {
-          window.__PIXELMARK__.pageUrl = data.pageUrl;
-          window.PIXELMARK.pageUrl = data.pageUrl;
-        }
-      }
-
-      if (data.type === "PIXELMARK_TRIGGER_FRAME_CAPTURE") {
-        (async () => {
-          const canvases = document.querySelectorAll("canvas");
-          let screenshotDataUrl = null;
-          let canvasCtx = null;
-          let target = document.body;
-          
-          if (canvases.length > 0) {
-            let largestCanvas = canvases[0];
-            let largestArea = largestCanvas.width * largestCanvas.height;
-            for (const c of canvases) {
-              const area = c.width * c.height;
-              if (area > largestArea) {
-                largestCanvas = c;
-                largestArea = area;
-              }
+    if (data.type === "PIXELMARK_TRIGGER_FRAME_CAPTURE") {
+      (async () => {
+        const canvases = document.querySelectorAll("canvas");
+        let screenshotDataUrl = null;
+        let canvasCtx = null;
+        let target = document.body;
+        
+        if (canvases.length > 0) {
+          let largestCanvas = canvases[0];
+          let largestArea = largestCanvas.width * largestCanvas.height;
+          for (const c of canvases) {
+            const area = c.width * c.height;
+            if (area > largestArea) {
+              largestCanvas = c;
+              largestArea = area;
             }
-            target = largestCanvas;
-            try { screenshotDataUrl = largestCanvas.toDataURL("image/png"); } catch (_) {}
-            
-            const bbox = largestCanvas.getBoundingClientRect();
-            const gl = largestCanvas.getContext("webgl") || largestCanvas.getContext("webgl2") || largestCanvas.getContext("experimental-webgl");
-            canvasCtx = {
-              type: gl ? "webgl" : "canvas2d",
-              canvas_coords: { x: Math.round(window.innerWidth / 2 - bbox.left), y: Math.round(window.innerHeight / 2 - bbox.top) },
-              canvas_rect: {
-                x: Math.round(bbox.x),
-                y: Math.round(bbox.y),
-                width: Math.round(bbox.width),
-                height: Math.round(bbox.height),
-                top: Math.round(bbox.top),
-                left: Math.round(bbox.left)
-              },
-              scene_hint: gl ? "WebGL Context" : "Canvas 2D Context",
-              pixel_ratio: window.devicePixelRatio || 1,
-              draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
-            };
-          } else {
-            screenshotDataUrl = await captureScreenshot(target);
           }
+          target = largestCanvas;
+          try { screenshotDataUrl = largestCanvas.toDataURL("image/png"); } catch (_) {}
           
-          const payload = {
-            id: crypto.randomUUID(),
-            session_id: window.__PIXELMARK__.sessionId,
-            pageurl: getAbsoluteTargetUrl(),
-            page_url: getAbsoluteTargetUrl(),
-            page_title: document.title,
-            created_via: "fallback",
-            click: { page_x: Math.round(window.innerWidth / 2 + window.scrollX), page_y: Math.round(window.innerHeight / 2 + window.scrollY), viewport_x: 0.5, viewport_y: 0.5, client_x: Math.round(window.innerWidth / 2), client_y: Math.round(window.innerHeight / 2) },
-            x: Math.round(window.innerWidth / 2 + window.scrollX),
-            y: Math.round(window.innerHeight / 2 + window.scrollY),
-            viewport_x: Math.round(window.innerWidth / 2),
-            viewport_y: Math.round(window.innerHeight / 2),
-            canvas_context: canvasCtx,
-            norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
-            norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
-            target: { xpath: "", css_selector: "visual-canvas-context", inner_text: "Captured Frame Viewport", tag_name: "CANVAS", element_id: null, class_list: [], is_visible: true, computed_role: null, aria_label: null, aria_role: null, placeholder: null },
-            bounding_box: getBoundingBox(target),
-            viewport_context: getViewportContext(),
-            shadow_context: { is_inside_shadow_dom: false, shadow_root_depth: 0, shadow_host_tag: null, shadow_host_id: null, shadow_host_class_list: null, shadow_path: null },
-            issue_type_hint: "canvas_webgl",
-            renderer_type: window.__PIXELMARK__.rendererType,
-            screenshot: { method: 'fallback', data_url: screenshotDataUrl },
-            diagnostics: { console_errors: window.__PIXELMARK__.consoleErrors.slice(), network_errors: window.__PIXELMARK__.networkErrors.slice(), browser: getBrowserInfo() },
+          const bbox = largestCanvas.getBoundingClientRect();
+          const gl = largestCanvas.getContext("webgl") || largestCanvas.getContext("webgl2") || largestCanvas.getContext("experimental-webgl");
+          canvasCtx = {
+            type: gl ? "webgl" : "canvas2d",
+            canvas_coords: { x: Math.round(window.innerWidth / 2 - bbox.left), y: Math.round(window.innerHeight / 2 - bbox.top) },
+            canvas_rect: {
+              x: Math.round(bbox.x),
+              y: Math.round(bbox.y),
+              width: Math.round(bbox.width),
+              height: Math.round(bbox.height),
+              top: Math.round(bbox.top),
+              left: Math.round(bbox.left)
+            },
+            scene_hint: gl ? "WebGL Context" : "Canvas 2D Context",
+            pixel_ratio: window.devicePixelRatio || 1,
+            draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
           };
+        } else {
+          screenshotDataUrl = await captureScreenshot(target);
+        }
+        
+        const payload = {
+          id: crypto.randomUUID(),
+          session_id: window.__PIXELMARK__.sessionId,
+          pageurl: getAbsoluteTargetUrl(),
+          page_url: getAbsoluteTargetUrl(),
+          page_title: document.title,
+          created_via: "fallback",
+          click: { page_x: Math.round(window.innerWidth / 2 + window.scrollX), page_y: Math.round(window.innerHeight / 2 + window.scrollY), viewport_x: 0.5, viewport_y: 0.5, client_x: Math.round(window.innerWidth / 2), client_y: Math.round(window.innerHeight / 2) },
+          displayX: Math.round(window.innerWidth / 2),
+            displayY: Math.round(window.innerHeight / 2),
+            pageX: Math.round(window.innerWidth / 2 + window.scrollX),
+            pageY: Math.round(window.innerHeight / 2 + window.scrollY),
+          viewport_x: Math.round(window.innerWidth / 2),
+          viewport_y: Math.round(window.innerHeight / 2),
+          canvas_context: canvasCtx,
+          norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
+          norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
+          target: { xpath: "", css_selector: "visual-canvas-context", inner_text: "Captured Frame Viewport", tag_name: "CANVAS", element_id: null, class_list: [], is_visible: true, computed_role: null, aria_label: null, aria_role: null, placeholder: null },
+          bounding_box: getBoundingBox(target),
+          viewport_context: getViewportContext(),
+          shadow_context: { is_inside_shadow_dom: false, shadow_root_depth: 0, shadow_host_tag: null, shadow_host_id: null, shadow_host_class_list: null, shadow_path: null },
+          issue_type_hint: "canvas_webgl",
+          renderer_type: window.__PIXELMARK__.rendererType,
+          screenshot: { method: 'fallback', data_url: screenshotDataUrl },
+          diagnostics: { console_errors: window.__PIXELMARK__.consoleErrors.slice(), network_errors: window.__PIXELMARK__.networkErrors.slice(), browser: getBrowserInfo() },
+        };
 
-          window.parent.postMessage({
-            type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
-            payload: payload,
-            session_id: window.__PIXELMARK__.sessionId,
-            sessionid: window.__PIXELMARK__.sessionId,
-            page_url: getAbsoluteTargetUrl(),
-            pageurl: getAbsoluteTargetUrl(),
-            page_title: document.title,
-            pagetitle: document.title,
-            x: Math.round(window.innerWidth / 2 + window.scrollX),
-            y: Math.round(window.innerHeight / 2 + window.scrollY),
-            viewport_x: Math.round(window.innerWidth / 2),
-            viewport_y: Math.round(window.innerHeight / 2),
-            element_selector: "visual-canvas-context",
-            element_text: "Captured Frame Viewport",
-            element_tag: "CANVAS",
-            aria_label: null,
-            aria_role: null,
-            bounding_box: getBoundingBox(target),
-            issue_type_hint: "canvas_webgl",
-            xpath: "",
-            viewport: getViewportContext().viewport,
-            scroll_position: getViewportContext().scroll_position,
-            renderer_type: window.__PIXELMARK__.rendererType,
-            canvas_context: canvasCtx,
-            norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
-            norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
-            canvas_snapshot: screenshotDataUrl,
-            screenshot_data_url: screenshotDataUrl,
-            screenshot_required: !!screenshotDataUrl,
-            console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
-            network_errors: window.__PIXELMARK__.networkErrors.slice(-10),
-            browser_info: getBrowserInfo(),
-            created_via: "fallback",
-            agent_version: window.__PIXELMARK__.agentVersion,
-            timestamp: new Date().toISOString(),
-          }, "*");
-        })();
-      }
-    });
+        window.parent.postMessage({
+          type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
+          payload: payload,
+          session_id: window.__PIXELMARK__.sessionId,
+          sessionid: window.__PIXELMARK__.sessionId,
+          page_url: getAbsoluteTargetUrl(),
+          pageurl: getAbsoluteTargetUrl(),
+          page_title: document.title,
+          pagetitle: document.title,
+          displayX: Math.round(window.innerWidth / 2),
+            displayY: Math.round(window.innerHeight / 2),
+            pageX: Math.round(window.innerWidth / 2 + window.scrollX),
+            pageY: Math.round(window.innerHeight / 2 + window.scrollY),
+          viewport_x: Math.round(window.innerWidth / 2),
+          viewport_y: Math.round(window.innerHeight / 2),
+          element_selector: "visual-canvas-context",
+          element_text: "Captured Frame Viewport",
+          element_tag: "CANVAS",
+          aria_label: null,
+          aria_role: null,
+          bounding_box: getBoundingBox(target),
+          issue_type_hint: "canvas_webgl",
+          xpath: "",
+          viewport: getViewportContext().viewport,
+          scroll_position: getViewportContext().scroll_position,
+          renderer_type: window.__PIXELMARK__.rendererType,
+          canvas_context: canvasCtx,
+          norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
+          norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
+          canvas_snapshot: screenshotDataUrl,
+          screenshot_data_url: screenshotDataUrl,
+          screenshot_required: !!screenshotDataUrl,
+          console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
+          network_errors: window.__PIXELMARK__.networkErrors.slice(-10),
+          browser_info: getBrowserInfo(),
+          created_via: "fallback",
+          agent_version: window.__PIXELMARK__.agentVersion,
+          timestamp: new Date().toISOString(),
+        }, "*");
+      })();
+    }
 
     window.addEventListener('pixelmark:navigation', (e) => {
       const logicalTargetUrl = e.detail?.logicalTargetUrl;
@@ -1642,6 +2285,8 @@
       pageurl: getAbsoluteTargetUrl(),
       title: document.title,
       rendererType: window.__PIXELMARK__.rendererType,
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
     }, "*");
 
     const currentRenderer = window.__PIXELMARK__.rendererType;
@@ -1686,6 +2331,12 @@
       }
     }, 1000);
   });
+
+  // ─── Immediate Event Listener Registration ──────────────────────────────
+  // We register both message and click capture listeners immediately upon script execution.
+  // This bypasses any delays from heavy-rendering detection or DOMContentLoaded.
+  document.addEventListener("click", handleFeedbackCapture, true);
+  window.addEventListener("message", handleParentMessage, false);
 
   // Dispatch layout events immediately on script injection
   dispatchLayoutEvents();

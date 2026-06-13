@@ -1,19 +1,36 @@
 export type CaptureStatus = 'draft' | 'submitted' | 'failed' | 'resolved' | 'archived'
 
 export type CapturePayload = {
+  // Direct Store Fields
   id: string
+  sessionId: string | null
+  pageUrl: string
+  displayX: number
+  displayY: number
+  pageX: number
+  pageY: number
+  bboxLeft: number | null
+  bboxTop: number | null
+  bboxWidth: number | null
+  bboxHeight: number | null
+  selector: string | null
+  xpath: string | null
+  issueType: string | null
+  note: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  visible: boolean
+  isNormalized?: boolean
+
+  // Compatibility fields
   status: CaptureStatus
   createdVia: string
   timestamp: string
-  sessionId: string | null
-  pageUrl: string
   pageTitle: string
   rendererType: string
   persistedId?: string | null
   renderedPosition?: { left: number; top: number; source: string } | null
-
-  issueTypeHint: string | null
-  issueType: string | null
   priority: string | null
   userComment: string
 
@@ -24,6 +41,9 @@ export type CapturePayload = {
     viewportY: number | null
     normX: number | null
     normY: number | null
+    displayX?: number | null
+    displayY?: number | null
+    isNormalized?: boolean
   }
 
   target: {
@@ -85,6 +105,128 @@ export type CapturePayload = {
   canvasContext: Record<string, any> | null
   agentVersion: string | null
   submissionError: string | null
+
+  domsnapshot?: Record<string, any> | null
+  canvasdomsnapshot?: Record<string, any> | null
+  screenshottype?: string | null
+  screenshotttype?: string | null
+  screenshotsource?: string | null
+  screenshottimestamp?: string | null
+  screenshotdataurl?: string | null
+  screenshotrequired?: boolean
+}
+
+export function normalizeMarkerCoordinates(eventOrPayload: any): {
+  displayX: number
+  displayY: number
+  pageX: number
+  pageY: number
+  source: string
+} {
+  console.log('[Markers] normalizeMarkerCoordinates raw input:', eventOrPayload)
+
+  let displayX = 0
+  let displayY = 0
+  let pageX = 0
+  let pageY = 0
+  let source = 'unknown'
+
+  // 1. Check if it's a DOM click event (MouseEvent) or looks like one
+  const isDomEvent = eventOrPayload && (
+    typeof eventOrPayload.clientX === 'number' && 
+    typeof eventOrPayload.clientY === 'number'
+  )
+
+  if (isDomEvent) {
+    const clientX = eventOrPayload.clientX
+    const clientY = eventOrPayload.clientY
+    
+    // Check if target is iframe element
+    const target = eventOrPayload.target
+    const isIframeTarget = target && target.tagName === 'IFRAME'
+
+    if (isIframeTarget) {
+      const rect = target.getBoundingClientRect()
+      displayX = clientX + rect.left
+      displayY = clientY + rect.top
+      source = 'iframe_dom_event_translated'
+    } else {
+      displayX = clientX
+      displayY = clientY
+      source = 'viewport_dom_event'
+    }
+
+    pageX = eventOrPayload.pageX ?? (clientX + (typeof window !== 'undefined' ? window.scrollX : 0))
+    pageY = eventOrPayload.pageY ?? (clientY + (typeof window !== 'undefined' ? window.scrollY : 0))
+  } else {
+    // 2. It's a prebuilt payload
+    const p = eventOrPayload || {}
+    
+    const createdVia = p.createdVia || p.createdvia || p.created_via || ''
+    const isFromIframe = createdVia === 'agent' || createdVia === 'alt_click' || createdVia === 'alt-click' || createdVia === 'feedback-mode'
+    
+    const alreadyNormalized = p.isNormalized || p.coordinates?.isNormalized || p.status === 'submitted' || p.status === 'resolved' || !!p.persistedId || !!p.persisted_id
+
+    // Extract client/viewport X/Y
+    let clientX = p.displayX ?? p.display_x ?? p.click?.client_x ?? p.click?.viewport_x ?? p.click?.viewportX ?? p.coordinates?.viewportX ?? p.coordinates?.displayX ?? null
+    let clientY = p.displayY ?? p.display_y ?? p.click?.client_y ?? p.click?.viewport_y ?? p.click?.viewportY ?? p.coordinates?.viewportY ?? p.coordinates?.displayY ?? null
+
+    // Fallbacks if displayX/displayY or viewport coordinates are missing but page coordinates exist
+    if (clientX === null || clientY === null) {
+      const pgX = p.pageX ?? p.page_x ?? p.x ?? p.click?.page_x ?? p.coordinates?.pageX ?? 0
+      const pgY = p.pageY ?? p.page_y ?? p.y ?? p.click?.page_y ?? p.coordinates?.pageY ?? 0
+      const scrollX = p.viewport?.scrollX ?? p.scroll_position?.x ?? 0
+      const scrollY = p.viewport?.scrollY ?? p.scroll_position?.y ?? 0
+      clientX = pgX - scrollX
+      clientY = pgY - scrollY
+      source = 'page_scroll_fallback'
+    } else {
+      source = 'prebuilt_payload'
+    }
+
+    if (isFromIframe && !alreadyNormalized) {
+      // Translate once into parent viewport coordinates using the iframe element's rect
+      let iframeLeft = 0
+      let iframeTop = 0
+      if (typeof document !== 'undefined') {
+        const iframe = document.querySelector('iframe')
+        if (iframe) {
+          const rect = iframe.getBoundingClientRect()
+          iframeLeft = rect.left
+          iframeTop = rect.top
+        }
+      }
+      displayX = clientX + iframeLeft
+      displayY = clientY + iframeTop
+      source = 'iframe_payload_translated'
+    } else {
+      displayX = clientX
+      displayY = clientY
+      if (alreadyNormalized) {
+        source = 'already_normalized'
+      }
+    }
+
+    pageX = p.pageX ?? p.page_x ?? p.click?.page_x ?? p.coordinates?.pageX ?? (displayX + (typeof window !== 'undefined' ? window.scrollX : 0))
+    pageY = p.pageY ?? p.page_y ?? p.click?.page_y ?? p.coordinates?.pageY ?? (displayY + (typeof window !== 'undefined' ? window.scrollY : 0))
+  }
+
+  // Clamp to parent window viewport bounds
+  if (typeof window !== 'undefined') {
+    displayX = Math.max(0, Math.min(window.innerWidth, displayX))
+    displayY = Math.max(0, Math.min(window.innerHeight, displayY))
+  }
+
+  const output = {
+    displayX: Math.round(displayX),
+    displayY: Math.round(displayY),
+    pageX: Math.round(pageX),
+    pageY: Math.round(pageY),
+    source
+  }
+
+  console.log('[Markers] normalizeMarkerCoordinates final output:', output)
+  return output
 }
 
 export function normalizeCapturePayload(raw: any): CapturePayload {
@@ -100,9 +242,8 @@ export function normalizeCapturePayload(raw: any): CapturePayload {
   }
 
   const id = typeof raw.id === 'string' ? raw.id : generateId()
-  const status: CaptureStatus = ['draft', 'submitted', 'failed'].includes(raw.status) ? raw.status : 'draft'
+  const status: CaptureStatus = ['draft', 'submitted', 'failed', 'resolved', 'archived'].includes(raw.status) ? raw.status : 'draft'
 
-  // Resolve pageUrl: prefer logical URL
   let pageUrl = raw.pageUrl || raw.pageurl || raw.page_url || ''
   if (pageUrl && pageUrl.includes('/proxy/session/')) {
     try {
@@ -112,36 +253,61 @@ export function normalizeCapturePayload(raw: any): CapturePayload {
         pageUrl = decodeURIComponent(targetQuery)
       }
     } catch (e) {
-      // Ignore URL parsing errors
+      // Ignore
     }
   }
 
+  // Run coordinates normalization
+  const stable = normalizeMarkerCoordinates(raw)
+
   const singleScreenshot = raw.screenshotdataurl || raw.screenshotDataUrl || raw.screenshot_data_url || null
 
+  const commentValue = raw.note ?? raw.userComment ?? raw.usercomment ?? raw.user_comment ?? raw.comment ?? ''
+
   return {
+    // Direct Store Fields
     id,
-    status,
-    createdVia: raw.createdVia || raw.createdvia || raw.created_via || 'unknown',
-    timestamp: raw.timestamp || new Date().toISOString(),
     sessionId: raw.sessionId || raw.sessionid || raw.session_id || null,
     pageUrl,
+    displayX: stable.displayX,
+    displayY: stable.displayY,
+    pageX: stable.pageX,
+    pageY: stable.pageY,
+    bboxLeft: raw.bboxLeft ?? raw.boundingBox?.left ?? raw.boundingBox?.x ?? null,
+    bboxTop: raw.bboxTop ?? raw.boundingBox?.top ?? raw.boundingBox?.y ?? null,
+    bboxWidth: raw.bboxWidth ?? raw.boundingBox?.width ?? null,
+    bboxHeight: raw.bboxHeight ?? raw.boundingBox?.height ?? null,
+    selector: raw.selector ?? raw.target?.selector ?? raw.elementSelector ?? raw.elementselector ?? raw.element_selector ?? null,
+    xpath: raw.xpath ?? raw.target?.xpath ?? null,
+    issueType: raw.issueType ?? raw.issuetype ?? raw.issue_type ?? raw.issueTypeHint ?? raw.issue_type_hint ?? null,
+    note: commentValue,
+    createdAt: raw.createdAt ?? raw.timestamp ?? raw.createdat ?? raw.created_at ?? new Date().toISOString(),
+    updatedAt: raw.updatedAt ?? raw.updatedat ?? raw.updated_at ?? new Date().toISOString(),
+    deletedAt: raw.deletedAt ?? raw.deletedat ?? raw.deleted_at ?? null,
+    visible: raw.visible ?? (raw.deletedAt || raw.deletedat || raw.deleted_at ? false : true),
+    isNormalized: true,
+
+    // Compatibility fields
+    status,
+    createdVia: raw.createdVia || raw.createdvia || raw.created_via || 'unknown',
+    timestamp: raw.timestamp || raw.createdAt || raw.createdat || raw.created_at || new Date().toISOString(),
     pageTitle: raw.pageTitle || raw.pagetitle || raw.page_title || '',
     rendererType: raw.rendererType || raw.renderertype || raw.renderer_type || 'dom',
     persistedId: raw.persistedId || raw.persistedid || raw.persisted_id || (status === 'submitted' || raw.persistedId ? id : null),
     renderedPosition: raw.renderedPosition || raw.renderedposition || raw.rendered_position || null,
-
-    issueTypeHint: raw.issueTypeHint || raw.issuetypehint || raw.issue_type_hint || null,
-    issueType: raw.issueType || raw.issuetype || raw.issue_type || raw.issueTypeHint || raw.issuetypehint || raw.issue_type_hint || null,
     priority: raw.priority || 'medium',
-    userComment: raw.userComment || raw.usercomment || raw.user_comment || '',
+    userComment: commentValue,
 
     coordinates: {
-      pageX: raw.coordinates?.pageX ?? raw.pageX ?? raw.x ?? raw.click?.page_x ?? raw.click?.pageX ?? null,
-      pageY: raw.coordinates?.pageY ?? raw.pageY ?? raw.y ?? raw.click?.page_y ?? raw.click?.pageY ?? null,
-      viewportX: raw.coordinates?.viewportX ?? raw.viewportX ?? raw.viewportx ?? raw.viewport_x ?? raw.click?.client_x ?? raw.click?.viewport_x ?? raw.click?.viewportX ?? null,
-      viewportY: raw.coordinates?.viewportY ?? raw.viewportY ?? raw.viewporty ?? raw.viewport_y ?? raw.click?.client_y ?? raw.click?.viewport_y ?? raw.click?.viewportY ?? null,
-      normX: raw.coordinates?.normX ?? raw.normX ?? raw.normx ?? raw.norm_x ?? raw.click?.norm_x ?? raw.click?.normX ?? null,
-      normY: raw.coordinates?.normY ?? raw.normY ?? raw.normy ?? raw.norm_y ?? raw.click?.norm_y ?? raw.click?.normY ?? null,
+      pageX: stable.pageX,
+      pageY: stable.pageY,
+      viewportX: stable.displayX,
+      viewportY: stable.displayY,
+      normX: raw.coordinates?.normX ?? raw.normX ?? raw.normx ?? raw.norm_x ?? null,
+      normY: raw.coordinates?.normY ?? raw.normY ?? raw.normy ?? raw.norm_y ?? null,
+      displayX: stable.displayX,
+      displayY: stable.displayY,
+      isNormalized: true,
     },
 
     target: {
@@ -182,17 +348,41 @@ export function normalizeCapturePayload(raw: any): CapturePayload {
     },
 
     viewport: {
-      width: raw.viewport?.width ?? (raw.viewport?.width) ?? null,
-      height: raw.viewport?.height ?? (raw.viewport?.height) ?? null,
-      devicePixelRatio: raw.viewport?.devicePixelRatio ?? raw.devicePixelRatio ?? raw.devicepixelratio ?? raw.device_pixel_ratio ?? null,
-      scrollX: raw.viewport?.scrollX ?? raw.scrollX ?? raw.scrollx ?? raw.scroll_x ?? raw.scrollPosition?.x ?? raw.scroll_position?.x ?? null,
-      scrollY: raw.viewport?.scrollY ?? raw.scrollY ?? raw.scrolly ?? raw.scroll_y ?? raw.scrollPosition?.y ?? raw.scroll_position?.y ?? null,
+      width: raw.viewport?.width ?? null,
+      height: raw.viewport?.height ?? null,
+      devicePixelRatio: raw.viewport?.devicePixelRatio ?? raw.devicepixelratio ?? raw.device_pixel_ratio ?? null,
+      scrollX: raw.viewport?.scrollX ?? raw.viewport?.scroll_position?.x ?? raw.viewport_context?.scroll_position?.x ?? raw.scrollx ?? raw.scroll_x ?? raw.scrollPosition?.x ?? raw.scroll_position?.x ?? null,
+      scrollY: raw.viewport?.scrollY ?? raw.viewport?.scroll_position?.y ?? raw.viewport_context?.scroll_position?.y ?? raw.scrolly ?? raw.scroll_y ?? raw.scrollPosition?.y ?? raw.scroll_position?.y ?? null,
       colorScheme: raw.viewport?.colorScheme ?? raw.colorScheme ?? raw.colorscheme ?? raw.color_scheme ?? null,
-      touchSupport: raw.viewport?.touchSupport ?? raw.touchSupport ?? null,
+      touchSupport: raw.viewport?.touchSupport ?? null,
     },
 
-    canvasContext: raw.canvasContext || raw.canvascontext || raw.canvas_context || raw.click?.canvas_context || raw.click?.canvasContext || null,
+    canvasContext: (() => {
+      let ctx = raw.canvasContext || raw.canvascontext || raw.canvas_context || raw.click?.canvas_context || raw.click?.canvasContext || null
+      if (ctx && typeof ctx === 'object') {
+        if (!ctx.hit_detail && (ctx.object_name || ctx.objectName || ctx.distance !== undefined)) {
+          ctx = {
+            ...ctx,
+            hit_detail: {
+              object_name: ctx.object_name || ctx.objectName || null,
+              object_type: ctx.object_type || ctx.objectType || null,
+              distance: ctx.distance !== undefined ? ctx.distance : null,
+            }
+          }
+        }
+      }
+      return ctx
+    })(),
     agentVersion: raw.agentVersion || raw.agentversion || raw.agent_version || null,
     submissionError: raw.submissionError || raw.submissionerror || raw.submission_error || null,
+
+    domsnapshot: raw.domsnapshot || raw.domSnapshot || raw.dom_snapshot || null,
+    canvasdomsnapshot: raw.canvasdomsnapshot || raw.canvasDomSnapshot || raw.canvas_dom_snapshot || null,
+    screenshottype: raw.screenshottype || raw.screenshotType || raw.screenshot_type || raw.screenshotttype || raw.screenshotsource || null,
+    screenshotttype: raw.screenshotttype || raw.screenshottype || raw.screenshotType || raw.screenshot_type || raw.screenshotsource || null,
+    screenshotsource: raw.screenshotsource || raw.screenshottype || raw.screenshotttype || null,
+    screenshottimestamp: raw.screenshottimestamp || raw.screenshotTimestamp || raw.screenshot_timestamp || null,
+    screenshotdataurl: raw.screenshotdataurl || raw.screenshotDataUrl || raw.screenshot_data_url || raw.screenshots?.cropDataUrl || null,
+    screenshotrequired: raw.screenshotrequired ?? raw.screenshot_required ?? raw.screenshots?.screenshotRequired ?? false,
   }
 }
