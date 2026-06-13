@@ -187,6 +187,11 @@ export function AuditSurface({
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [showElementPreview, setShowElementPreview] = useState(true)
   
+  // Phase 4 Feedback drawer state extensions
+  const [issueTitle, setIssueTitle] = useState('')
+  const [tags, setTags] = useState('')
+  const [isListSidebarOpen, setIsListSidebarOpen] = useState(projectId === 'public')
+  
   // Collapsible Evidence Panel States (Phase 3.5 Upgrade)
   const [screenshotPanelExpanded, setScreenshotPanelExpanded] = useState(true)
   const [imgErrorId, setImgErrorId] = useState<string | null>(null)
@@ -335,10 +340,14 @@ export function AuditSurface({
         setNoteText(capture.userComment || '')
         setIssueType((capture.issueType || 'other') as IssueType)
         setSeverity((capture.priority || 'medium') as Severity)
+        setIssueTitle(capture.title || '')
+        setTags(capture.tags || '')
       }
     } else {
       setCaptureCtx(null)
       setNoteText('')
+      setIssueTitle('')
+      setTags('')
       setIssueType('other')
       setSeverity('medium')
     }
@@ -486,20 +495,20 @@ export function AuditSurface({
   }, [sessionId, projectId])
 
   useEffect(() => {
-    if (!currentUrl || !sessionId) return
+    if (!sessionId) return
 
-    console.log(`[PixelMark Hydration] loading feedback for ${currentUrl}`)
+    console.log(`[PixelMark Hydration] loading all session feedback`)
     
-    api.feedback.list(sessionId, currentUrl, shareToken)
+    api.feedback.list(sessionId, undefined, shareToken)
       .then((data) => {
         const items = data.items || []
-        console.log(`[PixelMark Hydration] loaded ${items.length} items`)
+        console.log(`[PixelMark Hydration] loaded all ${items.length} session items`)
         useCaptureStore.getState().hydratePersistedFeedback(items)
       })
       .catch((err) => {
-        console.error('[PixelMark Hydration] failed to load feedback:', err)
+        console.error('[PixelMark Hydration] failed to load all session feedback:', err)
       })
-  }, [currentUrl, sessionId, shareToken])
+  }, [sessionId, shareToken])
 
   const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
   const proxyUrl = `${API_BASE}/proxy/session/${sessionId}${shareToken ? `?share_token=${shareToken}` : ''}`
@@ -829,6 +838,10 @@ export function AuditSurface({
         // ── Open specific existing capture ────────────────────────────────
         case 'PIXELMARK_OPEN_CAPTURE': {
           if (data.id) {
+            if (data.pageUrl && data.pageUrl !== currentUrl) {
+              handleSelectPage(data.pageUrl)
+            }
+            useCaptureStore.getState().selectCapture(data.id)
             useCaptureStore.getState().openFeedbackDrawer(data.id)
           }
           break
@@ -858,26 +871,40 @@ export function AuditSurface({
       window.removeEventListener('message', handleAgentMessage)
       window.removeEventListener('PIXELMARKOPENFEEDBACKDRAWER', handleCustomOpen)
     }
-  }, [sessionId, projectId, shareToken, onMarkerCreated, onPageChanged, openFeedbackDrawer])
+  }, [sessionId, projectId, shareToken, onMarkerCreated, onPageChanged, openFeedbackDrawer, currentUrl, handleSelectPage])
 
   useEffect(() => {
     if (isLoading || !iframeRef.current?.contentWindow) return
 
-    const pins = captures.map(c => ({
-      id: c.id,
-      selector: c.target?.selector,
-      xpath: c.target?.xpath,
-      boundingBox: c.boundingBox,
-      x: c.coordinates?.pageX ?? 0,
-      y: c.coordinates?.pageY ?? 0,
-      viewportX: c.coordinates?.viewportX,
-      viewportY: c.coordinates?.viewportY,
-      scrollPosition: {
-        x: c.viewport?.scrollX,
-        y: c.viewport?.scrollY
-      },
-      pageUrl: c.pageUrl
-    }))
+    const iframeRect = iframeRef.current.getBoundingClientRect()
+    const iframeLeft = iframeRect.left
+    const iframeTop = iframeRect.top
+
+    const pins = captures.map(c => {
+      const viewportX = c.coordinates?.clientX ?? (c.coordinates?.viewportX ? c.coordinates.viewportX - iframeLeft : 0)
+      const viewportY = c.coordinates?.clientY ?? (c.coordinates?.viewportY ? c.coordinates.viewportY - iframeTop : 0)
+      
+      const capScrollX = c.viewport?.scrollX ?? 0
+      const capScrollY = c.viewport?.scrollY ?? 0
+      const pageX = viewportX + capScrollX
+      const pageY = viewportY + capScrollY
+
+      return {
+        id: c.id,
+        selector: c.target?.selector,
+        xpath: c.target?.xpath,
+        boundingBox: c.boundingBox,
+        x: pageX,
+        y: pageY,
+        viewportX,
+        viewportY,
+        scrollPosition: {
+          x: capScrollX,
+          y: capScrollY
+        },
+        pageUrl: c.pageUrl
+      }
+    })
 
     console.log(`[PixelMark Pin] tracking ${pins.length} pins`)
     iframeRef.current.contentWindow.postMessage({
@@ -1038,6 +1065,12 @@ export function AuditSurface({
     setIsSubmitting(true)
     setSubmitError(null)
 
+    if (!issueTitle.trim()) {
+      setSubmitError("Issue Title is required.")
+      setIsSubmitting(false)
+      return
+    }
+
     const ctx = captureCtx
     const activeId = selectedCaptureId
 
@@ -1049,6 +1082,8 @@ export function AuditSurface({
           comment: noteText.trim(),
           issuetype: issueType,
           priority: severity,
+          title: issueTitle.trim(),
+          description: noteText.trim(),
         }
         console.log('[PixelMark Submit] updating feedback payload:', patch)
         const updated = await api.feedback.update(sessionId, activeId, patch, shareToken)
@@ -1066,6 +1101,8 @@ export function AuditSurface({
           issueType: updated.issuetype,
           priority: updated.priority,
           comment: updated.comment,
+          title: updated.title,
+          description: updated.description,
           ...updated.capturepayload,
         })
         
@@ -1092,11 +1129,16 @@ export function AuditSurface({
           comment: noteText.trim(),
           renderertype: currentCapture.rendererType || rendererType || 'dom',
           createdvia: currentCapture.createdVia || 'manual',
+          title: issueTitle.trim(),
+          description: noteText.trim(),
           capturepayload: {
             ...currentCapture,
             userComment: noteText.trim(),
             priority: severity,
             issueType: issueType,
+            title: issueTitle.trim(),
+            description: noteText.trim(),
+            tags: tags.trim(),
           },
           share_token: shareToken || null,
         }
@@ -1117,6 +1159,8 @@ export function AuditSurface({
           issueType: created.issuetype,
           priority: created.priority,
           comment: created.comment,
+          title: created.title,
+          description: created.description,
           ...created.capturepayload,
         })
 
@@ -1133,6 +1177,8 @@ export function AuditSurface({
           setIsDrawerOpen(false)
           setCaptureCtx(null)
           setNoteText('')
+          setIssueTitle('')
+          setTags('')
           setSeverity('medium')
           setIssueType('other')
           setSubmitSuccess(false)
@@ -1166,6 +1212,147 @@ export function AuditSurface({
         onCancel={handleRegionCancel} 
       />
 
+      {/* ── Left Sidebar: Collapsible Session Feedback List ── */}
+      {projectId === 'public' && isListSidebarOpen && (
+        <div className="w-80 h-full border-r border-white/5 bg-[#0d0d14] flex flex-col flex-shrink-0 z-30 select-none animate-in slide-in-from-left duration-300">
+          {/* Sidebar Header */}
+          <div className="p-4 border-b border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
+                <Layers className="w-3.5 h-3.5 text-purple-400" />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-widest text-white">Feedback Feed</h3>
+              <span className="px-1.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[8px] font-black text-purple-400 font-mono">
+                {captures.filter(c => !c.deletedAt && c.visible !== false).length}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsListSidebarOpen(false)}
+              className="p-1 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-all focus:outline-none"
+              title="Close sidebar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Sidebar Feed List */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            {captures.filter(c => !c.deletedAt && c.visible !== false).length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center">
+                  <Pin className="w-5 h-5 text-white/20" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/30">No feedback submitted yet</p>
+                <p className="text-[9px] text-white/20 max-w-[180px] leading-relaxed">Drop a pin or click Leave Feedback above to start.</p>
+              </div>
+            ) : (
+              captures
+                .filter(c => !c.deletedAt && c.visible !== false)
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .map((item, idx) => {
+                  const isSelected = selectedCaptureId === item.id
+                  const isSubmitted = item.status === 'submitted'
+                  const isResolved = item.status === 'resolved'
+                  const isFailed = item.status === 'failed'
+                  
+                  const markerNumber = captureOrder.indexOf(item.id) + 1
+                  
+                  // Extract path from pageUrl
+                  let pathname = '/'
+                  try {
+                    const parsed = new URL(item.pageUrl)
+                    pathname = parsed.pathname + parsed.search
+                  } catch (e) {
+                    pathname = item.pageUrl
+                  }
+
+                  const screenshotUrl = item.screenshotdataurl || item.screenshots?.cropDataUrl || item.screenshots?.fullPageDataUrl
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={async () => {
+                        // If it's a different page, navigate iframe first
+                        if (item.pageUrl && item.pageUrl !== currentUrl) {
+                          handleSelectPage(item.pageUrl)
+                        }
+                        useCaptureStore.getState().selectCapture(item.id)
+                        useCaptureStore.getState().openFeedbackDrawer(item.id)
+                      }}
+                      className={cn(
+                        "w-full text-left p-3.5 rounded-2xl border transition-all flex flex-col gap-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500",
+                        isSelected
+                          ? "bg-purple-950/20 border-purple-500/40 shadow-lg shadow-purple-950/20"
+                          : "bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.08]"
+                      )}
+                    >
+                      {/* Top metadata row */}
+                      <div className="flex items-start justify-between gap-2 w-full">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className={cn(
+                            "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0",
+                            isFailed ? "bg-rose-500" : isResolved ? "bg-green-500" : isSubmitted ? "bg-teal-500" : "bg-purple-600"
+                          )}>
+                            {markerNumber || idx + 1}
+                          </span>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-white truncate max-w-[120px]">
+                            {item.title || 'Untitled Feedback'}
+                          </span>
+                        </div>
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider flex-shrink-0",
+                          item.issueType === 'layout' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                          item.issueType === 'copy' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                          item.issueType === 'interaction' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                          item.issueType === 'navigation' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                          item.issueType === 'rendering' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                          'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                        )}>
+                          {item.issueType || 'Other'}
+                        </span>
+                      </div>
+
+                      {/* Comment description */}
+                      {item.note && (
+                        <p className="text-[10px] text-white/50 line-clamp-2 leading-relaxed">
+                          {item.note}
+                        </p>
+                      )}
+
+                      {/* Bottom row: screenshot indicator, route, time */}
+                      <div className="flex items-center justify-between gap-2 text-[8px] font-bold uppercase tracking-widest text-white/30 mt-1">
+                        <div className="flex items-center gap-1.5 truncate">
+                          {screenshotUrl ? (
+                            <svg className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                          ) : (
+                            <svg className="w-3.5 h-3.5 text-white/10 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                          )}
+                          <span className="truncate max-w-[90px] font-mono" title={item.pageUrl}>
+                            {pathname}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <span className={cn(
+                            "w-1 h-1 rounded-full",
+                            item.priority === 'critical' ? 'bg-rose-500' :
+                            item.priority === 'high' ? 'bg-orange-500' :
+                            item.priority === 'medium' ? 'bg-purple-500' :
+                            'bg-blue-500'
+                          )} />
+                          <span>{item.priority || 'medium'}</span>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Left: Audit Surface ──────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
 
@@ -1174,6 +1361,21 @@ export function AuditSurface({
 
           {/* Left: back + URL */}
           <div className="flex items-center gap-3 min-w-0">
+            {projectId === 'public' && (
+              <button
+                type="button"
+                onClick={() => setIsListSidebarOpen(p => !p)}
+                title="Toggle Feedback Feed"
+                className={cn(
+                  "p-1.5 rounded-xl border transition-all flex-shrink-0 focus:ring-2 focus:ring-purple-500 focus:outline-none",
+                  isListSidebarOpen 
+                    ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
+                    : "bg-white/[0.03] border-white/5 text-white/60 hover:bg-white/5 hover:text-white"
+                )}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+              </button>
+            )}
             <button
               onClick={handleGoBack}
               disabled={pageHistory.length <= 1}
@@ -1220,9 +1422,24 @@ export function AuditSurface({
               }}
               className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-4 flex items-center gap-1.5 transition-all border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
               Take Screenshot
             </button>
+
+            {/* ── Enable Screen Capture (recovery CTA when permission not granted) ── */}
+            {screenshotPermission !== 'granted' && (
+              <button
+                id="enable-screen-capture-btn"
+                aria-label="Enable screen capture"
+                onClick={() => {
+                  useScreenshotStore.getState().setPermission('pending');
+                }}
+                className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-4 flex items-center gap-1.5 transition-all border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 active:scale-95 focus:ring-2 focus:ring-amber-400 focus:outline-none"
+              >
+                <Zap className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                Enable Captures
+              </button>
+            )}
 
             {/* ── PRIMARY CTA: Leave Feedback ────────────────────────────── */}
             <button
@@ -1753,8 +1970,19 @@ export function AuditSurface({
                       )
                     } else {
                       return (
-                        <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-2xl min-h-[80px]">
+                        <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-2xl min-h-[100px] gap-3">
                           <span className="text-[9px] font-black uppercase tracking-widest text-white/30">Screenshot unavailable</span>
+                          {screenshotPermission !== 'granted' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                useScreenshotStore.getState().setPermission('pending')
+                              }}
+                              className="text-[8.5px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-all focus:ring-2 focus:ring-purple-400 focus:outline-none"
+                            >
+                              Enable Screen Capture
+                            </button>
+                          )}
                         </div>
                       )
                     }
@@ -2012,6 +2240,22 @@ export function AuditSurface({
               )}
             </div>
 
+            {/* ── Issue Title ─────────────────────────────────────────── */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
+                Issue Title <span className="text-purple-400">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                disabled={isResolved}
+                placeholder="e.g. Navigation overlaps logo, Button hover broken"
+                value={issueTitle}
+                onChange={(e) => setIssueTitle(e.target.value)}
+                className="w-full h-11 bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+
             {/* ── Issue Type picker ───────────────────────────────────── */}
             <div className="space-y-2.5">
               <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
@@ -2052,10 +2296,11 @@ export function AuditSurface({
               </label>
               <textarea
                 rows={4}
+                disabled={isResolved}
                 placeholder="What's wrong here? e.g. 'Button doesn't respond on mobile', 'Text overlaps the image'…"
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 p-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none resize-none leading-relaxed transition-all"
+                className="w-full bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 p-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -2067,10 +2312,11 @@ export function AuditSurface({
                   <button
                     key={s}
                     type="button"
+                    disabled={isResolved}
                     aria-pressed={severity === s}
                     onClick={() => setSeverity(s)}
                     className={cn(
-                      "h-8 rounded-xl font-bold text-[8px] uppercase tracking-widest border transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none",
+                      "h-8 rounded-xl font-bold text-[8px] uppercase tracking-widest border transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
                       severity === s
                         ? s === 'critical' ? 'bg-rose-600 border-rose-500 text-white shadow-lg' :
                           s === 'high' ? 'bg-orange-600 border-orange-500 text-white shadow-lg' :
@@ -2083,6 +2329,21 @@ export function AuditSurface({
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* ── Optional Tags ────────────────────────────────────────── */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
+                Tags <span className="text-white/25">(optional, comma-separated)</span>
+              </label>
+              <input
+                type="text"
+                disabled={isResolved}
+                placeholder="e.g. mobile, bug, layout"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                className="w-full h-11 bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              />
             </div>
 
             {/* ── Coordinates (read-only) ──────────────────────────────── */}

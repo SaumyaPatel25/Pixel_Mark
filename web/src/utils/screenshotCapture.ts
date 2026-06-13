@@ -21,8 +21,12 @@ export async function initScreenshotCapture(): Promise<MediaStream | null> {
       preferCurrentTab: true,
     });
     return stream;
-  } catch (error) {
-    console.error('[Screen Capture] Failed to initialize stream:', error);
+  } catch (error: any) {
+    if (error && error.name === 'NotAllowedError') {
+      console.warn('[Screen Capture] Screen capture permission denied by user.');
+    } else {
+      console.error('[Screen Capture] Failed to initialize stream:', error);
+    }
     return null;
   }
 }

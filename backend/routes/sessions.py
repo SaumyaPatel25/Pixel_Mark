@@ -202,7 +202,9 @@ def map_marker_to_feedback_out(marker: Marker) -> FeedbackOut:
         capturepayload=payload,
         project_id=marker.project_id,
         marker_number=marker.marker_number,
-        share_link_id=marker.share_link_id
+        share_link_id=marker.share_link_id,
+        title=marker.title,
+        description=marker.description
     )
 
 def normalize_logical_url(url: str) -> str:
@@ -298,7 +300,8 @@ async def create_feedback(
         priority=data.priority or "medium",
         comment=data.comment or "",
         note=data.comment or "",
-        description=data.comment or "",
+        description=data.description or data.comment or "",
+        title=data.title,
         renderer_type=data.renderertype or "dom",
         created_via=data.createdvia or "agent",
         marker_number=marker_number,
@@ -481,6 +484,10 @@ async def patch_feedback(
         marker.comment = comment_val
         marker.note = comment_val
         marker.description = comment_val
+    if "title" in update_dict:
+        marker.title = update_dict["title"]
+    if "description" in update_dict:
+        marker.description = update_dict["description"]
 
     marker.updated_at = datetime.utcnow()
 

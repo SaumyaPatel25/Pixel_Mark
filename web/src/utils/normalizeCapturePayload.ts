@@ -43,6 +43,8 @@ export type CapturePayload = {
     normY: number | null
     displayX?: number | null
     displayY?: number | null
+    clientX?: number | null
+    clientY?: number | null
     isNormalized?: boolean
   }
 
@@ -114,6 +116,9 @@ export type CapturePayload = {
   screenshottimestamp?: string | null
   screenshotdataurl?: string | null
   screenshotrequired?: boolean
+  title?: string | null
+  description?: string | null
+  tags?: string | null
 }
 
 export function normalizeMarkerCoordinates(eventOrPayload: any): {
@@ -121,6 +126,8 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
   displayY: number
   pageX: number
   pageY: number
+  clientX: number
+  clientY: number
   source: string
 } {
   console.log('[Markers] normalizeMarkerCoordinates raw input:', eventOrPayload)
@@ -129,6 +136,8 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
   let displayY = 0
   let pageX = 0
   let pageY = 0
+  let clientXVal = 0
+  let clientYVal = 0
   let source = 'unknown'
 
   // 1. Check if it's a DOM click event (MouseEvent) or looks like one
@@ -138,8 +147,8 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
   )
 
   if (isDomEvent) {
-    const clientX = eventOrPayload.clientX
-    const clientY = eventOrPayload.clientY
+    const rawClientX = eventOrPayload.clientX
+    const rawClientY = eventOrPayload.clientY
     
     // Check if target is iframe element
     const target = eventOrPayload.target
@@ -147,17 +156,31 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
 
     if (isIframeTarget) {
       const rect = target.getBoundingClientRect()
-      displayX = clientX + rect.left
-      displayY = clientY + rect.top
+      displayX = rawClientX + rect.left
+      displayY = rawClientY + rect.top
+      clientXVal = rawClientX
+      clientYVal = rawClientY
       source = 'iframe_dom_event_translated'
     } else {
-      displayX = clientX
-      displayY = clientY
+      let iframeLeft = 0
+      let iframeTop = 0
+      if (typeof document !== 'undefined') {
+        const iframe = document.getElementById('pixelmark-proxy-iframe') || document.querySelector('iframe')
+        if (iframe) {
+          const rect = iframe.getBoundingClientRect()
+          iframeLeft = rect.left
+          iframeTop = rect.top
+        }
+      }
+      displayX = rawClientX
+      displayY = rawClientY
+      clientXVal = rawClientX - iframeLeft
+      clientYVal = rawClientY - iframeTop
       source = 'viewport_dom_event'
     }
 
-    pageX = eventOrPayload.pageX ?? (clientX + (typeof window !== 'undefined' ? window.scrollX : 0))
-    pageY = eventOrPayload.pageY ?? (clientY + (typeof window !== 'undefined' ? window.scrollY : 0))
+    pageX = eventOrPayload.pageX ?? (rawClientX + (typeof window !== 'undefined' ? window.scrollX : 0))
+    pageY = eventOrPayload.pageY ?? (rawClientY + (typeof window !== 'undefined' ? window.scrollY : 0))
   } else {
     // 2. It's a prebuilt payload
     const p = eventOrPayload || {}
@@ -168,40 +191,44 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
     const alreadyNormalized = p.isNormalized || p.coordinates?.isNormalized || p.status === 'submitted' || p.status === 'resolved' || !!p.persistedId || !!p.persisted_id
 
     // Extract client/viewport X/Y
-    let clientX = p.displayX ?? p.display_x ?? p.click?.client_x ?? p.click?.viewport_x ?? p.click?.viewportX ?? p.coordinates?.viewportX ?? p.coordinates?.displayX ?? null
-    let clientY = p.displayY ?? p.display_y ?? p.click?.client_y ?? p.click?.viewport_y ?? p.click?.viewportY ?? p.coordinates?.viewportY ?? p.coordinates?.displayY ?? null
+    let cX = p.displayX ?? p.display_x ?? p.click?.client_x ?? p.click?.viewport_x ?? p.click?.viewportX ?? p.coordinates?.viewportX ?? p.coordinates?.displayX ?? null
+    let cY = p.displayY ?? p.display_y ?? p.click?.client_y ?? p.click?.viewport_y ?? p.click?.viewportY ?? p.coordinates?.viewportY ?? p.coordinates?.displayY ?? null
 
     // Fallbacks if displayX/displayY or viewport coordinates are missing but page coordinates exist
-    if (clientX === null || clientY === null) {
+    if (cX === null || cY === null) {
       const pgX = p.pageX ?? p.page_x ?? p.x ?? p.click?.page_x ?? p.coordinates?.pageX ?? 0
       const pgY = p.pageY ?? p.page_y ?? p.y ?? p.click?.page_y ?? p.coordinates?.pageY ?? 0
       const scrollX = p.viewport?.scrollX ?? p.scroll_position?.x ?? 0
       const scrollY = p.viewport?.scrollY ?? p.scroll_position?.y ?? 0
-      clientX = pgX - scrollX
-      clientY = pgY - scrollY
+      cX = pgX - scrollX
+      cY = pgY - scrollY
       source = 'page_scroll_fallback'
     } else {
       source = 'prebuilt_payload'
     }
 
-    if (isFromIframe && !alreadyNormalized) {
-      // Translate once into parent viewport coordinates using the iframe element's rect
-      let iframeLeft = 0
-      let iframeTop = 0
-      if (typeof document !== 'undefined') {
-        const iframe = document.querySelector('iframe')
-        if (iframe) {
-          const rect = iframe.getBoundingClientRect()
-          iframeLeft = rect.left
-          iframeTop = rect.top
-        }
+    let iframeLeft = 0
+    let iframeTop = 0
+    if (typeof document !== 'undefined') {
+      const iframe = document.getElementById('pixelmark-proxy-iframe') || document.querySelector('iframe')
+      if (iframe) {
+        const rect = iframe.getBoundingClientRect()
+        iframeLeft = rect.left
+        iframeTop = rect.top
       }
-      displayX = clientX + iframeLeft
-      displayY = clientY + iframeTop
+    }
+
+    if (isFromIframe && !alreadyNormalized) {
+      displayX = cX + iframeLeft
+      displayY = cY + iframeTop
+      clientXVal = cX
+      clientYVal = cY
       source = 'iframe_payload_translated'
     } else {
-      displayX = clientX
-      displayY = clientY
+      displayX = cX
+      displayY = cY
+      clientXVal = cX - iframeLeft
+      clientYVal = cY - iframeTop
       if (alreadyNormalized) {
         source = 'already_normalized'
       }
@@ -222,6 +249,8 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
     displayY: Math.round(displayY),
     pageX: Math.round(pageX),
     pageY: Math.round(pageY),
+    clientX: Math.round(clientXVal),
+    clientY: Math.round(clientYVal),
     source
   }
 
@@ -303,6 +332,8 @@ export function normalizeCapturePayload(raw: any): CapturePayload {
       pageY: stable.pageY,
       viewportX: stable.displayX,
       viewportY: stable.displayY,
+      clientX: stable.clientX,
+      clientY: stable.clientY,
       normX: raw.coordinates?.normX ?? raw.normX ?? raw.normx ?? raw.norm_x ?? null,
       normY: raw.coordinates?.normY ?? raw.normY ?? raw.normy ?? raw.norm_y ?? null,
       displayX: stable.displayX,
@@ -384,5 +415,8 @@ export function normalizeCapturePayload(raw: any): CapturePayload {
     screenshottimestamp: raw.screenshottimestamp || raw.screenshotTimestamp || raw.screenshot_timestamp || null,
     screenshotdataurl: raw.screenshotdataurl || raw.screenshotDataUrl || raw.screenshot_data_url || raw.screenshots?.cropDataUrl || null,
     screenshotrequired: raw.screenshotrequired ?? raw.screenshot_required ?? raw.screenshots?.screenshotRequired ?? false,
+    title: raw.title ?? raw.capturepayload?.title ?? raw.issueTitle ?? null,
+    description: raw.description ?? raw.capturepayload?.description ?? raw.issueDescription ?? raw.comment ?? raw.note ?? raw.userComment ?? '',
+    tags: raw.tags ?? raw.capturepayload?.tags ?? null,
   }
 }

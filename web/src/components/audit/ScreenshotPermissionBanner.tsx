@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { useScreenshotStore } from '@/store/screenshotStore'
+import { useUIStore } from '@/store/uiStore'
 import { initScreenshotCapture } from '@/utils/screenshotCapture'
 import { Button } from '@/components/ui/button'
 
@@ -24,8 +25,10 @@ export function ScreenshotPermissionBanner() {
       })
       setStream(stream)
       setPermission('granted')
+      useUIStore.getState().addToast('Screen capture allowed successfully!', 'success')
     } else {
       setPermission('denied')
+      useUIStore.getState().addToast('Permission denied. Screen capture is disabled.', 'error')
     }
   }
 

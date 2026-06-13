@@ -40,6 +40,100 @@ console.debug("[PixelMark URL Model] targetUrl=" + window.__PIXELMARK_TARGET_URL
 console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPORT_URL__);
 
 (function() {{
+  const proxyBase = window.__PIXELMARK_PROXY_ORIGIN__ + '/proxy/session/' + window.__PIXELMARK_SESSION_ID__;
+
+  function rewriteUrl(url) {{
+    if (!url || typeof url !== 'string') return url;
+    const trimmed = url.trim();
+    if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('blob:') || trimmed.startsWith('javascript:')) {{
+      return url;
+    }}
+    if (trimmed.includes('/proxy/session/')) {{
+      return url;
+    }}
+    
+    let absoluteUrl = url;
+    try {{
+      absoluteUrl = new URL(url, window.__PIXELMARK_TARGET_URL__).href;
+    }} catch(e) {{
+      return url;
+    }}
+    
+    try {{
+      const parsed = new URL(absoluteUrl);
+      const host = parsed.hostname.toLowerCase();
+      
+      const PASSTHROUGH_ORIGINS = [
+        'firebaseinstallations.googleapis.com',
+        'firebase.googleapis.com',
+        'identitytoolkit.googleapis.com',
+        'securetoken.googleapis.com',
+        'firebaseapp.com',
+        'auth0.com',
+        'accounts.google.com',
+        'www.google-analytics.com', 'google-analytics.com',
+        'www.googletagmanager.com', 'googletagmanager.com',
+        'connect.facebook.net', 'static.hotjar.com', 'script.hotjar.com',
+        'segment.io', 'api.segment.io'
+      ];
+      
+      if (PASSTHROUGH_ORIGINS.some(o => host === o || host.endsWith('.' + o))) {{
+        return absoluteUrl;
+      }}
+    }} catch(e) {{}}
+
+    return proxyBase + '/asset?url=' + encodeURIComponent(absoluteUrl);
+  }}
+
+  try {{
+    const linkHrefDesc = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, 'href');
+    if (linkHrefDesc && linkHrefDesc.set) {{
+      Object.defineProperty(HTMLLinkElement.prototype, 'href', {{
+        get: function() {{ return linkHrefDesc.get.call(this); }},
+        set: function(val) {{ linkHrefDesc.set.call(this, rewriteUrl(val)); }},
+        configurable: true
+      }});
+    }}
+  }} catch(e) {{}}
+
+  try {{
+    const scriptSrcDesc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');
+    if (scriptSrcDesc && scriptSrcDesc.set) {{
+      Object.defineProperty(HTMLScriptElement.prototype, 'src', {{
+        get: function() {{ return scriptSrcDesc.get.call(this); }},
+        set: function(val) {{ scriptSrcDesc.set.call(this, rewriteUrl(val)); }},
+        configurable: true
+      }});
+    }}
+  }} catch(e) {{}}
+
+  try {{
+    const imgSrcDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    if (imgSrcDesc && imgSrcDesc.set) {{
+      Object.defineProperty(HTMLImageElement.prototype, 'src', {{
+        get: function() {{ return imgSrcDesc.get.call(this); }},
+        set: function(val) {{ imgSrcDesc.set.call(this, rewriteUrl(val)); }},
+        configurable: true
+      }});
+    }}
+  }} catch(e) {{}}
+
+  try {{
+    const originalSetAttribute = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function(name, value) {{
+      let val = value;
+      try {{
+        const tagName = this.tagName.toLowerCase();
+        if ((tagName === 'link' && name.toLowerCase() === 'href') ||
+            (tagName === 'script' && name.toLowerCase() === 'src') ||
+            (tagName === 'img' && name.toLowerCase() === 'src')) {{
+          val = rewriteUrl(value);
+        }}
+      }} catch(e) {{}}
+      return originalSetAttribute.call(this, name, val);
+    }};
+  }} catch(e) {{}}
+
   const nativePushState = History.prototype.pushState;
   const nativeReplaceState = History.prototype.replaceState;
 

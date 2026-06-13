@@ -1771,13 +1771,23 @@
 
   window.__trackedPins = [];
 
+  function normalizeUrl(url) {
+    if (!url) return "";
+    try {
+      const parsed = new URL(url.indexOf("://") === -1 ? "http://localhost" + url : url);
+      return parsed.origin + parsed.pathname.replace(/\/+$/, "").toLowerCase();
+    } catch (e) {
+      return url.split("?")[0].split("#")[0].replace(/\/+$/, "").toLowerCase();
+    }
+  }
+
   function resolveAndSendPins() {
     if (!window.__trackedPins || !window.__trackedPins.length) return;
     const currentUrl = getAbsoluteTargetUrl();
 
     // Filter pins that belong to the current page
     const pinsToResolve = window.__trackedPins.filter(pin => {
-      return pin.pageUrl === currentUrl;
+      return normalizeUrl(pin.pageUrl) === normalizeUrl(currentUrl);
     });
 
     const resolvedPins = pinsToResolve.map(pin => {

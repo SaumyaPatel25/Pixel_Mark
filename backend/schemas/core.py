@@ -235,12 +235,16 @@ class FeedbackCreate(BaseModel):
     createdvia: Optional[str] = "agent"
     capturepayload: dict
     share_token: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
 
 class FeedbackUpdate(BaseModel):
     status: Optional[str] = None
     issuetype: Optional[str] = None
     priority: Optional[str] = None
     comment: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
 
 class FeedbackOut(BaseModel):
     id: str
@@ -261,6 +265,8 @@ class FeedbackOut(BaseModel):
     project_id: Optional[str] = None
     marker_number: Optional[int] = None
     share_link_id: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
 
 class FeedbackListOut(BaseModel):
     items: List[FeedbackOut]

@@ -8,7 +8,7 @@ import { ExportPanel } from '@/components/ExportPanel'
 import { DesignSystemPanel } from '@/components/DesignSystemPanel'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
 import { ShareLinkButton } from '@/components/share/ShareLinkButton'
-import CommandCenter from '@/components/CommandCenter'
+import FeedbackFeed from '@/components/FeedbackFeed'
 import { Palette } from 'lucide-react'
 import { AuditSurface } from '@/components/audit/AuditSurface'
 import { api } from '@/lib/api'
@@ -345,22 +345,22 @@ export default function ProjectPage() {
           <div className="h-10 w-[1px] bg-white/5 mx-1 md:mx-2 hidden sm:block flex-shrink-0" />
                     <Button 
             id="command-center-trigger"
-            aria-label="Toggle Command Center"
+            aria-label="Toggle Feedback Feed"
             aria-controls="command-center-drawer"
             aria-expanded={isCommandCenterOpen}
             onClick={() => toggleCommandCenter()}
             variant={isCommandCenterOpen ? 'default' : 'secondary'}
             className={cn(
-                "rounded-2xl h-10 md:h-11 px-3 md:px-6 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0 focus:ring-2 focus:ring-cyan-400 outline-none",
+                "rounded-2xl h-10 md:h-11 px-3 md:px-6 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0 focus:ring-2 focus:ring-purple-500 outline-none",
                 isCommandCenterOpen 
-                    ? "bg-cyan-600 hover:bg-cyan-500 text-black shadow-lg shadow-cyan-900/40" 
+                    ? "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/40" 
                     : "bg-white/5 border border-white/5 text-white/60 hover:text-white",
                 heavy_mode && "max-md:h-8 max-md:w-8 max-md:px-0 max-md:rounded-xl"
             )}
           >
             {isCommandCenterOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
             <span className={cn("hidden md:inline ml-2", heavy_mode && "max-md:hidden")}>
-              {isCommandCenterOpen ? 'Close Module' : 'Command Center'}
+              {isCommandCenterOpen ? 'Close Feed' : 'Feedback Feed'}
             </span>
           </Button>
         </div>
@@ -447,7 +447,7 @@ export default function ProjectPage() {
                 <motion.div
                     id="command-center-drawer"
                     role="dialog"
-                    aria-label="Command Center Feedback Stream"
+                    aria-label="Feedback Feed Stream"
                     aria-modal="true"
                     custom={{ isMobile, isDesktop }}
                     variants={drawerVariants}
@@ -469,7 +469,7 @@ export default function ProjectPage() {
                     <div className="w-full flex justify-center py-2.5 md:hidden cursor-pointer" onClick={() => toggleCommandCenter()}>
                       <div className="w-12 h-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
                     </div>
-                    <CommandCenter sessionId={sessionId} />
+                    <FeedbackFeed sessionId={sessionId} />
                 </motion.div>
             )}
         </AnimatePresence>

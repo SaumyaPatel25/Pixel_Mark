@@ -199,6 +199,8 @@ export const usePinStore = create<PinStoreState>((set, get) => ({
           priority: item.priority,
           userComment: item.comment,
           deletedAt: item.deletedAt || item.deleted_at || null,
+          title: item.title,
+          description: item.description,
           ...item.capturepayload,
         })
 
@@ -217,6 +219,8 @@ export const usePinStore = create<PinStoreState>((set, get) => ({
             userComment: payload.note,
             priority: payload.priority,
             issueType: payload.issueType,
+            title: payload.title,
+            description: payload.description,
           }
         } else {
           nextPins.push(payload)

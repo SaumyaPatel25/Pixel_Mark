@@ -85,6 +85,10 @@ export function MarkerPinLayer({
           const iframeRect = iframeNode.getBoundingClientRect()
           parentX = resolved.clientX + iframeRect.left
           parentY = resolved.clientY + iframeRect.top
+        } else if (iframeNode && typeof capture.coordinates?.clientX === 'number' && typeof capture.coordinates?.clientY === 'number') {
+          const iframeRect = iframeNode.getBoundingClientRect()
+          parentX = capture.coordinates.clientX + iframeRect.left
+          parentY = capture.coordinates.clientY + iframeRect.top
         } else {
           parentX = capture.displayX ?? capture.x ?? 0
           parentY = capture.displayY ?? capture.y ?? 0
