@@ -306,7 +306,10 @@ async def proxy_initial(
                     share_link_id=share_link_id
                 )
                 
+                proto = request.headers.get("x-forwarded-proto", "http")
                 api_base = os.getenv("API_BASE", "") or str(request.base_url)
+                if proto == "https" and api_base.startswith("http://"):
+                    api_base = "https://" + api_base[7:]
                 rewritten_html = rewrite_html(
                     html=resp.text, 
                     session_id=session_id, 
@@ -414,7 +417,10 @@ async def proxy_page(
                     parent_page_id=parent_page_id
                 )
                 
+                proto = request.headers.get("x-forwarded-proto", "http")
                 api_base = os.getenv("API_BASE", "") or str(request.base_url)
+                if proto == "https" and api_base.startswith("http://"):
+                    api_base = "https://" + api_base[7:]
                 rewritten_html = rewrite_html(
                     html=resp.text, 
                     session_id=session_id, 
@@ -751,7 +757,10 @@ async def proxy_form(
                     page_title=None
                 )
                 
+                proto = request.headers.get("x-forwarded-proto", "http")
                 api_base = os.getenv("API_BASE", "") or str(request.base_url)
+                if proto == "https" and api_base.startswith("http://"):
+                    api_base = "https://" + api_base[7:]
                 rewritten_html = rewrite_html(
                     html=resp.text, 
                     session_id=session_id, 
