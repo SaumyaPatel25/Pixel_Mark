@@ -15,7 +15,6 @@ nixPkgs = [
     "xorg.libXext",
     "xorg.libXfixes",
     "xorg.libXrandr",
-    "xorg.libgbm",
     "pango",
     "cairo"
 ]
