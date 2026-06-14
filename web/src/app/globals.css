@@ -16,8 +16,8 @@
   --font-display: 'Space Grotesk', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   
-  --shadow-accent: 0 0 24px rgba(124, 58, 237, 0.35), 0 4px 16px rgba(0, 0, 0, 0.5);
-  --shadow-glow-lg: 0 0 48px rgba(124, 58, 237, 0.25);
+  --shadow-accent: 0 0 24px var(--pm-accent-glow), 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-glow-lg: 0 0 48px var(--pm-accent-glow);
 }
 
 :root {
@@ -58,7 +58,7 @@ body {
 }
 
 .text-gradient-purple {
-  background: linear-gradient(to right, #a78bfa, #8b5cf6, #06b6d4);
+  background: linear-gradient(to right, var(--pm-accent-vivid), var(--pm-accent-bright), var(--pm-cyan));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -77,8 +77,8 @@ body {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .glass-panel-hover:hover {
-  border-color: rgba(140, 120, 255, 0.25);
-  box-shadow: 0 8px 32px 0 rgba(124, 58, 237, 0.08), 0 0 24px rgba(124, 58, 237, 0.05);
+  border-color: var(--pm-border-bright);
+  box-shadow: 0 8px 32px 0 var(--pm-accent-subtle), 0 0 24px var(--pm-accent-subtle);
   transform: translateY(-2px);
 }
 
