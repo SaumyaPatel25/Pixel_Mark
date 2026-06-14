@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Zap, MousePointer2, Search, RefreshCw, Globe, Box, Grid, Compass, HelpCircle, CheckCircle2, Layers, Info } from 'lucide-react';
+import { ArrowRight, Zap, MousePointer2, Search, RefreshCw, Globe, Box, Grid, Compass, HelpCircle, CheckCircle2, Layers, Info, Trash2, PlusCircle, Play } from 'lucide-react';
 import Link from 'next/link';
 import { ModeType } from '@/app/page';
 
@@ -40,7 +40,88 @@ interface HeroSectionProps {
   setActiveMode: (mode: ModeType) => void;
 }
 
+type DemoState = 'mockDemo' | 'sandboxReady' | 'sandboxActive';
+type DemoStep = 'chooseMode' | 'hoverTarget' | 'dropPin' | 'openDrawer' | 'submitFeedback';
+
+const cursorTargets = {
+  dom: { x: 60, y: 65, label: 'h2.heading-main', selector: 'html > body > main > h2.heading-main' },
+  threejs: { x: 50, y: 45, label: 'Mesh#cube-01', selector: 'html > body > main > canvas#threejs-canvas' },
+  webgl: { x: 55, y: 50, label: 'canvas#shader-canvas', selector: 'html > body > main > canvas#shader-canvas' },
+  spa: { x: 45, y: 58, label: 'div.card-feed', selector: 'html > body > main > div.card-feed' },
+  'shadow-dom': { x: 52, y: 60, label: 'button.btn-like', selector: 'button.btn-like' }
+};
+
+const getMockPinForMode = (mode: ModeType, x: number, y: number): MockPin => {
+  switch (mode) {
+    case 'dom':
+      return {
+        id: 1,
+        x,
+        y,
+        element: '<button#demo-cta-btn>',
+        selector: 'html > body > main > div > button.btn-cta',
+        xpath: '/html/body/main/div/button',
+        width: '160px',
+        height: '40px',
+        display: 'inline-block'
+      };
+    case 'threejs':
+      return {
+        id: 2,
+        x,
+        y,
+        element: 'Mesh#cube-01',
+        selector: 'html > body > main > canvas#threejs-canvas',
+        meshName: 'Mesh#cube-01',
+        geometry: 'BoxGeometry(4, 4, 4)',
+        material: 'MeshStandardMaterial',
+        raycastCoords: '[1.45, -0.89, 0.12]',
+        faceIndex: 4
+      };
+    case 'webgl':
+      return {
+        id: 3,
+        x,
+        y,
+        element: 'canvas#shader-canvas',
+        selector: 'html > body > main > canvas#shader-canvas',
+        webglContext: 'webgl2',
+        gpuVendor: 'Google Inc. (NVIDIA)',
+        gpuRenderer: 'ANGLE (NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11)',
+        canvasX: 231,
+        canvasY: 184
+      };
+    case 'spa':
+      return {
+        id: 4,
+        x,
+        y,
+        element: 'div.card-feed',
+        selector: 'html > body > main > div.card-feed',
+        activeRoute: '/explore',
+        routeHistory: ['/', '/explore'],
+        routeLoadTime: '42ms',
+        performanceMetrics: { fid: '8ms', lcp: '240ms' }
+      };
+    case 'shadow-dom':
+      return {
+        id: 5,
+        x,
+        y,
+        element: 'button.btn-like',
+        selector: 'button.btn-like',
+        shadowHost: '<custom-card>',
+        shadowMode: 'open',
+        composedPath: 'custom-card => shadow-root => div.footer > button.btn-like'
+      };
+  }
+};
+
 export default function HeroSection({ activeMode, setActiveMode }: HeroSectionProps) {
+  // Demo State Machine: mockDemo -> sandboxReady -> sandboxActive
+  const [demoState, setDemoState] = useState<DemoState>('mockDemo');
+  const [demoStep, setDemoStep] = useState<DemoStep>('chooseMode');
+
   const [urlInput, setUrlInput] = useState('https://entrext.com');
   const [currentUrl, setCurrentUrl] = useState('https://entrext.com');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,105 +137,72 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
   // Local state for SPA mode simulated route
   const [spaTab, setSpaTab] = useState<'home' | 'explore' | 'settings'>('explore');
 
-  // Trigger automated guided demo tour when activeMode changes
+  // Sandbox active state variables
+  const [isFeedbackMode, setIsFeedbackMode] = useState(true);
+  const [pinsList, setPinsList] = useState<MockPin[]>([]);
+
+  // guided mockDemo interval logic
   useEffect(() => {
+    if (demoState !== 'mockDemo') return;
+
+    const stepsList: DemoStep[] = ['chooseMode', 'hoverTarget', 'dropPin', 'openDrawer', 'submitFeedback'];
+    let currentIdx = 0;
+    setDemoStep('chooseMode');
+
+    const interval = setInterval(() => {
+      currentIdx = currentIdx + 1;
+      if (currentIdx >= stepsList.length) {
+        // Stop at submitFeedback state briefly, then show sandboxReady transition
+        clearInterval(interval);
+        setTimeout(() => {
+          setDemoState('sandboxReady');
+        }, 1500);
+        return;
+      }
+      const nextStep = stepsList[currentIdx];
+      setDemoStep(nextStep);
+
+      // Trigger visual highlights per step
+      if (nextStep === 'hoverTarget') {
+        setHoveredElement(
+          activeMode === 'dom' ? 'heading' : 
+          activeMode === 'threejs' ? '3d-cube' : 
+          activeMode === 'webgl' ? 'shader-canvas' : 
+          activeMode === 'spa' ? 'spa-card' : 'nested-button'
+        );
+      } else if (nextStep === 'dropPin') {
+        setHoveredElement(null);
+        const target = cursorTargets[activeMode];
+        setActivePin(getMockPinForMode(activeMode, target.x, target.y));
+      } else if (nextStep === 'openDrawer') {
+        setDrawerOpen(true);
+      } else if (nextStep === 'submitFeedback') {
+        // Set pin as submitted in UI (visually change marker/text)
+      }
+    }, 2800);
+
+    return () => clearInterval(interval);
+  }, [demoState, activeMode]);
+
+  // Reset mockDemo sequence whenever activeMode changes in mockDemo mode
+  useEffect(() => {
+    if (demoState === 'mockDemo') {
+      setActivePin(null);
+      setDrawerOpen(false);
+      setHoveredElement(null);
+      setDemoStep('chooseMode');
+    }
+  }, [activeMode, demoState]);
+
+  // Transition to Sandbox Mode
+  const launchSandbox = () => {
+    setDemoState('sandboxActive');
     setActivePin(null);
     setDrawerOpen(false);
     setHoveredElement(null);
-    setShowConversion(false);
-
-    let hoverTarget = '';
-    let pinData: MockPin | null = null;
-
-    switch (activeMode) {
-      case 'dom':
-        hoverTarget = 'button';
-        pinData = {
-          id: 1,
-          x: 60,
-          y: 65,
-          element: '<button#demo-cta-btn>',
-          selector: 'html > body > main > div > button.btn-cta',
-          xpath: '/html/body/main/div/button',
-          width: '160px',
-          height: '40px',
-          display: 'inline-block'
-        };
-        break;
-      case 'threejs':
-        hoverTarget = '3d-cube';
-        pinData = {
-          id: 2,
-          x: 50,
-          y: 45,
-          element: 'Mesh#cube-01',
-          selector: 'html > body > main > canvas#threejs-canvas',
-          meshName: 'Mesh#cube-01',
-          geometry: 'BoxGeometry(4, 4, 4)',
-          material: 'MeshStandardMaterial',
-          raycastCoords: '[1.45, -0.89, 0.12]',
-          faceIndex: 4
-        };
-        break;
-      case 'webgl':
-        hoverTarget = 'shader-canvas';
-        pinData = {
-          id: 3,
-          x: 55,
-          y: 50,
-          element: 'canvas#shader-canvas',
-          selector: 'html > body > main > canvas#shader-canvas',
-          webglContext: 'webgl2',
-          gpuVendor: 'Google Inc. (NVIDIA)',
-          gpuRenderer: 'ANGLE (NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11)',
-          canvasX: 231,
-          canvasY: 184
-        };
-        break;
-      case 'spa':
-        hoverTarget = 'spa-card';
-        pinData = {
-          id: 4,
-          x: 45,
-          y: 58,
-          element: 'div.card-feed',
-          selector: 'html > body > main > div.card-feed',
-          activeRoute: '/explore',
-          routeHistory: ['/', '/explore'],
-          routeLoadTime: '42ms',
-          performanceMetrics: { fid: '8ms', lcp: '240ms' }
-        };
-        break;
-      case 'shadow-dom':
-        hoverTarget = 'nested-button';
-        pinData = {
-          id: 5,
-          x: 52,
-          y: 60,
-          element: 'button.btn-like',
-          selector: 'button.btn-like',
-          shadowHost: '<custom-card>',
-          shadowMode: 'open',
-          composedPath: 'custom-card => shadow-root => div.footer > button.btn-like'
-        };
-        break;
-    }
-
-    const hoverTimer = setTimeout(() => {
-      setHoveredElement(hoverTarget);
-    }, 500);
-
-    const clickTimer = setTimeout(() => {
-      setHoveredElement(null);
-      setActivePin(pinData);
-      setDrawerOpen(true);
-    }, 1300);
-
-    return () => {
-      clearTimeout(hoverTimer);
-      clearTimeout(clickTimer);
-    };
-  }, [activeMode]);
+    setPinsList([]);
+    setIsFeedbackMode(true);
+  };
 
   // Run the loading simulation when a URL is submitted
   const handleUrlSubmit = (e: React.FormEvent) => {
@@ -179,43 +227,85 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
       setIsLoading(false);
       setCurrentUrl(urlInput);
       setActiveMode('dom');
+      if (demoState !== 'sandboxActive') {
+        setDemoState('sandboxActive');
+      }
     }, 1500);
   };
 
-  // Click handler on mock elements to drop a pin
-  const handleElementClick = (
+  // Click handler to drop a pin inside the interactive sandboxActive mode
+  const handleAddSandboxPin = (
     elementName: string,
     selector: string,
-    width?: string,
-    height?: string,
-    display?: string,
-    e?: React.MouseEvent,
+    e: React.MouseEvent,
     customProps?: Partial<MockPin>
   ) => {
-    if (e) e.stopPropagation();
-    if (isLoading || showConversion) return;
+    e.stopPropagation();
+    if (demoState !== 'sandboxActive' || !isFeedbackMode || isLoading || showConversion) return;
 
     if (previewRef.current) {
-      let clickX = 50;
-      let clickY = 50;
-      if (e) {
-        const rect = previewRef.current.getBoundingClientRect();
-        clickX = ((e.clientX - rect.left) / rect.width) * 100;
-        clickY = ((e.clientY - rect.top) / rect.height) * 100;
-      }
+      const rect = previewRef.current.getBoundingClientRect();
+      const clickX = ((e.clientX - rect.left) / rect.width) * 100;
+      const clickY = ((e.clientY - rect.top) / rect.height) * 100;
 
-      setActivePin({
+      const newPin: MockPin = {
         id: Date.now(),
         x: clickX,
         y: clickY,
         element: elementName,
         selector: selector,
-        width: width || 'auto',
-        height: height || 'auto',
-        display: display || 'block',
         ...customProps
-      });
+      };
+
+      setPinsList(prev => [...prev, newPin]);
+      setActivePin(newPin);
       setDrawerOpen(true);
+    }
+  };
+
+  // Click handler on general preview frame
+  const handleGeneralPreviewClick = (e: React.MouseEvent) => {
+    if (demoState !== 'sandboxActive' || !isFeedbackMode) return;
+
+    if (activeMode === 'dom') {
+      handleAddSandboxPin('<div.container>', 'html > body > main > div.container', e, {
+        xpath: '/html/body/main/div',
+        width: '960px',
+        height: '400px',
+        display: 'block'
+      });
+    } else if (activeMode === 'threejs') {
+      handleAddSandboxPin('Mesh#sphere-02', 'html > body > main > canvas#threejs-canvas', e, {
+        meshName: 'Mesh#sphere-02',
+        geometry: 'SphereGeometry(2, 32, 32)',
+        material: 'MeshPhongMaterial',
+        raycastCoords: '[0.54, 1.12, -0.98]',
+        faceIndex: 12
+      });
+    } else if (activeMode === 'webgl') {
+      const rect = previewRef.current?.getBoundingClientRect();
+      const cx = rect ? Math.round(e.clientX - rect.left) : 231;
+      const cy = rect ? Math.round(e.clientY - rect.top) : 184;
+      handleAddSandboxPin('canvas#shader-canvas', 'html > body > main > canvas#shader-canvas', e, {
+        webglContext: 'webgl2',
+        gpuVendor: 'Google Inc. (NVIDIA)',
+        gpuRenderer: 'ANGLE (NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11)',
+        canvasX: cx,
+        canvasY: cy
+      });
+    } else if (activeMode === 'spa') {
+      handleAddSandboxPin('div.home-card', 'html > body > main > div.home-card', e, {
+        activeRoute: `/${spaTab}`,
+        routeHistory: ['/', `/explore`, `/${spaTab}`],
+        routeLoadTime: '36ms',
+        performanceMetrics: { fid: '7ms', lcp: '210ms' }
+      });
+    } else if (activeMode === 'shadow-dom') {
+      handleAddSandboxPin('img.avatar-img', 'img.avatar-img', e, {
+        shadowHost: '<user-avatar>',
+        shadowMode: 'open',
+        composedPath: 'user-avatar => shadow-root => div.container > img.avatar-img'
+      });
     }
   };
 
@@ -285,28 +375,32 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
     dom: {
       hint: 'Click elements inside the mockup site (like the hero heading, logo, or CTA button) to see how the DOM capture engine isolates computed CSS styles and selectors in real-time.',
       label: 'DOM Lens Sandbox',
-      color: 'text-pm-accent-vivid border-pm-accent/20 bg-pm-accent/10',
     },
     threejs: {
       hint: 'Click anywhere on the spinning 3D cube model. The Three.js raycaster captures absolute 3D mesh vectors, face indices, and active geometry data automatically.',
       label: 'Three.js 3D Raycaster',
-      color: 'text-cyan-400 border-cyan-500/20 bg-cyan-500/10',
     },
     webgl: {
       hint: 'Click the animated WebGL shader substrate canvas. The renderer engine isolates the raw drawing buffer, recording WebGL context attributes and GPU specifications.',
       label: 'WebGL Canvas Buffer',
-      color: 'text-amber-500 border-amber-500/20 bg-amber-500/10',
     },
     spa: {
       hint: 'Navigate client-side using the tab routing bar (/index, /explore, /settings). Place comments inside each sub-view to verify pins filter reactively based on active routes.',
       label: 'SPA Router Sandbox',
-      color: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10',
     },
     'shadow-dom': {
       hint: 'Click inside custom component interfaces. The traversal engine follows the composed path inside #shadow-roots to record elements hidden from standard selectors.',
       label: 'Shadow DOM Traverser',
-      color: 'text-fuchsia-400 border-fuchsia-500/20 bg-fuchsia-500/10',
     },
+  };
+
+  // Find coordinates based on demo step
+  const getCursorPosition = () => {
+    if (demoStep === 'chooseMode') {
+      return { x: 32, y: -4 };
+    }
+    const target = cursorTargets[activeMode];
+    return { x: target.x, y: target.y };
   };
 
   return (
@@ -356,7 +450,7 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
               <button
                 type="submit"
                 disabled={isLoading}
-                className="px-4 py-2 bg-pm-accent hover:bg-pm-accent-bright disabled:bg-pm-surface-3 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 shadow-accent"
+                className="px-4 py-2 bg-pm-accent hover:bg-pm-accent-bright disabled:bg-pm-surface-3 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 shadow-accent cursor-pointer"
               >
                 {isLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Load'}
               </button>
@@ -366,28 +460,91 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
             <div className="space-y-2 max-w-md p-3.5 rounded-xl border border-pm-border bg-pm-surface/20">
               <div className="text-[10px] font-bold uppercase tracking-wider text-pm-accent-vivid flex items-center gap-1.5">
                 <HelpCircle className="w-3.5 h-3.5" />
-                <span>Try the Live Demo</span>
+                <span>{demoState === 'sandboxActive' ? 'Active Sandbox Workspace' : 'Guided Walkthrough'}</span>
               </div>
               <p className="text-[10px] text-pm-muted leading-normal font-sans">
-                {modeExplainer[activeMode].hint}
+                {demoState === 'sandboxActive' ? 'You are inside the working active sandbox. Toggle feedback mode, drop pins anywhere, type notes, and submit.' : modeExplainer[activeMode].hint}
               </p>
             </div>
 
             <div className="flex gap-4 pt-1">
-              <Link
-                href="/auth/register"
-                className="px-6 py-3 bg-pm-accent hover:bg-pm-accent-bright text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-accent hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
-              >
-                Start Redesigning Feedback
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              {demoState !== 'sandboxActive' ? (
+                <button
+                  onClick={launchSandbox}
+                  className="px-6 py-3 bg-pm-accent hover:bg-pm-accent-bright text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-accent hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  Launch Active Sandbox
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Sandbox Active</span>
+                  </div>
+                  <button
+                    onClick={() => setDemoState('mockDemo')}
+                    className="px-4 py-2.5 bg-pm-surface-2 hover:bg-pm-surface-3 text-pm-text border border-pm-border rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                  >
+                    Play Guided Demo
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right Column: Dynamic Mockup Browser & Mode Switcher */}
           <div className="lg:col-span-7 flex flex-col space-y-3 w-full">
             
-            {/* Tab Mode Switcher above the preview */}
+            {/* Guide strip explaining current step during mockDemo */}
+            {demoState === 'mockDemo' && (
+              <div className="w-full flex items-center justify-between gap-2 px-4 py-2 rounded-xl bg-pm-surface-2/40 border border-pm-border text-[9px] text-pm-muted font-sans animate-fade-in">
+                <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-pm-accent-vivid">
+                  <Info className="w-3.5 h-3.5 animate-pulse" />
+                  <span>Interactive Walkthrough Loop</span>
+                </div>
+                <div className="flex gap-1 overflow-x-auto scrollbar-none">
+                  {([
+                    { step: 'chooseMode', label: '1. Choose Stack' },
+                    { step: 'hoverTarget', label: '2. Hover' },
+                    { step: 'dropPin', label: '3. Drop Pin' },
+                    { step: 'openDrawer', label: '4. View Specs' },
+                    { step: 'submitFeedback', label: '5. Submit' }
+                  ] as { step: DemoStep, label: string }[]).map((s) => {
+                    const isActive = demoStep === s.step;
+                    return (
+                      <span
+                        key={s.step}
+                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all duration-300 ${isActive ? 'bg-pm-accent text-white shadow-accent' : 'bg-pm-surface/50 text-pm-muted/50'}`}
+                      >
+                        {s.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Sandbox Ready Banner Card */}
+            {demoState === 'sandboxReady' && (
+              <div className="w-full flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-pm-accent/10 border border-pm-accent/35 text-[10px] text-white font-sans animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-pm-accent-vivid animate-bounce" />
+                  <div>
+                    <span className="font-bold">Walkthrough Complete!</span> Ready to test? Launch sandbox to drop custom pins.
+                  </div>
+                </div>
+                <button
+                  onClick={launchSandbox}
+                  className="px-3 py-1.5 bg-pm-accent hover:bg-pm-accent-bright rounded text-[9px] font-bold uppercase tracking-wider shadow-accent cursor-pointer flex items-center gap-1"
+                >
+                  <Play className="w-3 h-3 fill-white" />
+                  <span>Launch Sandbox</span>
+                </button>
+              </div>
+            )}
+
+            {/* Browser Mode Switcher above the preview */}
             <div className="flex items-center gap-1 p-1 bg-pm-surface/40 border border-pm-border rounded-xl self-start max-w-full overflow-x-auto scrollbar-none">
               {(['dom', 'threejs', 'webgl', 'spa', 'shadow-dom'] as ModeType[]).map((mode) => {
                 const isSelected = activeMode === mode;
@@ -395,7 +552,12 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                 return (
                   <button
                     key={mode}
-                    onClick={() => setActiveMode(mode)}
+                    onClick={() => {
+                      setActiveMode(mode);
+                      if (demoState === 'sandboxReady') {
+                        setDemoState('mockDemo');
+                      }
+                    }}
                     className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${isSelected ? 'bg-pm-accent text-white shadow-accent font-black' : 'text-pm-muted hover:text-white hover:bg-pm-surface-2/50'}`}
                   >
                     {label}
@@ -419,58 +581,37 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                   {isLoading ? 'Connecting Sandbox...' : activeMode === 'spa' ? `${currentUrl}${spaTab === 'explore' ? '/explore' : spaTab === 'settings' ? '/settings' : ''}` : currentUrl}
                 </div>
                 
-                <div className="w-8 flex justify-end">
-                  <span className="w-2 h-2 rounded-full bg-pm-accent animate-pulse" />
+                <div className="w-24 flex items-center justify-end gap-2">
+                  {demoState === 'sandboxActive' ? (
+                    <>
+                      <button
+                        onClick={() => setIsFeedbackMode(prev => !prev)}
+                        className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition-all cursor-pointer ${isFeedbackMode ? 'bg-pm-accent text-white shadow-accent' : 'bg-pm-surface-3 text-pm-muted'}`}
+                      >
+                        {isFeedbackMode ? 'Inspect On' : 'Inspect Off'}
+                      </button>
+                      <button
+                        onClick={() => { setPinsList([]); setActivePin(null); setDrawerOpen(false); }}
+                        className="p-1 hover:bg-pm-surface-3 rounded text-pm-muted hover:text-red-400 transition-colors cursor-pointer"
+                        title="Clear Pins"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <span className="w-2 h-2 rounded-full bg-pm-accent animate-pulse" />
+                  )}
                 </div>
               </div>
 
               {/* Sandbox Workspace / Webpage Area */}
               <div 
                 ref={previewRef}
-                onClick={(e) => {
-                  // Fallback clicking inside the preview area
-                  if (activeMode === 'dom') {
-                    handleElementClick('<div.container>', 'html > body > main > div.container', '960px', '400px', 'block', e, {
-                      xpath: '/html/body/main/div'
-                    });
-                  } else if (activeMode === 'threejs') {
-                    handleElementClick('Mesh#sphere-02', 'html > body > main > canvas#threejs-canvas', '400px', '220px', 'block', e, {
-                      meshName: 'Mesh#sphere-02',
-                      geometry: 'SphereGeometry(2, 32, 32)',
-                      material: 'MeshPhongMaterial',
-                      raycastCoords: '[0.54, 1.12, -0.98]',
-                      faceIndex: 12
-                    });
-                  } else if (activeMode === 'webgl') {
-                    const rect = previewRef.current?.getBoundingClientRect();
-                    const cx = rect ? Math.round(e.clientX - rect.left) : 120;
-                    const cy = rect ? Math.round(e.clientY - rect.top) : 90;
-                    handleElementClick('canvas#shader-canvas', 'html > body > main > canvas#shader-canvas', '400px', '220px', 'block', e, {
-                      webglContext: 'webgl2',
-                      gpuVendor: 'Google Inc. (NVIDIA)',
-                      gpuRenderer: 'ANGLE (NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11)',
-                      canvasX: cx,
-                      canvasY: cy
-                    });
-                  } else if (activeMode === 'spa') {
-                    handleElementClick('div.home-card', 'html > body > main > div.home-card', '380px', '90px', 'block', e, {
-                      activeRoute: `/${spaTab}`,
-                      routeHistory: ['/', `/explore`, `/${spaTab}`],
-                      routeLoadTime: '36ms',
-                      performanceMetrics: { fid: '7ms', lcp: '210ms' }
-                    });
-                  } else if (activeMode === 'shadow-dom') {
-                    handleElementClick('img.avatar-img', 'img.avatar-img', '40px', '40px', 'block', e, {
-                      shadowHost: '<user-avatar>',
-                      shadowMode: 'open',
-                      composedPath: 'user-avatar => shadow-root => div.container > img.avatar-img'
-                    });
-                  }
-                }}
+                onClick={handleGeneralPreviewClick}
                 className="absolute inset-0 pt-10 bg-pm-bg font-sans z-0 select-none overflow-hidden cursor-pointer"
               >
                 {/* Scanlines / CRT filter effect */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.015)_50%,rgba(0,0,0,0.15)_50%)] bg-[size:100%_4px] pointer-events-none" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.012)_50%,rgba(0,0,0,0.12)_50%)] bg-[size:100%_4px] pointer-events-none" />
 
                 <AnimatePresence mode="wait">
                   {isLoading ? (
@@ -501,9 +642,16 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                           {/* Header bar items clickable */}
                           <div className="absolute top-10 left-0 right-0 px-8 flex justify-between items-center py-3 border-b border-pm-border/20 z-10 bg-pm-bg/40">
                             <span 
-                              onClick={(e) => handleElementClick('<a.logo>', 'html > body > header > a.logo', '120px', '24px', 'flex', e, {
-                                xpath: '/html/body/header/a'
-                              })}
+                              onClick={(e) => {
+                                if (demoState === 'sandboxActive') {
+                                  handleAddSandboxPin('<a.logo>', 'html > body > header > a.logo', e, {
+                                    xpath: '/html/body/header/a',
+                                    width: '120px',
+                                    height: '24px',
+                                    display: 'flex'
+                                  });
+                                }
+                              }}
                               className="font-display text-xs font-bold text-pm-text hover:outline hover:outline-pm-accent-bright/50 hover:outline-1 hover:outline-offset-2"
                             >
                               Entrext
@@ -516,10 +664,17 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                           </span>
                           
                           <h2 
-                            onClick={(e) => handleElementClick('<h2.heading-main>', 'html > body > main > h2.heading-main', '384px', '64px', 'block', e, {
-                              xpath: '/html/body/main/h2'
-                            })}
-                            className={`text-xl md:text-2xl font-display font-bold text-white tracking-tight leading-tight hover:outline hover:outline-pm-accent-bright/50 hover:outline-1 hover:outline-offset-2 ${hoveredElement === 'heading' ? 'outline outline-pm-accent-bright/50 outline-1 outline-offset-2' : ''}`}
+                            onClick={(e) => {
+                              if (demoState === 'sandboxActive') {
+                                handleAddSandboxPin('<h2.heading-main>', 'html > body > main > h2.heading-main', e, {
+                                  xpath: '/html/body/main/h2',
+                                  width: '384px',
+                                  height: '64px',
+                                  display: 'block'
+                                });
+                              }
+                            }}
+                            className={`text-xl md:text-2xl font-display font-bold text-white tracking-tight leading-tight hover:outline hover:outline-pm-accent-bright/50 hover:outline-1 hover:outline-offset-2 transition-all ${hoveredElement === 'heading' ? 'outline outline-pm-accent-bright/50 outline-1 outline-offset-2 bg-pm-accent/5' : ''}`}
                           >
                             Engineering the <br />Next-Gen Web.
                           </h2>
@@ -529,10 +684,17 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                           </p>
                           
                           <button 
-                            onClick={(e) => handleElementClick('<button#demo-cta-btn>', 'html > body > main > div > button.btn-cta', '160px', '40px', 'inline-block', e, {
-                              xpath: '/html/body/main/div/button'
-                            })}
-                            className={`px-5 py-2.5 bg-pm-accent text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:outline hover:outline-pm-accent-bright/50 hover:outline-1 hover:outline-offset-2 ${hoveredElement === 'button' ? 'outline outline-pm-accent-bright/50 outline-1 outline-offset-2' : ''}`}
+                            onClick={(e) => {
+                              if (demoState === 'sandboxActive') {
+                                handleAddSandboxPin('<button#demo-cta-btn>', 'html > body > main > div > button.btn-cta', e, {
+                                  xpath: '/html/body/main/div/button',
+                                  width: '160px',
+                                  height: '40px',
+                                  display: 'inline-block'
+                                });
+                              }
+                            }}
+                            className={`px-5 py-2.5 bg-pm-accent text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:outline hover:outline-pm-accent-bright/50 hover:outline-1 hover:outline-offset-2 transition-all ${hoveredElement === 'button' ? 'outline outline-pm-accent-bright/50 outline-1 outline-offset-2 bg-pm-accent-bright' : ''}`}
                           >
                             LAUNCH SANDBOX
                           </button>
@@ -563,13 +725,17 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                             </motion.div>
                             {/* Center Target Box */}
                             <motion.div
-                              onClick={(e) => handleElementClick('Mesh#cube-01', 'html > body > main > canvas#threejs-canvas', '400px', '220px', 'block', e, {
-                                meshName: 'Mesh#cube-01',
-                                geometry: 'BoxGeometry(4, 4, 4)',
-                                material: 'MeshStandardMaterial',
-                                raycastCoords: '[1.45, -0.89, 0.12]',
-                                faceIndex: 4
-                              })}
+                              onClick={(e) => {
+                                if (demoState === 'sandboxActive') {
+                                  handleAddSandboxPin('Mesh#cube-01', 'html > body > main > canvas#threejs-canvas', e, {
+                                    meshName: 'Mesh#cube-01',
+                                    geometry: 'BoxGeometry(4, 4, 4)',
+                                    material: 'MeshStandardMaterial',
+                                    raycastCoords: '[1.45, -0.89, 0.12]',
+                                    faceIndex: 4
+                                  });
+                                }
+                              }}
                               animate={{ rotateX: 360, rotateY: 360 }}
                               transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
                               className={`w-14 h-14 border-2 border-pm-accent bg-pm-accent/15 rounded-lg flex items-center justify-center hover:bg-pm-accent/25 transition-all ${hoveredElement === '3d-cube' ? 'scale-110 shadow-[0_0_20px_var(--pm-accent-glow)] border-white' : ''}`}
@@ -592,18 +758,20 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                           
                           <div 
                             onClick={(e) => {
-                              const rect = previewRef.current?.getBoundingClientRect();
-                              const cx = rect ? Math.round(e.clientX - rect.left) : 231;
-                              const cy = rect ? Math.round(e.clientY - rect.top) : 184;
-                              handleElementClick('canvas#shader-canvas', 'html > body > main > canvas#shader-canvas', '400px', '220px', 'block', e, {
-                                webglContext: 'webgl2',
-                                gpuVendor: 'Google Inc. (NVIDIA)',
-                                gpuRenderer: 'ANGLE (NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11)',
-                                canvasX: cx,
-                                canvasY: cy
-                              });
+                              if (demoState === 'sandboxActive') {
+                                const rect = previewRef.current?.getBoundingClientRect();
+                                const cx = rect ? Math.round(e.clientX - rect.left) : 231;
+                                const cy = rect ? Math.round(e.clientY - rect.top) : 184;
+                                handleAddSandboxPin('canvas#shader-canvas', 'html > body > main > canvas#shader-canvas', e, {
+                                  webglContext: 'webgl2',
+                                  gpuVendor: 'Google Inc. (NVIDIA)',
+                                  gpuRenderer: 'ANGLE (NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11)',
+                                  canvasX: cx,
+                                  canvasY: cy
+                                });
+                              }
                             }}
-                            className={`w-full max-w-xs h-28 bg-pm-surface-2 rounded-xl border border-pm-border hover:border-pm-accent-bright/50 overflow-hidden relative ${hoveredElement === 'shader-canvas' ? 'border-pm-accent shadow-[0_0_20px_var(--pm-accent-glow)]' : ''}`}
+                            className={`w-full max-w-xs h-28 bg-pm-surface-2 rounded-xl border border-pm-border hover:border-pm-accent-bright/50 overflow-hidden relative transition-all ${hoveredElement === 'shader-canvas' ? 'border-pm-accent shadow-[0_0_20px_var(--pm-accent-glow)]' : ''}`}
                           >
                             {/* Shifting Gradient webgl simulation */}
                             <motion.div
@@ -680,12 +848,16 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                                   animate={{ opacity: 1, x: 0 }}
                                   exit={{ opacity: 0, x: 6 }}
                                   className="space-y-2"
-                                  onClick={(e) => handleElementClick('div.home-card', 'html > body > main > div.home-card', '380px', '90px', 'block', e, {
-                                    activeRoute: '/home',
-                                    routeHistory: ['/', '/explore', '/home'],
-                                    routeLoadTime: '28ms',
-                                    performanceMetrics: { fid: '6ms', lcp: '190ms' }
-                                  })}
+                                  onClick={(e) => {
+                                    if (demoState === 'sandboxActive') {
+                                      handleAddSandboxPin('div.home-card', 'html > body > main > div.home-card', e, {
+                                        activeRoute: '/home',
+                                        routeHistory: ['/', '/explore', '/home'],
+                                        routeLoadTime: '28ms',
+                                        performanceMetrics: { fid: '6ms', lcp: '190ms' }
+                                      });
+                                    }
+                                  }}
                                 >
                                   <h4 className="text-[9px] text-white font-bold font-display">Dashboard Home</h4>
                                   <div className="grid grid-cols-2 gap-2">
@@ -707,15 +879,19 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                                   animate={{ opacity: 1, x: 0 }}
                                   exit={{ opacity: 0, x: 6 }}
                                   className="space-y-2"
-                                  onClick={(e) => handleElementClick('div.card-feed', 'html > body > main > div.card-feed', '384px', '120px', 'block', e, {
-                                    activeRoute: '/explore',
-                                    routeHistory: ['/', '/explore'],
-                                    routeLoadTime: '42ms',
-                                    performanceMetrics: { fid: '8ms', lcp: '240ms' }
-                                  })}
+                                  onClick={(e) => {
+                                    if (demoState === 'sandboxActive') {
+                                      handleAddSandboxPin('div.card-feed', 'html > body > main > div.card-feed', e, {
+                                        activeRoute: '/explore',
+                                        routeHistory: ['/', '/explore'],
+                                        routeLoadTime: '42ms',
+                                        performanceMetrics: { fid: '8ms', lcp: '240ms' }
+                                      });
+                                    }
+                                  }}
                                 >
                                   <h4 className="text-[9px] text-white font-bold font-display">Explore Content Feed</h4>
-                                  <div className={`p-2.5 rounded-lg bg-pm-surface-2 border border-pm-border space-y-1.5 transition-all ${hoveredElement === 'spa-card' ? 'border-pm-accent shadow-[0_0_15px_var(--pm-accent-glow)]' : ''}`}>
+                                  <div className={`p-2.5 rounded-lg bg-pm-surface-2 border border-pm-border space-y-1.5 transition-all ${hoveredElement === 'spa-card' ? 'border-pm-accent shadow-[0_0_15px_var(--pm-accent-glow)] bg-pm-accent/5' : ''}`}>
                                     <div className="h-2 w-1/3 bg-pm-surface-3 rounded" />
                                     <div className="h-2 w-full bg-pm-surface-3 rounded" />
                                     <div className="h-2 w-2/3 bg-pm-surface-3 rounded" />
@@ -729,12 +905,16 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                                   animate={{ opacity: 1, x: 0 }}
                                   exit={{ opacity: 0, x: 6 }}
                                   className="space-y-2"
-                                  onClick={(e) => handleElementClick('form.settings-form', 'html > body > main > form.settings', '380px', '100px', 'block', e, {
-                                    activeRoute: '/settings',
-                                    routeHistory: ['/', '/explore', '/settings'],
-                                    routeLoadTime: '32ms',
-                                    performanceMetrics: { fid: '6ms', lcp: '200ms' }
-                                  })}
+                                  onClick={(e) => {
+                                    if (demoState === 'sandboxActive') {
+                                      handleAddSandboxPin('form.settings-form', 'html > body > main > form.settings', e, {
+                                        activeRoute: '/settings',
+                                        routeHistory: ['/', '/explore', '/settings'],
+                                        routeLoadTime: '32ms',
+                                        performanceMetrics: { fid: '6ms', lcp: '200ms' }
+                                      });
+                                    }
+                                  }}
                                 >
                                   <h4 className="text-[9px] text-white font-bold font-display">Settings Pane</h4>
                                   <div className="flex gap-2 items-center">
@@ -773,11 +953,15 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                               <div className="pt-2 border-t border-pm-border/40 flex justify-between items-center">
                                 <span className="text-[7px] text-pm-text-faint">&lt;div class="footer"&gt;</span>
                                 <button 
-                                  onClick={(e) => handleElementClick('button.btn-like', 'button.btn-like', '80px', '22px', 'inline-block', e, {
-                                    shadowHost: '<custom-card>',
-                                    shadowMode: 'open',
-                                    composedPath: 'custom-card => shadow-root => div.footer > button.btn-like'
-                                  })}
+                                  onClick={(e) => {
+                                    if (demoState === 'sandboxActive') {
+                                      handleAddSandboxPin('button.btn-like', 'button.btn-like', e, {
+                                        shadowHost: '<custom-card>',
+                                        shadowMode: 'open',
+                                        composedPath: 'custom-card => shadow-root => div.footer > button.btn-like'
+                                      });
+                                    }
+                                  }}
                                   className={`px-2 py-1 bg-pm-accent hover:bg-pm-accent-bright text-white rounded text-[7px] font-bold transition-all cursor-pointer ${hoveredElement === 'nested-button' ? 'scale-105 shadow-[0_0_12px_var(--pm-accent-glow)] ring-1 ring-white' : ''}`}
                                 >
                                   &lt;button.btn-like&gt;
@@ -788,30 +972,68 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                         </div>
                       )}
 
-                      {/* Feedback Pins Layer */}
-                      <AnimatePresence>
-                        {activePin && (
-                          <motion.div
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0, opacity: 0 }}
-                            transition={{ type: 'spring', stiffness: 350, damping: 15 }}
-                            className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-                            style={{ left: `${activePin.x}%`, top: `${activePin.y}%` }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDrawerOpen(true);
-                            }}
-                          >
-                            <div className="relative w-7 h-7 flex items-center justify-center cursor-pointer">
-                              <span className="absolute inline-flex h-full w-full rounded-full bg-pm-accent/35 animate-ping opacity-75" />
-                              <div className="w-4.5 h-4.5 rounded-full bg-pm-accent border-2 border-white flex items-center justify-center text-[8.5px] font-bold text-white shadow-lg">
-                                1
-                              </div>
+                      {/* Guided Loop Cursor Indicator */}
+                      {demoState === 'mockDemo' && (
+                        <motion.div
+                          animate={{
+                            left: `${getCursorPosition().x}%`,
+                            top: `${getCursorPosition().y}%`,
+                            scale: demoStep === 'dropPin' ? 0.8 : 1
+                          }}
+                          transition={{ type: 'spring', stiffness: 90, damping: 15 }}
+                          className="absolute w-5 h-5 pointer-events-none z-50 flex items-center justify-center -translate-x-1/2 -translate-y-1/2"
+                        >
+                          <MousePointer2 className="w-4.5 h-4.5 text-white fill-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
+                          {(demoStep === 'hoverTarget' || demoStep === 'dropPin') && (
+                            <motion.div
+                              animate={{ scale: [1, 2.2], opacity: [0.6, 0] }}
+                              transition={{ duration: 1.2, repeat: Infinity }}
+                              className="absolute w-8 h-8 rounded-full border border-white"
+                            />
+                          )}
+                        </motion.div>
+                      )}
+
+                      {/* Mock Pin Layer for Guided Demo mode */}
+                      {demoState === 'mockDemo' && activePin && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+                          style={{ left: `${activePin.x}%`, top: `${activePin.y}%` }}
+                        >
+                          <div className="relative w-6 h-6 flex items-center justify-center">
+                            <span className="absolute inline-flex h-full w-full rounded-full bg-pm-accent/40 animate-ping opacity-75" />
+                            <div className={`w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-lg ${demoStep === 'submitFeedback' ? 'bg-emerald-500' : 'bg-pm-accent'}`}>
+                              {demoStep === 'submitFeedback' ? '✓' : '1'}
                             </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {/* Real interactive pins layer inside sandboxActive mode */}
+                      {demoState === 'sandboxActive' && pinsList.map((pin, index) => (
+                        <motion.div
+                          key={pin.id}
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+                          style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActivePin(pin);
+                            setDrawerOpen(true);
+                          }}
+                        >
+                          <div className="relative w-6 h-6 flex items-center justify-center cursor-pointer">
+                            <span className="absolute inline-flex h-full w-full rounded-full bg-pm-accent/40 animate-ping opacity-75" />
+                            <div className={`w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-lg transition-colors ${activePin?.id === pin.id ? 'bg-pm-accent-bright ring-2 ring-pm-accent-vivid' : 'bg-pm-accent'}`}>
+                              {index + 1}
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -831,14 +1053,16 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                     <div className="space-y-4 overflow-y-auto pr-1 select-text scrollbar-thin">
                       <div className="flex items-center justify-between border-b border-pm-border pb-2 animate-fade-in">
                         <span className="font-display font-bold text-[10px] text-white">LEAVE FEEDBACK</span>
-                        <span className="px-1.5 py-0.5 rounded bg-pm-accent/20 text-pm-accent-vivid text-[8px] font-bold">DRAFT</span>
+                        <span className="px-1.5 py-0.5 rounded bg-pm-accent/20 text-pm-accent-vivid text-[8px] font-bold">
+                          {demoState === 'mockDemo' && demoStep === 'submitFeedback' ? 'SUBMITTED' : 'DRAFT'}
+                        </span>
                       </div>
 
                       {/* Screenshot thumbnail mockup */}
                       <div className="bg-pm-bg rounded border border-pm-border p-1 text-center">
                         <div className="text-white/40 uppercase tracking-widest text-[7px] font-bold mb-1">Screenshot Evidence</div>
                         <div className="h-14 bg-pm-surface-3 rounded border border-pm-border flex items-center justify-center text-[7px] text-pm-muted">
-                          [Element State Captured]
+                          [Viewport Capture Active]
                         </div>
                       </div>
 
@@ -881,15 +1105,15 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                         <div className="space-y-2.5">
                           <div className="space-y-1">
                             <span className="text-pm-accent-vivid font-bold block">3D MESH NAME</span>
-                            <span className="text-white font-mono bg-pm-bg px-1.5 py-0.5 rounded border border-pm-border inline-block">{activePin.meshName || 'Mesh#unidentified'}</span>
+                            <span className="text-white font-mono bg-pm-bg px-1.5 py-0.5 rounded border border-pm-border inline-block">{activePin.meshName || 'Mesh#cube-01'}</span>
                           </div>
                           <div className="space-y-1">
                             <span className="text-pm-accent-vivid font-bold block">GEOMETRY</span>
-                            <span className="text-pm-muted text-[8px] block bg-pm-bg p-1.5 rounded border border-pm-border">{activePin.geometry || 'BufferGeometry'}</span>
+                            <span className="text-pm-muted text-[8px] block bg-pm-bg p-1.5 rounded border border-pm-border">{activePin.geometry || 'BoxGeometry'}</span>
                           </div>
                           <div className="space-y-1">
                             <span className="text-pm-accent-vivid font-bold block">MATERIAL</span>
-                            <span className="text-pm-muted text-[8px] block bg-pm-bg p-1.5 rounded border border-pm-border">{activePin.material || 'MeshBasicMaterial'}</span>
+                            <span className="text-pm-muted text-[8px] block bg-pm-bg p-1.5 rounded border border-pm-border">{activePin.material || 'MeshStandardMaterial'}</span>
                           </div>
                           <div className="bg-pm-bg p-2 rounded border border-pm-border space-y-1 animate-fade-in">
                             <div className="text-white/40 uppercase tracking-widest text-[7px] font-bold mb-1">Raycast Details</div>
@@ -977,6 +1201,7 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                         <div className="bg-pm-bg p-2 rounded border border-pm-border">
                           <textarea 
                             placeholder="Type notes for developers..."
+                            defaultValue={demoState === 'mockDemo' && demoStep === 'submitFeedback' ? 'Review heading alignment and border sizing values.' : ''}
                             className="bg-transparent border-none outline-none text-[8.5px] text-pm-text w-full h-10 resize-none font-sans placeholder:text-pm-text-faint"
                           />
                         </div>
@@ -994,9 +1219,9 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                     <div className="pt-2 border-t border-pm-border space-y-2 bg-pm-surface-2/95">
                       <button 
                         onClick={() => setShowConversion(true)}
-                        className="w-full py-2 rounded bg-pm-accent hover:bg-pm-accent-bright text-white text-center font-bold text-[8.5px] uppercase tracking-wider shadow-accent transition-colors duration-300 cursor-pointer"
+                        className={`w-full py-2 rounded text-white text-center font-bold text-[8.5px] uppercase tracking-wider transition-all duration-300 cursor-pointer ${demoState === 'mockDemo' && demoStep === 'submitFeedback' ? 'bg-emerald-600' : 'bg-pm-accent hover:bg-pm-accent-bright shadow-accent'}`}
                       >
-                        Submit feedback pin
+                        {demoState === 'mockDemo' && demoStep === 'submitFeedback' ? 'Feedback Submitted' : 'Submit feedback pin'}
                       </button>
                       <div className="text-[7.5px] text-pm-muted/50 text-center italic">
                         This is what your reviewer sees.
@@ -1034,7 +1259,7 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                         href="/auth/register"
                         className="px-5 py-2.5 bg-pm-accent hover:bg-pm-accent-bright text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-accent transition-colors"
                       >
-                        Start Free Redesign
+                        Start Free Project
                       </Link>
                       <button
                         onClick={(e) => {
