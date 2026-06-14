@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircle } from 'lucide-react'
+import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircle, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ExportPanel } from '@/components/ExportPanel'
 import { DesignSystemPanel } from '@/components/DesignSystemPanel'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
 import { ShareLinkButton } from '@/components/share/ShareLinkButton'
 import FeedbackFeed from '@/components/FeedbackFeed'
+import FeedbackAnalyticsPanel from '@/components/FeedbackAnalyticsPanel'
 import { Palette } from 'lucide-react'
 import { AuditSurface } from '@/components/audit/AuditSurface'
 import { api } from '@/lib/api'
@@ -73,10 +74,12 @@ export default function ProjectPage() {
     isExportPanelOpen, 
     isDesignSystemOpen,
     isSharePanelOpen,
+    isAnalyticsOpen,
     toggleCommandCenter, 
     toggleExportPanel,
     toggleDesignSystem,
-    toggleSharePanel
+    toggleSharePanel,
+    toggleAnalytics
   } = useUIStore()
 
   const { heavy_mode, renderer_type } = useSessionStore()
@@ -322,6 +325,20 @@ export default function ProjectPage() {
              <span className="hidden md:inline ml-2">Aesthetics Controller</span>
           </Button>
 
+          {/* Analytics Button */}
+          <Button 
+             onClick={() => toggleAnalytics()}
+             variant="outline"
+             className={cn(
+               "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
+               isAnalyticsOpen ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/40" : "hover:bg-white/10",
+               heavy_mode && "max-md:hidden"
+             )}
+          >
+             <BarChart3 className="w-4 h-4" />
+             <span className="hidden md:inline ml-2">Analytics</span>
+          </Button>
+
           <Button 
             onClick={() => toggleExportPanel()}
             variant="outline"
@@ -390,6 +407,21 @@ export default function ProjectPage() {
                >
                  <div className="p-6 h-full pointer-events-auto">
                     <DesignSystemPanel projectId={id} />
+                 </div>
+               </motion.div>
+            )}
+            {isAnalyticsOpen && (
+               <motion.div 
+                 initial={{ x: -400, opacity: 0 }}
+                 animate={{ x: 0, opacity: 1 }}
+                 exit={{ x: -400, opacity: 0 }}
+                 className="absolute left-0 top-0 bottom-0 w-full sm:w-[400px] z-50 pointer-events-none"
+               >
+                 <div className="p-6 h-full pointer-events-auto">
+                    <FeedbackAnalyticsPanel 
+                      sessionId={sessionId} 
+                      onClose={() => toggleAnalytics(false)} 
+                    />
                  </div>
                </motion.div>
             )}

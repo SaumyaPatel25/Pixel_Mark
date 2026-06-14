@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from models import Marker, Session, User, ShareLink
+from models import Marker, Session, User, ShareLink, AuditArtifact
 from schemas import MarkerCreate, MarkerUpdate, MarkerOut
 from dependencies import get_db, get_current_user
 import uuid
@@ -428,7 +428,28 @@ async def update_marker(marker_id: str, data: MarkerUpdate, db: AsyncSession = D
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
     
-    for field, value in data.model_dump(exclude_none=True).items():
+    update_dict = data.model_dump(exclude_none=True)
+    if "status" in update_dict:
+        old_status = marker.status
+        new_status = update_dict["status"]
+        if old_status != new_status:
+            audit = AuditArtifact(
+                id=str(uuid.uuid4()),
+                session_id=marker.session_id,
+                kind="status_change",
+                payload={
+                    "feedback_id": marker.id,
+                    "old_status": old_status,
+                    "new_status": new_status,
+                    "changed_at": datetime.utcnow().isoformat()
+                }
+            )
+            db.add(audit)
+            import logging
+            logger = logging.getLogger("pixelmark.feedback")
+            logger.info(f"[OBSERVABILITY] [STATUS_CHANGE] Feedback ID={marker.id} status changed from {old_status} to {new_status}")
+
+    for field, value in update_dict.items():
         setattr(marker, field, value)
     await db.commit()
     await db.refresh(marker)
@@ -445,6 +466,23 @@ async def delete_marker(marker_id: str, db: AsyncSession = Depends(get_db)):
     marker = result.scalar_one_or_none()
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
+        
+    audit = AuditArtifact(
+        id=str(uuid.uuid4()),
+        session_id=marker.session_id,
+        kind="marker_deletion",
+        payload={
+            "marker_id": marker.id,
+            "marker_number": marker.marker_number,
+            "deleted_at": datetime.utcnow().isoformat()
+        }
+    )
+    db.add(audit)
+    
+    import logging
+    logger = logging.getLogger("pixelmark.markers")
+    logger.info(f"[OBSERVABILITY] [MARKER_DELETED] Marker ID={marker.id} number={marker.marker_number} deleted")
+    
     await db.delete(marker)
     await db.commit()
     return {"deleted": True}

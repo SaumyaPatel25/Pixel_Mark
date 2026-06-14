@@ -4,7 +4,7 @@ import { useScreenshotStore } from './screenshotStore'
 import { useMarkerStore } from './markerStore'
 import { api } from '@/lib/api'
 
-export type CaptureStatus = 'draft' | 'submitted' | 'failed' | 'resolved' | 'archived'
+export type CaptureStatus = 'draft' | 'new' | 'triaged' | 'in_progress' | 'resolved' | 'dismissed' | 'failed' | 'submitted' | 'archived'
 
 // ─── PART 1 & PART 7: Storage Reset and Cleanup ─────────────────────────────
 const performOneTimeCleanup = () => {
@@ -177,6 +177,24 @@ export const usePinStore = create<PinStoreState>((set, get) => ({
 
     set((state) => {
       const nextPins = [...state.pins]
+      
+      // Load saved local draft pins first
+      if (typeof window !== 'undefined') {
+        try {
+          const draftsStr = localStorage.getItem('pixelmark_draft_pins_v5')
+          if (draftsStr) {
+            const drafts = JSON.parse(draftsStr) as CapturePayload[]
+            drafts.forEach((draft) => {
+              if (!nextPins.some(p => p.id === draft.id) && !deletedIds.includes(draft.id)) {
+                nextPins.push(draft)
+              }
+            })
+          }
+        } catch (e) {
+          console.error('[PixelMark Hydration] failed to load draft pins:', e)
+        }
+      }
+
       items.forEach((item) => {
         const id = item.id || item.capturepayload?.id
 
@@ -239,6 +257,7 @@ type CaptureStore = {
   selectedCaptureId: string | null
   isFeedbackDrawerOpen: boolean
   isCaptureInProgress: boolean
+  listError: string | null
 
   // Methods
   upsertCapture: (payload: any) => string
@@ -255,6 +274,7 @@ type CaptureStore = {
   getSelectedCapture: () => CapturePayload | null
   setCaptureInProgress: (inProgress: boolean) => void
   hydratePersistedFeedback: (items: any[]) => void
+  setListError: (error: string | null) => void
 }
 
 export const useCaptureStore = create<CaptureStore>((set, get) => ({
@@ -263,6 +283,7 @@ export const useCaptureStore = create<CaptureStore>((set, get) => ({
   selectedCaptureId: null,
   isFeedbackDrawerOpen: false,
   isCaptureInProgress: false,
+  listError: null,
 
   upsertCapture: (raw) => {
     return usePinStore.getState().createPin(raw)
@@ -280,7 +301,10 @@ export const useCaptureStore = create<CaptureStore>((set, get) => ({
     usePinStore.getState().updatePin(id, { status: 'submitted', submissionError: null })
   },
   markCaptureFailed: (id, error) => {
-    usePinStore.getState().updatePin(id, { status: 'failed', submissionError: error })
+    const pin = usePinStore.getState().pins.find(p => p.id === id)
+    const isAlreadyPersisted = pin && pin.status !== 'draft' && pin.status !== 'failed'
+    const nextStatus = isAlreadyPersisted ? pin.status : 'failed'
+    usePinStore.getState().updatePin(id, { status: nextStatus, submissionError: error })
   },
   updateCaptureDraft: (id, patch) => {
     usePinStore.getState().updatePin(id, patch)
@@ -317,6 +341,9 @@ export const useCaptureStore = create<CaptureStore>((set, get) => ({
   },
   hydratePersistedFeedback: (items) => {
     usePinStore.getState().hydratePersistedFeedback(items)
+  },
+  setListError: (error) => {
+    set({ listError: error })
   }
 }))
 
@@ -341,3 +368,15 @@ useScreenshotStore.subscribe((scrState) => {
     isCaptureInProgress: scrState.screenshotStatus === 'capturing'
   })
 })
+
+// Autosave draft pins to localStorage
+if (typeof window !== 'undefined') {
+  usePinStore.subscribe((state) => {
+    try {
+      const drafts = state.pins.filter(p => p.status === 'draft')
+      localStorage.setItem('pixelmark_draft_pins_v5', JSON.stringify(drafts))
+    } catch (e) {
+      console.error('[Markers] failed to autosave draft pins:', e)
+    }
+  })
+}

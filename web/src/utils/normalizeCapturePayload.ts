@@ -1,4 +1,4 @@
-export type CaptureStatus = 'draft' | 'submitted' | 'failed' | 'resolved' | 'archived'
+export type CaptureStatus = 'draft' | 'new' | 'triaged' | 'in_progress' | 'resolved' | 'dismissed' | 'failed' | 'submitted' | 'archived'
 
 export type CapturePayload = {
   // Direct Store Fields

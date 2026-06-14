@@ -215,6 +215,12 @@ export const api = {
         body: JSON.stringify(data)
       })
     },
+    async getAnalytics(sessionId: string) {
+      return request(`/sessions/${sessionId}/analytics`)
+    },
+    async getFeedbackHistory(sessionId: string, feedbackId: string) {
+      return request(`/sessions/${sessionId}/feedback/${feedbackId}/history`)
+    },
   },
 
   // COMMENTS (Frontend calls it comments, Backend calls it markers)

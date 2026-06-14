@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
-from models import Session, PageVisit, Marker
+from models import Session, PageVisit, Marker, AuditArtifact, ShareLink
 from schemas import (
     SessionCreate, SessionOut, PageVisitOut, SessionRendererUpdate,
     FeedbackCreate, FeedbackUpdate, FeedbackOut, FeedbackListOut
@@ -474,7 +474,24 @@ async def patch_feedback(
 
     update_dict = data.model_dump(exclude_none=True)
     if "status" in update_dict:
-        marker.status = update_dict["status"]
+        old_status = marker.status
+        new_status = update_dict["status"]
+        if old_status != new_status:
+            marker.status = new_status
+            audit = AuditArtifact(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                kind="status_change",
+                payload={
+                    "feedback_id": feedback_id,
+                    "old_status": old_status,
+                    "new_status": new_status,
+                    "changed_at": datetime.utcnow().isoformat()
+                }
+            )
+            db.add(audit)
+            logger.info(f"[OBSERVABILITY] [STATUS_CHANGE] Feedback ID={feedback_id} status changed from {old_status} to {new_status}")
+
     if "issuetype" in update_dict:
         marker.issue_type = update_dict["issuetype"]
     if "priority" in update_dict:
@@ -495,5 +512,180 @@ async def patch_feedback(
     await db.refresh(marker)
 
     return map_marker_to_feedback_out(marker)
+
+
+@router.get("/{session_id}/analytics")
+async def get_session_analytics(
+    session_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    # Verify session exists and find its project_id
+    session_res = await db.execute(select(Session).where(Session.id == session_id))
+    session = session_res.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    project_id = session.project_id
+
+    # Resolve all sessions in this project to compute project-wide metrics
+    all_sessions_res = await db.execute(
+        select(Session.id).where(Session.project_id == project_id)
+    )
+    project_session_ids = [s_id for s_id in all_sessions_res.scalars().all()]
+
+    async def compute_metrics(s_ids: List[str]):
+        # 1. Total feedback
+        feedback_res = await db.execute(
+            select(Marker).where(Marker.session_id.in_(s_ids))
+        )
+        markers = feedback_res.scalars().all()
+        total_feedback = len(markers)
+
+        # 2. Status counts
+        status_counts = {"new": 0, "triaged": 0, "in_progress": 0, "resolved": 0, "dismissed": 0}
+        for m in markers:
+            s = m.status or "new"
+            s = s.lower()
+            if s == "open" or s == "submitted":
+                s = "new"
+            if s in status_counts:
+                status_counts[s] += 1
+            else:
+                status_counts[s] = 1
+
+        # 3. Issue type counts
+        issue_type_counts = {"layout": 0, "copy": 0, "interaction": 0, "rendering": 0, "canvas_webgl": 0, "navigation": 0, "other": 0}
+        for m in markers:
+            t = m.issue_type or "other"
+            t = t.lower()
+            if t in issue_type_counts:
+                issue_type_counts[t] += 1
+            else:
+                issue_type_counts[t] = 1
+
+        # 4. Priority counts
+        priority_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        for m in markers:
+            p = m.priority
+            p_val = getattr(p, "value", str(p)) if p is not None else "medium"
+            p_val = p_val.lower()
+            if p_val in priority_counts:
+                priority_counts[p_val] += 1
+            else:
+                priority_counts["medium"] += 1
+
+        # 5. Screenshot attachment rate
+        screenshot_count = sum(1 for m in markers if m.screenshot_url and len(m.screenshot_url.strip()) > 0)
+        screenshot_attachment_rate = screenshot_count / total_feedback if total_feedback > 0 else 0.0
+
+        # 6. Marker creation rate (by date)
+        creation_dates = {}
+        for m in markers:
+            if m.created_at:
+                dt_str = m.created_at.strftime("%Y-%m-%d")
+                creation_dates[dt_str] = creation_dates.get(dt_str, 0) + 1
+        creation_rate_list = [{"date": d, "count": c} for d, c in sorted(creation_dates.items())]
+
+        # 7. Marker deletion count
+        deletion_res = await db.execute(
+            select(func.count(AuditArtifact.id))
+            .where(AuditArtifact.session_id.in_(s_ids), AuditArtifact.kind == "marker_deletion")
+        )
+        marker_deletion_count = deletion_res.scalar() or 0
+
+        # 8. Share-link usage count
+        shares_res = await db.execute(
+            select(func.sum(ShareLink.use_count))
+            .where(ShareLink.session_id.in_(s_ids))
+        )
+        share_link_usage_count = shares_res.scalar() or 0
+
+        # 9. Reviewer session activity
+        visits_res = await db.execute(
+            select(PageVisit)
+            .where(PageVisit.session_id.in_(s_ids), PageVisit.share_link_id != None)
+        )
+        reviewer_visits = visits_res.scalars().all()
+        reviewer_visit_count = len(reviewer_visits)
+
+        reviewer_pages = {}
+        for v in reviewer_visits:
+            url = v.page_url or "Unknown"
+            reviewer_pages[url] = reviewer_pages.get(url, 0) + 1
+        reviewer_active_pages = [{"page_url": u, "visit_count": c} for u, c in sorted(reviewer_pages.items(), key=lambda x: x[1], reverse=True)]
+
+        return {
+            "total_feedback": total_feedback,
+            "status_counts": status_counts,
+            "issue_type_counts": issue_type_counts,
+            "priority_counts": priority_counts,
+            "screenshot_attachment_rate": screenshot_attachment_rate,
+            "marker_creation_rate": creation_rate_list,
+            "marker_deletion_count": marker_deletion_count,
+            "share_link_usage_count": share_link_usage_count,
+            "reviewer_visit_count": reviewer_visit_count,
+            "reviewer_active_pages": reviewer_active_pages
+        }
+
+    session_metrics = await compute_metrics([session_id])
+    project_metrics = await compute_metrics(project_session_ids)
+
+    logger = logging.getLogger("pixelmark.feedback")
+    logger.info(f"[OBSERVABILITY] [ANALYTICS_LOADED] Loaded analytics for session={session_id} project={project_id}")
+
+    return {
+        "session_id": session_id,
+        "project_id": project_id,
+        "session": session_metrics,
+        "project": project_metrics
+    }
+
+
+@router.get("/{session_id}/feedback/{feedback_id}/history")
+async def get_feedback_history(
+    session_id: str,
+    feedback_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        uuid.UUID(session_id)
+        uuid.UUID(feedback_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    result = await db.execute(
+        select(Marker).where(Marker.session_id == session_id, Marker.id == feedback_id)
+    )
+    marker = result.scalar_one_or_none()
+    if not marker:
+        raise HTTPException(status_code=404, detail="Feedback item not found")
+
+    history_res = await db.execute(
+        select(AuditArtifact)
+        .where(
+            AuditArtifact.session_id == session_id,
+            AuditArtifact.kind == "status_change"
+        )
+        .order_by(AuditArtifact.created_at.asc())
+    )
+    artifacts = history_res.scalars().all()
+
+    history = []
+    for art in artifacts:
+        payload = art.payload or {}
+        if payload.get("feedback_id") == feedback_id:
+            history.append({
+                "id": art.id,
+                "old_status": payload.get("old_status"),
+                "new_status": payload.get("new_status"),
+                "changed_at": payload.get("changed_at") or art.created_at.isoformat()
+            })
+
+    return history
 
 

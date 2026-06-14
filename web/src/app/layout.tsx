@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 
 import { CustomCursor } from "@/components/CustomCursor";
 import { AuthInitializer } from "@/components/AuthInitializer";
+import { ToastContainer } from "@/components/ui/ToastContainer";
 
 export default function RootLayout({
   children,
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col selection:bg-cyan-500/20 selection:text-cyan-200">
         <AuthInitializer />
         <CustomCursor />
+        <ToastContainer />
         <main className="relative z-10 flex-1 flex flex-col">
           {children}
         </main>

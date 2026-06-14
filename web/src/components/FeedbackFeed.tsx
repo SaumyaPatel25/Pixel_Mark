@@ -14,6 +14,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
   const captures = Object.values(useCaptureStore(state => state.capturesById))
   const captureOrder = useCaptureStore(state => state.captureOrder)
   const selectedCaptureId = useCaptureStore(state => state.selectedCaptureId)
+  const listError = useCaptureStore(state => state.listError)
   const toggleCommandCenter = useUIStore(state => state.toggleCommandCenter)
 
   const activeCaptures = captures.filter(c => !c.deletedAt && c.visible !== false)
@@ -58,7 +59,15 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
 
       {/* Sidebar Feed List */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-        {activeCaptures.length === 0 ? (
+        {listError ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+              <span className="text-rose-500 text-xl">⚠️</span>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-rose-400">Failed to load feed</p>
+            <p className="text-[9.5px] text-white/40 max-w-[200px] leading-relaxed">{listError}</p>
+          </div>
+        ) : activeCaptures.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center">
               <Pin className="w-6 h-6 text-white/10" />
@@ -71,9 +80,9 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .map((item, idx) => {
               const isSelected = selectedCaptureId === item.id
-              const isSubmitted = item.status === 'submitted'
-              const isResolved = item.status === 'resolved'
               const isFailed = item.status === 'failed'
+              const isResolved = item.status === 'resolved' || item.status === 'dismissed'
+              const isSubmitted = item.status !== 'draft' && item.status !== 'failed'
               
               const markerNumber = captureOrder.indexOf(item.id) + 1
               
@@ -87,6 +96,16 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
               }
 
               const screenshotUrl = item.screenshotdataurl || item.screenshots?.cropDataUrl || item.screenshots?.fullPageDataUrl
+
+              const getStatusColorClass = (status: string) => {
+                const s = (status || '').toLowerCase()
+                if (s === 'resolved') return 'bg-green-500'
+                if (s === 'dismissed') return 'bg-slate-500'
+                if (s === 'in_progress') return 'bg-orange-500'
+                if (s === 'triaged') return 'bg-purple-500'
+                if (s === 'new' || s === 'submitted' || s === 'open') return 'bg-teal-500'
+                return 'bg-purple-600'
+              }
 
               return (
                 <button
@@ -105,7 +124,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={cn(
                         "w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0",
-                        isFailed ? "bg-rose-500" : isResolved ? "bg-green-500" : isSubmitted ? "bg-teal-500" : "bg-purple-600"
+                        isFailed ? "bg-rose-500" : getStatusColorClass(item.status)
                       )}>
                         {markerNumber || idx + 1}
                       </span>
@@ -147,6 +166,16 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
                     </div>
                     
                     <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded text-[6.5px] font-black uppercase tracking-wider",
+                        item.status === 'resolved' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                        item.status === 'dismissed' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' :
+                        item.status === 'in_progress' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
+                        item.status === 'triaged' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                        'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                      )}>
+                        {item.status || 'new'}
+                      </span>
                       <span className={cn(
                         "w-1.5 h-1.5 rounded-full",
                         item.priority === 'critical' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]' :

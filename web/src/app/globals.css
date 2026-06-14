@@ -1,63 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --color-pm-bg: #0a0a0f;
+  --color-pm-surface: #0f0f18;
+  --color-pm-surface-2: #14141f;
+  --color-pm-surface-3: #1a1a28;
+  --color-pm-accent: #7c3aed;
+  --color-pm-accent-bright: #8b5cf6;
+  --color-pm-accent-vivid: #a78bfa;
+  --color-pm-cyan: #06b6d4;
+  --color-pm-text: #e8e8f0;
+  --color-pm-muted: #8888a8;
+  
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  --shadow-accent: 0 0 24px rgba(124, 58, 237, 0.35), 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-glow-lg: 0 0 48px rgba(124, 58, 237, 0.25);
+}
+
 :root {
-  --bg-cosmic: #09090E;
-  --text-main: #ffffff;
+  --pm-bg:           #0a0a0f;
+  --pm-surface:      #0f0f18;
+  --pm-surface-2:    #14141f;
+  --pm-surface-3:    #1a1a28;
+  --pm-border:       rgba(120,120,200,0.10);
+  --pm-border-bright:rgba(140,120,255,0.22);
+  --pm-accent:       #7c3aed;
+  --pm-accent-bright:#8b5cf6;
+  --pm-accent-vivid: #a78bfa;
+  --pm-accent-glow:  rgba(124,58,237,0.35);
+  --pm-accent-subtle:rgba(124,58,237,0.08);
+  --pm-accent-mid:   rgba(124,58,237,0.16);
+  --pm-cyan:         #06b6d4;
+  --pm-cyan-subtle:  rgba(6,182,212,0.08);
+  --pm-text:         #e8e8f0;
+  --pm-text-muted:   #8888a8;
+  --pm-text-faint:   #44445a;
+  --font-display:    'Space Grotesk', sans-serif;
+  --font-mono:       'JetBrains Mono', monospace;
 }
 
 body {
-  background-color: var(--bg-cosmic);
-  color: var(--text-main);
-  background-image: radial-gradient(circle at 50% 50%, rgba(138, 43, 226, 0.07), transparent 60%);
-  background-attachment: fixed;
-  min-height: 100vh;
+  background-color: var(--pm-bg);
+  color: var(--pm-text);
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
 }
 
-@layer utilities {
-  .text-gradient-cosmic {
-    background-image: linear-gradient(to right, #00f0ff, #3b82f6, #ff007f);
-    color: transparent;
-    background-clip: text;
-    -webkit-background-clip: text;
-    display: inline-block;
-  }
-  
-  .cosmic-glass {
-    background-color: rgba(18, 18, 22, 0.6);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 40px rgba(0, 0, 0, 0.5);
-  }
+/* Custom glow animations and background styles */
+.dot-grid {
+  background-size: 24px 24px;
+  background-image: radial-gradient(rgba(120, 120, 255, 0.06) 1px, transparent 1px);
+}
 
-  .tactile-glass {
-    background-color: rgba(18, 18, 22, 0.6);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 40px rgba(0, 0, 0, 0.5);
-  }
+.text-gradient-purple {
+  background: linear-gradient(to right, #a78bfa, #8b5cf6, #06b6d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 
-  .subheader-technical {
-    font-size: 10px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 0.25em;
-    color: #888899;
-  }
+/* Glassmorphism helpers */
+.glass-panel {
+  background: rgba(15, 15, 24, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(120, 120, 200, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
 
-  .cosmic-surface {
-    background-color: #121216;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
-  }
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-panel-hover:hover {
+  border-color: rgba(140, 120, 255, 0.25);
+  box-shadow: 0 8px 32px 0 rgba(124, 58, 237, 0.08), 0 0 24px rgba(124, 58, 237, 0.05);
+  transform: translateY(-2px);
 }
 
 * {
   cursor: none !important;
 }
 
-h1, h2, h3 {
-  font-weight: 900;
-  letter-spacing: -0.05em;
-}

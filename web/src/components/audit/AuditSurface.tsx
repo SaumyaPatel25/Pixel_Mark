@@ -1,7 +1,8 @@
 'use client'
-import { useCaptureStore } from '@/store/overlayStore'
+import { useCaptureStore, usePinStore } from '@/store/overlayStore'
 import { useUIStore } from '@/store/uiStore'
 import { normalizeCapturePayload, normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
@@ -183,6 +184,7 @@ export function AuditSurface({
   const [noteText, setNoteText] = useState('')
   const [issueType, setIssueType] = useState<IssueType>('other')
   const [severity, setSeverity] = useState<Severity>('medium')
+  const [statusVal, setStatusVal] = useState('new')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [showElementPreview, setShowElementPreview] = useState(true)
@@ -296,9 +298,10 @@ export function AuditSurface({
   const selectedCaptureId = useCaptureStore(state => state.selectedCaptureId)
   const isFeedbackDrawerOpen = useCaptureStore(state => state.isFeedbackDrawerOpen)
   const activeCapture = useCaptureStore(state => selectedCaptureId ? state.capturesById[selectedCaptureId] : null)
-  const isSubmitted = activeCapture?.status === 'submitted'
-  const isResolved = activeCapture?.status === 'resolved'
+  const isSubmitted = activeCapture ? (activeCapture.status !== 'draft' && activeCapture.status !== 'failed') : false
+  const isResolved = activeCapture?.status === 'resolved' || activeCapture?.status === 'dismissed'
   const isFailed = activeCapture?.status === 'failed'
+  const isFormReadOnly = isResolved && (statusVal === 'resolved' || statusVal === 'dismissed')
 
   useEffect(() => {
     setIsDrawerOpen(isFeedbackDrawerOpen)
@@ -340,8 +343,10 @@ export function AuditSurface({
         setNoteText(capture.userComment || '')
         setIssueType((capture.issueType || 'other') as IssueType)
         setSeverity((capture.priority || 'medium') as Severity)
+        setStatusVal(capture.status || 'new')
         setIssueTitle(capture.title || '')
         setTags(capture.tags || '')
+        console.log(`[OBSERVABILITY] [FEEDBACK_OPENED] Opened feedback ID=${capture.id} status=${capture.status || 'new'} priority=${capture.priority || 'medium'}`)
       }
     } else {
       setCaptureCtx(null)
@@ -350,8 +355,56 @@ export function AuditSurface({
       setTags('')
       setIssueType('other')
       setSeverity('medium')
+      setStatusVal('new')
     }
   }, [selectedCaptureId])
+
+  // Save current active draft form state to localStorage
+  useEffect(() => {
+    if (selectedCaptureId && !isSubmitted && !isResolved) {
+      const draftState = {
+        activePinId: selectedCaptureId,
+        issueTitle,
+        noteText,
+        issueType,
+        severity,
+        tags,
+      }
+      localStorage.setItem('pixelmark_current_draft_form', JSON.stringify(draftState))
+      console.log('[OBSERVABILITY] [DRAFT_SAVED] Current open draft form autosaved')
+    } else if (!selectedCaptureId) {
+      localStorage.removeItem('pixelmark_current_draft_form')
+    }
+  }, [selectedCaptureId, issueTitle, noteText, issueType, severity, tags, isSubmitted, isResolved])
+
+  // Restore current active draft form state from localStorage on mount/load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pixelmark_current_draft_form')
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (parsed && parsed.activePinId) {
+            const pins = usePinStore.getState().pins
+            const exists = pins.some(p => p.id === parsed.activePinId)
+            if (exists) {
+              if (useCaptureStore.getState().selectedCaptureId !== parsed.activePinId) {
+                useCaptureStore.getState().openFeedbackDrawer(parsed.activePinId)
+              }
+              setIssueTitle(parsed.issueTitle || '')
+              setNoteText(parsed.noteText || '')
+              setIssueType(parsed.issueType || 'other')
+              setSeverity(parsed.severity || 'medium')
+              setTags(parsed.tags || '')
+              console.log('[OBSERVABILITY] [DRAFT_RESTORED] Restored open feedback draft from localStorage')
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[Draft Recovery] failed to restore current draft:', e)
+      }
+    }
+  }, [])
 
   // Session / Heavy mode states
   const { setRendererType: setStoreRendererType, heavy_mode } = useSessionStore()
@@ -1084,9 +1137,11 @@ export function AuditSurface({
           priority: severity,
           title: issueTitle.trim(),
           description: noteText.trim(),
+          status: statusVal,
         }
         console.log('[PixelMark Submit] updating feedback payload:', patch)
         const updated = await api.feedback.update(sessionId, activeId, patch, shareToken)
+        console.log('[OBSERVABILITY] [FEEDBACK_UPDATED] Feedback successfully updated on backend. ID =', updated.id)
         
         // Map backend record back into CapturePayload-compatible frontend object
         const normalized = normalizeCapturePayload({
@@ -1145,6 +1200,7 @@ export function AuditSurface({
 
         console.log('[PixelMark Submit] sending feedback payload:', feedbackPayload)
         const created = await api.feedback.create(sessionId, feedbackPayload, shareToken)
+        console.log('[OBSERVABILITY] [FEEDBACK_SUBMITTED] Feedback successfully submitted to backend. ID =', created.id)
 
         // Map backend record back into CapturePayload-compatible frontend object
         const normalized = normalizeCapturePayload({
@@ -1185,6 +1241,7 @@ export function AuditSurface({
         }, 1100)
       }
     } catch (err: unknown) {
+      console.warn('[OBSERVABILITY] [API_FAILURE] Feedback submission API call failed:', err)
       console.error('[AuditSurface] Feedback submission failed:', err)
       const message = err instanceof Error ? err.message : 'Could not save feedback'
       setSubmitError(message)
@@ -1895,7 +1952,8 @@ export function AuditSurface({
         </div>
 
         <form onSubmit={handleDrawerSubmit} className="flex-1 overflow-y-auto flex flex-col">
-          <div className="p-5 flex flex-col gap-5 flex-1">
+          <ErrorBoundary>
+            <div className="p-5 flex flex-col gap-5 flex-1">
 
             {/* ── Collapsible Panel: Screenshot (Phase 3.5 Upgrade) ─── */}
             <div className="border-b border-white/5 pb-2">
@@ -2248,7 +2306,7 @@ export function AuditSurface({
               <input
                 type="text"
                 required
-                disabled={isResolved}
+                disabled={isFormReadOnly}
                 placeholder="e.g. Navigation overlaps logo, Button hover broken"
                 value={issueTitle}
                 onChange={(e) => setIssueTitle(e.target.value)}
@@ -2268,11 +2326,12 @@ export function AuditSurface({
                     <button
                       key={t.value}
                       type="button"
+                      disabled={isFormReadOnly}
                       aria-pressed={active}
                       title={t.description}
                       onClick={() => setIssueType(t.value)}
                       className={cn(
-                        "h-9 rounded-xl font-bold text-[9px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 px-2 focus:ring-2 focus:ring-purple-500 focus:outline-none",
+                        "h-9 rounded-xl font-bold text-[9px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 px-2 focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
                         active
                           ? `${issueTypeColorMap[t.color]} shadow-lg`
                           : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.07] hover:text-white/70'
@@ -2296,13 +2355,40 @@ export function AuditSurface({
               </label>
               <textarea
                 rows={4}
-                disabled={isResolved}
+                disabled={isFormReadOnly}
                 placeholder="What's wrong here? e.g. 'Button doesn't respond on mobile', 'Text overlaps the image'…"
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 className="w-full bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 p-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
+
+            {/* ── Status picker (Phase 5 Workflow) ───────────────────────── */}
+            {isSubmitted && (
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">Status</label>
+                <div className="relative">
+                  <select
+                    value={statusVal}
+                    onChange={(e) => {
+                      const newStatus = e.target.value
+                      setStatusVal(newStatus)
+                      console.log(`[OBSERVABILITY] [STATUS_CHANGE_DRAFT] Draft status changed to: ${newStatus}`)
+                    }}
+                    className="w-full h-11 bg-[#0f0f15] border border-white/[0.08] text-white px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none"
+                  >
+                    <option value="new">New</option>
+                    <option value="triaged">Triaged</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="dismissed">Dismissed</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-white/40">
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── Severity picker ─────────────────────────────────────── */}
             <div className="space-y-2">
@@ -2312,7 +2398,7 @@ export function AuditSurface({
                   <button
                     key={s}
                     type="button"
-                    disabled={isResolved}
+                    disabled={isFormReadOnly}
                     aria-pressed={severity === s}
                     onClick={() => setSeverity(s)}
                     className={cn(
@@ -2338,7 +2424,7 @@ export function AuditSurface({
               </label>
               <input
                 type="text"
-                disabled={isResolved}
+                disabled={isFormReadOnly}
                 placeholder="e.g. mobile, bug, layout"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
@@ -2366,7 +2452,7 @@ export function AuditSurface({
               </div>
             ) : (
               <>
-                {isResolved ? (
+                {isFormReadOnly ? (
                   <button
                     type="button"
                     disabled
@@ -2420,7 +2506,8 @@ export function AuditSurface({
               Cancel
             </button>
           </div>
-        </form>
+        </ErrorBoundary>
+      </form>
       </div>
 
       <SupportDiagnosticsPanel
