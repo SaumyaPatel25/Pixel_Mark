@@ -106,7 +106,7 @@ export function ProjectCard({
   
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
-  const cardRef = useRef<HTMLButtonElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const springX = useSpring(mouseX, { stiffness: 300, damping: 30 })
   const springY = useSpring(mouseY, { stiffness: 300, damping: 30 })
@@ -143,13 +143,21 @@ export function ProjectCard({
   }, [project.id, BASE, propAnalytics])
 
   return (
-    <motion.button 
+    <motion.div 
       layout
       ref={cardRef}
       onMouseMove={handleMouse}
       onClick={onClick}
       whileHover={{ y: -4 }}
-      className="w-full text-left bg-[#0c0c0e] border border-white/5 rounded-[24px] p-6 transition-all group overflow-hidden relative shadow-2xl hover:shadow-purple-500/10 hover:border-white/10"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+      className="w-full cursor-pointer text-left bg-[#0c0c0e] border border-white/5 rounded-[24px] p-6 transition-all group overflow-hidden relative shadow-2xl hover:shadow-purple-500/10 hover:border-white/10 focus:outline-none focus:border-purple-500/40"
     >
       {/* Spotlight Effect */}
       <motion.div 
@@ -276,6 +284,6 @@ export function ProjectCard({
         </div>
 
       </div>
-    </motion.button>
+    </motion.div>
   )
 }
