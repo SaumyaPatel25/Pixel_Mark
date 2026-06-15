@@ -234,8 +234,8 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
       }
     }
 
-    pageX = p.pageX ?? p.page_x ?? p.click?.page_x ?? p.coordinates?.pageX ?? (displayX + (typeof window !== 'undefined' ? window.scrollX : 0))
-    pageY = p.pageY ?? p.page_y ?? p.click?.page_y ?? p.coordinates?.pageY ?? (displayY + (typeof window !== 'undefined' ? window.scrollY : 0))
+    pageX = p.pageX ?? p.page_x ?? p.x ?? p.click?.page_x ?? p.coordinates?.pageX ?? (displayX + (typeof window !== 'undefined' ? window.scrollX : 0))
+    pageY = p.pageY ?? p.page_y ?? p.y ?? p.click?.page_y ?? p.coordinates?.pageY ?? (displayY + (typeof window !== 'undefined' ? window.scrollY : 0))
   }
 
   // Clamp to parent window viewport bounds

@@ -1888,6 +1888,8 @@
         id: pin.id,
         clientX: Math.round(clientX),
         clientY: Math.round(clientY),
+        pageX: Math.round(clientX + window.scrollX),
+        pageY: Math.round(clientY + window.scrollY),
         source: source
       };
     });

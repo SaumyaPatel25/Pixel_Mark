@@ -168,7 +168,7 @@ export function AuditSurface({
   const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [scrollPos, setScrollPos] = useState({ x: 0, y: 0 })
-  const [resolvedPositions, setResolvedPositions] = useState<Record<string, { clientX: number; clientY: number; source: string }>>({})
+  const [resolvedPositions, setResolvedPositions] = useState<Record<string, { clientX: number; clientY: number; pageX?: number; pageY?: number; source: string }>>({})
   // Feedback mode state
   const [feedbackModeActive, setFeedbackModeActive] = useState(false)
   const captures = Object.values(useCaptureStore(state => state.capturesById))
@@ -870,13 +870,35 @@ export function AuditSurface({
           setScrollPos({ x: data.scrollX || 0, y: data.scrollY || 0 })
           break
 
+        case 'PIXELMARK_RESIZE':
+          console.log(`[PixelMark Frame] Resize event: ${data.width}x${data.height}`)
+          break
+
         case 'PIXELMARK_PINS_RESOLVED': {
           console.log(`[PixelMark Pin] recomputed ${data.resolvedPins?.length} markers`)
+          
+          data.resolvedPins?.forEach((p: any) => {
+            if (p.source !== 'none') {
+              const existing = useCaptureStore.getState().capturesById[p.id]
+              if (existing) {
+                useCaptureStore.getState().updateCaptureDraft(p.id, {
+                  renderedPosition: { left: p.clientX, top: p.clientY, source: p.source }
+                })
+              }
+            }
+          })
+
           setResolvedPositions(prev => {
             const next = { ...prev }
             data.resolvedPins?.forEach((p: any) => {
               if (p.source !== 'none') {
-                next[p.id] = { clientX: p.clientX, clientY: p.clientY, source: p.source }
+                next[p.id] = { 
+                  clientX: p.clientX, 
+                  clientY: p.clientY, 
+                  pageX: p.pageX, 
+                  pageY: p.pageY, 
+                  source: p.source 
+                }
               }
             })
             return next
@@ -929,23 +951,18 @@ export function AuditSurface({
   useEffect(() => {
     if (isLoading || !iframeRef.current?.contentWindow) return
 
-    const iframeRect = iframeRef.current.getBoundingClientRect()
-    const iframeLeft = iframeRect.left
-    const iframeTop = iframeRect.top
-
     const pins = captures.map(c => {
-      const viewportX = c.coordinates?.clientX ?? (c.coordinates?.viewportX ? c.coordinates.viewportX - iframeLeft : 0)
-      const viewportY = c.coordinates?.clientY ?? (c.coordinates?.viewportY ? c.coordinates.viewportY - iframeTop : 0)
-      
+      const pageX = c.pageX ?? 0
+      const pageY = c.pageY ?? 0
       const capScrollX = c.viewport?.scrollX ?? 0
       const capScrollY = c.viewport?.scrollY ?? 0
-      const pageX = viewportX + capScrollX
-      const pageY = viewportY + capScrollY
+      const viewportX = c.coordinates?.clientX ?? (pageX - capScrollX)
+      const viewportY = c.coordinates?.clientY ?? (pageY - capScrollY)
 
       return {
         id: c.id,
-        selector: c.target?.selector,
-        xpath: c.target?.xpath,
+        selector: c.selector ?? c.target?.selector,
+        xpath: c.xpath ?? c.target?.xpath,
         boundingBox: c.boundingBox,
         x: pageX,
         y: pageY,
@@ -2487,7 +2504,10 @@ export function AuditSurface({
               <button
                 type="button"
                 onClick={() => {
-                  useCaptureStore.getState().removeLocalCapture(activeCapture.id);
+                  const id = activeCapture.id;
+                  useCaptureStore.getState().removeLocalCapture(id);
+                  useCaptureStore.getState().selectCapture(null);
+                  useCaptureStore.getState().closeFeedbackDrawer();
                   setIsDrawerOpen(false);
                   setCaptureCtx(null);
                   setManualPlacementMode(false);

@@ -8,7 +8,7 @@ interface MarkerPinLayerProps {
   captures: any[]
   currentUrl: string
   scrollPos: { x: number; y: number }
-  resolvedPositions: Record<string, { clientX: number; clientY: number; source: string }>
+  resolvedPositions: Record<string, { clientX: number; clientY: number; pageX?: number; pageY?: number; source: string }>
   iframeNode: HTMLIFrameElement | null
   selectedCaptureId: string | null
   captureOrder: string[]
@@ -28,6 +28,7 @@ export function MarkerPinLayer({
   const [hoveredPinId, setHoveredPinId] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
   const [diagnosticMode, setDiagnosticMode] = useState(false)
+  const [iframeRect, setIframeRect] = useState<DOMRect | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -38,6 +39,33 @@ export function MarkerPinLayer({
       setDiagnosticMode(isDiag)
     }
   }, [])
+
+  useEffect(() => {
+    if (!iframeNode) return
+
+    setIframeRect(iframeNode.getBoundingClientRect())
+
+    const handleResize = () => {
+      setIframeRect(iframeNode.getBoundingClientRect())
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    let resizeObserver: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        handleResize()
+      })
+      resizeObserver.observe(iframeNode)
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+      }
+    }
+  }, [iframeNode])
 
   if (!mounted || typeof document === 'undefined') return null
 
@@ -71,24 +99,32 @@ export function MarkerPinLayer({
       }}
     >
       {pagePins.map((capture, index) => {
-        const getCaptureScroll = (c: any) => {
-          const scrollX = c.viewport?.scrollX ?? c.viewport?.scroll_position?.x ?? c.scroll_position?.x ?? c.scrollX ?? 0
-          const scrollY = c.viewport?.scrollY ?? c.viewport?.scroll_position?.y ?? c.scroll_position?.y ?? c.scrollY ?? 0
-          return { x: scrollX, y: scrollY }
-        }
+        const pageX = capture.pageX ?? 0
+        const pageY = capture.pageY ?? 0
 
         const resolved = resolvedPositions?.[capture.id]
         let parentX = 0
         let parentY = 0
 
-        if (resolved && iframeNode) {
-          const iframeRect = iframeNode.getBoundingClientRect()
-          parentX = resolved.clientX + iframeRect.left
-          parentY = resolved.clientY + iframeRect.top
-        } else if (iframeNode && typeof capture.coordinates?.clientX === 'number' && typeof capture.coordinates?.clientY === 'number') {
-          const iframeRect = iframeNode.getBoundingClientRect()
-          parentX = capture.coordinates.clientX + iframeRect.left
-          parentY = capture.coordinates.clientY + iframeRect.top
+        let pageXCoord = pageX
+        let pageYCoord = pageY
+
+        if (resolved && typeof resolved.pageX === 'number' && typeof resolved.pageY === 'number') {
+          pageXCoord = resolved.pageX
+          pageYCoord = resolved.pageY
+        } else if (resolved && typeof resolved.clientX === 'number' && typeof resolved.clientY === 'number') {
+          // If we had resolved clientX/clientY, we add the scroll position at the time of resolution
+          // or we can use the current scroll position as a default (less accurate, but better than nothing)
+          pageXCoord = resolved.clientX + scrollPos.x
+          pageYCoord = resolved.clientY + scrollPos.y
+        }
+
+        const rect = iframeRect || (iframeNode ? iframeNode.getBoundingClientRect() : null)
+        if (rect) {
+          const clientX = pageXCoord - scrollPos.x
+          const clientY = pageYCoord - scrollPos.y
+          parentX = clientX + rect.left
+          parentY = clientY + rect.top
         } else {
           parentX = capture.displayX ?? capture.x ?? 0
           parentY = capture.displayY ?? capture.y ?? 0

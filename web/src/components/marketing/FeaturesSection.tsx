@@ -1,9 +1,14 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { GlassTiltCard } from '@/components/marketing/GlassTiltCard';
 import { Camera, Terminal, Shield, Terminal as ConsoleIcon, Database, ArrowUpRight, Share2, Users, Layers, ExternalLink } from 'lucide-react';
 
-export default function FeaturesSection() {
+interface FeaturesSectionProps {
+  onHoverChange: (pos: { x: number; y: number } | null) => void;
+}
+
+export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps) {
   const containerVariants = {
     hidden: {},
     visible: {
@@ -26,7 +31,7 @@ export default function FeaturesSection() {
   };
 
   return (
-    <section id="features" className="relative py-24 bg-pm-bg overflow-hidden border-t border-pm-border">
+    <section id="features" className="relative py-24 bg-transparent overflow-hidden border-t border-pm-border/30">
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         
         {/* Section Header */}
@@ -49,9 +54,15 @@ export default function FeaturesSection() {
           className="grid grid-cols-1 md:grid-cols-12 gap-6"
         >
           {/* Main Feature: Zero-Install Flow (Wide Card) */}
-          <motion.div
-            variants={itemVariants}
-            className="md:col-span-8 p-8 rounded-2xl border border-pm-border bg-pm-surface-2/40 relative overflow-hidden group hover:border-pm-accent/30 transition-all duration-300 flex flex-col justify-between"
+          <GlassTiltCard
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
+              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
+              onHoverChange({ x, y });
+            }}
+            onMouseLeave={() => onHoverChange(null)}
+            className="md:col-span-8"
           >
             <div className="absolute top-0 right-0 w-[40%] h-[40%] bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.1),transparent_60%)]" />
             <div className="space-y-4 max-w-xl">
@@ -69,12 +80,18 @@ export default function FeaturesSection() {
               <span>View Security Spec</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </div>
-          </motion.div>
+          </GlassTiltCard>
 
           {/* Feature: Auto Screenshot */}
-          <motion.div
-            variants={itemVariants}
-            className="md:col-span-4 p-8 rounded-2xl border border-pm-border bg-pm-surface/40 relative overflow-hidden group hover:border-pm-accent/30 transition-all duration-300 flex flex-col justify-between"
+          <GlassTiltCard
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
+              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
+              onHoverChange({ x, y });
+            }}
+            onMouseLeave={() => onHoverChange(null)}
+            className="md:col-span-4"
           >
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
@@ -87,12 +104,18 @@ export default function FeaturesSection() {
                 Pixel-perfect screenshots capture the exact state of the viewport, with a purple overlay highlighted rect bounding the clicked element.
               </p>
             </div>
-          </motion.div>
+          </GlassTiltCard>
 
           {/* Feature: DOM Snapshot */}
-          <motion.div
-            variants={itemVariants}
-            className="md:col-span-4 p-8 rounded-2xl border border-pm-border bg-pm-surface/40 relative overflow-hidden group hover:border-pm-accent/30 transition-all duration-300 flex flex-col justify-between"
+          <GlassTiltCard
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
+              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
+              onHoverChange({ x, y });
+            }}
+            onMouseLeave={() => onHoverChange(null)}
+            className="md:col-span-4"
           >
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
@@ -105,12 +128,18 @@ export default function FeaturesSection() {
                 Inspect raw innerHTML, computed CSS values (width, height, display, z-index), and element boundaries in a clean technical side-panel.
               </p>
             </div>
-          </motion.div>
+          </GlassTiltCard>
 
           {/* Feature: XPath + CSS Selector */}
-          <motion.div
-            variants={itemVariants}
-            className="md:col-span-4 p-8 rounded-2xl border border-pm-border bg-pm-surface/40 relative overflow-hidden group hover:border-pm-accent/30 transition-all duration-300 flex flex-col justify-between"
+          <GlassTiltCard
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
+              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
+              onHoverChange({ x, y });
+            }}
+            onMouseLeave={() => onHoverChange(null)}
+            className="md:col-span-4"
           >
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
@@ -123,12 +152,18 @@ export default function FeaturesSection() {
                 Generates robust DOM CSS selectors and absolute XPaths. Our selector strategy ensures markers stay pinned even when you restructure layouts.
               </p>
             </div>
-          </motion.div>
+          </GlassTiltCard>
 
           {/* Feature: Console + Network Errors */}
-          <motion.div
-            variants={itemVariants}
-            className="md:col-span-4 p-8 rounded-2xl border border-pm-border bg-pm-surface/40 relative overflow-hidden group hover:border-pm-accent/30 transition-all duration-300 flex flex-col justify-between"
+          <GlassTiltCard
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
+              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
+              onHoverChange({ x, y });
+            }}
+            onMouseLeave={() => onHoverChange(null)}
+            className="md:col-span-4"
           >
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
@@ -141,12 +176,18 @@ export default function FeaturesSection() {
                 Detects asset failures, CORS blockages, and JavaScript errors automatically at the moment of pin drop, grouping them inside the drawer context.
               </p>
             </div>
-          </motion.div>
+          </GlassTiltCard>
 
           {/* Feature: Priority & Status Workflow */}
-          <motion.div
-            variants={itemVariants}
-            className="md:col-span-4 p-8 rounded-2xl border border-pm-border bg-pm-surface/40 relative overflow-hidden group hover:border-pm-accent/30 transition-all duration-300 flex flex-col justify-between"
+          <GlassTiltCard
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
+              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
+              onHoverChange({ x, y });
+            }}
+            onMouseLeave={() => onHoverChange(null)}
+            className="md:col-span-4"
           >
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
@@ -159,12 +200,18 @@ export default function FeaturesSection() {
                 Change status (New, In Progress, Resolved) and severity (Low, Medium, High, Critical) directly in the UI. Form inputs lock dynamically when resolved.
               </p>
             </div>
-          </motion.div>
+          </GlassTiltCard>
 
           {/* Feature: WebSocket Live Sync */}
-          <motion.div
-            variants={itemVariants}
-            className="md:col-span-4 p-8 rounded-2xl border border-pm-border bg-pm-surface/40 relative overflow-hidden group hover:border-pm-accent/30 transition-all duration-300 flex flex-col justify-between"
+          <GlassTiltCard
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
+              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
+              onHoverChange({ x, y });
+            }}
+            onMouseLeave={() => onHoverChange(null)}
+            className="md:col-span-4"
           >
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
@@ -177,12 +224,18 @@ export default function FeaturesSection() {
                 Allows multiple reviewers to view, place, and resolve pins simultaneously with real-time overlay synchronization and live cursor tracking.
               </p>
             </div>
-          </motion.div>
+          </GlassTiltCard>
 
           {/* Feature: Export Anywhere */}
-          <motion.div
-            variants={itemVariants}
-            className="md:col-span-4 p-8 rounded-2xl border border-pm-border bg-pm-surface/40 relative overflow-hidden group hover:border-pm-accent/30 transition-all duration-300 flex flex-col justify-between"
+          <GlassTiltCard
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
+              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
+              onHoverChange({ x, y });
+            }}
+            onMouseLeave={() => onHoverChange(null)}
+            className="md:col-span-4"
           >
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
@@ -195,7 +248,7 @@ export default function FeaturesSection() {
                 Export session feedback to clean Markdown documents, raw JSON datasets, or push them directly to GitHub issues in one click.
               </p>
             </div>
-          </motion.div>
+          </GlassTiltCard>
         </motion.div>
 
       </div>

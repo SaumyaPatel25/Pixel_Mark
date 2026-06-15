@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { ArrowRight, Zap, MousePointer2, Search, RefreshCw, Globe, Box, Grid, Compass, HelpCircle, CheckCircle2, Layers, Info, Trash2, PlusCircle, Play } from 'lucide-react';
 import Link from 'next/link';
 import { ModeType } from '@/app/page';
+import { useAuthStore } from '@/store/authStore';
 
 interface MockPin {
   id: number;
@@ -38,6 +39,7 @@ interface MockPin {
 interface HeroSectionProps {
   activeMode: ModeType;
   setActiveMode: (mode: ModeType) => void;
+  onHoverChange: (pos: { x: number; y: number } | null) => void;
 }
 
 type DemoState = 'mockDemo' | 'sandboxReady' | 'sandboxActive';
@@ -117,7 +119,9 @@ const getMockPinForMode = (mode: ModeType, x: number, y: number): MockPin => {
   }
 };
 
-export default function HeroSection({ activeMode, setActiveMode }: HeroSectionProps) {
+export default function HeroSection({ activeMode, setActiveMode, onHoverChange }: HeroSectionProps) {
+  const isFirstRender = useRef(true);
+
   // Demo State Machine: mockDemo -> sandboxReady -> sandboxActive
   const [demoState, setDemoState] = useState<DemoState>('mockDemo');
   const [demoStep, setDemoStep] = useState<DemoStep>('chooseMode');
@@ -127,6 +131,14 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [showConversion, setShowConversion] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const user = useAuthStore(state => state.user);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isUserLoggedIn = mounted && !!user;
   
   // Interactive guided demo states
   const [activePin, setActivePin] = useState<MockPin | null>(null);
@@ -141,67 +153,148 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
   const [isFeedbackMode, setIsFeedbackMode] = useState(true);
   const [pinsList, setPinsList] = useState<MockPin[]>([]);
 
-  // guided mockDemo interval logic
-  useEffect(() => {
-    if (demoState !== 'mockDemo') return;
+  // Cinematic & Interactive Mode states
+  const [isInteractive, setIsInteractive] = useState(false);
+  const [cinematicStep, setCinematicStep] = useState(0);
+  const [typedComment, setTypedComment] = useState('');
+  const [commentInput, setCommentInput] = useState('');
 
-    const stepsList: DemoStep[] = ['chooseMode', 'hoverTarget', 'dropPin', 'openDrawer', 'submitFeedback'];
-    let currentIdx = 0;
-    setDemoStep('chooseMode');
-
-    const interval = setInterval(() => {
-      currentIdx = currentIdx + 1;
-      if (currentIdx >= stepsList.length) {
-        // Stop at submitFeedback state briefly, then show sandboxReady transition
-        clearInterval(interval);
-        setTimeout(() => {
-          setDemoState('sandboxReady');
-        }, 1500);
-        return;
-      }
-      const nextStep = stepsList[currentIdx];
-      setDemoStep(nextStep);
-
-      // Trigger visual highlights per step
-      if (nextStep === 'hoverTarget') {
-        setHoveredElement(
-          activeMode === 'dom' ? 'heading' : 
-          activeMode === 'threejs' ? '3d-cube' : 
-          activeMode === 'webgl' ? 'shader-canvas' : 
-          activeMode === 'spa' ? 'spa-card' : 'nested-button'
-        );
-      } else if (nextStep === 'dropPin') {
-        setHoveredElement(null);
-        const target = cursorTargets[activeMode];
-        setActivePin(getMockPinForMode(activeMode, target.x, target.y));
-      } else if (nextStep === 'openDrawer') {
-        setDrawerOpen(true);
-      } else if (nextStep === 'submitFeedback') {
-        // Set pin as submitted in UI (visually change marker/text)
-      }
-    }, 2800);
-
-    return () => clearInterval(interval);
-  }, [demoState, activeMode]);
-
-  // Reset mockDemo sequence whenever activeMode changes in mockDemo mode
-  useEffect(() => {
-    if (demoState === 'mockDemo') {
-      setActivePin(null);
-      setDrawerOpen(false);
-      setHoveredElement(null);
-      setDemoStep('chooseMode');
-    }
-  }, [activeMode, demoState]);
-
-  // Transition to Sandbox Mode
-  const launchSandbox = () => {
+  // Start interactive sandbox mode
+  const startInteractiveMode = () => {
+    setIsInteractive(true);
     setDemoState('sandboxActive');
     setActivePin(null);
     setDrawerOpen(false);
     setHoveredElement(null);
-    setPinsList([]);
-    setIsFeedbackMode(true);
+    setTypedComment('');
+    setCommentInput('');
+  };
+
+  // Reset sequence when activeMode changes
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    setActivePin(null);
+    setDrawerOpen(false);
+    // Switch to interactive mode if they click other tabs
+    setIsInteractive(true);
+  }, [activeMode]);
+
+  // Cinematic Auto-playing Sequence
+  useEffect(() => {
+    if (isInteractive) return;
+
+    if (cinematicStep === 0) {
+      setTypedComment('');
+      setActivePin(null);
+      setDrawerOpen(false);
+      setHoveredElement(null);
+      setShowConversion(false);
+    }
+
+    let timer: any;
+    if (cinematicStep === 0) {
+      // Step 1: Cursor entering
+      timer = setTimeout(() => {
+        setCinematicStep(1);
+      }, 100);
+    } else if (cinematicStep === 1) {
+      // Step 2: Hover State & Glide to button
+      timer = setTimeout(() => {
+        setCinematicStep(2);
+      }, 1500); // 1.5s glide
+    } else if (cinematicStep === 2) {
+      // Step 3: Click button & Pin drop
+      setHoveredElement('button');
+      timer = setTimeout(() => {
+        const mockPin = {
+          id: 9999,
+          x: 50,
+          y: 75,
+          element: '<button#demo-cta-btn>',
+          selector: 'html > body > main > div > button.btn-cta',
+          xpath: '/html/body/main/div/button',
+          width: '160px',
+          height: '40px',
+          display: 'inline-block'
+        };
+        setActivePin(mockPin);
+        setCinematicStep(3);
+      }, 1000); // Hold hover for 1s then click
+    } else if (cinematicStep === 3) {
+      // Step 4: Drawer Slides In
+      timer = setTimeout(() => {
+        setDrawerOpen(true);
+        setCinematicStep(4);
+      }, 600); // Pin bounce duration
+    } else if (cinematicStep === 4) {
+      // Step 5: Evidence Auto-Populates & Text Types
+      const fullText = "Button hover state is sluggish.";
+      let currentLength = 0;
+      const typeTimer = setInterval(() => {
+        currentLength++;
+        setTypedComment(fullText.slice(0, currentLength));
+        if (currentLength >= fullText.length) {
+          clearInterval(typeTimer);
+          setCinematicStep(5);
+        }
+      }, 50); // ~1.5s typing
+      return () => clearInterval(typeTimer);
+    } else if (cinematicStep === 5) {
+      // Step 6: Cursor glides to the submit button inside the drawer
+      timer = setTimeout(() => {
+        setCinematicStep(6);
+      }, 1500); // 1.5s glide to submit
+    } else if (cinematicStep === 6) {
+      // Step 7: Click submit button, triggering conversion overlay
+      timer = setTimeout(() => {
+        setShowConversion(true);
+        setCinematicStep(7);
+      }, 500); // click delay
+    } else if (cinematicStep === 7) {
+      // Step 8: Hold conversion overlay for 8 seconds, then loop
+      timer = setTimeout(() => {
+        setShowConversion(false);
+        setCinematicStep(0);
+      }, 8000);
+    }
+
+    return () => clearTimeout(timer);
+  }, [cinematicStep, isInteractive]);
+
+  // Show Conversion when Launch Sandbox is clicked
+  const launchSandbox = () => {
+    if (demoState !== 'sandboxActive' || !isInteractive) {
+      startInteractiveMode();
+    } else {
+      setShowConversion(true);
+    }
+  };
+
+  const previewX = useMotionValue(0.5);
+  const previewY = useMotionValue(0.5);
+  const previewRotateX = useSpring(useTransform(previewY, [0, 1], [4, -4]), { stiffness: 120, damping: 18 });
+  const previewRotateY = useSpring(useTransform(previewX, [0, 1], [-4, 4]), { stiffness: 120, damping: 18 });
+
+  const handlePreviewMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    previewX.set((e.clientX - rect.left) / rect.width);
+    previewY.set((e.clientY - rect.top) / rect.height);
+  };
+
+  const handlePreviewMouseLeave = () => {
+    previewX.set(0.5);
+    previewY.set(0.5);
+    onHoverChange(null);
+  };
+
+  const handlePreviewMouseEnter = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
+    const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
+    onHoverChange({ x, y });
   };
 
   // Run the loading simulation when a URL is submitted
@@ -227,9 +320,8 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
       setIsLoading(false);
       setCurrentUrl(urlInput);
       setActiveMode('dom');
-      if (demoState !== 'sandboxActive') {
-        setDemoState('sandboxActive');
-      }
+      setIsInteractive(true);
+      setDemoState('sandboxActive');
     }, 1500);
   };
 
@@ -404,7 +496,7 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
   };
 
   return (
-    <section className="relative min-h-screen pt-[88px] pb-16 flex flex-col justify-center overflow-hidden bg-pm-bg dot-grid">
+    <section className="relative min-h-screen pt-[88px] pb-16 flex flex-col justify-center overflow-hidden bg-transparent dot-grid">
       {/* Background gradients */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute bottom-0 left-0 w-[50%] h-[50%] bg-[radial-gradient(circle_at_bottom_left,var(--pm-accent-subtle),transparent_65%)] transition-all duration-500" />
@@ -460,10 +552,10 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
             <div className="space-y-2 max-w-md p-3.5 rounded-xl border border-pm-border bg-pm-surface/20">
               <div className="text-[10px] font-bold uppercase tracking-wider text-pm-accent-vivid flex items-center gap-1.5">
                 <HelpCircle className="w-3.5 h-3.5" />
-                <span>{demoState === 'sandboxActive' ? 'Active Sandbox Workspace' : 'Guided Walkthrough'}</span>
+                <span>{isInteractive ? 'Active Sandbox Workspace' : 'Interactive Walkthrough'}</span>
               </div>
               <p className="text-[10px] text-pm-muted leading-normal font-sans">
-                {demoState === 'sandboxActive' ? 'You are inside the working active sandbox. Toggle feedback mode, drop pins anywhere, type notes, and submit.' : modeExplainer[activeMode].hint}
+                {modeExplainer[activeMode].hint}
               </p>
             </div>
 
@@ -483,7 +575,11 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                     <span>Sandbox Active</span>
                   </div>
                   <button
-                    onClick={() => setDemoState('mockDemo')}
+                    onClick={() => {
+                      setDemoState('mockDemo');
+                      setIsInteractive(false);
+                      setCinematicStep(0);
+                    }}
                     className="px-4 py-2.5 bg-pm-surface-2 hover:bg-pm-surface-3 text-pm-text border border-pm-border rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
                   >
                     Play Guided Demo
@@ -505,13 +601,13 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                 </div>
                 <div className="flex gap-1 overflow-x-auto scrollbar-none">
                   {([
-                    { step: 'chooseMode', label: '1. Choose Stack' },
-                    { step: 'hoverTarget', label: '2. Hover' },
-                    { step: 'dropPin', label: '3. Drop Pin' },
-                    { step: 'openDrawer', label: '4. View Specs' },
-                    { step: 'submitFeedback', label: '5. Submit' }
-                  ] as { step: DemoStep, label: string }[]).map((s) => {
-                    const isActive = demoStep === s.step;
+                    { step: 'chooseMode', label: '1. Choose Stack', activeForSteps: [0] },
+                    { step: 'hoverTarget', label: '2. Hover', activeForSteps: [1, 2] },
+                    { step: 'dropPin', label: '3. Drop Pin', activeForSteps: [3] },
+                    { step: 'openDrawer', label: '4. View Specs', activeForSteps: [4, 5] },
+                    { step: 'submitFeedback', label: '5. Submit', activeForSteps: [6, 7] }
+                  ] as { step: DemoStep, label: string, activeForSteps: number[] }[]).map((s) => {
+                    const isActive = isInteractive ? (demoStep === s.step) : s.activeForSteps.includes(cinematicStep);
                     return (
                       <span
                         key={s.step}
@@ -567,7 +663,17 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
             </div>
 
             {/* Mockup Browser Container */}
-            <div className="relative w-full aspect-[4/3] rounded-2xl border border-pm-border bg-pm-surface/40 overflow-hidden shadow-2xl">
+            <motion.div 
+              style={{
+                rotateX: previewRotateX,
+                rotateY: previewRotateY,
+                transformStyle: 'preserve-3d',
+              }}
+              onMouseMove={handlePreviewMouseMove}
+              onMouseLeave={handlePreviewMouseLeave}
+              onMouseEnter={handlePreviewMouseEnter}
+              className="relative w-full aspect-[4/3] rounded-2xl border border-white/10 bg-pm-surface/30 backdrop-blur-xl overflow-hidden shadow-2xl transition-colors duration-300 hover:border-pm-accent/40"
+            >
               
               {/* Browser Header Bar */}
               <div className="absolute top-0 left-0 right-0 h-10 border-b border-pm-border bg-pm-surface-2 flex items-center px-4 justify-between z-20">
@@ -582,36 +688,33 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                 </div>
                 
                 <div className="w-24 flex items-center justify-end gap-2">
-                  {demoState === 'sandboxActive' ? (
-                    <>
-                      <button
-                        onClick={() => setIsFeedbackMode(prev => !prev)}
-                        className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition-all cursor-pointer ${isFeedbackMode ? 'bg-pm-accent text-white shadow-accent' : 'bg-pm-surface-3 text-pm-muted'}`}
-                      >
-                        {isFeedbackMode ? 'Inspect On' : 'Inspect Off'}
-                      </button>
-                      <button
-                        onClick={() => { setPinsList([]); setActivePin(null); setDrawerOpen(false); }}
-                        className="p-1 hover:bg-pm-surface-3 rounded text-pm-muted hover:text-red-400 transition-colors cursor-pointer"
-                        title="Clear Pins"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <span className="w-2 h-2 rounded-full bg-pm-accent animate-pulse" />
-                  )}
+                  <button
+                    onClick={() => { setActivePin(null); setDrawerOpen(false); }}
+                    className="p-1 hover:bg-pm-surface-3 rounded text-pm-muted hover:text-red-400 transition-colors cursor-pointer"
+                    title="Clear Pin"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
 
               {/* Sandbox Workspace / Webpage Area */}
               <div 
                 ref={previewRef}
-                onClick={handleGeneralPreviewClick}
+                onClick={(e) => {
+                  if (!isInteractive) {
+                    e.stopPropagation();
+                    startInteractiveMode();
+                  } else {
+                    handleGeneralPreviewClick(e);
+                  }
+                }}
                 className="absolute inset-0 pt-10 bg-pm-bg font-sans z-0 select-none overflow-hidden cursor-pointer"
               >
                 {/* Scanlines / CRT filter effect */}
                 <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.012)_50%,rgba(0,0,0,0.12)_50%)] bg-[size:100%_4px] pointer-events-none" />
+
+
 
                 <AnimatePresence mode="wait">
                   {isLoading ? (
@@ -973,7 +1076,7 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                       )}
 
                       {/* Guided Loop Cursor Indicator */}
-                      {demoState === 'mockDemo' && (
+                      {demoState === 'mockDemo' && isInteractive && (
                         <motion.div
                           animate={{
                             left: `${getCursorPosition().x}%`,
@@ -1004,8 +1107,8 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                         >
                           <div className="relative w-6 h-6 flex items-center justify-center">
                             <span className="absolute inline-flex h-full w-full rounded-full bg-pm-accent/40 animate-ping opacity-75" />
-                            <div className={`w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-lg ${demoStep === 'submitFeedback' ? 'bg-emerald-500' : 'bg-pm-accent'}`}>
-                              {demoStep === 'submitFeedback' ? '✓' : '1'}
+                            <div className={`w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-lg ${((isInteractive && demoStep === 'submitFeedback') || (!isInteractive && cinematicStep >= 6)) ? 'bg-emerald-500' : 'bg-pm-accent'}`}>
+                              {((isInteractive && demoStep === 'submitFeedback') || (!isInteractive && cinematicStep >= 6)) ? '✓' : '1'}
                             </div>
                           </div>
                         </motion.div>
@@ -1053,37 +1156,65 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                     <div className="space-y-4 overflow-y-auto pr-1 select-text scrollbar-thin">
                       <div className="flex items-center justify-between border-b border-pm-border pb-2 animate-fade-in">
                         <span className="font-display font-bold text-[10px] text-white">LEAVE FEEDBACK</span>
-                        <span className="px-1.5 py-0.5 rounded bg-pm-accent/20 text-pm-accent-vivid text-[8px] font-bold">
-                          {demoState === 'mockDemo' && demoStep === 'submitFeedback' ? 'SUBMITTED' : 'DRAFT'}
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${((isInteractive && demoStep === 'submitFeedback') || (!isInteractive && cinematicStep >= 6)) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-pm-accent/20 text-pm-accent-vivid'}`}>
+                          {((isInteractive && demoStep === 'submitFeedback') || (!isInteractive && cinematicStep >= 6)) ? 'SUBMITTED' : 'DRAFT'}
                         </span>
                       </div>
 
                       {/* Screenshot thumbnail mockup */}
-                      <div className="bg-pm-bg rounded border border-pm-border p-1 text-center">
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: (isInteractive || cinematicStep >= 4) ? 1 : 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="bg-pm-bg rounded border border-pm-border p-1 text-center"
+                      >
                         <div className="text-white/40 uppercase tracking-widest text-[7px] font-bold mb-1">Screenshot Evidence</div>
-                        <div className="h-14 bg-pm-surface-3 rounded border border-pm-border flex items-center justify-center text-[7px] text-pm-muted">
-                          [Viewport Capture Active]
+                        <div className="h-14 bg-pm-surface-3 rounded border border-pm-border flex flex-col items-center justify-center text-[7px] text-pm-muted overflow-hidden relative">
+                          <div className="px-3 py-1.5 bg-pm-accent text-white text-[6px] font-bold rounded border border-pm-accent-bright/30 scale-90">
+                            LAUNCH SANDBOX
+                          </div>
+                          <div className="absolute top-1 right-1 text-[6px] text-pm-accent-vivid font-bold font-mono">160 × 40 px</div>
                         </div>
-                      </div>
+                      </motion.div>
 
                       {/* Mode-adaptive drawer fields */}
                       {activeMode === 'dom' && (
                         <div className="space-y-2.5">
-                          <div className="space-y-1">
+                          <motion.div 
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: (isInteractive || cinematicStep >= 4) ? 1 : 0, x: (isInteractive || cinematicStep >= 4) ? 0 : -10 }}
+                            transition={{ duration: 0.3, delay: 0.1 }}
+                            className="space-y-1"
+                          >
                             <span className="text-pm-accent-vivid font-bold block">TARGET ELEMENT</span>
                             <span className="text-white font-mono bg-pm-bg px-1.5 py-0.5 rounded border border-pm-border inline-block break-all">{activePin.element}</span>
-                          </div>
-                          <div className="space-y-1">
+                          </motion.div>
+                          <motion.div 
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: (isInteractive || cinematicStep >= 4) ? 1 : 0, x: (isInteractive || cinematicStep >= 4) ? 0 : -10 }}
+                            transition={{ duration: 0.3, delay: 0.2 }}
+                            className="space-y-1"
+                          >
                             <span className="text-pm-accent-vivid font-bold block">SELECTOR</span>
                             <span className="text-pm-muted text-[8px] block break-all bg-pm-bg p-1.5 rounded border border-pm-border">{activePin.selector}</span>
-                          </div>
+                          </motion.div>
                           {activePin.xpath && (
-                            <div className="space-y-1">
+                            <motion.div 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: (isInteractive || cinematicStep >= 4) ? 1 : 0, x: (isInteractive || cinematicStep >= 4) ? 0 : -10 }}
+                              transition={{ duration: 0.3, delay: 0.3 }}
+                              className="space-y-1"
+                            >
                               <span className="text-pm-accent-vivid font-bold block">XPATH</span>
                               <span className="text-pm-muted text-[8px] block break-all bg-pm-bg p-1.5 rounded border border-pm-border">{activePin.xpath}</span>
-                            </div>
+                            </motion.div>
                           )}
-                          <div className="bg-pm-bg p-2 rounded border border-pm-border space-y-1 animate-fade-in">
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: (isInteractive || cinematicStep >= 4) ? 1 : 0, y: (isInteractive || cinematicStep >= 4) ? 0 : 10 }}
+                            transition={{ duration: 0.4, delay: 0.4 }}
+                            className="bg-pm-bg p-2 rounded border border-pm-border space-y-1"
+                          >
                             <div className="text-white/40 uppercase tracking-widest text-[7px] font-bold mb-1">Computed CSS</div>
                             <div className="flex justify-between">
                               <span>Display:</span>
@@ -1097,7 +1228,7 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                               <span>Height:</span>
                               <span className="text-white font-sans">{activePin.height}</span>
                             </div>
-                          </div>
+                          </motion.div>
                         </div>
                       )}
 
@@ -1201,7 +1332,9 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                         <div className="bg-pm-bg p-2 rounded border border-pm-border">
                           <textarea 
                             placeholder="Type notes for developers..."
-                            defaultValue={demoState === 'mockDemo' && demoStep === 'submitFeedback' ? 'Review heading alignment and border sizing values.' : ''}
+                            value={isInteractive ? commentInput : typedComment}
+                            onChange={(e) => isInteractive && setCommentInput(e.target.value)}
+                            readOnly={!isInteractive}
                             className="bg-transparent border-none outline-none text-[8.5px] text-pm-text w-full h-10 resize-none font-sans placeholder:text-pm-text-faint"
                           />
                         </div>
@@ -1218,10 +1351,16 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
 
                     <div className="pt-2 border-t border-pm-border space-y-2 bg-pm-surface-2/95">
                       <button 
-                        onClick={() => setShowConversion(true)}
-                        className={`w-full py-2 rounded text-white text-center font-bold text-[8.5px] uppercase tracking-wider transition-all duration-300 cursor-pointer ${demoState === 'mockDemo' && demoStep === 'submitFeedback' ? 'bg-emerald-600' : 'bg-pm-accent hover:bg-pm-accent-bright shadow-accent'}`}
+                        onClick={() => {
+                          if (!isInteractive) {
+                            startInteractiveMode();
+                          } else {
+                            setShowConversion(true);
+                          }
+                        }}
+                        className={`w-full py-2 rounded text-white text-center font-bold text-[8.5px] uppercase tracking-wider transition-all duration-300 cursor-pointer bg-pm-accent hover:bg-pm-accent-bright shadow-accent`}
                       >
-                        {demoState === 'mockDemo' && demoStep === 'submitFeedback' ? 'Feedback Submitted' : 'Submit feedback pin'}
+                        Submit feedback pin
                       </button>
                       <div className="text-[7.5px] text-pm-muted/50 text-center italic">
                         This is what your reviewer sees.
@@ -1247,7 +1386,7 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                     
                     <div className="space-y-2 max-w-sm">
                       <h3 className="font-display text-xl font-bold text-white tracking-tight leading-tight">
-                        Why don't you try the product for free with this?
+                        Why don't you try it yourself?
                       </h3>
                       <p className="text-xs text-pm-muted leading-relaxed font-sans">
                         Initialize your sandbox, invite reviewers, and map precision DOM annotations in seconds.
@@ -1256,10 +1395,10 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
 
                     <div className="flex gap-4">
                       <Link
-                        href="/auth/register"
+                        href={isUserLoggedIn ? "/dashboard" : "/register"}
                         className="px-5 py-2.5 bg-pm-accent hover:bg-pm-accent-bright text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-accent transition-colors"
                       >
-                        Start Free Project
+                        {isUserLoggedIn ? "Go to Dashboard" : "Start Free Project"}
                       </Link>
                       <button
                         onClick={(e) => {
@@ -1275,11 +1414,52 @@ export default function HeroSection({ activeMode, setActiveMode }: HeroSectionPr
                 )}
               </AnimatePresence>
 
+              {/* Cinematic Fake Cursor */}
+              {!isInteractive && activeMode === 'dom' && (
+                <motion.div
+                  initial={{ left: '90%', top: '95%', opacity: 0, scale: 1 }}
+                  animate={
+                    cinematicStep === 0
+                      ? { left: '90%', top: '95%', opacity: 0, scale: 1 }
+                      : cinematicStep === 1
+                      ? { left: '50%', top: '78%', opacity: 1, scale: 1 }
+                      : cinematicStep === 2
+                      ? { left: '50%', top: '78%', opacity: 1, scale: 0.85 } // simulated click scale-down
+                      : cinematicStep === 3
+                      ? { left: '50%', top: '78%', opacity: 1, scale: 1 }
+                      : cinematicStep === 4
+                      ? { left: '50%', top: '78%', opacity: 0.4, scale: 1 } // semi-faded during typing
+                      : cinematicStep === 5
+                      ? { left: '86%', top: '92%', opacity: 1, scale: 1 } // glide to submit button in drawer
+                      : cinematicStep === 6
+                      ? { left: '86%', top: '92%', opacity: 1, scale: 0.85 } // click submit button
+                      : { left: '86%', top: '92%', opacity: 0, scale: 1 } // fade out on overlay show
+                  }
+                  transition={{
+                    type: 'tween',
+                    ease: 'easeInOut',
+                    duration: 
+                      cinematicStep === 1 ? 1.2 : 
+                      cinematicStep === 2 ? 0.2 : 
+                      cinematicStep === 5 ? 1.4 : 
+                      cinematicStep === 6 ? 0.2 : 0.3
+                  }}
+                  className="absolute pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+                >
+                  <svg
+                    className="w-5 h-5 text-white fill-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M4.5 3v15.25l3.96-3.96 2.37 5.71 2.37-.98-2.37-5.71h5.67L4.5 3z" />
+                  </svg>
+                </motion.div>
+              )}
+
               {/* Sandbox watermark */}
               <div className="absolute bottom-2 left-4 font-mono text-[8px] text-pm-muted/20 pointer-events-none select-none">
                 [PixelMark Engine: sandbox state active]
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
 

@@ -1,10 +1,20 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuthStore } from '@/store/authStore';
 
 export default function MarketingFooter() {
+  const [mounted, setMounted] = useState(false);
+  const user = useAuthStore(state => state.user);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isUserLoggedIn = mounted && !!user;
   return (
-    <footer className="relative bg-pm-bg border-t border-pm-border pt-16 pb-12 overflow-hidden">
+    <footer className="relative bg-transparent border-t border-pm-border pt-16 pb-12 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         
         {/* Main Grid */}
@@ -42,7 +52,9 @@ export default function MarketingFooter() {
               <a href="#features" className="hover:text-white transition-colors">Features</a>
               <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
               <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
-              <Link href="/auth/register" className="hover:text-white transition-colors">Start Free</Link>
+              <Link href={isUserLoggedIn ? "/dashboard" : "/register"} className="hover:text-white transition-colors">
+                {isUserLoggedIn ? "Dashboard" : "Start Free"}
+              </Link>
             </div>
           </div>
 

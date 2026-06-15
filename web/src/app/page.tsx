@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useMotionValue, useSpring, motion, AnimatePresence } from 'framer-motion';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
+import { SplineBackground } from '@/components/SplineBackground';
 import HowItWorksSection from '@/components/marketing/HowItWorksSection';
 import FeaturesSection from '@/components/marketing/FeaturesSection';
 import UseCasesSection from '@/components/marketing/UseCasesSection';
@@ -74,6 +75,7 @@ const modeColors = {
 
 export default function Home() {
   const [activeMode, setActiveMode] = useState<ModeType>('dom');
+  const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
@@ -110,39 +112,20 @@ export default function Home() {
         '--pm-cyan': colors.gradientEnd,
         '--pm-border-bright': colors.borderBright,
       } as React.CSSProperties}
-      className="relative min-h-screen bg-pm-bg text-pm-text selection:bg-pm-accent/30 selection:text-white font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
+      className="relative min-h-screen bg-transparent text-pm-text selection:bg-pm-accent/30 selection:text-white font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
     >
       
-      {/* Background Cursor Glow Spotlight (only visible on pointer devices) */}
-      <motion.div
-        animate={{
-          background: `radial-gradient(circle, ${colors.accent}14 0%, rgba(0,0,0,0) 70%)`
-        }}
-        transition={{ duration: 0.5 }}
-        style={{
-          x: glowX,
-          y: glowY,
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: 500,
-          height: 500,
-          borderRadius: '50%',
-          pointerEvents: 'none',
-          zIndex: 1,
-          filter: 'blur(30px)',
-        }}
-        className="hidden md:block"
-      />
+      {/* Spline 3D background */}
+      <SplineBackground hoveredPosition={hoveredPosition} />
 
       {/* Main Container */}
       <div className="relative z-10 flex flex-col min-h-screen">
         <MarketingNav />
         <main className="flex-1 flex flex-col">
-          <HeroSection activeMode={activeMode} setActiveMode={setActiveMode} />
+          <HeroSection activeMode={activeMode} setActiveMode={setActiveMode} onHoverChange={setHoveredPosition} />
           <HowItWorksSection />
-          <FeaturesSection />
-          <UseCasesSection />
+          <FeaturesSection onHoverChange={setHoveredPosition} />
+          <UseCasesSection onHoverChange={setHoveredPosition} />
           <FAQSection />
           <AboutSection />
           <EntrextSection />

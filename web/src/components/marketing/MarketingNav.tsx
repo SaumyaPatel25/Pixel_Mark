@@ -4,18 +4,24 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
+import { useAuthStore } from '@/store/authStore';
 
 export default function MarketingNav() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const user = useAuthStore(state => state.user);
 
   useEffect(() => {
+    setMounted(true);
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 60);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const isUserLoggedIn = mounted && !!user;
 
   const navLinks = [
     { name: 'Features', href: '#features' },
@@ -75,16 +81,22 @@ export default function MarketingNav() {
         {/* Right buttons - Desktop */}
         <div className="hidden md:flex items-center gap-4">
           <Link
-            href="/auth/login"
+            href="/dashboard"
+            className="text-xs font-bold uppercase tracking-widest text-pm-muted hover:text-pm-text transition-colors px-4 py-2"
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="/login"
             className="text-xs font-bold uppercase tracking-widest text-pm-muted hover:text-pm-text transition-colors px-4 py-2"
           >
             Sign In
           </Link>
           <Link
-            href="/auth/register"
+            href="/register"
             className="text-xs font-bold uppercase tracking-widest bg-pm-accent hover:bg-pm-accent-bright text-white px-5 py-2.5 rounded-lg shadow-accent transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            Start Free
+            Sign Up
           </Link>
         </div>
 
@@ -132,18 +144,25 @@ export default function MarketingNav() {
 
             <div className="flex flex-col gap-4 border-t border-pm-border pt-6">
               <Link
-                href="/auth/login"
+                href="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-center text-sm font-bold uppercase tracking-widest text-pm-text border border-pm-border py-3 rounded-lg hover:bg-pm-surface-2 transition-colors"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/login"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-center text-sm font-bold uppercase tracking-widest text-pm-text border border-pm-border py-3 rounded-lg hover:bg-pm-surface-2 transition-colors"
               >
                 Sign In
               </Link>
               <Link
-                href="/auth/register"
+                href="/register"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-center text-sm font-bold uppercase tracking-widest bg-pm-accent hover:bg-pm-accent-bright text-white py-3 rounded-lg shadow-accent transition-colors"
               >
-                Start Free
+                Sign Up
               </Link>
             </div>
           </motion.div>

@@ -53,7 +53,7 @@ export default function HowItWorksSection() {
   };
 
   return (
-    <section id="how-it-works" className="relative py-24 bg-pm-bg overflow-hidden border-t border-pm-border">
+    <section id="how-it-works" className="relative py-24 bg-transparent overflow-hidden border-t border-pm-border">
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         
         {/* Section Header */}

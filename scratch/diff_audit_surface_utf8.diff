@@ -1,0 +1,331 @@
+diff --git a/web/src/components/audit/AuditSurface.tsx b/web/src/components/audit/AuditSurface.tsx
+index 13a4042..cb45361 100644
+--- a/web/src/components/audit/AuditSurface.tsx
++++ b/web/src/components/audit/AuditSurface.tsx
+@@ -1,7 +1,8 @@
+ 'use client'
+-import { useCaptureStore } from '@/store/overlayStore'
++import { useCaptureStore, usePinStore } from '@/store/overlayStore'
+ import { useUIStore } from '@/store/uiStore'
+ import { normalizeCapturePayload, normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
++import { ErrorBoundary } from '@/components/ErrorBoundary'
+ 
+ import { useEffect, useRef, useState, useCallback } from 'react'
+ import {
+@@ -183,6 +184,7 @@ export function AuditSurface({
+   const [noteText, setNoteText] = useState('')
+   const [issueType, setIssueType] = useState<IssueType>('other')
+   const [severity, setSeverity] = useState<Severity>('medium')
++  const [statusVal, setStatusVal] = useState('new')
+   const [isSubmitting, setIsSubmitting] = useState(false)
+   const [submitSuccess, setSubmitSuccess] = useState(false)
+   const [showElementPreview, setShowElementPreview] = useState(true)
+@@ -296,9 +298,10 @@ export function AuditSurface({
+   const selectedCaptureId = useCaptureStore(state => state.selectedCaptureId)
+   const isFeedbackDrawerOpen = useCaptureStore(state => state.isFeedbackDrawerOpen)
+   const activeCapture = useCaptureStore(state => selectedCaptureId ? state.capturesById[selectedCaptureId] : null)
+-  const isSubmitted = activeCapture?.status === 'submitted'
+-  const isResolved = activeCapture?.status === 'resolved'
++  const isSubmitted = activeCapture ? (activeCapture.status !== 'draft' && activeCapture.status !== 'failed') : false
++  const isResolved = activeCapture?.status === 'resolved' || activeCapture?.status === 'dismissed'
+   const isFailed = activeCapture?.status === 'failed'
++  const isFormReadOnly = isResolved && statusVal === activeCapture?.status
+ 
+   useEffect(() => {
+     setIsDrawerOpen(isFeedbackDrawerOpen)
+@@ -340,8 +343,10 @@ export function AuditSurface({
+         setNoteText(capture.userComment || '')
+         setIssueType((capture.issueType || 'other') as IssueType)
+         setSeverity((capture.priority || 'medium') as Severity)
++        setStatusVal(capture.status || 'new')
+         setIssueTitle(capture.title || '')
+         setTags(capture.tags || '')
++        console.log(`[OBSERVABILITY] [FEEDBACK_OPENED] Opened feedback ID=${capture.id} status=${capture.status || 'new'} priority=${capture.priority || 'medium'}`)
+       }
+     } else {
+       setCaptureCtx(null)
+@@ -350,9 +355,57 @@ export function AuditSurface({
+       setTags('')
+       setIssueType('other')
+       setSeverity('medium')
++      setStatusVal('new')
+     }
+   }, [selectedCaptureId])
+ 
++  // Save current active draft form state to localStorage
++  useEffect(() => {
++    if (selectedCaptureId && !isSubmitted && !isResolved) {
++      const draftState = {
++        activePinId: selectedCaptureId,
++        issueTitle,
++        noteText,
++        issueType,
++        severity,
++        tags,
++      }
++      localStorage.setItem('pixelmark_current_draft_form', JSON.stringify(draftState))
++      console.log('[OBSERVABILITY] [DRAFT_SAVED] Current open draft form autosaved')
++    } else if (!selectedCaptureId) {
++      localStorage.removeItem('pixelmark_current_draft_form')
++    }
++  }, [selectedCaptureId, issueTitle, noteText, issueType, severity, tags, isSubmitted, isResolved])
++
++  // Restore current active draft form state from localStorage on mount/load
++  useEffect(() => {
++    if (typeof window !== 'undefined') {
++      try {
++        const saved = localStorage.getItem('pixelmark_current_draft_form')
++        if (saved) {
++          const parsed = JSON.parse(saved)
++          if (parsed && parsed.activePinId) {
++            const pins = usePinStore.getState().pins
++            const exists = pins.some(p => p.id === parsed.activePinId)
++            if (exists) {
++              if (useCaptureStore.getState().selectedCaptureId !== parsed.activePinId) {
++                useCaptureStore.getState().openFeedbackDrawer(parsed.activePinId)
++              }
++              setIssueTitle(parsed.issueTitle || '')
++              setNoteText(parsed.noteText || '')
++              setIssueType(parsed.issueType || 'other')
++              setSeverity(parsed.severity || 'medium')
++              setTags(parsed.tags || '')
++              console.log('[OBSERVABILITY] [DRAFT_RESTORED] Restored open feedback draft from localStorage')
++            }
++          }
++        }
++      } catch (e) {
++        console.error('[Draft Recovery] failed to restore current draft:', e)
++      }
++    }
++  }, [])
++
+   // Session / Heavy mode states
+   const { setRendererType: setStoreRendererType, heavy_mode } = useSessionStore()
+   const [isOverlayDelayed, setIsOverlayDelayed] = useState(false)
+@@ -1084,9 +1137,11 @@ export function AuditSurface({
+           priority: severity,
+           title: issueTitle.trim(),
+           description: noteText.trim(),
++          status: statusVal,
+         }
+         console.log('[PixelMark Submit] updating feedback payload:', patch)
+         const updated = await api.feedback.update(sessionId, activeId, patch, shareToken)
++        console.log('[OBSERVABILITY] [FEEDBACK_UPDATED] Feedback successfully updated on backend. ID =', updated.id)
+         
+         // Map backend record back into CapturePayload-compatible frontend object
+         const normalized = normalizeCapturePayload({
+@@ -1138,6 +1193,7 @@ export function AuditSurface({
+             issueType: issueType,
+             title: issueTitle.trim(),
+             description: noteText.trim(),
++            status: 'new',
+             tags: tags.trim(),
+           },
+           share_token: shareToken || null,
+@@ -1145,6 +1201,7 @@ export function AuditSurface({
+ 
+         console.log('[PixelMark Submit] sending feedback payload:', feedbackPayload)
+         const created = await api.feedback.create(sessionId, feedbackPayload, shareToken)
++        console.log('[OBSERVABILITY] [FEEDBACK_SUBMITTED] Feedback successfully submitted to backend. ID =', created.id)
+ 
+         // Map backend record back into CapturePayload-compatible frontend object
+         const normalized = normalizeCapturePayload({
+@@ -1181,6 +1238,7 @@ export function AuditSurface({
+           setTags('')
+           setSeverity('medium')
+           setIssueType('other')
++          setStatusVal('new')
+           setSubmitSuccess(false)
+         }, 1100)
+       }
+@@ -2195,190 +2253,6 @@ export function AuditSurface({
+               {diagnosticsPanelExpanded && (
+                 <div className="mt-2.5 space-y-3">
+                   {/* Browser Info */}
+-                  {(() => {
+-                    const browserInfo = activeCapture?.diagnostics?.browserInfo || captureCtx?.browser_info
+-                    if (!browserInfo) return null
+-                    return (
+-                      <div className="bg-white/[0.01] border border-white/[0.04] p-2.5 rounded-xl text-[10px] space-y-1">
+-                        <span className="text-[8px] font-black uppercase tracking-widest text-white/20 block">Browser environment</span>
+-                        <div className="flex justify-between">
+-                          <span className="text-white/40">Browser:</span>
+-                          <span className="text-white/70">{browserInfo.name || 'Unknown'} {browserInfo.version || ''}</span>
+-                        </div>
+-                        <div className="flex justify-between">
+-                          <span className="text-white/40">OS:</span>
+-                          <span className="text-white/70">{browserInfo.os || 'Unknown'}</span>
+-                        </div>
+-                      </div>
+-                    )
+-                  })()}
+-
+-                  {/* Console Errors */}
+-                  <CollapsibleList
+-                    title="Console Errors"
+-                    count={activeCapture?.diagnostics?.consoleErrors?.length || captureCtx?.console_errors?.length || 0}
+-                    items={activeCapture?.diagnostics?.consoleErrors || captureCtx?.console_errors || []}
+-                    renderItem={(err, idx) => (
+-                      <div key={idx} className="text-[9px] font-mono text-rose-400 bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg break-all">
+-                        {err.message || String(err)}
+-                      </div>
+-                    )}
+-                  />
+-
+-                  {/* Network Errors */}
+-                  <CollapsibleList
+-                    title="Network Errors"
+-                    count={activeCapture?.diagnostics?.networkErrors?.length || captureCtx?.network_errors?.length || 0}
+-                    items={activeCapture?.diagnostics?.networkErrors || captureCtx?.network_errors || []}
+-                    renderItem={(err, idx) => (
+-                      <div key={idx} className="text-[9px] font-mono text-rose-400 bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg break-all">
+-                        Γ¥î {err.method || 'GET'} {err.url || 'Unknown URL'} ({err.status || 'Failed'})
+-                      </div>
+-                    )}
+-                  />
+-                </div>
+-              )}
+-            </div>
+-
+-            {/* ΓöÇΓöÇ Issue Title ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-            <div className="space-y-2">
+-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
+-                Issue Title <span className="text-purple-400">*</span>
+-              </label>
+-              <input
+-                type="text"
+-                required
+-                disabled={isResolved}
+-                placeholder="e.g. Navigation overlaps logo, Button hover broken"
+-                value={issueTitle}
+-                onChange={(e) => setIssueTitle(e.target.value)}
+-                className="w-full h-11 bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+-              />
+-            </div>
+-
+-            {/* ΓöÇΓöÇ Issue Type picker ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-            <div className="space-y-2.5">
+-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
+-                Issue Type <span className="text-purple-400">*</span>
+-              </label>
+-              <div className="grid grid-cols-2 gap-1.5">
+-                {ISSUE_TYPES.map((t) => {
+-                  const active = issueType === t.value
+-                  return (
+-                    <button
+-                      key={t.value}
+-                      type="button"
+-                      aria-pressed={active}
+-                      title={t.description}
+-                      onClick={() => setIssueType(t.value)}
+-                      className={cn(
+-                        "h-9 rounded-xl font-bold text-[9px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 px-2 focus:ring-2 focus:ring-purple-500 focus:outline-none",
+-                        active
+-                          ? `${issueTypeColorMap[t.color]} shadow-lg`
+-                          : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.07] hover:text-white/70'
+-                      )}
+-                    >
+-                      {t.icon}
+-                      {t.label}
+-                    </button>
+-                  )
+-                })}
+-              </div>
+-              <p className="text-[9px] text-white/30 leading-relaxed pl-0.5">
+-                {ISSUE_TYPES.find(t => t.value === issueType)?.description}
+-              </p>
+-            </div>
+-
+-            {/* ΓöÇΓöÇ Note text area ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-            <div className="space-y-2">
+-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
+-                Describe the problem <span className="text-white/20">(optional)</span>
+-              </label>
+-              <textarea
+-                rows={4}
+-                disabled={isResolved}
+-                placeholder="What's wrong here? e.g. 'Button doesn't respond on mobile', 'Text overlaps the image'ΓÇª"
+-                value={noteText}
+-                onChange={(e) => setNoteText(e.target.value)}
+-                className="w-full bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 p-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+-              />
+-            </div>
+-
+-            {/* ΓöÇΓöÇ Severity picker ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-            <div className="space-y-2">
+-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">Severity</label>
+-              <div className="grid grid-cols-4 gap-1.5">
+-                {(['low', 'medium', 'high', 'critical'] as Severity[]).map((s) => (
+-                  <button
+-                    key={s}
+-                    type="button"
+-                    disabled={isResolved}
+-                    aria-pressed={severity === s}
+-                    onClick={() => setSeverity(s)}
+-                    className={cn(
+-                      "h-8 rounded-xl font-bold text-[8px] uppercase tracking-widest border transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
+-                      severity === s
+-                        ? s === 'critical' ? 'bg-rose-600 border-rose-500 text-white shadow-lg' :
+-                          s === 'high' ? 'bg-orange-600 border-orange-500 text-white shadow-lg' :
+-                          s === 'medium' ? 'bg-purple-600 border-purple-500 text-white shadow-lg' :
+-                          'bg-blue-600 border-blue-500 text-white shadow-lg'
+-                        : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.07] hover:text-white/60'
+-                    )}
+-                  >
+-                    {s}
+-                  </button>
+-                ))}
+-              </div>
+-            </div>
+-
+-            {/* ΓöÇΓöÇ Optional Tags ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-            <div className="space-y-2">
+-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
+-                Tags <span className="text-white/25">(optional, comma-separated)</span>
+-              </label>
+-              <input
+-                type="text"
+-                disabled={isResolved}
+-                placeholder="e.g. mobile, bug, layout"
+-                value={tags}
+-                onChange={(e) => setTags(e.target.value)}
+-                className="w-full h-11 bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+-              />
+-            </div>
+-
+-            {/* ΓöÇΓöÇ Coordinates (read-only) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-            {captureCtx && (
+-              <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex items-center justify-between">
+-                <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Pin Coordinates</span>
+-                <span className="font-mono text-[9px] text-white/35">
+-                  ({captureCtx.x}, {captureCtx.y})
+-                </span>
+-              </div>
+-            )}
+-          </div>
+-
+-          {/* ΓöÇΓöÇ Submit actions ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-          <div className="p-5 border-t border-white/5 flex flex-col gap-2 flex-shrink-0">
+-            {submitSuccess ? (
+-              <div className="h-12 w-full rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center gap-2 text-emerald-400 font-extrabold text-[10px] uppercase tracking-wider animate-pulse">
+-                <Check className="w-4 h-4" />
+-                Feedback Pinned!
+-              </div>
+-            ) : (
+-              <>
+-                {isResolved ? (
+-                  <button
+-                    type="button"
+-                    disabled
+-                    className="h-12 w-full rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 font-extrabold text-[10px] uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
+-                  >
+-                    Resolved (Read Only)
+-                  </button>
+-                ) : (
+-                  <button
+-                    type="submit"
+-                    disabled={isSubmitting}
+-                    aria-label={isSubmitted ? "Update feedback pin" : "Submit feedback pin"}
+                     className="h-12 w-full rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/40 disabled:text-white/30 text-white font-extrabold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-950/30 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                   >
+                     {isSubmitting ? (
