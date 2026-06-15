@@ -178,6 +178,9 @@ export const api = {
         method: 'DELETE',
       })
     },
+    async getAnalytics(id: string): Promise<any> {
+      return request(`/projects/${id}/analytics`)
+    },
   },
 
   // SESSIONS
