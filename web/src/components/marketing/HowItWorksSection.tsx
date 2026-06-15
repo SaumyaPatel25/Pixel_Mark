@@ -85,7 +85,7 @@ export default function HowItWorksSection() {
             >
               {/* Desktop connecting arrow (between cards) */}
               {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-1/2 -right-4 -translate-y-1/2 z-10 text-pm-border group-hover:text-pm-accent/30 transition-colors duration-300">
+                <div className="hidden lg:block absolute top-1/2 -right-4 -translate-y-1/2 translate-x-1/2 z-10 text-pm-border group-hover:text-pm-accent/30 transition-colors duration-300">
                   <ArrowRight className="w-5 h-5" />
                 </div>
               )}
