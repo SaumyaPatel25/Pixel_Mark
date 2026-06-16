@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FileText, Code, Table, Download, Copy, Check, X } from 'lucide-react'
+import { event as trackEvent } from '@/lib/analytics'
 
 type ExportFormat = 'markdown' | 'json' | 'csv'
 
@@ -80,6 +81,8 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(downloadUrl)
+      
+      trackEvent({ action: 'export_audit', category: 'export', label: format })
     } catch (err) {
       console.error('[Export] Failed:', err)
     } finally {
@@ -98,6 +101,7 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
       const text = await res.text()
       await navigator.clipboard.writeText(text)
       setCopied(true)
+      trackEvent({ action: 'export_audit', category: 'export', label: 'copy_markdown' })
       setTimeout(() => setCopied(false), 2000)
     } catch {
       console.error('[Export] Copy failed')

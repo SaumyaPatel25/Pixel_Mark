@@ -6,6 +6,7 @@ import { api, ShareLink, ShareLinkCreate } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { event as trackEvent } from '@/lib/analytics'
 
 interface ShareLinkPanelProps {
   sessionId: string
@@ -72,6 +73,7 @@ export function ShareLinkPanel({ sessionId, onClose }: ShareLinkPanelProps) {
       }
 
       const newLink = await api.shareLinks.create(data)
+      trackEvent({ action: 'generate_share_link', category: 'share' })
       setLinks([newLink, ...links])
       
       // Reset form

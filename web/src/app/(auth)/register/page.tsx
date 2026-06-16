@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Layout, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import PixelSentinel from '@/components/auth/PixelSentinel'
 import { useMascotFormState } from '@/hooks/useMascotFormState'
+import { event as trackEvent } from '@/lib/analytics'
 
 type ScenePhase = 'intro' | 'sidePosition' | 'projecting' | 'submitting' | 'success' | 'error' | 'returnCenter'
 
@@ -86,6 +87,7 @@ export default function RegisterPage() {
     setPhase('submitting')
     try {
       await register(email, password, name || undefined)
+      trackEvent({ action: 'sign_up', category: 'auth' })
       setPhase('success')
       
       // Delay to play victory animation

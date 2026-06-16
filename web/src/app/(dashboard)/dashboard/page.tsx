@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
 import { ProjectCard } from '@/components/ProjectCard'
+import { event as trackEvent } from '@/lib/analytics'
 import { 
   Plus, 
   Folder, 
@@ -125,6 +126,7 @@ export default function DashboardPage() {
         name: newProjectName.trim(),
         url: newProjectUrl.trim(),
       })
+      trackEvent({ action: 'create_project', category: 'project' })
       // Refetch everything to keep state consistent and load initial metrics
       await fetchDashboardData()
       setNewProjectName('')
@@ -148,6 +150,7 @@ export default function DashboardPage() {
         project_id: newSessionProject.id,
         title: newSessionTitle.trim() || `Session - ${new Date().toLocaleDateString()}`
       })
+      trackEvent({ action: 'create_session', category: 'session' })
 
       // If user provided a custom target URL, record a visit to pre-seed the viewport
       if (newSessionUrl.trim()) {
@@ -401,7 +404,10 @@ export default function DashboardPage() {
                       markersCount={p.markers.length}
                       lastActivity={p.sessions.length ? formatRelativeTime(new Date(Math.max(...p.sessions.map((s: any) => new Date(s.updated_at || s.created_at).getTime())))) : null}
                       analytics={p.analytics}
-                      onOpenCanvas={() => router.push(`/canvas/${p.id}`)}
+                      onOpenCanvas={() => {
+                        trackEvent({ action: 'launch_sandbox', category: 'project' })
+                        router.push(`/canvas/${p.id}`)
+                      }}
                       onNewSession={() => {
                         setNewSessionProject(p)
                         setNewSessionUrl(p.url || '')

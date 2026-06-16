@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 import { CustomCursor } from "@/components/CustomCursor";
 import { AuthInitializer } from "@/components/AuthInitializer";
 import { ToastContainer } from "@/components/ui/ToastContainer";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 export default function RootLayout({
   children,
@@ -32,6 +33,7 @@ export default function RootLayout({
       className={`${jakarta.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col selection:bg-cyan-500/20 selection:text-cyan-200">
+        <GoogleAnalytics />
         <AuthInitializer />
         <CustomCursor />
         <ToastContainer />
