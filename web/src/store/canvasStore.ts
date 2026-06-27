@@ -10,105 +10,198 @@ export interface CanvasFrame {
   position_y: number
   width: number
   height: number
+  color: string
   snapshot_url?: string
+  created_at: string
+  marker_count?: number
   markers?: any[]
+  top_markers?: Array<{ title?: string; priority: string }>
+  priority_distribution?: {
+    critical: number
+    high: number
+    medium: number
+    low: number
+  }
 }
 
 export interface CanvasFlow {
   id: string
-  name: string
-  frame_sequence: string[]
+  project_id: string
+  source_frame_id: string
+  target_frame_id: string
+  label?: string
+  created_at: string
 }
 
 interface CanvasStore {
   frames: CanvasFrame[]
   flows: CanvasFlow[]
-  selectedFrame: string | null
+  selectedFrameId: string | null
+  selectedFrame: string | null // legacy compatibility alias
   isLoading: boolean
+  error: string | null
+  zoom: number
+  panX: number
+  panY: number
+
   fetchCanvas: (projectId: string) => Promise<void>
+  createFrame: (data: {
+    project_id: string
+    session_id?: string
+    title: string
+    position_x?: number
+    position_y?: number
+    width?: number
+    height?: number
+    color?: string
+  }) => Promise<CanvasFrame | undefined>
   updateFramePosition: (id: string, x: number, y: number) => void
-  persistFramePosition: (id: string, x: number, y: number) => Promise<void>
+  persistFramePosition: (id: string, x: number, y: number) => Promise<void> // legacy compatibility alias
+  updateFrameSize: (id: string, w: number, h: number) => void
+  deleteFrame: (id: string) => Promise<void>
+  createFlow: (data: {
+    project_id: string
+    source_frame_id: string
+    target_frame_id: string
+    label?: string
+  }) => Promise<CanvasFlow | undefined>
+  deleteFlow: (id: string) => Promise<void>
   setSelectedFrame: (id: string | null) => void
-  addFrame: (frame: CanvasFrame) => void
+  setZoom: (z: number) => void
+  setPan: (x: number, y: number) => void
 }
+
+const updateTimers: Record<string, any> = {}
 
 export const useCanvasStore = create<CanvasStore>((set, get) => ({
   frames: [],
   flows: [],
+  selectedFrameId: null,
   selectedFrame: null,
   isLoading: false,
+  error: null,
+  zoom: 1.0,
+  panX: 0,
+  panY: 0,
 
   fetchCanvas: async (projectId) => {
-    set({ isLoading: true })
+    set({ isLoading: true, error: null })
     try {
       const res = await api.canvas.getCanvas(projectId)
       set({
         frames: res?.frames || [],
         flows: res?.flows || [],
+        selectedFrameId: null,
         selectedFrame: null,
+        zoom: 1.0,
+        panX: 0,
+        panY: 0,
       })
-    } catch {
-      // Mock fallback for testing pan/zoom frames if endpoint is not integrated fully yet
-      set({
-        frames: [
-          {
-            id: 'frame-1',
-            project_id: projectId,
-            title: 'Landing Page Viewport',
-            position_x: 100,
-            position_y: 120,
-            width: 320,
-            height: 200,
-            snapshot_url: '',
-            markers: [{ priority: 'critical' }, { priority: 'high' }],
-          },
-          {
-            id: 'frame-2',
-            project_id: projectId,
-            title: 'Pricing Page Grid View',
-            position_x: 500,
-            position_y: 180,
-            width: 320,
-            height: 200,
-            snapshot_url: '',
-            markers: [{ priority: 'medium' }],
-          },
-        ],
-        flows: [
-          {
-            id: 'flow-1',
-            name: 'Check Out Conversion Funnel',
-            frame_sequence: ['frame-1', 'frame-2'],
-          },
-        ],
-        selectedFrame: null,
-      })
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to fetch canvas' })
     } finally {
       set({ isLoading: false })
     }
   },
 
+  createFrame: async (data) => {
+    try {
+      const newFrame = await api.canvas.createFrame(data)
+      set((state) => ({ frames: [...state.frames, newFrame] }))
+      return newFrame
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to create frame' })
+    }
+  },
+
   updateFramePosition: (id, x, y) => {
+    // 1. Optimistic update
     set((state) => ({
       frames: state.frames.map((f) =>
         f.id === id ? { ...f, position_x: x, position_y: y } : f
       ),
     }))
+
+    // 2. Debounced API save
+    if (updateTimers[id]) clearTimeout(updateTimers[id])
+    updateTimers[id] = setTimeout(async () => {
+      try {
+        await api.canvas.updateFrame(id, { position_x: x, position_y: y })
+      } catch (err: any) {
+        console.error('[CanvasStore] Failed to save frame position:', err)
+      }
+    }, 500)
   },
 
   persistFramePosition: async (id, x, y) => {
+    // Legacy support, updateFramePosition debounces it already. We just call it.
+    get().updateFramePosition(id, x, y)
+  },
+
+  updateFrameSize: (id, w, h) => {
+    // 1. Optimistic update
+    set((state) => ({
+      frames: state.frames.map((f) =>
+        f.id === id ? { ...f, width: w, height: h } : f
+      ),
+    }))
+
+    // 2. Debounced API save
+    if (updateTimers[id]) clearTimeout(updateTimers[id])
+    updateTimers[id] = setTimeout(async () => {
+      try {
+        await api.canvas.updateFrame(id, { width: w, height: h })
+      } catch (err: any) {
+        console.error('[CanvasStore] Failed to save frame size:', err)
+      }
+    }, 500)
+  },
+
+  deleteFrame: async (id) => {
     try {
-      await api.canvas.updateFrame(id, { position_x: x, position_y: y })
-    } catch {
-      // Quiet fail or logged, state remains optimistic
+      await api.canvas.deleteFrame(id)
+      set((state) => ({
+        frames: state.frames.filter((f) => f.id !== id),
+        flows: state.flows.filter((fl) => fl.source_frame_id !== id && fl.target_frame_id !== id),
+        selectedFrameId: state.selectedFrameId === id ? null : state.selectedFrameId,
+        selectedFrame: state.selectedFrame === id ? null : state.selectedFrame,
+      }))
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to delete frame' })
+    }
+  },
+
+  createFlow: async (data) => {
+    try {
+      const newFlow = await api.canvas.createFlow(data)
+      set((state) => ({ flows: [...state.flows, newFlow] }))
+      return newFlow
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to create flow' })
+    }
+  },
+
+  deleteFlow: async (id) => {
+    try {
+      await api.canvas.deleteFlow(id)
+      set((state) => ({
+        flows: state.flows.filter((fl) => fl.id !== id),
+      }))
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to delete flow' })
     }
   },
 
   setSelectedFrame: (id) => {
-    set({ selectedFrame: id })
+    set({ selectedFrameId: id, selectedFrame: id })
   },
 
-  addFrame: (frame) => {
-    set((state) => ({ frames: [...state.frames, frame] }))
+  setZoom: (z) => {
+    const clamped = Math.max(0.25, Math.min(2.0, z))
+    set({ zoom: clamped })
+  },
+
+  setPan: (x, y) => {
+    set({ panX: x, panY: y })
   },
 }))

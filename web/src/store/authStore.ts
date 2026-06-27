@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { api } from '@/lib/api'
+import { posthog } from '@/lib/posthog'
 
 interface User {
   id: string
@@ -35,6 +36,10 @@ export const useAuthStore = create<AuthState>()(
           set({ token })
           const meRes = await api.auth.me()
           set({ user: meRes })
+          // Identify the user in PostHog
+          if (typeof window !== 'undefined') {
+            posthog.identify(meRes.id, { email: meRes.email, name: meRes.name ?? undefined })
+          }
         } finally {
           set({ isLoading: false })
         }
@@ -50,6 +55,10 @@ export const useAuthStore = create<AuthState>()(
           set({ token })
           const meRes = await api.auth.me()
           set({ user: meRes })
+          // Identify the new user in PostHog
+          if (typeof window !== 'undefined') {
+            posthog.identify(meRes.id, { email: meRes.email, name: meRes.name ?? undefined })
+          }
         } finally {
           set({ isLoading: false })
         }
@@ -59,6 +68,8 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem('pm_token')
         document.cookie = 'pm_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         set({ user: null, token: null })
+        // Reset PostHog — severs link between anonymous and identified session
+        if (typeof window !== 'undefined') posthog.reset()
       },
 
       fetchMe: async () => {

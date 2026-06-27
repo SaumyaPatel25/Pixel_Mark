@@ -27,8 +27,8 @@ import { useSessionStore } from '@/store/sessionStore'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
-const WS_BASE  = (process.env.NEXT_PUBLIC_WS_BASE  || 'ws://localhost:8765').replace(/\/$/, '')
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
+const WS_BASE  = (process.env.NEXT_PUBLIC_WS_BASE  || 'ws://127.0.0.1:8765').replace(/\/$/, '')
 
 const drawerVariants = {
   open: { x: 0, y: 0 },

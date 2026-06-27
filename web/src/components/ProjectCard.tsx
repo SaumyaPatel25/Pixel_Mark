@@ -100,7 +100,7 @@ export function ProjectCard({
 }: ProjectCardProps) {
   const [localAnalytics, setLocalAnalytics] = useState<any>(null)
   const [loading, setLoading] = useState(!propAnalytics)
-  const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765'
+  const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765'
   
   const analytics = propAnalytics || localAnalytics
   
@@ -254,7 +254,7 @@ export function ProjectCard({
               e.stopPropagation()
               onOpenCanvas(e)
             }}
-            title="Open Blueprint Canvas"
+            title="Open Canvas"
             className="h-8 w-8 rounded-xl bg-indigo-950/80 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/20 flex items-center justify-center transition-all active:scale-95"
           >
             <Layout className="w-3.5 h-3.5" />

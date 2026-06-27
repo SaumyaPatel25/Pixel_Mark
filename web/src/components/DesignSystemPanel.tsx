@@ -26,7 +26,7 @@ export function DesignSystemPanel({ projectId, initialConfig, onSave }: {
 
   const handleSave = async () => {
     setSaving(true)
-    const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765'
+    const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765'
     try {
       await fetch(`${BASE}/projects/${projectId}/design-system`, {
         method: 'PUT',

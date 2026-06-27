@@ -25,6 +25,19 @@ class StatusEnum(str, enum.Enum):
     in_progress = "in_progress"
     resolved = "resolved"
 
+class AIProviderEnum(str, enum.Enum):
+    openai = "openai"
+    anthropic = "anthropic"
+    google = "google"
+    openrouter = "openrouter"
+    groq = "groq"
+    together = "together"
+    mistral = "mistral"
+    fireworks = "fireworks"
+    xai = "xai"
+    openai_compatible = "openai_compatible"
+    ollama = "ollama"
+
 class User(Base):
     __tablename__ = "users"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
@@ -33,6 +46,25 @@ class User(Base):
     name: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     org_memberships: Mapped[list["OrgMember"]] = relationship(back_populates="user")
+    ai_provider_configs: Mapped[list["UserAIProviderConfig"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+class UserAIProviderConfig(Base):
+    __tablename__ = "user_ai_provider_configs"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    display_name: Mapped[str] = mapped_column(String, nullable=True)
+    encrypted_api_key: Mapped[str] = mapped_column(Text, nullable=True)
+    base_url: Mapped[str] = mapped_column(String, nullable=True)
+    model_name: Mapped[str] = mapped_column(String, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    supports_openai_compat: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="ai_provider_configs")
+
 
 class Organization(Base):
     __tablename__ = "organizations"
@@ -68,22 +100,32 @@ class Project(Base):
 class CanvasFrame(Base):
     __tablename__ = "canvas_frames"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
-    position_x: Mapped[float] = mapped_column(nullable=False, default=0)
-    position_y: Mapped[float] = mapped_column(nullable=False, default=0)
-    width: Mapped[float] = mapped_column(nullable=False, default=320)
-    height: Mapped[float] = mapped_column(nullable=False, default=200)
+    position_x: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    position_y: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    width: Mapped[float] = mapped_column(nullable=False, default=320.0)
+    height: Mapped[float] = mapped_column(nullable=False, default=200.0)
+    color: Mapped[str] = mapped_column(String, nullable=False, default="#1c1b19")
     snapshot_url: Mapped[str] = mapped_column(String, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
     project: Mapped["Project"] = relationship(back_populates="frames")
+    session: Mapped["Session"] = relationship()
 
 class CanvasFlow(Base):
     __tablename__ = "canvas_flows"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    frame_sequence: Mapped[list] = mapped_column(JSON, nullable=False, default=list) # List of frame IDs
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    source_frame_id: Mapped[str] = mapped_column(ForeignKey("canvas_frames.id", ondelete="CASCADE"), nullable=False)
+    target_frame_id: Mapped[str] = mapped_column(ForeignKey("canvas_frames.id", ondelete="CASCADE"), nullable=False)
+    label: Mapped[str] = mapped_column(String, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
     project: Mapped["Project"] = relationship(back_populates="flows")
+    source_frame: Mapped["CanvasFrame"] = relationship(foreign_keys=[source_frame_id])
+    target_frame: Mapped["CanvasFrame"] = relationship(foreign_keys=[target_frame_id])
 
 class Environment(Base):
     __tablename__ = "environments"

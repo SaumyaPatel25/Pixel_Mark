@@ -151,7 +151,21 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
   function resolveLogicalTargetUrl(inputUrl) {{
     try {{
       if (!inputUrl) return window.__PIXELMARK_TARGET_URL__;
-      const resolved = new URL(String(inputUrl), window.__PIXELMARK_TARGET_URL__);
+      const str = String(inputUrl);
+      if (str.includes('/proxy/session/')) {{
+        try {{
+          const absoluteProxyUrl = new URL(str, window.location.origin);
+          const urlParam = absoluteProxyUrl.searchParams.get('url');
+          if (urlParam) {{
+            return new URL(urlParam).href;
+          }}
+          const baseOrigin = new URL(window.__PIXELMARK_TARGET_URL__).origin;
+          return baseOrigin + '/';
+        }} catch (e) {{
+          return window.__PIXELMARK_TARGET_URL__;
+        }}
+      }}
+      const resolved = new URL(str, window.__PIXELMARK_TARGET_URL__);
       return resolved.href;
     }} catch (e) {{
       return window.__PIXELMARK_TARGET_URL__;
@@ -187,17 +201,33 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
     }}
   }}
 
+  function safeCallNativePushReplace(nativeMethod, state, unused, safeTransportUrl) {{
+    const baseTag = document.querySelector('base');
+    const originalHref = baseTag ? baseTag.getAttribute('href') : null;
+    
+    if (baseTag) {{
+      baseTag.removeAttribute('href'); // Temporarily remove base href so URL resolves relative to document origin (localhost:8765) without SecurityError
+    }}
+    
+    try {{
+      nativeMethod.call(this, state, unused || '', safeTransportUrl);
+    }} catch (err) {{
+      console.warn("[PixelMark History Shim] Failed native call", err);
+      try {{
+        nativeMethod.call(this, state, unused || '', window.location.pathname + window.location.search);
+      }} catch (_) {{}}
+    }} finally {{
+      if (baseTag && originalHref !== null) {{
+        baseTag.setAttribute('href', originalHref);
+      }}
+    }}
+  }}
+
   History.prototype.pushState = function(state, unused, url) {{
     const logicalTargetUrl = resolveLogicalTargetUrl(url);
     const safeTransportUrl = normalizeToTransportUrl(url);
     console.debug("[PixelMark History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=pushState");
-    try {{
-      nativePushState.call(this, state, unused || '', safeTransportUrl);
-    }} catch (err) {{
-      try {{
-        nativePushState.call(this, state, unused || '', window.location.pathname + window.location.search);
-      }} catch (_) {{}}
-    }}
+    safeCallNativePushReplace.call(this, nativePushState, state, unused, safeTransportUrl);
     window.__PIXELMARK_TARGET_URL__ = logicalTargetUrl;
     if (window.PIXELMARK) {{
       window.PIXELMARK.pageUrl = logicalTargetUrl;
@@ -222,13 +252,7 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
     const logicalTargetUrl = resolveLogicalTargetUrl(url);
     const safeTransportUrl = normalizeToTransportUrl(url);
     console.debug("[PixelMark History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=replaceState");
-    try {{
-      nativeReplaceState.call(this, state, unused || '', safeTransportUrl);
-    }} catch (err) {{
-      try {{
-        nativeReplaceState.call(this, state, unused || '', window.location.pathname + window.location.search);
-      }} catch (_) {{}}
-    }}
+    safeCallNativePushReplace.call(this, nativeReplaceState, state, unused, safeTransportUrl);
     window.__PIXELMARK_TARGET_URL__ = logicalTargetUrl;
     if (window.PIXELMARK) {{
       window.PIXELMARK.pageUrl = logicalTargetUrl;

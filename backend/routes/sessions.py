@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
-from models import Session, PageVisit, Marker, AuditArtifact, ShareLink
+from models import Session, PageVisit, Marker, AuditArtifact, ShareLink, CanvasFrame
 from schemas import (
     SessionCreate, SessionOut, PageVisitOut, SessionRendererUpdate,
     FeedbackCreate, FeedbackUpdate, FeedbackOut, FeedbackListOut
@@ -29,6 +29,27 @@ async def create_session(data: SessionCreate, db: AsyncSession = Depends(get_db)
     db.add(session)
     await db.commit()
     await db.refresh(session)
+
+    # Auto-create CanvasFrame for this new session
+    f_count_res = await db.execute(
+        select(func.count(CanvasFrame.id)).where(CanvasFrame.project_id == data.project_id)
+    )
+    existing_count = f_count_res.scalar() or 0
+
+    frame = CanvasFrame(
+        id=str(uuid.uuid4()),
+        project_id=data.project_id,
+        session_id=session.id,
+        title=session.title,
+        position_x=existing_count * 380.0,
+        position_y=60.0,
+        width=320.0,
+        height=200.0,
+        color="#1c1b19"
+    )
+    db.add(frame)
+    await db.commit()
+    
     return session
 
 @router.get("/project/{project_id}", response_model=list[SessionOut])

@@ -10,6 +10,8 @@ import logging
 from routes import auth, projects, sessions, markers, proxy, export, websocket, canvas, shares, flags, screenshot
 from routers.share_links import router as share_links_router
 from routers.review import router as review_router
+from routers.ai import router as ai_router
+from routers.ai_provider_configs import router as ai_provider_configs_router
 
 logger = logging.getLogger("uvicorn")
 
@@ -71,7 +73,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
     reserved_prefixes = (
         "/auth", "/projects", "/sessions", "/markers", "/canvas", "/shares", 
         "/proxy", "/export", "/websocket", "/health", "/static", "/docs", "/openapi.json",
-        "/share-links", "/review"
+        "/share-links", "/review", "/ai"
     )
     is_reserved = any(path.startswith(prefix) for prefix in reserved_prefixes)
     
@@ -327,6 +329,8 @@ app.include_router(canvas.router)
 app.include_router(shares.router)
 app.include_router(share_links_router, prefix="/share-links", tags=["share-links"])
 app.include_router(review_router, prefix="/review", tags=["review"])
+app.include_router(ai_router)
+app.include_router(ai_provider_configs_router)
 app.include_router(proxy.router)
 app.include_router(export.router)
 app.include_router(websocket.router)

@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
+import { Cpu } from 'lucide-react'
 
 const PLAN_COLORS: Record<string, string> = { 
   free: 'text-white/40', 
@@ -172,6 +174,28 @@ export default function SettingsPage() {
                 />
               </button>
             </div>
+          </section>
+
+          {/* Integrations Section */}
+          <section className="bg-white/[0.03] border border-white/10 rounded-3xl p-8 backdrop-blur-xl">
+            <h2 className="text-xs font-bold text-white/30 uppercase tracking-[0.2em] mb-6">Integrations</h2>
+            <Link 
+              href="/settings/ai?source=nav" 
+              className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-purple-500/50 rounded-xl transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-purple-500/10 rounded-lg text-purple-400 group-hover:scale-110 transition-transform">
+                  <Cpu size={24} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">AI Providers</h3>
+                  <p className="text-xs text-white/40 mt-1">Configure your own OpenAI, Anthropic, or custom AI keys.</p>
+                </div>
+              </div>
+              <div className="text-white/20 group-hover:text-purple-400 group-hover:translate-x-1 transition-all">
+                →
+              </div>
+            </Link>
           </section>
 
           {/* Actions */}

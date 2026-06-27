@@ -64,10 +64,10 @@ def run_services():
         while True:
             time.sleep(1)
             if backend_proc.poll() is not None:
-                print("❌ Backend process exited.")
+                print("[ERROR] Backend process exited.")
                 break
             if frontend_proc.poll() is not None:
-                print("❌ Frontend process exited.")
+                print("[ERROR] Frontend process exited.")
                 break
                 
     except KeyboardInterrupt:

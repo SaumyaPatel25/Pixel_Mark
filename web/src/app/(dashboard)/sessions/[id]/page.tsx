@@ -12,6 +12,8 @@ import {
 import { api } from '@/lib/api'
 import { MarkerCard } from '@/components/command-center/MarkerCard'
 import { MarkerFilters } from '@/components/command-center/MarkerFilters'
+import { AITriageButton } from '@/components/ai/AITriageButton'
+import { AISummaryPanel } from '@/components/ai/AISummaryPanel'
 import {
   ArrowLeft,
   Download,
@@ -48,15 +50,6 @@ export default function SessionPage() {
   const [activeTab, setActiveTab] = useState('all') // 'all' or specific page_url
   const [activeThumbnailZoom, setActiveThumbnailZoom] = useState<string | null>(null)
 
-  // AI Panel
-  const [isTriageLoading, setIsTriageLoading] = useState(false)
-  const [isSummaryLoading, setIsSummaryLoading] = useState(false)
-  const [aiSummaryData, setAiSummaryData] = useState<{
-    what_we_found: string[]
-    what_to_fix_next: string[]
-    client_summary: string
-  } | null>(null)
-
   // Layout View Mode
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
@@ -77,6 +70,9 @@ export default function SessionPage() {
     if (sessionId) {
       fetchMarkers(sessionId)
       fetchSessionInfo()
+    }
+    return () => {
+      useMarkerStore.getState().clearAIState()
     }
   }, [sessionId, fetchMarkers])
 
@@ -146,47 +142,6 @@ export default function SessionPage() {
     }
   }
 
-  const handleAiTriage = async () => {
-    setIsTriageLoading(true)
-    try {
-      await api.ai.triageSession(sessionId)
-      await fetchMarkers(sessionId) // reload triaged results
-      alert('AI Triage diagnostics complete! Priority tiers updated.')
-    } catch (err: any) {
-      alert('AI Triage failed: ' + err.message)
-    } finally {
-      setIsTriageLoading(false)
-    }
-  }
-
-  const handleAiSummary = async () => {
-    setIsSummaryLoading(true)
-    setAiSummaryData(null)
-    try {
-      const res = await api.ai.summarizeSession(sessionId)
-      setAiSummaryData(res || {
-        what_we_found: ['Critical layout breaking boundaries', 'Unresolved JavaScript exception in navbar'],
-        what_to_fix_next: ['Change selector spacing', 'Verify network path'],
-        client_summary: 'Overall the session indicates structural stability with minor visual issues.'
-      })
-    } catch {
-      // Mock fallback if AI server endpoint not online
-      setAiSummaryData({
-        what_we_found: [
-          'High density of layout misalignments in sidebar element wrappers.',
-          'Detected broken external CDN link reference (ads script loaded with 404).',
-        ],
-        what_to_fix_next: [
-          'Verify navbar responsive grid breakpoints.',
-          'Fix console reference exception on layout load.',
-        ],
-        client_summary: 'This observation session reveals normal rendering performance on standard viewports, but highlights noticeable layout shifting on smaller mobile viewports.',
-      })
-    } finally {
-      setIsSummaryLoading(false)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white p-8 space-y-8 font-sans">
       {/* Session Breadcrumb Header */}
@@ -230,31 +185,7 @@ export default function SessionPage() {
           
           <div className="w-[1px] h-8 bg-white/5 mx-2" />
 
-          <button
-            disabled={isTriageLoading}
-            onClick={handleAiTriage}
-            className="h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 hover:bg-purple-600/30 font-bold px-4 transition-all flex items-center gap-2 text-xs"
-          >
-            {isTriageLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4" />
-            )}
-            AI Triage
-          </button>
-
-          <button
-            disabled={isSummaryLoading}
-            onClick={handleAiSummary}
-            className="h-10 rounded-xl bg-cyan-600/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-600/30 font-bold px-4 transition-all flex items-center gap-2 text-xs"
-          >
-            {isSummaryLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Layers className="w-4 h-4" />
-            )}
-            AI Summary
-          </button>
+          <AITriageButton sessionId={sessionId} markerCount={stats.total} />
         </div>
       </div>
 
@@ -283,57 +214,9 @@ export default function SessionPage() {
       </div>
 
       {/* AI Summary Details Panel */}
-      {aiSummaryData && (
-        <div className="max-w-6xl mx-auto bg-[#0d0d14] border border-cyan-500/20 rounded-3xl p-6 relative space-y-6 shadow-xl animate-in slide-in-from-top-4 duration-300">
-          <button
-            onClick={() => setAiSummaryData(null)}
-            className="absolute top-6 right-6 p-2 rounded-xl text-white/20 hover:text-white hover:bg-white/5 transition-all"
-          >
-            <X className="w-4 h-4" />
-          </button>
-
-          <div className="space-y-1">
-            <h3 className="text-base font-black text-cyan-400 flex items-center gap-2 uppercase tracking-wide">
-              <Sparkles className="w-4 h-4" />
-              AI Observer Diagnostics Summary
-            </h3>
-            <p className="text-xs text-white/40">Automated structural insight derived from DOM shift patterns.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-            <div className="space-y-3">
-              <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400/50 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" /> What We Found
-              </span>
-              <ul className="space-y-2">
-                {aiSummaryData.what_we_found.map((item, idx) => (
-                  <li key={idx} className="text-xs text-white/70 leading-relaxed bg-white/[0.02] rounded-xl px-4 py-2 border border-white/5">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="space-y-3">
-              <span className="text-[10px] font-black uppercase tracking-wider text-purple-400/50 flex items-center gap-1">
-                <Lightbulb className="w-3.5 h-3.5" /> Next Corrective Actions
-              </span>
-              <ul className="space-y-2">
-                {aiSummaryData.what_to_fix_next.map((item, idx) => (
-                  <li key={idx} className="text-xs text-white/70 leading-relaxed bg-white/[0.02] rounded-xl px-4 py-2 border border-white/5">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400/50">Summary Analysis</span>
-            <p className="text-xs text-white/60 leading-relaxed italic">"{aiSummaryData.client_summary}"</p>
-          </div>
-        </div>
-      )}
+      <div className="max-w-6xl mx-auto">
+        <AISummaryPanel sessionId={sessionId} />
+      </div>
 
       {/* Audited Page Screenshot Gallery */}
       {uniquePages.length > 0 && (

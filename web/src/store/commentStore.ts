@@ -1,6 +1,7 @@
 // src/store/commentStore.ts
 import { create } from 'zustand'
 import { api, Comment, CommentCreate } from '@/lib/api'
+import { posthog } from '@/lib/posthog'
 
 interface CommentState {
   comments:     Comment[]
@@ -69,6 +70,15 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         comments: s.comments.map(c => c.id === optimisticId ? saved : c),
         error: null,
       }))
+      // Track marker creation
+      if (typeof window !== 'undefined') {
+        posthog.capture('marker_created', {
+          marker_id:   saved.id,
+          project_id:  saved.project_id,
+          page_url:    saved.page_url,
+          severity:    saved.severity,
+        })
+      }
       return saved
     } catch (err: unknown) {
       // Remove optimistic on failure
@@ -89,6 +99,10 @@ export const useCommentStore = create<CommentState>((set, get) => ({
     }))
     try {
       await api.comments.resolve(id)
+      // Track resolution
+      if (typeof window !== 'undefined') {
+        posthog.capture('marker_resolved', { marker_id: id })
+      }
     } catch (err: unknown) {
       // Rollback
       set(s => ({
@@ -105,6 +119,10 @@ export const useCommentStore = create<CommentState>((set, get) => ({
     set(s => ({ comments: s.comments.filter(c => c.id !== id) }))
     try {
       await api.comments.delete(id)
+      // Track deletion
+      if (typeof window !== 'undefined') {
+        posthog.capture('marker_deleted', { marker_id: id })
+      }
     } catch {
       set({ comments: prev, error: 'Could not delete comment' })
     }

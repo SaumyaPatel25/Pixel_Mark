@@ -23,6 +23,44 @@ class UserOut(BaseModel):
     name: Optional[str]
     class Config: from_attributes = True
 
+class UserAIProviderConfigRead(BaseModel):
+    id: str
+    provider: str
+    display_name: Optional[str]
+    base_url: Optional[str]
+    model_name: Optional[str]
+    is_active: bool
+    is_default: bool
+    supports_openai_compat: bool
+    has_api_key: bool
+
+    class Config: 
+        from_attributes = True
+        protected_namespaces = ()
+
+class UserAIProviderConfigCreate(BaseModel):
+    provider: str
+    display_name: Optional[str] = None
+    api_key: str
+    base_url: Optional[str] = None
+    model_name: Optional[str] = None
+
+    class Config:
+        protected_namespaces = ()
+
+class UserAIProviderConfigUpdate(BaseModel):
+    display_name: Optional[str] = None
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+    model_name: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_default: Optional[bool] = None
+
+    class Config:
+        protected_namespaces = ()
+
+
+
 # Projects
 class ProjectCreate(BaseModel):
     name: str
@@ -285,34 +323,73 @@ class EnvironmentOut(BaseModel):
     class Config: from_attributes = True
 
 # Canvas
-class CanvasFrameOut(BaseModel):
-    id: str
+class CanvasFrameCreate(BaseModel):
     project_id: str
+    session_id: Optional[str] = None
     title: str
-    position_x: float
-    position_y: float
-    width: float
-    height: float
-    snapshot_url: Optional[str]
-    class Config: from_attributes = True
+    position_x: Optional[float] = 0.0
+    position_y: Optional[float] = 0.0
+    width: Optional[float] = 320.0
+    height: Optional[float] = 200.0
+    color: Optional[str] = "#1c1b19"
 
 class CanvasFrameUpdate(BaseModel):
     position_x: Optional[float] = None
     position_y: Optional[float] = None
     width: Optional[float] = None
     height: Optional[float] = None
+    color: Optional[str] = None
     title: Optional[str] = None
 
-class CanvasFlowOut(BaseModel):
+class CanvasMarkerSummary(BaseModel):
+    title: Optional[str] = None
+    priority: str
+
+class CanvasPriorityDistribution(BaseModel):
+    critical: int = 0
+    high: int = 0
+    medium: int = 0
+    low: int = 0
+
+class CanvasFrameRead(BaseModel):
     id: str
     project_id: str
-    name: str
-    frame_sequence: List[str]
+    session_id: Optional[str] = None
+    title: str
+    position_x: float
+    position_y: float
+    width: float
+    height: float
+    color: str
+    snapshot_url: Optional[str] = None
+    created_at: datetime
+    marker_count: int = 0
+    top_markers: List[CanvasMarkerSummary] = []
+    priority_distribution: CanvasPriorityDistribution = CanvasPriorityDistribution()
+    class Config: from_attributes = True
+
+class CanvasFlowCreate(BaseModel):
+    project_id: str
+    source_frame_id: str
+    target_frame_id: str
+    label: Optional[str] = None
+
+class CanvasFlowRead(BaseModel):
+    id: str
+    project_id: str
+    source_frame_id: str
+    target_frame_id: str
+    label: Optional[str] = None
+    created_at: datetime
     class Config: from_attributes = True
 
 class CanvasData(BaseModel):
-    frames: List[CanvasFrameOut]
-    flows: List[CanvasFlowOut]
+    frames: List[CanvasFrameRead]
+    flows: List[CanvasFlowRead]
+
+# Legacy compatibility aliases
+CanvasFrameOut = CanvasFrameRead
+CanvasFlowOut = CanvasFlowRead
 
 # Project Update
 class ProjectUpdate(BaseModel):

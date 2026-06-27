@@ -563,7 +563,7 @@ export function AuditSurface({
       })
   }, [sessionId, shareToken])
 
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
   const proxyUrl = `${API_BASE}/proxy/session/${sessionId}${shareToken ? `?share_token=${shareToken}` : ''}`
 
   const handleSelectPage = useCallback((url: string) => {
@@ -1651,6 +1651,7 @@ export function AuditSurface({
             src={proxyUrl}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
             allow="accelerometer; autoplay; xr-spatial-tracking; clipboard-read; clipboard-write"
+            className="ph-no-capture"
             style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', pointerEvents: 'auto', display: 'block' }}
             onLoad={() => setIsLoading(false)}
             title="Proxied review site"

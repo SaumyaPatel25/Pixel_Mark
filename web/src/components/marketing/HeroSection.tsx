@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { ArrowRight, Zap, MousePointer2, Search, RefreshCw, Globe, Box, Grid, Compass, HelpCircle, CheckCircle2, Layers, Info, Trash2, PlusCircle, Play } from 'lucide-react';
 import Link from 'next/link';
-import { ModeType } from '@/app/page';
+import { ModeType } from './HomeClient';
 import { useAuthStore } from '@/store/authStore';
 
 interface MockPin {

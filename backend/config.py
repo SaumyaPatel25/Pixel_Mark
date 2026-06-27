@@ -25,3 +25,7 @@ def load_config() -> Settings:
     )
 
 settings = load_config()
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
+AI_TRIAGE_MAX_MARKERS = int(os.getenv("AI_TRIAGE_MAX_MARKERS", "50"))

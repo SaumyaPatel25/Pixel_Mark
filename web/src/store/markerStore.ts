@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import { api } from '@/lib/api'
+import { api, triageSession, summarizeSession } from '@/lib/api'
+import { TriageResult, SessionSummary } from '@/types/ai'
+import { posthog } from '@/lib/posthog'
 
 export type Priority = 'critical' | 'high' | 'medium' | 'low'
 export type Status = 'open' | 'in_progress' | 'resolved'
@@ -51,6 +53,17 @@ interface MarkerStore {
   deleteMarker: (id: string) => Promise<void>
   setFilter: (filters: Partial<MarkerStore['filters']>) => void
   clearFilters: () => void
+
+  triageResult: TriageResult | null
+  sessionSummary: SessionSummary | null
+  isTriaging: boolean
+  isSummarizing: boolean
+  triageError: string | null
+  summaryError: string | null
+
+  triageSession: (sessionId: string) => Promise<void>
+  summarizeSession: (sessionId: string) => Promise<void>
+  clearAIState: () => void
 }
 
 export const useMarkerStore = create<MarkerStore>((set, get) => ({
@@ -58,6 +71,13 @@ export const useMarkerStore = create<MarkerStore>((set, get) => ({
   filtered: [],
   filters: {},
   isLoading: false,
+
+  triageResult: null,
+  sessionSummary: null,
+  isTriaging: false,
+  isSummarizing: false,
+  triageError: null,
+  summaryError: null,
 
   fetchMarkers: async (sessionId) => {
     set({ isLoading: true })
@@ -118,13 +138,92 @@ export const useMarkerStore = create<MarkerStore>((set, get) => ({
       return true
     })
 
-    set({ filtered })
+    set({ filtered, filters: newFilters })
   },
 
   clearFilters: () => {
-    set({ filters: {}, filtered: get().markers })
+    set({ filtered: get().markers, filters: {} })
   },
+
+  triageSession: async (sessionId: string) => {
+    const marker_count = get().markers.length
+    posthog.capture('ai_triage_started', { session_id: sessionId, marker_count })
+    set({ isTriaging: true, triageError: null })
+    try {
+      const res = await triageSession(sessionId)
+      
+      const triagedMarkers = res.triaged_markers || (res as any).markers || []
+      const oldMarkers = get().markers
+      
+      const newMarkers = oldMarkers.map((m) => {
+        const t = triagedMarkers.find(x => x.id === m.id)
+        if (t) {
+          return { ...m, priority: t.priority as Priority, ai_summary: t.ai_summary }
+        }
+        return m
+      })
+
+      set({ markers: newMarkers, triageResult: res })
+      get().setFilter({})
+      
+      const triaged_count = res.triaged_markers?.length || (res as any).triaged_count || triagedMarkers.length
+      posthog.capture('ai_triage_succeeded', { session_id: sessionId, triaged_count })
+    } catch (err: any) {
+      const msg = (err.message || '').toLowerCase()
+      let failure_type: "no_provider" | "provider_unavailable" | "unsupported" | "unknown" = "unknown"
+      if (msg.includes("no active default")) {
+        failure_type = "no_provider"
+      } else if (msg.includes("not implemented") || msg.includes("unsupported")) {
+        failure_type = "unsupported"
+      } else if (msg.includes("could not reach") || msg.includes("unreachable") || msg.includes("unavailable") || msg.includes("503") || msg.includes("501") || msg.includes("connection failed")) {
+        failure_type = "provider_unavailable"
+      }
+      posthog.capture('ai_triage_failed', { session_id: sessionId, failure_type })
+      set({ triageError: err.message || 'Triage failed' })
+    } finally {
+      set({ isTriaging: false })
+    }
+  },
+
+  summarizeSession: async (sessionId: string) => {
+    posthog.capture('ai_summary_started', { session_id: sessionId })
+    set({ isSummarizing: true, summaryError: null })
+    try {
+      const res = await summarizeSession(sessionId)
+      set({ sessionSummary: res })
+      
+      posthog.capture('ai_summary_succeeded', {
+        session_id: sessionId,
+        overall_health: res.overall_health,
+        total_markers: res.counts ? (res.counts.critical + res.counts.high + res.counts.medium + res.counts.low) : 0
+      })
+    } catch (err: any) {
+      const msg = (err.message || '').toLowerCase()
+      let failure_type: "no_provider" | "provider_unavailable" | "unsupported" | "unknown" = "unknown"
+      if (msg.includes("no active default")) {
+        failure_type = "no_provider"
+      } else if (msg.includes("not implemented") || msg.includes("unsupported")) {
+        failure_type = "unsupported"
+      } else if (msg.includes("could not reach") || msg.includes("unreachable") || msg.includes("unavailable") || msg.includes("503") || msg.includes("501") || msg.includes("connection failed")) {
+        failure_type = "provider_unavailable"
+      }
+      posthog.capture('ai_summary_failed', { session_id: sessionId, failure_type })
+      set({ summaryError: err.message || 'Summarization failed' })
+    } finally {
+      set({ isSummarizing: false })
+    }
+  },
+
+  clearAIState: () => {
+    set({
+      triageResult: null,
+      sessionSummary: null,
+      triageError: null,
+      summaryError: null,
+    })
+  }
 }))
+
 
 // Phase 3 Multi-page State Selectors
 export function groupMarkersByPage(markers: Marker[]): Record<string, Marker[]> {

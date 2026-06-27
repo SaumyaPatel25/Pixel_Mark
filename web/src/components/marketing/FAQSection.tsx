@@ -3,67 +3,34 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, HelpCircle } from 'lucide-react';
+import { faqs } from '@/lib/faqData';
 
 export default function FAQSection() {
-  const faqs = [
-    {
-      question: 'Does my client or reviewer need to create an account?',
-      answer: 'No. Anyone with the secure session share link can drop pins and submit feedback instantly. We built PixelMark with a completely zero-friction flow for reviewers so they can leave feedback in seconds.'
-    },
-    {
-      question: 'Does PixelMark work on any website?',
-      answer: 'Yes. Our secure proxy rewriter maps relative assets and resolves cross-origin scripts for both static HTML marketing sites and complex modern web applications (like Next.js, React, or SPAs).'
-    },
-    {
-      question: 'What exactly does a pin capture?',
-      answer: 'Each pin automatically records the target HTML tag name, exact CSS selector path, absolute XPath, full innerHTML snapshot, computed CSS styles, browser/viewport details, runtime console logs, and network errors.'
-    },
-    {
-      question: 'Can I use PixelMark for WebGL or Three.js websites?',
-      answer: 'Yes. PixelMark features native WebGL context mapping and Three.js raycasting support. When a reviewer clicks inside a 3D canvas, we automatically record coordinates and canvas scene properties.'
-    },
-    {
-      question: 'Is there a Chrome Extension required?',
-      answer: 'None at all. PixelMark injects the lightweight capture agent directly through the proxy runtime, eliminating extension installation barriers and making it fully compatible with mobile and desktop web browsers.'
-    },
-    {
-      question: 'How are screenshots captured?',
-      answer: 'We use a high-fidelity client-side rendering pipeline (html2canvas) to render viewport screenshots. If html2canvas is blocked by strict CORS policies, the agent gracefully degrades to generating a diagnostic placeholder containing full metadata details.'
-    },
-    {
-      question: 'Can I export my feedback?',
-      answer: 'Yes. You can export review sessions into structured Markdown documentation (containing selector and screenshot tables) or raw JSON datasets, or push them directly to GitHub issues in one click.'
-    },
-    {
-      question: 'Is real-time sync supported?',
-      answer: 'Yes. We utilize WebSockets to synchronize feedback pins and workflow status updates immediately across all active reviewer and developer browser windows.'
-    },
-    {
-      question: 'What is the share link flow?',
-      answer: 'Each session generates a secure, obfuscated hash link. When reviewers open this link, they are automatically logged in to review mode with zero auth walls, allowing them to click, hover, and drop pins immediately.'
-    },
-    {
-      question: 'Who built PixelMark?',
-      answer: 'PixelMark was designed, engineered, and hardened by the Entrext Labs team. It is built to serve freelance developers, agencies, and engineering teams collaborating on web audits.'
-    },
-    {
-      question: 'Is PixelMark free to use?',
-      answer: 'Yes! PixelMark offers a fully featured free tier for individual builders and freelancers, with premium workspace upgrades for collaborative teams.'
-    },
-    {
-      question: 'Can I use PixelMark for mobile browser testing?',
-      answer: 'Yes. The reviewer workspace includes responsive viewport controls (Mobile, Tablet, Desktop) to test and pin layouts across screen sizes directly from your desktop browser.'
-    }
-  ];
-
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const toggleExpand = (index: number) => {
     setExpandedIndex(expandedIndex === index ? null : index);
   };
 
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  };
+
   return (
     <section id="faq" className="relative py-24 bg-transparent overflow-hidden border-t border-pm-border">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <div className="max-w-4xl mx-auto px-6 md:px-12 relative z-10">
         
         {/* Section Header */}

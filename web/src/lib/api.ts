@@ -1,6 +1,6 @@
 // PixelMark Core API Client (Unified exception & structured error handler)
 // Version 2.0.1
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
 
 async function request(path: string, options: RequestInit = {}) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
@@ -342,10 +342,10 @@ export const api = {
   // CANVAS
   canvas: {
     async getCanvas(projectId: string) {
-      return request(`/canvas/project/${projectId}`)
+      return request(`/canvas/${projectId}`)
     },
     async createFrame(data: any) {
-      return request('/canvas/frames/', {
+      return request('/canvas/frames', {
         method: 'POST',
         body: JSON.stringify(data),
       })
@@ -356,10 +356,20 @@ export const api = {
         body: JSON.stringify(data),
       })
     },
+    async deleteFrame(id: string) {
+      return request(`/canvas/frames/${id}`, {
+        method: 'DELETE',
+      })
+    },
     async createFlow(data: any) {
-      return request('/canvas/flows/', {
+      return request('/canvas/flows', {
         method: 'POST',
         body: JSON.stringify(data),
+      })
+    },
+    async deleteFlow(id: string) {
+      return request(`/canvas/flows/${id}`, {
+        method: 'DELETE',
       })
     },
   },
@@ -401,4 +411,51 @@ export const api = {
       })
     }
   },
+}
+
+
+// AI Provider Endpoints
+import { AIProviderConfig, CreateAIProviderConfigInput, UpdateAIProviderConfigInput, TestAIProviderConfigResult } from '../types/ai-provider'
+
+export async function getAIProviderConfigs(): Promise<AIProviderConfig[]> {
+  return request('/ai/providers', { method: 'GET' })
+}
+
+export async function createAIProviderConfig(data: CreateAIProviderConfigInput): Promise<AIProviderConfig> {
+  return request('/ai/providers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateAIProviderConfig(id: string, data: UpdateAIProviderConfigInput): Promise<AIProviderConfig> {
+  return request(`/ai/providers/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteAIProviderConfig(id: string): Promise<{ success: boolean }> {
+  return request(`/ai/providers/${id}`, { method: 'DELETE' })
+}
+
+export async function setDefaultAIProviderConfig(id: string): Promise<AIProviderConfig> {
+  return request(`/ai/providers/${id}/set-default`, { method: 'POST' })
+}
+
+export async function testAIProviderConfig(id: string): Promise<TestAIProviderConfigResult> {
+  return request(`/ai/providers/${id}/test`, { method: 'POST' })
+}
+
+
+
+// AI Session Endpoints
+import { TriageResult, SessionSummary } from '../types/ai'
+
+export async function triageSession(sessionId: string): Promise<TriageResult> {
+  return request(`/ai/triage/session/${sessionId}`, { method: 'POST' })
+}
+
+export async function summarizeSession(sessionId: string): Promise<SessionSummary> {
+  return request(`/ai/summary/session/${sessionId}`, { method: 'GET' })
 }

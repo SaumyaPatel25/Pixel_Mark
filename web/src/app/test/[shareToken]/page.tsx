@@ -48,7 +48,7 @@ export default function TesterPage() {
         })()
         const tester_name = localStorage.getItem('tester_name') ?? 'Auditor'
 
-        const host = window.location.host.includes('localhost') ? 'localhost:8765' : window.location.host
+        const host = window.location.host.includes('localhost') ? '127.0.0.1:8765' : window.location.host
         const protocol = window.location.protocol.replace('http', 'ws')
         const wsUrl = `${protocol}//${host}/ws/project/${project.id}?tester_id=${encodeURIComponent(tester_id)}&tester_name=${encodeURIComponent(tester_name)}`
         
