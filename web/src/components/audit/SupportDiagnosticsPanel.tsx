@@ -138,7 +138,7 @@ export function SupportDiagnosticsPanel({
           </div>
 
           <div className="flex flex-col gap-0.5 border-t border-white/5 pt-2">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-white/30">Last Marker Payload</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider text-white/30">Last Feedback Pin Payload</span>
             <div className="bg-black/20 p-2 rounded-lg border border-white/5">
               <div className="flex justify-between items-center text-[9px] mb-1">
                 <span className="text-white/40">Status:</span>
@@ -149,7 +149,7 @@ export function SupportDiagnosticsPanel({
                 }`}>{lastMarkerStatus.status}</span>
               </div>
               <p className="text-[9px] text-white/60 leading-normal line-clamp-2" title={lastMarkerStatus.message}>
-                {lastMarkerStatus.message || 'No markers placed in this session.'}
+                {lastMarkerStatus.message || 'No feedback pins placed in this review session.'}
               </p>
             </div>
           </div>

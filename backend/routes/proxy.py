@@ -161,21 +161,17 @@ def prepare_proxy_response(response: Response) -> Response:
         "content-security-policy",
         "content-security-policy-report-only",
         "permissions-policy",
+        "access-control-allow-origin",
+        "access-control-allow-methods",
+        "access-control-allow-headers",
+        "access-control-allow-credentials",
+        "access-control-expose-headers",
     ]
-
-    HEADERS_TO_ADD = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "*",
-    }
 
     for header in HEADERS_TO_STRIP:
         for k in list(response.headers.keys()):
             if k.lower() == header:
                 response.headers.pop(k, None)
-
-    for key, value in HEADERS_TO_ADD.items():
-        response.headers[key] = value
 
     return response
 

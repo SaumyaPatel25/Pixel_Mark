@@ -41,7 +41,7 @@ export default function MarketingFooter() {
               <span className="font-display font-bold text-lg text-pm-text">PixelMark</span>
             </Link>
             <p className="text-xs text-pm-muted leading-relaxed max-w-sm">
-              Precision visual feedback and DOM audits built for designers, developers, QA teams, and agencies. Bridge the gap between UI revisions and codebase fixes.
+              Precision visual feedback and website reviews built for designers, developers, QA teams, and agencies. Bridge the gap between UI revisions and codebase fixes.
             </p>
           </div>
 

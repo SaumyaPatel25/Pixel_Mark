@@ -405,13 +405,13 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
   const systems = [
     {
       id: 'dom' as ModeType,
-      name: 'Standard DOM',
+      name: 'Standard Layout',
       icon: Globe,
       color: 'text-purple-400',
       glow: 'shadow-[0_0_20px_rgba(124,58,237,0.15)]',
       border: 'hover:border-purple-500/30',
       accentBg: 'bg-purple-500/10',
-      description: 'Resolves CSS selectors, computed styles & absolute XPaths.'
+      description: 'Resolves element selectors, computed CSS styles & layout parameters.'
     },
     {
       id: 'threejs' as ModeType,
@@ -445,13 +445,13 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
     },
     {
       id: 'shadow-dom' as ModeType,
-      name: 'Shadow DOM',
+      name: 'Encapsulated Element',
       icon: Layers,
       color: 'text-fuchsia-400',
       glow: 'shadow-[0_0_20px_rgba(217,70,239,0.15)]',
       border: 'hover:border-fuchsia-500/30',
       accentBg: 'bg-fuchsia-500/10',
-      description: 'Traverses encapsulated shadow trees to pinpoint nested nodes.'
+      description: 'Traverses encapsulated layouts to pinpoint nested elements.'
     }
   ];
 
@@ -465,8 +465,8 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
   // Mode-specific descriptive copy
   const modeExplainer = {
     dom: {
-      hint: 'Click elements inside the mockup site (like the hero heading, logo, or CTA button) to see how the DOM capture engine isolates computed CSS styles and selectors in real-time.',
-      label: 'DOM Lens Sandbox',
+      hint: 'Click elements inside the mockup site (like the hero heading, logo, or CTA button) to see how the layout capture engine isolates computed CSS styles and selectors in real-time.',
+      label: 'Visual Layout Sandbox',
     },
     threejs: {
       hint: 'Click anywhere on the spinning 3D cube model. The Three.js raycaster captures absolute 3D mesh vectors, face indices, and active geometry data automatically.',
@@ -481,8 +481,8 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
       label: 'SPA Router Sandbox',
     },
     'shadow-dom': {
-      hint: 'Click inside custom component interfaces. The traversal engine follows the composed path inside #shadow-roots to record elements hidden from standard selectors.',
-      label: 'Shadow DOM Traverser',
+      hint: 'Click inside custom component interfaces. The traversal engine follows the composed path inside encapsulated components to record elements hidden from standard selectors.',
+      label: 'Encapsulated Layout Traverser',
     },
   };
 
@@ -516,12 +516,12 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
             </div>
 
             <h1 className="font-display text-4xl md:text-5xl lg:text-6.5xl font-bold tracking-tight text-white leading-[1.05] transition-all duration-500">
-              Visual reviews. <br />
-              <span className="text-gradient-purple font-black">For every web stack.</span>
+              Visual Website Feedback Tool. <br />
+              <span className="text-gradient-purple font-black">Faster Bug Reporting.</span>
             </h1>
 
             <p className="text-xs md:text-sm text-pm-muted leading-relaxed max-w-lg font-sans">
-              No extensions. No reviewer accounts. Click any element inside the interactive preview to drop a precision pin and capture screenshots, CSS styles, 3D meshes, and router logs instantly.
+              Get visual client review links instantly. Drop annotations directly on live websites, capture visual QA feedback, and streamline design reviews without screenshots or extensions.
             </p>
 
             {/* URL Interactive Input */}
@@ -560,33 +560,29 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
             </div>
 
             <div className="flex gap-4 pt-1">
-              {demoState !== 'sandboxActive' ? (
-                <button
-                  onClick={launchSandbox}
-                  className="px-6 py-3 bg-pm-accent hover:bg-pm-accent-bright text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-accent hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  Launch Active Sandbox
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              ) : (
-                <div className="flex items-center gap-4">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider animate-pulse">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Sandbox Active</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setDemoState('mockDemo');
-                      setIsInteractive(false);
-                      setCinematicStep(0);
-                    }}
-                    className="px-4 py-2.5 bg-pm-surface-2 hover:bg-pm-surface-3 text-pm-text border border-pm-border rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
-                  >
-                    Play Guided Demo
-                  </button>
-                </div>
-              )}
+              <Link
+                href="/register"
+                className="px-6 py-3 bg-pm-accent hover:bg-pm-accent-bright text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-accent hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer"
+              >
+                Start a Free Review
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                onClick={() => {
+                  setDemoState('mockDemo');
+                  setIsInteractive(false);
+                  setCinematicStep(0);
+                }}
+                className="px-6 py-3 bg-pm-surface-2 hover:bg-pm-surface-3 text-pm-text border border-pm-border rounded-lg text-xs font-bold uppercase tracking-widest transition-all cursor-pointer animate-pulse"
+              >
+                See how it works →
+              </button>
             </div>
+
+            {/* Social proof / Trust tagline */}
+            <p className="text-[10px] text-pm-text-faint font-sans tracking-wide leading-relaxed pt-2 max-w-sm">
+              Built for web agencies, freelancers, and dev teams who are tired of reviewing websites over email.
+            </p>
           </div>
 
           {/* Right Column: Dynamic Mockup Browser & Mode Switcher */}
@@ -644,7 +640,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
             <div className="flex items-center gap-1 p-1 bg-pm-surface/40 border border-pm-border rounded-xl self-start max-w-full overflow-x-auto scrollbar-none">
               {(['dom', 'threejs', 'webgl', 'spa', 'shadow-dom'] as ModeType[]).map((mode) => {
                 const isSelected = activeMode === mode;
-                const label = mode === 'dom' ? 'DOM' : mode === 'threejs' ? 'Three.js' : mode === 'webgl' ? 'WebGL' : mode === 'spa' ? 'SPA' : 'Shadow DOM';
+                const label = mode === 'dom' ? 'Layout' : mode === 'threejs' ? 'Three.js' : mode === 'webgl' ? 'WebGL' : mode === 'spa' ? 'SPA' : 'Encapsulated';
                 return (
                   <button
                     key={mode}
@@ -1389,7 +1385,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                         Why don't you try it yourself?
                       </h3>
                       <p className="text-xs text-pm-muted leading-relaxed font-sans">
-                        Initialize your sandbox, invite reviewers, and map precision DOM annotations in seconds.
+                        Initialize your sandbox, invite reviewers, and map precision visual annotations in seconds.
                       </p>
                     </div>
 

@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useMotionValue, useSpring } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
-import { SplineBackground } from '@/components/SplineBackground';
 import HowItWorksSection from '@/components/marketing/HowItWorksSection';
 import FeaturesSection from '@/components/marketing/FeaturesSection';
 import UseCasesSection from '@/components/marketing/UseCasesSection';
@@ -12,6 +12,11 @@ import FAQSection from '@/components/marketing/FAQSection';
 import AboutSection from '@/components/marketing/AboutSection';
 import EntrextSection from '@/components/marketing/EntrextSection';
 import MarketingFooter from '@/components/marketing/MarketingFooter';
+
+const SplineBackground = dynamic(
+  () => import('@/components/SplineBackground').then((mod) => mod.SplineBackground),
+  { ssr: false }
+);
 
 export type ModeType = 'dom' | 'threejs' | 'webgl' | 'spa' | 'shadow-dom';
 

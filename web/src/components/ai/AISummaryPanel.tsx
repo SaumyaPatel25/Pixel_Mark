@@ -8,7 +8,10 @@ interface Props {
 }
 
 export function AISummaryPanel({ sessionId }: Props) {
-  const { summarizeSession, sessionSummary, isSummarizing, summaryError } = useMarkerStore()
+  const summarizeSession = useMarkerStore(s => s.summarizeSession)
+  const sessionSummary = useMarkerStore(s => s.sessionSummary)
+  const isSummarizing = useMarkerStore(s => s.isSummarizing)
+  const summaryError = useMarkerStore(s => s.summaryError)
 
   const handleSummarize = () => {
     summarizeSession(sessionId)

@@ -1781,6 +1781,7 @@
     }
   }
 
+  let lastResolvedPinsString = "";
   function resolveAndSendPins() {
     if (!window.__trackedPins || !window.__trackedPins.length) return;
     const currentUrl = getAbsoluteTargetUrl();
@@ -1893,6 +1894,12 @@
         source: source
       };
     });
+
+    const newResolvedString = JSON.stringify(resolvedPins);
+    if (newResolvedString === lastResolvedPinsString) {
+      return;
+    }
+    lastResolvedPinsString = newResolvedString;
 
     console.log(`[PixelMark Agent] Resolved ${resolvedPins.length} pins`);
 
@@ -2368,5 +2375,285 @@
     discoverThreeScene();
     dispatchLayoutEvents();
   }, 3000);
+
+})();
+
+// ─── DOM EDIT MODE ────────────────────────────────────────────────────────────
+
+(function() {
+  'use strict';
+
+  var PM = window.__PM__;
+  if (!PM) return;
+
+  // ── ACTIVATE ──────────────────────────────────────────────
+  PM.activate = function() {
+    if (PM.overlay) return; // already active
+
+    // Full-page interceptor overlay
+    var overlay = document.createElement('div');
+    overlay.setAttribute('id', 'pm-overlay');
+    overlay.style.cssText = [
+      'position:fixed',
+      'top:0',
+      'left:0',
+      'width:100%',
+      'height:100%',
+      'z-index:2147483647',
+      'cursor:crosshair',
+      'background:transparent'
+    ].join(';');
+
+    // Highlight box
+    var hl = document.createElement('div');
+    hl.setAttribute('id', 'pm-hl');
+    hl.style.cssText = [
+      'position:fixed',
+      'pointer-events:none',
+      'z-index:2147483646',
+      'border:2px solid #4f98a3',
+      'background:rgba(79,152,163,0.07)',
+      'border-radius:3px',
+      'display:none',
+      'box-shadow:0 0 0 1px rgba(79,152,163,0.2)'
+    ].join(';');
+
+    document.documentElement.appendChild(hl);
+    document.documentElement.appendChild(overlay);
+
+    PM.overlay = overlay;
+    PM.highlight = hl;
+
+    // MOUSEMOVE — hide overlay, find real element, show highlight
+    overlay.addEventListener('mousemove', function(e) {
+      overlay.style.display = 'none';
+      var el = document.elementFromPoint(e.clientX, e.clientY);
+      overlay.style.display = 'block';
+
+      if (!el || el === hl || el.id === 'pm-panel') return;
+      if (el.tagName === 'HTML' || el.tagName === 'BODY') return;
+
+      PM.lastTarget = el;
+      var r = el.getBoundingClientRect();
+      hl.style.display = 'block';
+      hl.style.top    = r.top + 'px';
+      hl.style.left   = r.left + 'px';
+      hl.style.width  = r.width + 'px';
+      hl.style.height = r.height + 'px';
+    });
+
+    // MOUSELEAVE
+    overlay.addEventListener('mouseleave', function() {
+      hl.style.display = 'none';
+      PM.lastTarget = null;
+    });
+
+    // SHIFT+CLICK — open edit panel
+    overlay.addEventListener('click', function(e) {
+      // Only activate on Shift+Click
+      if (!e.shiftKey) {
+        // Pass click through to real element below
+        overlay.style.display = 'none';
+        var el = document.elementFromPoint(e.clientX, e.clientY);
+        overlay.style.display = 'block';
+        if (el) el.click();
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      overlay.style.display = 'none';
+      var el = document.elementFromPoint(e.clientX, e.clientY);
+      overlay.style.display = 'block';
+
+      if (!el || el.tagName === 'HTML' || el.tagName === 'BODY') return;
+      PM.lastTarget = el;
+      PM.openPanel(el);
+    });
+
+    console.log('[PixelMark] DOM Edit active — Shift+Click any element');
+  };
+
+  // ── DEACTIVATE ────────────────────────────────────────────
+  PM.deactivate = function() {
+    if (PM.overlay) { PM.overlay.remove(); PM.overlay = null; }
+    if (PM.highlight) { PM.highlight.remove(); PM.highlight = null; }
+    if (PM.panel) { PM.panel.remove(); PM.panel = null; }
+    PM.lastTarget = null;
+    console.log('[PixelMark] DOM Edit deactivated');
+  };
+
+  // ── EDIT PANEL ────────────────────────────────────────────
+  PM.openPanel = function(el) {
+    if (PM.panel) PM.panel.remove();
+
+    var cs = window.getComputedStyle(el);
+    var props = [
+      ['color',            'Text Color',    'color'],
+      ['background-color', 'Background',    'color'],
+      ['font-size',        'Font Size',     'text'],
+      ['font-weight',      'Font Weight',   'text'],
+      ['border-radius',    'Radius',        'text'],
+      ['padding',          'Padding',       'text'],
+      ['opacity',          'Opacity',       'text'],
+    ];
+
+    var rows = props.map(function(p) {
+      var val = cs.getPropertyValue(p[0]).trim();
+      var input = p[2] === 'color'
+        ? '<input type="color" data-prop="'+p[0]+'" data-old="'+val+'" value="'+PM.toHex(val)+'" style="width:36px;height:24px;border:none;background:none;cursor:pointer;vertical-align:middle">'
+        : '<input type="text"  data-prop="'+p[0]+'" data-old="'+val+'" value="'+val+'" style="width:110px;background:#2a2a2a;border:1px solid #555;color:#eee;border-radius:4px;padding:2px 6px;font-size:11px;vertical-align:middle">';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
+        +'<span style="font-size:11px;color:#999">'+p[1]+'</span>'+input+'</div>';
+    }).join('');
+
+    var tag = el.tagName.toLowerCase();
+    var txt = (el.innerText || '').slice(0, 50).replace(/</g,'&lt;');
+
+    var panel = document.createElement('div');
+    panel.id = 'pm-panel';
+    panel.style.cssText = [
+      'position:fixed',
+      'top:16px',
+      'right:16px',
+      'width:270px',
+      'background:#1c1b19',
+      'border:1px solid rgba(255,255,255,0.15)',
+      'border-radius:10px',
+      'z-index:2147483647',
+      'font-family:-apple-system,BlinkMacSystemFont,sans-serif',
+      'box-shadow:0 8px 40px rgba(0,0,0,0.6)',
+      'overflow:hidden'
+    ].join(';');
+
+    panel.innerHTML =
+      '<div id="pm-ph" style="padding:10px 12px;background:#252422;border-bottom:1px solid rgba(255,255,255,0.08);cursor:move;display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="color:#4f98a3;font-size:11px;font-weight:700">&lt;'+tag+'&gt;</div>'
+      +'<div style="color:#666;font-size:10px;margin-top:2px;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+txt+'</div></div>'
+      +'<button id="pm-px" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1">×</button>'
+      +'</div>'
+      +'<div style="padding:10px 12px">'+rows+'</div>'
+      +'<div style="padding:6px 12px 12px;display:flex;gap:6px">'
+      +'<button id="pm-ba" style="flex:1;background:#4f98a3;border:none;color:#fff;padding:6px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">Apply</button>'
+      +'<button id="pm-br" style="flex:1;background:rgba(255,255,255,0.08);border:none;color:#fff;padding:6px;border-radius:5px;cursor:pointer;font-size:11px">Reset</button>'
+      +'<button id="pm-bs" style="flex:1;background:#14532d;border:none;color:#6ee7b7;padding:6px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">Save ✓</button>'
+      +'</div>';
+
+    document.documentElement.appendChild(panel);
+    PM.panel = panel;
+
+    // Drag
+    PM.drag(panel, document.getElementById('pm-ph'));
+
+    // Close
+    document.getElementById('pm-px').onclick = function() { panel.remove(); PM.panel = null; };
+
+    // Apply (live preview)
+    panel.addEventListener('input', function(e) {
+      if (e.target.dataset.prop) el.style.setProperty(e.target.dataset.prop, e.target.value);
+    });
+
+    // Apply button
+    document.getElementById('pm-ba').onclick = function() {
+      panel.querySelectorAll('[data-prop]').forEach(function(i) {
+        el.style.setProperty(i.dataset.prop, i.value);
+      });
+    };
+
+    // Reset
+    document.getElementById('pm-br').onclick = function() {
+      panel.querySelectorAll('[data-prop]').forEach(function(i) {
+        el.style.removeProperty(i.dataset.prop);
+        i.value = i.dataset.old;
+      });
+    };
+
+    // Save
+    document.getElementById('pm-bs').onclick = function() {
+      var selector = PM.sel(el);
+      panel.querySelectorAll('[data-prop]').forEach(function(i) {
+        if (i.value === i.dataset.old) return;
+        window.parent.postMessage({
+          type: 'PIXELMARK_DOM_EDIT_SAVE',
+          sessionId: PM.sessionId,
+          selector: selector,
+          xpath: PM.xpath(el),
+          property: i.dataset.prop,
+          old_value: i.dataset.old,
+          new_value: i.value,
+          element_tag: tag.toUpperCase(),
+          element_text: txt,
+          page_url: PM.targetUrl
+        }, '*');
+      });
+      var b = document.getElementById('pm-bs');
+      b.textContent = 'Saved!';
+      setTimeout(function() { if(b) b.textContent = 'Save ✓'; }, 2000);
+    };
+  };
+
+  // ── HELPERS ───────────────────────────────────────────────
+  PM.drag = function(panel, handle) {
+    var ox, oy, ol, ot;
+    handle.onmousedown = function(e) {
+      var r = panel.getBoundingClientRect();
+      ox = e.clientX; oy = e.clientY; ol = r.left; ot = r.top;
+      panel.style.right = 'auto';
+      document.onmousemove = function(e) {
+        panel.style.left = (ol + e.clientX - ox) + 'px';
+        panel.style.top  = (ot + e.clientY - oy) + 'px';
+      };
+      document.onmouseup = function() {
+        document.onmousemove = null;
+        document.onmouseup = null;
+      };
+      e.preventDefault();
+    };
+  };
+
+  PM.toHex = function(color) {
+    try {
+      var c = document.createElement('canvas').getContext('2d');
+      c.fillStyle = color;
+      return c.fillStyle;
+    } catch(e) { return '#000000'; }
+  };
+
+  PM.sel = function(el) {
+    // Use your existing selector generation function here
+    // Fallback:
+    if (el.id) return '#' + el.id;
+    var path = [];
+    while (el && el.nodeType === 1) {
+      var s = el.tagName.toLowerCase();
+      if (el.className) s += '.' + Array.from(el.classList).join('.');
+      path.unshift(s);
+      el = el.parentElement;
+      if (path.length > 4) break;
+    }
+    return path.join(' > ');
+  };
+
+  PM.xpath = function(el) {
+    if (!el) return '';
+    var parts = [];
+    while (el && el.nodeType === 1) {
+      parts.unshift(el.tagName.toLowerCase());
+      el = el.parentElement;
+    }
+    return '/' + parts.join('/');
+  };
+
+  // ── READY SIGNAL ──────────────────────────────────────────
+  PM.ready = true;
+  if (PM.pendingActivate) {
+    PM.pendingActivate = false;
+    PM.activate();
+  }
+
+  // Notify parent that agent is ready
+  window.parent.postMessage({ type: 'PIXELMARK_AGENT_READY' }, '*');
+  console.log('[PixelMark Agent] Ready ✓');
 
 })();

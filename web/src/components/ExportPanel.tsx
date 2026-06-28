@@ -118,7 +118,7 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
       <div className="p-8 pb-4">
         <div className="flex items-center justify-between mb-2">
            <div>
-              <h3 className="text-xl font-black tracking-tighter text-white">Export Audit</h3>
+              <h3 className="text-xl font-black tracking-tighter text-white">Download Report</h3>
               <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mt-1">Foundry Delivery Stream</p>
            </div>
            <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-all">
@@ -127,7 +127,7 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
         </div>
         <div className="flex items-center gap-2 mt-4 p-2 px-3 rounded-full bg-white/5 border border-white/5 w-fit">
            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_#a855f7]" />
-           <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{commentCount} Verified Audits • {projectName}</span>
+           <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{commentCount} Verified Reviews • {projectName}</span>
         </div>
       </div>
 

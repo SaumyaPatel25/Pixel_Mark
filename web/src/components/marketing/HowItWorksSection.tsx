@@ -8,26 +8,26 @@ export default function HowItWorksSection() {
     {
       number: '01',
       icon: Share2,
-      title: 'Share a URL',
-      description: 'Enter your website URL. Our secure proxy rewriter spins up a review sandbox workspace instantly.'
+      title: 'Paste your site URL',
+      description: 'Enter your website URL. We spin up an interactive review session instantly.'
     },
     {
       number: '02',
       icon: MousePointerClick,
-      title: 'Open & Annotate',
-      description: 'Reviewers open the secure share link. Zero downloads, browser extensions, or account logins required.'
+      title: 'Pin feedback directly on the page',
+      description: 'Click any element to drop a feedback pin exactly where the issue is. Add comments and suggestions.'
     },
     {
       number: '03',
       icon: Camera,
-      title: 'Pin & Capture',
-      description: 'Reviewers click anywhere. We capture the exact element—screenshots, CSS selectors, computed styles, and errors.'
+      title: 'Share a client link — they add notes too',
+      description: 'Send clients a secure review link. They see the live site and can leave feedback without needing to log in.'
     },
     {
       number: '04',
       icon: Code,
-      title: 'Review & Fix',
-      description: 'Developers track feedback in real time on the dashboard, see the exact bugs, and export context to GitHub.'
+      title: 'Track and fix in your Review Inbox',
+      description: 'See every feedback pin mapped with CSS selectors, browser state, and screenshots in one dashboard.'
     }
   ];
 

@@ -41,7 +41,10 @@ export default function SessionPage() {
   // Establish WebSocket session for real-time visual bug stream
   useSessionSocket(sessionId)
 
-  const { markers, filtered, isLoading, fetchMarkers } = useMarkerStore()
+  const markers = useMarkerStore(s => s.markers)
+  const filtered = useMarkerStore(s => s.filtered)
+  const isLoading = useMarkerStore(s => s.isLoading)
+  const fetchMarkers = useMarkerStore(s => s.fetchMarkers)
   
   const [sessionTitle, setSessionTitle] = useState('UAT Observation Session')
   const [projectId, setProjectId] = useState<string | null>(null)
@@ -53,23 +56,19 @@ export default function SessionPage() {
   // Layout View Mode
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
-  const fetchSessionInfo = async () => {
-    if (!sessionId) return
-    try {
-      const res = await api.sessions.getSession(sessionId)
-      if (res) {
-        setSessionTitle(res.title || 'UAT Observation Session')
-        setProjectId(res.project_id)
-      }
-    } catch {
-      // Fallback
-    }
-  }
-
   useEffect(() => {
     if (sessionId) {
-      fetchMarkers(sessionId)
-      fetchSessionInfo()
+      Promise.all([
+        fetchMarkers(sessionId),
+        api.sessions.getSession(sessionId)
+          .then(res => {
+            if (res) {
+              setSessionTitle(res.title || 'UAT Observation Session')
+              setProjectId(res.project_id)
+            }
+          })
+          .catch(() => {})
+      ])
     }
     return () => {
       useMarkerStore.getState().clearAIState()

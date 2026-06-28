@@ -114,7 +114,7 @@ export function ShareLinkPanel({ sessionId, onClose }: ShareLinkPanelProps) {
     >
       <div className="p-6 border-b border-white/5 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-black tracking-tighter text-white uppercase">Share This Audit</h2>
+          <h2 className="text-xl font-black tracking-tighter text-white uppercase">Generate Client Link</h2>
           <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1">Generate client review links</p>
         </div>
         <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
@@ -140,7 +140,7 @@ export function ShareLinkPanel({ sessionId, onClose }: ShareLinkPanelProps) {
               <MessageSquare className="w-4 h-4 text-purple-400" />
               <div>
                 <p className="text-xs font-bold text-white">Allow Comments</p>
-                <p className="text-[10px] text-white/40">Clients can leave markers</p>
+                <p className="text-[10px] text-white/40">Clients can leave feedback pins</p>
               </div>
             </div>
             <button 
@@ -196,13 +196,13 @@ export function ShareLinkPanel({ sessionId, onClose }: ShareLinkPanelProps) {
             disabled={creating}
             className="w-full h-12 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-purple-900/20"
           >
-            {creating ? 'Generating...' : 'Generate Share Link'}
+            {creating ? 'Generating...' : 'Generate Client Link'}
           </Button>
         </div>
 
         {/* Existing Links */}
         <div className="space-y-4">
-          <h3 className="text-[10px] font-black text-white/40 uppercase tracking-widest">Active Share Links</h3>
+          <h3 className="text-[10px] font-black text-white/40 uppercase tracking-widest">Active Client Links</h3>
           <div className="space-y-3">
             {loading ? (
               <p className="text-xs text-white/20 animate-pulse">Loading links...</p>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMarkerStore, Marker } from '@/store/markerStore'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765').replace(/\/$/, '')
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
 const WS_BASE = API_BASE.replace(/^http/, 'ws')
 
 export function useSessionSocket(sessionId: string) {
@@ -18,6 +18,8 @@ export function useSessionSocket(sessionId: string) {
     }
 
     const wsUrl = `${WS_BASE}/ws/session/${sessionId}`
+    console.log(`[WebSocket] Attempting to connect to: ${wsUrl}`)
+    
     const socket = new WebSocket(wsUrl)
     socketRef.current = socket
 
@@ -89,6 +91,11 @@ export function useSessionSocket(sessionId: string) {
         clearTimeout(reconnectTimeoutRef.current)
       }
       if (socketRef.current) {
+        // Prevent spurious error logs when React StrictMode aborts a connecting socket
+        socketRef.current.onclose = null;
+        socketRef.current.onerror = null;
+        socketRef.current.onmessage = null;
+        socketRef.current.onopen = null;
         socketRef.current.close()
       }
     }

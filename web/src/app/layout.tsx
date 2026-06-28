@@ -15,8 +15,43 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(seoConfig.siteUrl),
-  title: seoConfig.title,
+  title: {
+    default: seoConfig.title,
+    template: `%s | PixelMark`
+  },
   description: seoConfig.description,
+  openGraph: {
+    title: seoConfig.title,
+    description: seoConfig.description,
+    url: `${seoConfig.siteUrl}/`,
+    siteName: 'PixelMark',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'PixelMark - Visual Website Feedback & Bug Reporting Tool',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: seoConfig.title,
+    description: seoConfig.description,
+    images: ['/og-image.png'],
+    creator: seoConfig.twitterHandle,
+  },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  }
 };
 
 import { Suspense } from "react";
@@ -25,6 +60,7 @@ import { AuthInitializer } from "@/components/AuthInitializer";
 import { ToastContainer } from "@/components/ui/ToastContainer";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
+import { QueueIndicator } from "@/components/ui/QueueIndicator";
 
 export default function RootLayout({
   children,
@@ -81,6 +117,7 @@ export default function RootLayout({
         <AuthInitializer />
         <CustomCursor />
         <ToastContainer />
+        <QueueIndicator />
         <Suspense fallback={null}>
           <PostHogProvider>
             <main className="relative z-10 flex-1 flex flex-col">

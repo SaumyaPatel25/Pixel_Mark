@@ -9,7 +9,9 @@ interface Props {
 }
 
 export function AITriageButton({ sessionId, markerCount }: Props) {
-  const { triageSession, isTriaging, triageError } = useMarkerStore()
+  const triageSession = useMarkerStore(s => s.triageSession)
+  const isTriaging = useMarkerStore(s => s.isTriaging)
+  const triageError = useMarkerStore(s => s.triageError)
   const [success, setSuccess] = useState(false)
 
   const handleTriage = async () => {

@@ -280,3 +280,25 @@ class AuditArtifact(Base):
     
     session: Mapped["Session"] = relationship()
     page_visit: Mapped["PageVisit"] = relationship()
+
+
+from sqlalchemy import UUID
+import uuid
+
+class DOMEdit(Base):
+    __tablename__ = "dom_edits"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    selector: Mapped[str] = mapped_column(String, nullable=False)
+    xpath: Mapped[str] = mapped_column(String, nullable=True)
+    property: Mapped[str] = mapped_column(String, nullable=False)
+    old_value: Mapped[str] = mapped_column(String, nullable=True)
+    new_value: Mapped[str] = mapped_column(String, nullable=True)
+    element_tag: Mapped[str] = mapped_column(String, nullable=True)
+    element_text: Mapped[str] = mapped_column(String(80), nullable=True)
+    page_url: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_by: Mapped[str] = mapped_column(String, nullable=True)
+    
+    session: Mapped["Session"] = relationship()
+

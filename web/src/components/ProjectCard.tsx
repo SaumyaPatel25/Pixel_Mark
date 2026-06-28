@@ -214,7 +214,7 @@ export function ProjectCard({
               <div className="flex items-center gap-1.5 text-white/40">
                 <Activity className="w-3.5 h-3.5 text-cyan-500" />
                 <div className="flex flex-col">
-                  <span className="text-[8px] font-black uppercase tracking-wider text-white/20 leading-none">Sessions</span>
+                  <span className="text-[8px] font-black uppercase tracking-wider text-white/20 leading-none">Reviews</span>
                   <span className="text-[11px] font-mono font-bold text-white/70 mt-0.5">
                     {activeSessionsCount}/{sessionsCount} <span className="text-[8px] text-cyan-400 font-bold uppercase tracking-tight">Active</span>
                   </span>
@@ -224,7 +224,7 @@ export function ProjectCard({
               <div className="flex items-center gap-1.5 text-white/40">
                 <FileText className="w-3.5 h-3.5 text-purple-400" />
                 <div className="flex flex-col">
-                  <span className="text-[8px] font-black uppercase tracking-wider text-white/20 leading-none">Markers</span>
+                  <span className="text-[8px] font-black uppercase tracking-wider text-white/20 leading-none">Pins</span>
                   <span className="text-[11px] font-mono font-bold text-white/70 mt-0.5">
                     {markersCount.toString().padStart(2, '0')}
                   </span>
@@ -236,7 +236,7 @@ export function ProjectCard({
             <div className="flex items-center gap-1 text-white/20">
               <Calendar className="w-3 h-3" />
               <span className="text-[9px] font-bold uppercase tracking-wide">
-                {lastActivity ? `Active ${lastActivity}` : 'No recent sessions'}
+                {lastActivity ? `Active ${lastActivity}` : 'No recent reviews'}
               </span>
             </div>
           </div>
@@ -265,7 +265,7 @@ export function ProjectCard({
               e.stopPropagation()
               onNewSession(e)
             }}
-            title="Start New Audit Session"
+            title="Start New Review Session"
             className="h-8 w-8 rounded-xl bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600 hover:text-white hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center transition-all active:scale-95"
           >
             <Play className="w-3.5 h-3.5" />
@@ -276,7 +276,7 @@ export function ProjectCard({
               e.stopPropagation()
               onShare(e)
             }}
-            title="Share Session Link"
+            title="Get Client Link"
             className="h-8 w-8 rounded-xl bg-purple-950/80 border border-purple-500/30 text-purple-400 hover:bg-purple-600 hover:text-white hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/20 flex items-center justify-center transition-all active:scale-95"
           >
             <Share2 className="w-3.5 h-3.5" />

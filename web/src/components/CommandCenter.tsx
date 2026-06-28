@@ -138,7 +138,7 @@ const CommentCard = React.memo(({ comment, index }: { comment: any, index: numbe
               comment.renderer_type === 'canvas2d' ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' :
               'bg-white/5 border-white/10 text-white/50'
             )}>
-              {comment.renderer_type === 'threejs' ? 'Three.js' : comment.renderer_type === 'webgl' ? 'WebGL' : comment.renderer_type === 'canvas2d' ? 'Canvas2D' : 'DOM'}
+              {comment.renderer_type === 'threejs' ? 'Three.js' : comment.renderer_type === 'webgl' ? 'WebGL' : comment.renderer_type === 'canvas2d' ? 'Canvas2D' : 'Standard Element'}
             </span>
           )}
 
@@ -573,8 +573,8 @@ export default function CommandCenter({ sessionId }: CommandCenterProps) {
 
       <div className="p-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-black tracking-tighter text-white">Command Center</h2>
-          <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Audit Enrichment Stream</p>
+          <h2 className="text-xl font-black tracking-tighter text-white">Review Inbox</h2>
+          <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Review Enrichment Stream</p>
         </div>
         <div className="flex items-center gap-2">
           <button 
@@ -588,7 +588,7 @@ export default function CommandCenter({ sessionId }: CommandCenterProps) {
           <button
             id="close-command-center-btn"
             onClick={() => useUIStore.getState().toggleCommandCenter(false)}
-            aria-label="Close Command Center Drawer"
+            aria-label="Close Review Inbox Drawer"
             className="p-2 rounded-xl bg-white/5 border border-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all lg:hidden focus:ring-2 focus:ring-cyan-400 outline-none"
           >
             <X className="w-4 h-4" />
@@ -728,7 +728,7 @@ export default function CommandCenter({ sessionId }: CommandCenterProps) {
                     disabled
                     className="w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-green-500/10 border border-green-500/20 text-green-400 cursor-not-allowed"
                   >
-                    Resolved (Read Only)
+                    Fixed ✓ (Read Only)
                   </button>
                 ) : (
                   <button

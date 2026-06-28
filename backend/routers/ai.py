@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
+from database import AsyncSessionLocal
 from dependencies import get_db, get_current_user
 from models import Session, Marker, User, Project, OrgMember
 from models.core import UserAIProviderConfig
@@ -9,12 +10,101 @@ from routers.ai_provider_configs import maybe_decrypt_api_key
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
+async def run_ai_triage_background(
+    session_id: str,
+    user_id: str,
+    provider_config: dict
+):
+    from models import Marker, Session, Project
+    from services.ai_service import triage_markers
+    from routes.websocket import broadcast
+    import logging
+
+    logger = logging.getLogger("pixelmark.ai")
+    logger.info(f"Starting background AI triage for session={session_id}")
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # Load session & project info
+            result = await db.execute(
+                select(Session, Project)
+                .join(Project, Session.project_id == Project.id)
+                .where(Session.id == session_id)
+            )
+            row = result.first()
+            if not row:
+                logger.error(f"Session {session_id} not found in background triage")
+                return
+            session, project = row
+
+            # Load all markers
+            markers_result = await db.execute(
+                select(Marker)
+                .where(Marker.session_id == session_id)
+                .order_by(Marker.created_at.desc())
+            )
+            markers = markers_result.scalars().all()
+            if not markers:
+                logger.warning(f"No markers found to triage for session={session_id}")
+                return
+
+            marker_dicts = [
+                {
+                    "id": str(m.id),
+                    "title": m.title,
+                    "description": m.description,
+                    "issue_type": getattr(m, "issue_type", None),
+                    "severity": getattr(m, "severity", None),
+                    "page_url": getattr(m, "page_url", None) or m.url,
+                    "inner_text": getattr(m, "inner_text", None),
+                    "console_errors": getattr(m, "console_errors", []),
+                    "network_errors": getattr(m, "network_errors", []),
+                    "renderer_type": getattr(m, "renderer_type", "dom"),
+                }
+                for m in markers
+            ]
+
+            target_url = ""
+            if hasattr(session, "target_url") and getattr(session, "target_url"):
+                target_url = getattr(session, "target_url")
+            elif hasattr(project, "url") and project.url:
+                target_url = project.url
+
+            ai_result = await triage_markers(
+                marker_dicts,
+                session_title=session.title or "Untitled Session",
+                target_url=target_url,
+                provider_config=provider_config
+            )
+
+            # Apply AI results back to DB
+            for item in ai_result.get("markers", []):
+                for marker in markers:
+                    if str(marker.id) == item.get("id"):
+                        marker.priority = item.get("priority")
+                        marker.ai_summary = item.get("ai_summary")
+                        break
+            
+            await db.commit()
+
+            # Broadcast completion via WebSocket
+            await broadcast(session_id, {
+                "type": "ai_triage_complete",
+                "data": {"session_id": session_id}
+            })
+            logger.info(f"Successfully completed background AI triage for session={session_id}")
+
+        except Exception as e:
+            logger.error(f"Background AI triage failed for session={session_id}: {str(e)}")
+
 @router.post("/triage/session/{session_id}")
 async def triage_session(
     session_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    import uuid
     # 1. Load the session from DB using session_id.
     result = await db.execute(
         select(Session, Project)
@@ -37,16 +127,12 @@ async def triage_session(
     if not member_result.scalar_one_or_none():
         raise HTTPException(status_code=403, detail="Not authorized to access this session")
 
-    # 2. Load all markers for this session from DB.
-    markers_result = await db.execute(
-        select(Marker)
-        .where(Marker.session_id == session_id)
-        .order_by(Marker.created_at.desc())
+    # 2. Check if we have markers to triage
+    markers_count_res = await db.execute(
+        select(func.count(Marker.id)).where(Marker.session_id == session_id)
     )
-    markers = markers_result.scalars().all()
-
-    # 3. If len(markers) == 0:
-    if len(markers) == 0:
+    markers_count = markers_count_res.scalar() or 0
+    if markers_count == 0:
         raise HTTPException(status_code=400, detail="No markers to triage")
 
     # Load active default AI provider config
@@ -69,60 +155,17 @@ async def triage_session(
         "supports_openai_compat": provider_config_db.supports_openai_compat
     }
 
-    # 4. Convert markers to list of dicts
-    marker_dicts = [
-        {
-            "id": str(m.id),
-            "title": m.title,
-            "description": m.description,
-            "issue_type": getattr(m, "issue_type", None),
-            "severity": getattr(m, "severity", None),
-            "page_url": getattr(m, "page_url", None) or m.url,
-            "inner_text": getattr(m, "inner_text", None),
-            "console_errors": getattr(m, "console_errors", []),
-            "network_errors": getattr(m, "network_errors", []),
-            "renderer_type": getattr(m, "renderer_type", "dom"),
-        }
-        for m in markers
-    ]
+    # Queue background triage task
+    background_tasks.add_task(
+        run_ai_triage_background,
+        session_id=session_id,
+        user_id=current_user.id,
+        provider_config=provider_config
+    )
 
-    # 5. Call AI service
-    try:
-        target_url = ""
-        # The prompt says target_url=getattr(session, "target_url", "") or ""
-        # But core.py doesn't have target_url on Session. It has current_page_url, or Project has url.
-        if hasattr(session, "target_url") and getattr(session, "target_url"):
-            target_url = getattr(session, "target_url")
-        elif hasattr(project, "url") and project.url:
-            target_url = project.url
-            
-        ai_result = await triage_markers(
-            marker_dicts,
-            session_title=session.title or "Untitled Session",
-            target_url=target_url,
-            provider_config=provider_config
-        )
-    except RuntimeError as e:
-        msg = str(e)
-        if "not implemented" in msg.lower():
-            raise HTTPException(status_code=501, detail=msg)
-        raise HTTPException(status_code=503, detail=msg)
-
-    # 6. Apply AI results back to DB
-    for item in ai_result.get("markers", []):
-        for marker in markers:
-            if str(marker.id) == item.get("id"):
-                marker.priority = item.get("priority")
-                marker.ai_summary = item.get("ai_summary")
-                break
-                
-    await db.commit()
-
-    # 7. Return
     return {
-        "triaged_count": len(ai_result.get("markers", [])),
-        "session_summary": ai_result.get("session_summary", ""),
-        "markers": ai_result.get("markers", [])
+        "status": "queued",
+        "message": "AI triage is running in the background..."
     }
 
 

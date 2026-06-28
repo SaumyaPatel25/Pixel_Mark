@@ -29,12 +29,58 @@ window.__PIXELMARK_SESSION_ID__ = {escaped_session};
 window.__PIXELMARK_PROXY_ORIGIN__ = {escaped_proxy_origin};
 window.__PIXELMARK_TRANSPORT_URL__ = {escaped_transport_url};
 window.__PIXELMARK_TARGET_URL__ = {escaped_logical_target_url};
+window.__PIXELMARK_BASE__ = window.__PIXELMARK_PROXY_ORIGIN__ + '/proxy/session/' + window.__PIXELMARK_SESSION_ID__;
 
 window.PIXELMARK = window.PIXELMARK || {{}};
 window.PIXELMARK.sessionId = window.__PIXELMARK_SESSION_ID__;
 window.PIXELMARK.pageUrl = window.__PIXELMARK_TARGET_URL__;
 window.PIXELMARK.transportUrl = window.__PIXELMARK_TRANSPORT_URL__;
 window.PIXELMARK.targetUrl = window.__PIXELMARK_TARGET_URL__;
+
+window.__PM__ = {{
+  domEditMode: false,
+  sessionId: {escaped_session},
+  targetUrl: {escaped_logical_target_url},
+  overlay: null,
+  highlight: null,
+  panel: null,
+  lastTarget: null,
+  ready: false
+}};
+
+// Register message listener IMMEDIATELY — before agent loads
+window.addEventListener('message', function(e) {{
+  if (!e.data || !e.data.type) return;
+  
+  var type = e.data.type;
+  
+  if (type === 'PIXELMARK_ACTIVATE_DOM_EDIT') {{
+    window.__PM__.domEditMode = true;
+    if (window.__PM__.ready) {{
+      window.__PM__.activate();
+    }} else {{
+      window.__PM__.pendingActivate = true;
+    }}
+    // Confirm receipt
+    window.parent.postMessage({{ type: 'PIXELMARK_AGENT_ACK', action: 'activate_dom_edit' }}, '*');
+  }}
+  
+  if (type === 'PIXELMARK_DEACTIVATE_DOM_EDIT') {{
+    window.__PM__.domEditMode = false;
+    if (window.__PM__.deactivate) window.__PM__.deactivate();
+    window.parent.postMessage({{ type: 'PIXELMARK_AGENT_ACK', action: 'deactivate_dom_edit' }}, '*');
+  }}
+  
+  if (type === 'PIXELMARK_REPLAY_EDITS') {{
+    var edits = e.data.edits || [];
+    edits.forEach(function(edit) {{
+      try {{
+        var el = document.querySelector(edit.selector);
+        if (el) el.style.setProperty(edit.property, edit.new_value);
+      }} catch(err) {{}}
+    }});
+  }}
+}});
 
 console.debug("[PixelMark URL Model] targetUrl=" + window.__PIXELMARK_TARGET_URL__);
 console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPORT_URL__);
@@ -622,7 +668,7 @@ def inject_agent(html: str, agent_url: str) -> str:
     """
     if not agent_url:
         return html
-    agent_tag = f'<script src="{agent_url}" type="module" defer></script>'
+    agent_tag = f'<script src="{agent_url}" defer></script>'
     if "</body>" in html:
         return html.replace("</body>", f"{agent_tag}</body>", 1)
     elif "</BODY>" in html:

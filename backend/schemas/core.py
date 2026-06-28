@@ -452,4 +452,35 @@ class PageMarkersGroup(BaseModel):
 class PageGroupedMarkersRead(BaseModel):
     pages: List[PageMarkersGroup]
 
+from pydantic import Field
+import uuid
+
+class DOMEditCreate(BaseModel):
+    session_id: uuid.UUID
+    selector: str
+    xpath: Optional[str] = None
+    property: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    element_tag: Optional[str] = None
+    element_text: Optional[str] = Field(None, max_length=80)
+    page_url: str
+    created_by: Optional[str] = None
+
+class DOMEditRead(BaseModel):
+    id: uuid.UUID
+    session_id: uuid.UUID
+    selector: str
+    xpath: Optional[str] = None
+    property: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    element_tag: Optional[str] = None
+    element_text: Optional[str] = Field(None, max_length=80)
+    page_url: str
+    created_at: datetime
+    created_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 

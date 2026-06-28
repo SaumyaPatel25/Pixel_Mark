@@ -3,12 +3,13 @@ import { useCaptureStore, usePinStore } from '@/store/overlayStore'
 import { useUIStore } from '@/store/uiStore'
 import { normalizeCapturePayload, normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { useDOMEditStore } from '@/store/domEditStore'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   Loader2, ArrowLeft, Monitor, Pin, Plus, X, Check,
   AlertTriangle, ChevronDown, MousePointer2, Layers,
-  Type, Navigation2, Eye, Cpu, HelpCircle, Zap
+  Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -143,6 +144,7 @@ export function AuditSurface({
 }: AuditSurfaceProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [iframeReady, setIframeReady] = useState(false)
 
   const screenshotMode = useScreenshotStore(state => state.screenshotMode)
   const screenshotPermission = useScreenshotStore(state => state.screenshotPermission)
@@ -171,6 +173,8 @@ export function AuditSurface({
   const [resolvedPositions, setResolvedPositions] = useState<Record<string, { clientX: number; clientY: number; pageX?: number; pageY?: number; source: string }>>({})
   // Feedback mode state
   const [feedbackModeActive, setFeedbackModeActive] = useState(false)
+  const { fetchEdits, createEdit } = useDOMEditStore()
+  const edits = useDOMEditStore(state => state.edits)
   const captures = Object.values(useCaptureStore(state => state.capturesById))
   const captureOrder = useCaptureStore(state => state.captureOrder)
   const [manualPlacementMode, setManualPlacementMode] = useState(false)
@@ -703,6 +707,7 @@ export function AuditSurface({
 
         case 'PIXELMARK_PAGE_UNLOAD':
           setIsLoading(true)
+          setIframeReady(false)
           setFailedAssets([])
           setScrollPos({ x: 0, y: 0 })
           break
@@ -922,6 +927,26 @@ export function AuditSurface({
           break
         }
 
+        case 'PIXELMARK_DOM_EDIT_SAVE': {
+          const { selector, xpath, property, old_value, new_value, element_tag, element_text, page_url } = data
+          createEdit(sessionId, {
+            session_id: sessionId,
+            selector,
+            xpath,
+            property,
+            old_value,
+            new_value,
+            element_tag,
+            element_text,
+            page_url,
+          }, shareToken).then(() => {
+            useUIStore.getState().addToast('Style saved ✓', 'success')
+          }).catch(err => {
+            useUIStore.getState().addToast('Failed to save style: ' + err.message, 'error')
+          })
+          break
+        }
+
         case 'EXIT_AUDIT':
           window.location.href = '/dashboard'
           break
@@ -948,40 +973,73 @@ export function AuditSurface({
     }
   }, [sessionId, projectId, shareToken, onMarkerCreated, onPageChanged, openFeedbackDrawer, currentUrl, handleSelectPage])
 
+  // Pre-load all edits on session mount
+  useEffect(() => {
+    if (sessionId) {
+      fetchEdits(sessionId, shareToken)
+    }
+  }, [sessionId, shareToken, fetchEdits])
+
+  // Notify mode and replay edits on page navigation/loading state changes
   useEffect(() => {
     if (isLoading || !iframeRef.current?.contentWindow) return
 
-    const pins = captures.map(c => {
-      const pageX = c.pageX ?? 0
-      const pageY = c.pageY ?? 0
-      const capScrollX = c.viewport?.scrollX ?? 0
-      const capScrollY = c.viewport?.scrollY ?? 0
-      const viewportX = c.coordinates?.clientX ?? (pageX - capScrollX)
-      const viewportY = c.coordinates?.clientY ?? (pageY - capScrollY)
+    // Fetch and replay edits
+    fetchEdits(sessionId, shareToken).then(() => {
+      const latestEdits = useDOMEditStore.getState().edits
+      const filteredEdits = latestEdits.filter(edit => {
+        try {
+          const editUrl = new URL(edit.page_url)
+          const currUrl = new URL(currentUrl)
+          return editUrl.pathname === currUrl.pathname && editUrl.search === currUrl.search
+        } catch {
+          return edit.page_url === currentUrl
+        }
+      })
 
-      return {
-        id: c.id,
-        selector: c.selector ?? c.target?.selector,
-        xpath: c.xpath ?? c.target?.xpath,
-        boundingBox: c.boundingBox,
-        x: pageX,
-        y: pageY,
-        viewportX,
-        viewportY,
-        scrollPosition: {
-          x: capScrollX,
-          y: capScrollY
-        },
-        pageUrl: c.pageUrl
-      }
+      iframeRef.current?.contentWindow?.postMessage({
+        type: 'PIXELMARK_REPLAY_EDITS',
+        edits: filteredEdits
+      }, '*')
     })
+  }, [currentUrl, isLoading, sessionId, shareToken, fetchEdits, iframeReady])
+
+  const pinsSignature = JSON.stringify(captures.map(c => {
+    const pageX = c.pageX ?? 0
+    const pageY = c.pageY ?? 0
+    const capScrollX = c.viewport?.scrollX ?? 0
+    const capScrollY = c.viewport?.scrollY ?? 0
+    const viewportX = c.coordinates?.clientX ?? (pageX - capScrollX)
+    const viewportY = c.coordinates?.clientY ?? (pageY - capScrollY)
+
+    return {
+      id: c.id,
+      selector: c.selector ?? c.target?.selector,
+      xpath: c.xpath ?? c.target?.xpath,
+      boundingBox: c.boundingBox,
+      x: pageX,
+      y: pageY,
+      viewportX,
+      viewportY,
+      scrollPosition: {
+        x: capScrollX,
+        y: capScrollY
+      },
+      pageUrl: c.pageUrl
+    }
+  }))
+
+  useEffect(() => {
+    if (isLoading || !iframeRef.current?.contentWindow) return
+
+    const pins = JSON.parse(pinsSignature)
 
     console.log(`[PixelMark Pin] tracking ${pins.length} pins`)
     iframeRef.current.contentWindow.postMessage({
       type: 'PIXELMARK_TRACK_PINS',
       pins
     }, '*')
-  }, [captures, currentUrl, isLoading])
+  }, [pinsSignature, currentUrl, isLoading])
 
   // Parent keyboard shortcut Ctrl+Z / Cmd+Z for undo
   useEffect(() => {
@@ -1538,6 +1596,8 @@ export function AuditSurface({
               }
             </button>
 
+
+
             {/* ── SECONDARY: Advanced Marker Mode toggle (hidden on mobile) ── */}
             <div className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 select-none border bg-white/[0.03] border-white/5 max-md:hidden">
               <button onClick={() => setDeviceViewport('mobile')} className={`p-1 rounded-lg transition-colors ${deviceViewport === 'mobile' ? 'bg-purple-500 text-white' : 'text-white/40 hover:text-white'}`} title="Mobile (375px)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></button>
@@ -1554,7 +1614,8 @@ export function AuditSurface({
                 aria-label="Toggle Alt+Click feedback mode"
                 aria-checked={feedbackModeActive}
                 onClick={() => {
-                  setFeedbackModeActive(prev => !prev)
+                  const nextActive = !feedbackModeActive
+                  setFeedbackModeActive(nextActive)
                   if (manualPlacementMode) setManualPlacementMode(false)
                 }}
                 className={cn(
@@ -1623,6 +1684,8 @@ export function AuditSurface({
           </div>
         </div>
 
+
+
         {/* Page navigation tab bar */}
         <PageTabBar
           sessionId={sessionId}
@@ -1653,7 +1716,10 @@ export function AuditSurface({
             allow="accelerometer; autoplay; xr-spatial-tracking; clipboard-read; clipboard-write"
             className="ph-no-capture"
             style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', pointerEvents: 'auto', display: 'block' }}
-            onLoad={() => setIsLoading(false)}
+            onLoad={() => {
+              setIsLoading(false)
+              setIframeReady(true)
+            }}
             title="Proxied review site"
           />
 
@@ -1674,6 +1740,7 @@ export function AuditSurface({
                   onClick={() => {
                     setFailedAssets([])
                     setIsLoading(true)
+                    setIframeReady(false)
                     if (iframeRef.current) {
                       iframeRef.current.src = iframeRef.current.src
                     }
@@ -1940,7 +2007,7 @@ export function AuditSurface({
             </div>
             <div>
               <h3 className="text-xs font-black uppercase tracking-widest text-white">
-                {isSubmitted ? 'Feedback Item' : isResolved ? 'Resolved Feedback' : 'Leave Feedback'}
+                {isSubmitted ? 'Feedback Item' : isResolved ? 'Fixed Feedback ✓' : 'Leave Feedback'}
               </h3>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={cn(
@@ -2395,10 +2462,10 @@ export function AuditSurface({
                     }}
                     className="w-full h-11 bg-[#0f0f15] border border-white/[0.08] text-white px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none"
                   >
-                    <option value="new">New</option>
+                    <option value="new">Waiting</option>
                     <option value="triaged">Triaged</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
+                    <option value="in_progress">Being Fixed</option>
+                    <option value="resolved">Fixed ✓</option>
                     <option value="dismissed">Dismissed</option>
                   </select>
                   <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-white/40">
@@ -2429,7 +2496,7 @@ export function AuditSurface({
                         : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.07] hover:text-white/60'
                     )}
                   >
-                    {s}
+                    {s === 'medium' ? 'Needs Work' : s === 'low' ? 'Looks Good' : s}
                   </button>
                 ))}
               </div>
@@ -2476,7 +2543,7 @@ export function AuditSurface({
                     disabled
                     className="h-12 w-full rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 font-extrabold text-[10px] uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    Resolved (Read Only)
+                    Fixed ✓ (Read Only)
                   </button>
                 ) : (
                   <button

@@ -710,3 +710,222 @@ async def get_feedback_history(
     return history
 
 
+from pydantic import BaseModel
+
+class ReportEmailRequest(BaseModel):
+    email: str
+    message: Optional[str] = None
+
+@router.get("/{session_id}/report")
+async def get_session_report(session_id: str, db: AsyncSession = Depends(get_db)):
+    from models import Project
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    # Fetch session
+    result = await db.execute(select(Session).where(Session.id == session_id))
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Fetch project
+    proj_result = await db.execute(select(Project).where(Project.id == session.project_id))
+    project = proj_result.scalar_one_or_none()
+    project_name = project.name if project else "Acme Project"
+    target_url = project.url if project else ""
+
+    # Fetch markers
+    markers_result = await db.execute(
+        select(Marker)
+        .where(Marker.session_id == session_id)
+        .order_by(Marker.marker_number.asc())
+    )
+    markers = markers_result.scalars().all()
+
+    critical_count = 0
+    needs_work_count = 0
+    approved_count = 0
+
+    formatted_markers = []
+
+    def map_priority(p_enum) -> str:
+        val = getattr(p_enum, "value", str(p_enum)).lower()
+        if val == "critical":
+            return "Critical"
+        elif val in ("high", "medium"):
+            return "Needs Work"
+        else:
+            return "Looks Good"
+
+    def map_status(s_str: str) -> str:
+        s = (s_str or "open").lower()
+        if s in ("resolved", "fixed"):
+            return "Fixed ✓"
+        elif s == "in_progress":
+            return "Being Fixed"
+        else:
+            return "Waiting"
+
+    def get_device(v_dict: dict) -> str:
+        if not v_dict or not isinstance(v_dict, dict):
+            return "Desktop"
+        w = v_dict.get("width")
+        if not w:
+            return "Desktop"
+        try:
+            w_val = int(w)
+            if w_val < 600:
+                return "Mobile"
+            elif w_val < 1024:
+                return "Tablet"
+            else:
+                return "Desktop"
+        except Exception:
+            return "Desktop"
+
+    for m in markers:
+        client_prio = map_priority(m.priority)
+        if client_prio == "Critical":
+            critical_count += 1
+        elif client_prio == "Needs Work":
+            needs_work_count += 1
+        else:
+            approved_count += 1
+
+        truncated_page = "Global Substrate"
+        p_url = m.page_url or m.url
+        if p_url:
+            try:
+                from urllib.parse import urlparse
+                parsed_logical = urlparse(normalize_logical_url(p_url))
+                truncated_page = parsed_logical.path if parsed_logical.path and parsed_logical.path != "/" else "/"
+                if parsed_logical.query:
+                    truncated_page += "?" + parsed_logical.query
+            except Exception:
+                truncated_page = p_url
+
+        formatted_markers.append({
+            "id": m.id,
+            "title": m.title or "Untitled Observation",
+            "description": m.description or m.comment or "",
+            "priority": client_prio,
+            "status": map_status(m.status),
+            "page_url_truncated": truncated_page,
+            "page_url": m.page_url or m.url or "",
+            "screenshot_url": m.screenshot_url,
+            "device": get_device(m.viewport)
+        })
+
+    # Duration calculation
+    timestamps = [session.created_at]
+    if session.updated_at:
+        timestamps.append(session.updated_at)
+
+    visits_res = await db.execute(
+        select(PageVisit).where(PageVisit.session_id == session_id)
+    )
+    visits = visits_res.scalars().all()
+    for v in visits:
+        if v.visited_at:
+            timestamps.append(v.visited_at)
+
+    for m in markers:
+        if m.created_at:
+            timestamps.append(m.created_at)
+        if m.updated_at:
+            timestamps.append(m.updated_at)
+
+    review_time_mins = 1
+    if len(timestamps) > 1:
+        diff = max(timestamps) - min(timestamps)
+        review_time_mins = max(1, int(diff.total_seconds() / 60))
+
+    from notifications import FRONTEND_URL
+    share_url = f"{FRONTEND_URL}/report/{session_id}"
+
+    return {
+        "session_id": session.id,
+        "session_title": session.title,
+        "project_name": project_name,
+        "target_url": target_url,
+        "created_at": session.created_at.isoformat() if session.created_at else None,
+        "share_url": share_url,
+        "stats": {
+            "total_issues": len(markers),
+            "critical": critical_count,
+            "needs_work": needs_work_count,
+            "approved": approved_count,
+            "review_time_mins": review_time_mins
+        },
+        "issues": formatted_markers
+    }
+
+@router.post("/{session_id}/send-report")
+async def send_report_email(
+    session_id: str,
+    data: ReportEmailRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    from models import Project
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    result = await db.execute(select(Session).where(Session.id == session_id))
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    proj_result = await db.execute(select(Project).where(Project.id == session.project_id))
+    project = proj_result.scalar_one_or_none()
+    project_name = project.name if project else "Project"
+
+    from notifications import FRONTEND_URL
+    report_url = f"{FRONTEND_URL}/report/{session_id}"
+    subject = f"Review Report for {project_name}"
+
+    personal_msg_html = ""
+    if data.message and data.message.strip():
+        personal_msg_html = f"""
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:16px;margin-bottom:24px;color:rgba(255,255,255,0.8);font-size:14px;line-height:1.6;font-style:italic;">
+          "{data.message.strip()}"
+        </div>
+        """
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="background:#0a0a0c;color:#ffffff;font-family:system-ui,sans-serif;margin:0;padding:40px 20px;">
+      <div style="max-width:560px;margin:0 auto;">
+        <div style="font-family:monospace;font-size:20px;font-weight:bold;letter-spacing:4px;color:#ffffff;margin-bottom:24px;text-align:center;">
+          PIXELMARK
+        </div>
+        <div style="background:#0f0f14;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;margin-bottom:20px;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+          <h2 style="font-size:20px;font-weight:900;margin-top:0;margin-bottom:12px;color:#a855f7;text-transform:uppercase;letter-spacing:1px;text-align:center;">Review Report Ready</h2>
+          <p style="color:rgba(255,255,255,0.6);font-size:14px;line-height:1.5;margin-bottom:24px;text-align:center;">
+            A review report has been generated for <strong>{project_name}</strong> (Session: {session.title}).
+          </p>
+          
+          {personal_msg_html}
+          
+          <a href="{report_url}" style="display:block;text-align:center;background:#a855f7;color:white;text-decoration:none;padding:14px 24px;border-radius:12px;font-weight:bold;font-size:14px;margin-top:16px;box-shadow:0 4px 12px rgba(168,85,247,0.3);">
+            Open Review Report ✨
+          </a>
+        </div>
+        <p style="color:rgba(255,255,255,0.2);font-size:11px;text-align:center;margin-top:24px;">
+          Sent via PixelMark Visual Observability System.
+        </p>
+      </div>
+    </body>
+    </html>
+    """
+    from notifications import send_email
+    background_tasks.add_task(send_email, data.email, subject, html)
+    return {"status": "queued", "message": f"Report email queueing to {data.email}..."}
+
+
+

@@ -12,6 +12,8 @@ from routers.share_links import router as share_links_router
 from routers.review import router as review_router
 from routers.ai import router as ai_router
 from routers.ai_provider_configs import router as ai_provider_configs_router
+from routers.dom_edits import router as dom_edits_router
+
 
 logger = logging.getLogger("uvicorn")
 
@@ -52,6 +54,8 @@ ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3000",
+    "http://127.0.0.1:8765",
+    "http://localhost:8765",
     "https://tailwindcss.com",
 ]
 
@@ -336,6 +340,7 @@ app.include_router(export.router)
 app.include_router(websocket.router)
 app.include_router(flags.router)
 app.include_router(screenshot.router)
+app.include_router(dom_edits_router)
 
 @app.get("/health")
 async def health():

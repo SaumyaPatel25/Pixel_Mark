@@ -18,7 +18,7 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'PixelMark - Precision Visual Feedback & Website Audits',
+        alt: 'PixelMark - Visual Website Feedback & Bug Reporting Tool',
       },
     ],
     locale: 'en_US',
@@ -34,5 +34,27 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <HomeClient />;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PixelMark",
+    "operatingSystem": "All",
+    "applicationCategory": "BusinessApplication",
+    "description": "Visual website feedback tool and bug reporting platform that generates secure client review links to pin visual feedback directly on live websites.",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <HomeClient />
+    </>
+  );
 }

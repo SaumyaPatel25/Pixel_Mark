@@ -5,7 +5,9 @@ import { useMarkerStore, Priority, Status } from '@/store/markerStore'
 import { Filter, X } from 'lucide-react'
 
 export function MarkerFilters() {
-  const { filters, setFilter, clearFilters } = useMarkerStore()
+  const filters = useMarkerStore(s => s.filters)
+  const setFilter = useMarkerStore(s => s.setFilter)
+  const clearFilters = useMarkerStore(s => s.clearFilters)
 
   const hasActiveFilters = Object.keys(filters).length > 0
 
@@ -25,8 +27,8 @@ export function MarkerFilters() {
         <option value="" className="bg-[#0a0a0f] text-white">All Priorities</option>
         <option value="critical" className="bg-[#0a0a0f] text-white">Critical</option>
         <option value="high" className="bg-[#0a0a0f] text-white">High</option>
-        <option value="medium" className="bg-[#0a0a0f] text-white">Medium</option>
-        <option value="low" className="bg-[#0a0a0f] text-white">Low</option>
+        <option value="medium" className="bg-[#0a0a0f] text-white">Needs Work</option>
+        <option value="low" className="bg-[#0a0a0f] text-white">Looks Good</option>
       </select>
 
       {/* Status Dropdown */}
@@ -36,9 +38,9 @@ export function MarkerFilters() {
         className="bg-white/5 border border-white/10 text-gray-300 text-xs rounded-xl px-4 py-2 focus:border-purple-500 outline-none transition-all cursor-pointer"
       >
         <option value="" className="bg-[#0a0a0f] text-white">All Statuses</option>
-        <option value="open" className="bg-[#0a0a0f] text-white">Open</option>
-        <option value="in_progress" className="bg-[#0a0a0f] text-white">In Progress</option>
-        <option value="resolved" className="bg-[#0a0a0f] text-white">Resolved</option>
+        <option value="open" className="bg-[#0a0a0f] text-white">Waiting</option>
+        <option value="in_progress" className="bg-[#0a0a0f] text-white">Being Fixed</option>
+        <option value="resolved" className="bg-[#0a0a0f] text-white">Fixed ✓</option>
       </select>
 
       {/* Clear Filters Button */}

@@ -373,7 +373,29 @@ useScreenshotStore.subscribe((scrState) => {
 if (typeof window !== 'undefined') {
   usePinStore.subscribe((state) => {
     try {
-      const drafts = state.pins.filter(p => p.status === 'draft')
+      const drafts = state.pins.filter(p => p.status === 'draft').map(draft => {
+        // Strip out large fields before saving to localStorage to prevent QuotaExceededError
+        const light = { ...draft }
+        if (light.screenshots) {
+          light.screenshots = {
+            ...light.screenshots,
+            fullPageDataUrl: null,
+            cropDataUrl: null,
+            targetDataUrl: null,
+            canvasSnapshot: null
+          }
+        }
+        light.screenshotdataurl = null
+        light.domsnapshot = null
+        light.canvasdomsnapshot = null
+        if (light.source) {
+          light.source = {
+            ...light.source,
+            outerHtml: null
+          }
+        }
+        return light
+      })
       localStorage.setItem('pixelmark_draft_pins_v5', JSON.stringify(drafts))
     } catch (e) {
       console.error('[Markers] failed to autosave draft pins:', e)

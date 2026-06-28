@@ -3,14 +3,14 @@ import PricingClient from './PricingClient';
 import { seoConfig } from '@/lib/seoConfig';
 
 export const metadata: Metadata = {
-  title: `Pricing Subscriptions | PixelMark`,
-  description: `Find the subscription tier that fits your team's visual audit intensity. PixelMark offers flexible options for independent builders and enterprise teams.`,
+  title: `Simple Pricing & Plans`,
+  description: `Choose a plan that fits your visual review workflow. Pin comments, share client review links, and speed up website feedback with PixelMark.`,
   alternates: {
     canonical: `${seoConfig.siteUrl}/pricing`,
   },
   openGraph: {
-    title: `Pricing Subscriptions | PixelMark`,
-    description: `Find the subscription tier that fits your team's visual audit intensity. PixelMark offers flexible options for independent builders and enterprise teams.`,
+    title: `Simple Pricing & Plans | PixelMark`,
+    description: `Choose a plan that fits your visual review workflow. Pin comments, share client review links, and speed up website feedback with PixelMark.`,
     url: `${seoConfig.siteUrl}/pricing`,
     siteName: 'PixelMark',
     images: [
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'PixelMark - Pricing Subscription Tiers',
+        alt: 'PixelMark - Pricing & Plans',
       },
     ],
     locale: 'en_US',
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: `Pricing Subscriptions | PixelMark`,
-    description: `Find the subscription tier that fits your team's visual audit intensity. PixelMark offers flexible options for independent builders and enterprise teams.`,
+    title: `Simple Pricing & Plans | PixelMark`,
+    description: `Choose a plan that fits your visual review workflow. Pin comments, share client review links, and speed up website feedback with PixelMark.`,
     images: ['/og-image.png'],
     creator: seoConfig.twitterHandle,
   },

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CanvasFrame as ICanvasFrame, useCanvasStore } from '@/store/canvasStore'
 import { FileImage, Activity } from 'lucide-react'
@@ -12,14 +12,24 @@ interface CanvasFrameProps {
   isSource?: boolean
 }
 
-export function CanvasFrame({ frame, zoom, onSelect, isSource = false }: CanvasFrameProps) {
+export const CanvasFrame = React.memo(function CanvasFrame({ frame, zoom, onSelect, isSource = false }: CanvasFrameProps) {
   const router = useRouter()
-  const { updateFramePosition, selectedFrameId } = useCanvasStore()
+  const updateFramePosition = useCanvasStore(s => s.updateFramePosition)
+  const selectedFrameId = useCanvasStore(s => s.selectedFrameId)
   
   const frameRef = useRef<HTMLDivElement>(null)
   const dragStartRef = useRef({ x: 0, y: 0, frameX: 0, frameY: 0, hasMoved: false })
+  const currentPosRef = useRef({ x: frame.position_x, y: frame.position_y })
 
   const isSelected = selectedFrameId === frame.id
+
+  // Sync ref and DOM style when coord store values change externally
+  useEffect(() => {
+    currentPosRef.current = { x: frame.position_x, y: frame.position_y }
+    if (frameRef.current) {
+      frameRef.current.style.transform = `translate(${frame.position_x}px, ${frame.position_y}px)`
+    }
+  }, [frame.position_x, frame.position_y])
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // Prevent drag trigger if clicking links or button controls inside frame
@@ -31,8 +41,8 @@ export function CanvasFrame({ frame, zoom, onSelect, isSource = false }: CanvasF
     dragStartRef.current = {
       x: e.clientX,
       y: e.clientY,
-      frameX: frame.position_x,
-      frameY: frame.position_y,
+      frameX: currentPosRef.current.x,
+      frameY: currentPosRef.current.y,
       hasMoved: false
     }
 
@@ -51,15 +61,19 @@ export function CanvasFrame({ frame, zoom, onSelect, isSource = false }: CanvasF
     const newX = Math.round(dragStartRef.current.frameX + dx)
     const newY = Math.round(dragStartRef.current.frameY + dy)
 
-    updateFramePosition(frame.id, newX, newY)
+    currentPosRef.current = { x: newX, y: newY }
+    if (frameRef.current) {
+      frameRef.current.style.transform = `translate(${newX}px, ${newY}px)`
+    }
   }
 
   const handleMouseUp = (e: MouseEvent) => {
     window.removeEventListener('mousemove', handleMouseMove)
     window.removeEventListener('mouseup', handleMouseUp)
 
-    // Only select if it was a simple click and not a drag
-    if (!dragStartRef.current.hasMoved) {
+    if (dragStartRef.current.hasMoved) {
+      updateFramePosition(frame.id, currentPosRef.current.x, currentPosRef.current.y)
+    } else {
       onSelect()
     }
   }
@@ -94,6 +108,7 @@ export function CanvasFrame({ frame, zoom, onSelect, isSource = false }: CanvasF
         transform: `translate(${frame.position_x}px, ${frame.position_y}px)`,
         width: `${frame.width || 320}px`,
         height: `${frame.height || 220}px`,
+        willChange: 'transform',
       }}
       className={`absolute select-none bg-[#1c1b19] border rounded-xl flex flex-col shadow-2xl transition-all cursor-move z-10 ${
         isSource
@@ -148,7 +163,7 @@ export function CanvasFrame({ frame, zoom, onSelect, isSource = false }: CanvasF
             </div>
           ) : (
             <div className="py-2 text-[10px] text-white/20 italic font-medium">
-              No markers yet
+              No feedback pins yet
             </div>
           )}
         </div>
@@ -159,7 +174,7 @@ export function CanvasFrame({ frame, zoom, onSelect, isSource = false }: CanvasF
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[8px] font-mono text-white/30 uppercase tracking-wider">
                 <span>Priority Mix</span>
-                <span>{totalMarkers} Total</span>
+                <span>{totalMarkers} Pins</span>
               </div>
               
               {/* Stacked Proportional Distribution Bar */}
@@ -207,5 +222,5 @@ export function CanvasFrame({ frame, zoom, onSelect, isSource = false }: CanvasF
       </div>
     </div>
   )
-}
+})
 export default CanvasFrame

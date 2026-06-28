@@ -26,8 +26,9 @@ const STATUS_BADGES = {
   resolved: 'bg-green-500/20 text-green-400 border border-green-500/30',
 }
 
-export function MarkerCard({ marker }: { marker: Marker }) {
-  const { updateMarker, deleteMarker } = useMarkerStore()
+export const MarkerCard = React.memo(function MarkerCard({ marker }: { marker: Marker }) {
+  const updateMarker = useMarkerStore(s => s.updateMarker)
+  const deleteMarker = useMarkerStore(s => s.deleteMarker)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showContext, setShowContext] = useState(false)
   const [showShadowContext, setShowShadowContext] = useState(false)
@@ -72,9 +73,9 @@ export function MarkerCard({ marker }: { marker: Marker }) {
             onChange={handleStatusChange}
             className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-xl outline-none cursor-pointer ${STATUS_BADGES[marker.status]}`}
           >
-            <option value="open" className="bg-[#0c0c0e] text-blue-400">Open</option>
-            <option value="in_progress" className="bg-[#0c0c0e] text-purple-400">In Progress</option>
-            <option value="resolved" className="bg-[#0c0c0e] text-green-400">Resolved</option>
+            <option value="open" className="bg-[#0c0c0e] text-blue-400">Waiting</option>
+            <option value="in_progress" className="bg-[#0c0c0e] text-purple-400">Being Fixed</option>
+            <option value="resolved" className="bg-[#0c0c0e] text-green-400">Fixed ✓</option>
           </select>
 
           {/* Priority Dropdown / Badge */}
@@ -85,8 +86,8 @@ export function MarkerCard({ marker }: { marker: Marker }) {
           >
             <option value="critical" className="bg-[#0c0c0e] text-red-400">Critical</option>
             <option value="high" className="bg-[#0c0c0e] text-orange-400">High</option>
-            <option value="medium" className="bg-[#0c0c0e] text-yellow-400">Medium</option>
-            <option value="low" className="bg-[#0c0c0e] text-gray-400">Low</option>
+            <option value="medium" className="bg-[#0c0c0e] text-yellow-400">Needs Work</option>
+            <option value="low" className="bg-[#0c0c0e] text-gray-400">Looks Good</option>
           </select>
         </div>
 
@@ -104,7 +105,7 @@ export function MarkerCard({ marker }: { marker: Marker }) {
       <div className="flex items-center justify-between text-[10px] gap-2 pt-1 border-t border-white/[0.03]">
         {/* Renderer Badge */}
         <span className={`px-2 py-0.5 rounded-full font-black uppercase tracking-wider text-[8px] ${RENDERER_BADGES[renderer] || RENDERER_BADGES.unknown}`}>
-          {renderer === 'threejs' ? 'Three.js' : renderer === 'webgl' ? 'WebGL' : renderer === 'canvas2d' ? 'Canvas2D' : renderer === 'shadow_dom' ? 'Shadow DOM' : 'DOM'}
+          {renderer === 'threejs' ? 'Three.js' : renderer === 'webgl' ? 'WebGL' : renderer === 'canvas2d' ? 'Canvas2D' : renderer === 'shadow_dom' ? 'Shadow Element' : 'Standard Element'}
         </span>
         
         {/* Page Path Truncated */}
@@ -303,4 +304,4 @@ export function MarkerCard({ marker }: { marker: Marker }) {
       )}
     </div>
   )
-}
+})

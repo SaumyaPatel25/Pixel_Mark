@@ -2,8 +2,8 @@
  * Shared SEO Constants & Defaults for PixelMark
  */
 export const seoConfig = {
-  title: "PixelMark | Precision Visual Feedback & Website Audits",
-  description: "Capture visual feedback, precise CSS selectors, XPaths, and browser console logs directly in the browser with PixelMark. Engineered by Entrext Labs.",
+  title: "PixelMark | Visual Website Feedback & Bug Reporting Tool",
+  description: "Get client review links instantly. Pin visual feedback, annotations, and QA comments directly on live websites without screenshots or extensions. Engineered by Entrext Labs.",
   siteUrl: "https://web-zeta-sable-82.vercel.app",
   company: "Entrext Labs",
   owner: "Saumya Patel",

@@ -44,7 +44,7 @@ function formatRelativeTime(dateString: string | Date | null) {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuthStore()
+  const user = useAuthStore(s => s.user)
   const router = useRouter()
   
   // Dashboard Telemetry Data State
@@ -148,14 +148,14 @@ export default function DashboardPage() {
     try {
       const session = await api.sessions.createSession({
         project_id: newSessionProject.id,
-        title: newSessionTitle.trim() || `Session - ${new Date().toLocaleDateString()}`
+        title: newSessionTitle.trim() || `Review Session - ${new Date().toLocaleDateString()}`
       })
       trackEvent({ action: 'create_session', category: 'session' })
 
       // If user provided a custom target URL, record a visit to pre-seed the viewport
       if (newSessionUrl.trim()) {
         try {
-          await api.sessions.recordVisit(session.id, newSessionUrl.trim(), 'Initial Audit Viewport')
+          await api.sessions.recordVisit(session.id, newSessionUrl.trim(), 'Initial Review Viewport')
         } catch (visitErr) {
           console.error("Failed to seed session page visit:", visitErr)
         }
@@ -192,7 +192,7 @@ export default function DashboardPage() {
           projectName: p.name,
           title: s.title,
           date: s.created_at,
-          description: `Audit session initiated: "${s.title}"`
+          description: `Review session initiated: "${s.title}"`
         })
       })
       p.markers.forEach((m: any) => {
@@ -203,7 +203,7 @@ export default function DashboardPage() {
           projectName: p.name,
           title: m.text,
           date: m.created_at,
-          description: `Issue logged: "${m.text || 'Untitled'}" (${m.severity || 'Medium'})`
+          description: `Feedback logged: "${m.text || 'Untitled'}" (${m.severity || 'Medium'})`
         })
       })
     })
@@ -285,14 +285,14 @@ export default function DashboardPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-black tracking-tight text-white leading-tight">
-                Welcome back, <span className="text-purple-400">{user?.name || 'Pro Auditor'}</span>
+                Welcome back, <span className="text-purple-400">{user?.name || 'Pro Reviewer'}</span>
               </h1>
               <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[9px] font-black uppercase text-cyan-400 tracking-wider">
                 <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
                 Live Substrate
               </div>
             </div>
-            <p className="text-white/40 text-xs font-medium">Command surface for visual diagnostics, blueprints, and code commits.</p>
+            <p className="text-white/40 text-xs font-medium">Command surface for visual feedback, reviews, and client reports.</p>
           </div>
           
           <button
@@ -308,9 +308,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Active Projects', val: stats.totalProjects, icon: Folder, color: 'text-indigo-400', bg: 'from-indigo-500/5 to-indigo-500/0' },
-            { label: 'Recorded Sessions', val: stats.totalSessions, icon: Play, color: 'text-emerald-400', bg: 'from-emerald-500/5 to-emerald-500/0' },
-            { label: 'Total Markers', val: stats.totalMarkers, icon: FileText, color: 'text-purple-400', bg: 'from-purple-500/5 to-purple-500/0' },
-            { label: 'Open Issues', val: stats.openIssues, icon: AlertCircle, color: 'text-rose-500', bg: 'from-rose-500/5 to-rose-500/0' }
+            { label: 'Review Sessions', val: stats.totalSessions, icon: Play, color: 'text-emerald-400', bg: 'from-emerald-500/5 to-emerald-500/0' },
+            { label: 'Feedback Pins', val: stats.totalMarkers, icon: FileText, color: 'text-purple-400', bg: 'from-purple-500/5 to-purple-500/0' },
+            { label: 'Waiting Issues', val: stats.openIssues, icon: AlertCircle, color: 'text-rose-500', bg: 'from-rose-500/5 to-rose-500/0' }
           ].map((stat, i) => (
             <div 
               key={i} 
@@ -370,7 +370,7 @@ export default function DashboardPage() {
                     className="bg-transparent text-[11px] font-bold text-white/60 focus:text-white outline-none cursor-pointer pr-1"
                   >
                     <option value="recent" className="bg-[#0c0c0e]">Sort: Recent</option>
-                    <option value="markers" className="bg-[#0c0c0e]">Sort: Markers</option>
+                    <option value="markers" className="bg-[#0c0c0e]">Sort: Feedback Pins</option>
                     <option value="name" className="bg-[#0c0c0e]">Sort: Name</option>
                   </select>
                 </div>
@@ -411,14 +411,14 @@ export default function DashboardPage() {
                       onNewSession={() => {
                         setNewSessionProject(p)
                         setNewSessionUrl(p.url || '')
-                        setNewSessionTitle(`Audit Session - ${new Date().toLocaleDateString()}`)
+                        setNewSessionTitle(`Review Session - ${new Date().toLocaleDateString()}`)
                       }}
                       onShare={() => {
                         const sorted = [...p.sessions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                         if (sorted.length > 0) {
                           setShareSessionId(sorted[0].id)
                         } else {
-                          alert('Please start a session first before generating a share link.')
+                          alert('Please start a review session first before generating a client link.')
                         }
                       }}
                     />
@@ -437,9 +437,9 @@ export default function DashboardPage() {
                   <Plus className="w-8 h-8 text-white/30 group-hover:text-purple-400 transition-colors" />
                 </div>
                 <div className="space-y-2 max-w-sm">
-                  <h3 className="text-xl font-black tracking-tight text-white">Begin Observability</h3>
+                  <h3 className="text-xl font-black tracking-tight text-white">Begin Reviewing</h3>
                   <p className="text-xs text-white/40 leading-relaxed uppercase tracking-wider font-bold">
-                    You have no active projects configured. Create your first visual QA project to start recording sessions and commenting on live canvas.
+                    You have no active projects configured. Create your first visual review project to start recording review sessions and commenting on the live canvas.
                   </p>
                 </div>
                 <button className="h-10 rounded-xl bg-purple-600/10 border border-purple-500/20 hover:bg-purple-600 hover:border-purple-500 text-purple-300 hover:text-white px-6 font-bold text-xs transition-all flex items-center gap-2">
@@ -637,7 +637,7 @@ export default function DashboardPage() {
               className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl relative z-10 space-y-6"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black uppercase tracking-widest text-emerald-400">Launch Audit Session</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest text-emerald-400">Launch Review Session</h3>
                 <button onClick={() => setNewSessionProject(null)} className="text-white/40 hover:text-white transition-colors">
                   <X className="w-5 h-5" />
                 </button>
@@ -651,13 +651,13 @@ export default function DashboardPage() {
 
               <form onSubmit={handleCreateSession} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-white/30 text-[9px] font-black uppercase tracking-widest block">Session Identifier</label>
+                  <label className="text-white/30 text-[9px] font-black uppercase tracking-widest block">Review Session Title</label>
                   <input
                     autoFocus
                     required
                     disabled={isCreatingSession}
                     type="text"
-                    placeholder="Audit Session - Mobile Responsiveness Audit"
+                    placeholder="Review Session - Mobile Responsiveness Review"
                     value={newSessionTitle}
                     onChange={(e) => setNewSessionTitle(e.target.value)}
                     className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/20 focus:border-emerald-500 outline-none transition-all"
@@ -695,7 +695,7 @@ export default function DashboardPage() {
                     className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
                   >
                     {isCreatingSession ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    {isCreatingSession ? 'Launching...' : 'Launch Session'}
+                    {isCreatingSession ? 'Launching...' : 'Launch Review Session'}
                   </button>
                 </div>
               </form>

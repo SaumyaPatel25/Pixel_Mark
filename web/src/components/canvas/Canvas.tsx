@@ -17,8 +17,13 @@ import {
   Share2,
   Trash2,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  ExternalLink,
+  X
 } from 'lucide-react'
+import { LinkViewerPanel } from './LinkViewerPanel'
+import { StyleEditsTab } from '../command-center/StyleEditsTab'
+import { useDOMEditStore } from '@/store/domEditStore'
 
 interface CanvasProps {
   projectId: string
@@ -26,29 +31,49 @@ interface CanvasProps {
 
 export function Canvas({ projectId }: CanvasProps) {
   const router = useRouter()
-  const {
-    frames,
-    flows,
-    isLoading,
-    error,
-    zoom,
-    panX,
-    panY,
-    selectedFrameId,
-    fetchCanvas,
-    setSelectedFrame,
-    setZoom,
-    setPan,
-    createFlow,
-    deleteFlow,
-    deleteFrame
-  } = useCanvasStore()
+  const frames = useCanvasStore(s => s.frames)
+  const flows = useCanvasStore(s => s.flows)
+  const isLoading = useCanvasStore(s => s.isLoading)
+  const error = useCanvasStore(s => s.error)
+  const zoom = useCanvasStore(s => s.zoom)
+  const panX = useCanvasStore(s => s.panX)
+  const panY = useCanvasStore(s => s.panY)
+  const selectedFrameId = useCanvasStore(s => s.selectedFrameId)
+  const fetchCanvas = useCanvasStore(s => s.fetchCanvas)
+  const setSelectedFrame = useCanvasStore(s => s.setSelectedFrame)
+  const setZoom = useCanvasStore(s => s.setZoom)
+  const setPan = useCanvasStore(s => s.setPan)
+  const createFlow = useCanvasStore(s => s.createFlow)
+  const deleteFlow = useCanvasStore(s => s.deleteFlow)
+  const deleteFrame = useCanvasStore(s => s.deleteFrame)
+
+  const transformGroupRef = useRef<HTMLDivElement>(null)
+  const currentPanRef = useRef({ x: panX, y: panY })
+
+  // Sync refs and DOM style when store changes
+  useEffect(() => {
+    currentPanRef.current = { x: panX, y: panY }
+    if (transformGroupRef.current) {
+      transformGroupRef.current.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`
+    }
+    if (containerRef.current) {
+      containerRef.current.style.backgroundPosition = `${panX}px ${panY}px`
+      containerRef.current.style.backgroundSize = `${36 * zoom}px ${36 * zoom}px`
+    }
+  }, [panX, panY, zoom])
 
   // Local UI States
   const [projectName, setProjectName] = useState('Project')
   const [connectMode, setConnectMode] = useState(false)
   const [connectSourceId, setConnectSourceId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  // Link Viewer State
+  const [showLinkViewer, setShowLinkViewer] = useState(false)
+  const [linkViewerSessionId, setLinkViewerSessionId] = useState<string | null>(null)
+  const [showStyleEditsDrawer, setShowStyleEditsDrawer] = useState(false)
+  const domEdits = useDOMEditStore(state => state.edits)
+  const fetchDOMEdits = useDOMEditStore(state => state.fetchEdits)
 
   // Refs for tracking pan drag without re-triggering render on every pixel
   const containerRef = useRef<HTMLDivElement>(null)
@@ -114,8 +139,8 @@ export function Canvas({ projectId }: CanvasProps) {
     e.preventDefault()
     isPanningRef.current = true
     panStartRef.current = {
-      x: e.clientX - panX,
-      y: e.clientY - panY,
+      x: e.clientX - currentPanRef.current.x,
+      y: e.clientY - currentPanRef.current.y,
     }
     setSelectedFrame(null) // deselect current frame
 
@@ -125,17 +150,24 @@ export function Canvas({ projectId }: CanvasProps) {
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isPanningRef.current) return
-    setPan(
-      e.clientX - panStartRef.current.x,
-      e.clientY - panStartRef.current.y
-    )
-  }, [setPan])
+    const nextX = e.clientX - panStartRef.current.x
+    const nextY = e.clientY - panStartRef.current.y
+    currentPanRef.current = { x: nextX, y: nextY }
+
+    if (transformGroupRef.current) {
+      transformGroupRef.current.style.transform = `translate(${nextX}px, ${nextY}px) scale(${zoom})`
+    }
+    if (containerRef.current) {
+      containerRef.current.style.backgroundPosition = `${nextX}px ${nextY}px`
+    }
+  }, [zoom])
 
   const handleMouseUp = useCallback(() => {
     isPanningRef.current = false
     window.removeEventListener('mousemove', handleMouseMove)
     window.removeEventListener('mouseup', handleMouseUp)
-  }, [handleMouseMove])
+    setPan(currentPanRef.current.x, currentPanRef.current.y)
+  }, [handleMouseMove, setPan])
 
   // Wheel Zoom Listener
   useEffect(() => {
@@ -218,6 +250,36 @@ export function Canvas({ projectId }: CanvasProps) {
     }
   }
 
+  // Handle Open Link Viewer
+  const handleOpenLinkViewer = async () => {
+    try {
+      // Find an existing session, or use the first frame's session, or create one.
+      let sId = frames[0]?.session_id
+      if (!sId) {
+        const sessions = await api.sessions.getSessions(projectId)
+        if (sessions && sessions.length > 0) {
+          sId = sessions[0].id
+        } else {
+          // Create a default session for the link viewer
+          const newSession = await api.sessions.createSession({
+            project_id: projectId,
+            title: 'Design Review'
+          })
+          sId = newSession.id
+        }
+      }
+      if (sId) {
+        setLinkViewerSessionId(sId)
+        setShowLinkViewer(true)
+        fetchDOMEdits(sId)
+      } else {
+        showToast('Failed to acquire a session for Link Viewer.', 'error')
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to open Link Viewer.', 'error')
+    }
+  }
+
   if (isLoading && frames.length === 0) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center space-y-4 bg-[#0a0a0f] text-white">
@@ -236,9 +298,9 @@ export function Canvas({ projectId }: CanvasProps) {
           </div>
           
           <div className="space-y-2">
-            <h3 className="text-xl font-black uppercase tracking-tight text-white">No Sessions Found</h3>
+            <h3 className="text-xl font-black uppercase tracking-tight text-white">No Review Sessions Found</h3>
             <p className="text-xs text-white/40 leading-relaxed">
-              Create your first review session to start mapping the audit substrate and visualize the user journey.
+              Create your first review session to start mapping visual feedback and visualize the user journey.
             </p>
           </div>
 
@@ -247,7 +309,7 @@ export function Canvas({ projectId }: CanvasProps) {
               onClick={handleAddSession}
               className="w-full h-11 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider transition-colors"
             >
-              Add First Session
+              Add First Review Session
             </button>
             <Link
               href={`/project/${projectId}`}
@@ -303,6 +365,14 @@ export function Canvas({ projectId }: CanvasProps) {
           </button>
 
           <button
+            onClick={handleOpenLinkViewer}
+            className="h-9 px-4 rounded-xl bg-[#01696f] hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider transition-colors border border-teal-500/50 flex items-center gap-2 shadow-lg shadow-teal-900/30"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Link Viewer
+          </button>
+
+          <button
             onClick={handleAddSession}
             className="h-9 px-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider transition-colors border border-teal-500/20"
           >
@@ -322,13 +392,16 @@ export function Canvas({ projectId }: CanvasProps) {
           backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1.5px, transparent 1.5px)',
           backgroundSize: `${36 * zoom}px ${36 * zoom}px`,
           backgroundPosition: `${panX}px ${panY}px`,
+          willChange: 'transform, background-position, background-size',
         }}
       >
         {/* Transform Group */}
         <div
+          ref={transformGroupRef}
           style={{
             transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
             transformOrigin: '0 0',
+            willChange: 'transform',
           }}
           className="absolute inset-0 pointer-events-none"
         >
@@ -477,6 +550,38 @@ export function Canvas({ projectId }: CanvasProps) {
           </div>
         )}
       </div>
+
+      {/* Link Viewer Panel */}
+      {showLinkViewer && linkViewerSessionId && (
+        <LinkViewerPanel
+          initialUrl="https://example.com"
+          sessionId={linkViewerSessionId}
+          onClose={() => {
+            setShowLinkViewer(false)
+            setShowStyleEditsDrawer(false)
+          }}
+          onToggleStyleEdits={() => setShowStyleEditsDrawer(!showStyleEditsDrawer)}
+          editsCount={domEdits.length}
+        />
+      )}
+
+      {/* Style Edits Drawer */}
+      {showStyleEditsDrawer && linkViewerSessionId && (
+        <div className="absolute top-0 right-0 h-full w-[400px] bg-[#0a0a0f] border-l border-white/10 shadow-2xl z-50 flex flex-col pointer-events-auto transform transition-transform animate-in slide-in-from-right">
+          <div className="h-14 bg-[#111116] border-b border-white/10 flex items-center justify-between px-6 flex-shrink-0">
+            <h3 className="text-xs font-black uppercase tracking-widest text-teal-400">Style Edits</h3>
+            <button
+              onClick={() => setShowStyleEditsDrawer(false)}
+              className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden flex flex-col p-4 bg-[#0d0d14]">
+            <StyleEditsTab sessionId={linkViewerSessionId} />
+          </div>
+        </div>
+      )}
 
       {/* Floating Toast Notification */}
       {toast && (

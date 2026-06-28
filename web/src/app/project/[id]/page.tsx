@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircle, BarChart3 } from 'lucide-react'
+import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircle, BarChart3, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ExportPanel } from '@/components/ExportPanel'
+import { ReportEmailModal } from '@/components/ReportEmailModal'
 import { DesignSystemPanel } from '@/components/DesignSystemPanel'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
 import { ShareLinkButton } from '@/components/share/ShareLinkButton'
@@ -90,7 +91,22 @@ export default function ProjectPage() {
   
   const screenCapture = useScreenCapture()
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [showReportEmailModal, setShowReportEmailModal] = useState(false)
+  const addToast = useUIStore(s => s.addToast)
   const viewportHeight = useViewportHeight()
+
+  const handleGenerateReport = useCallback(() => {
+    if (!sessionId) return
+    const reportUrl = `${window.location.origin}/report/${sessionId}`
+    navigator.clipboard.writeText(reportUrl)
+      .then(() => {
+        addToast('Report link copied — share this with your client', 'success')
+      })
+      .catch(() => {
+        addToast('Failed to copy link, but opening email client option...', 'error')
+      })
+    setShowReportEmailModal(true)
+  }, [sessionId, addToast])
 
   // Retrieve or create active audit session on mount
   useEffect(() => {
@@ -106,7 +122,7 @@ export default function ProjectPage() {
           // Create a new session
           const newSession = await api.sessions.createSession({ 
             project_id: id, 
-            title: `Audit Session - ${new Date().toLocaleDateString()}` 
+            title: `Review Session - ${new Date().toLocaleDateString()}` 
           })
           setSessionId(newSession.id)
         }
@@ -264,7 +280,7 @@ export default function ProjectPage() {
         <AlertCircle className="w-16 h-16 text-rose-500 mx-auto" />
         <div>
           <h1 className="text-3xl font-black tracking-tighter text-white mb-2">Connection Blocked</h1>
-          <p className="text-white/40 text-xs font-mono uppercase leading-relaxed">{typeof error === 'string' ? error : 'Failed to synchronize with audit substrate'}</p>
+          <p className="text-white/40 text-xs font-mono uppercase leading-relaxed">{typeof error === 'string' ? error : 'Failed to synchronize with review substrate'}</p>
         </div>
         <Button 
           variant="outline" 
@@ -303,7 +319,7 @@ export default function ProjectPage() {
             <div className={cn("min-w-0", heavy_mode && "max-md:hidden")}>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-base md:text-lg font-black tracking-tighter text-white uppercase truncate max-w-[140px] sm:max-w-none">{currentProject?.name}</h1>
-                <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] font-black text-cyan-400 uppercase tracking-widest flex-shrink-0">Active Audit</span>
+                <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] font-black text-cyan-400 uppercase tracking-widest flex-shrink-0">Active Review</span>
               </div>
               <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5 font-mono truncate max-w-[180px] sm:max-w-xs">{currentProject?.url}</p>
             </div>
@@ -349,7 +365,19 @@ export default function ProjectPage() {
             )}
           >
             <Share2 className="w-4 h-4" />
-            <span className="hidden md:inline ml-2">Export Audit</span>
+            <span className="hidden md:inline ml-2">Download Report</span>
+          </Button>
+
+          <Button 
+            onClick={handleGenerateReport}
+            variant="outline"
+            className={cn(
+               "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0 hover:bg-white/10 text-purple-400 hover:text-purple-300 hover:border-purple-500/20",
+               heavy_mode && "max-md:hidden"
+            )}
+          >
+            <Sparkles className="w-4 h-4 text-purple-400" />
+            <span className="hidden md:inline ml-2">Report ✨</span>
           </Button>
 
           <div className={cn("flex-shrink-0", heavy_mode && "max-md:hidden")}>
@@ -453,7 +481,7 @@ export default function ProjectPage() {
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#0a0a0b]">
                          <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
-                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Negotiating Audit Session</p>
+                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Negotiating Review Session</p>
                       </div>
                     )}
                 </div>
@@ -520,6 +548,13 @@ export default function ProjectPage() {
           <ShareLinkPanel 
             sessionId={sessionId || ''} 
             onClose={() => toggleSharePanel(false)} 
+          />
+        )}
+        {showReportEmailModal && sessionId && (
+          <ReportEmailModal
+            sessionId={sessionId}
+            projectName={currentProject?.name || 'Project'}
+            onClose={() => setShowReportEmailModal(false)}
           />
         )}
       </AnimatePresence>

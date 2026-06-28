@@ -37,7 +37,7 @@ const stages: Stage[] = [
     index: 1,
     title: '“PixelMark captures the exact context.”',
     subtitle: '2. The Action',
-    desc: 'Reviewers click to pin feedback right on their screens. We instantly isolate computed CSS styles, absolute XPaths, and browser specifications.',
+    desc: 'Reviewers click to pin feedback right on their screens. We instantly isolate computed CSS styles, exact layout positions, and browser specifications.',
     tag: 'PRECISE & ACTIVE',
     accentColor: 'text-purple-400',
     accentBg: 'bg-purple-500/10',
@@ -96,7 +96,7 @@ export default function AboutSection() {
               We’ve all received it. A client clicks a button, it doesn’t work, and they write: <em>"The button is broken, please fix."</em> No screenshot, no browser info, and no console logs or error traces.
             </p>
             <p>
-              As developers, we spend hours debugging issues that could be resolved in minutes. PixelMark translates visual clicks directly into precision DOM elements, selectors, and diagnostics to eliminate QA friction.
+              As developers, we spend hours debugging issues that could be resolved in minutes. PixelMark translates visual clicks directly into precision layout elements, selectors, and diagnostics to eliminate QA friction.
             </p>
           </div>
           
@@ -303,7 +303,7 @@ function ActionVisual() {
         </div>
         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/25 text-[7px] text-purple-400 font-bold uppercase tracking-wider">
           <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-          Isolating DOM Element
+          Isolating Layout Element
         </div>
       </div>
 
@@ -350,9 +350,9 @@ function ActionVisual() {
             transition={{ delay: 0.4 }}
             className="absolute top-2 right-2 bg-pm-surface-2/95 border border-purple-500/35 rounded-lg p-2 font-mono text-[7px] text-purple-300 max-w-[160px] shadow-2xl"
           >
-            <div className="text-purple-400 font-bold border-b border-purple-500/20 pb-1 mb-1 font-display">DOM LENS</div>
+            <div className="text-purple-400 font-bold border-b border-purple-500/20 pb-1 mb-1 font-display">LAYOUT LENS</div>
             <div>[tag]: button.btn-cta</div>
-            <div>[xpath]: /div/button[1]</div>
+            <div>[position]: left: 45px</div>
             <div>[computed]: z-index: 0</div>
             <div>[style]: height: 24px</div>
           </motion.div>
@@ -379,7 +379,7 @@ function ActionVisual() {
 
       {/* Footer bar */}
       <div className="border-t border-white/5 pt-3 flex items-center justify-between text-[8px] font-mono text-pm-text-faint">
-        <span>RENDER_ENGINE: SHADOW_DOM_COMPATIBLE</span>
+        <span>RENDER_ENGINE: SHADOW_ELEMENTS_COMPATIBLE</span>
         <span>RESOLUTION: 1440 × 900</span>
       </div>
     </motion.div>

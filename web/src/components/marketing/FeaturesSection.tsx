@@ -51,9 +51,9 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-100px' }}
-          className="grid grid-cols-1 md:grid-cols-12 gap-6"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
         >
-          {/* Main Feature: Zero-Install Flow (Wide Card) */}
+          {/* Column 1 (For Clients) */}
           <GlassTiltCard
             onMouseEnter={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
@@ -62,51 +62,21 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
               onHoverChange({ x, y });
             }}
             onMouseLeave={() => onHoverChange(null)}
-            className="md:col-span-8"
-          >
-            <div className="absolute top-0 right-0 w-[40%] h-[40%] bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.1),transparent_60%)]" />
-            <div className="space-y-4 max-w-xl">
-              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
-                <Share2 className="w-6 h-6" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                Zero-Install Reviewer Flow
-              </h3>
-              <p className="text-xs text-pm-muted leading-relaxed">
-                Reviewers and clients do not need to install browser extensions, download software, or even create a PixelMark account. They click the secure session share link and start pinning feedback immediately directly on the live website sandbox.
-              </p>
-            </div>
-            <div className="pt-6 flex items-center gap-2 text-pm-accent-vivid font-mono text-[10px] font-bold tracking-widest uppercase cursor-pointer group-hover:text-white transition-colors">
-              <span>View Security Spec</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </div>
-          </GlassTiltCard>
-
-          {/* Feature: Auto Screenshot */}
-          <GlassTiltCard
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-              onHoverChange({ x, y });
-            }}
-            onMouseLeave={() => onHoverChange(null)}
-            className="md:col-span-4"
           >
             <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
-                <Camera className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid text-xl">
+                🎯
               </div>
               <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                Auto Screenshot
+                Pin feedback on the actual page
               </h3>
               <p className="text-xs text-pm-muted leading-relaxed">
-                Pixel-perfect screenshots capture the exact state of the viewport, with a purple overlay highlighted rect bounding the clicked element.
+                Click any element and leave a note — exactly where the issue is. No more sending annotated screenshots or writing 'the button on the third section of the homepage.'
               </p>
             </div>
           </GlassTiltCard>
 
-          {/* Feature: DOM Snapshot */}
+          {/* Column 2 (For Developers) */}
           <GlassTiltCard
             onMouseEnter={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
@@ -115,22 +85,21 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
               onHoverChange({ x, y });
             }}
             onMouseLeave={() => onHoverChange(null)}
-            className="md:col-span-4"
           >
             <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
-                <Layers className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid text-xl">
+                ⚡
               </div>
               <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                DOM Snapshot & styles
+                Get implementation-ready feedback
               </h3>
               <p className="text-xs text-pm-muted leading-relaxed">
-                Inspect raw innerHTML, computed CSS values (width, height, display, z-index), and element boundaries in a clean technical side-panel.
+                Every pin captures the element's CSS selector, browser, device, and console state automatically. No back-and-forth asking 'which browser were you on?'
               </p>
             </div>
           </GlassTiltCard>
 
-          {/* Feature: XPath + CSS Selector */}
+          {/* Column 3 (For Teams) */}
           <GlassTiltCard
             onMouseEnter={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
@@ -139,113 +108,16 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
               onHoverChange({ x, y });
             }}
             onMouseLeave={() => onHoverChange(null)}
-            className="md:col-span-4"
           >
             <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
-                <Terminal className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid text-xl">
+                🔗
               </div>
               <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                XPath & Selector target
+                One link. No accounts needed.
               </h3>
               <p className="text-xs text-pm-muted leading-relaxed">
-                Generates robust DOM CSS selectors and absolute XPaths. Our selector strategy ensures markers stay pinned even when you restructure layouts.
-              </p>
-            </div>
-          </GlassTiltCard>
-
-          {/* Feature: Console + Network Errors */}
-          <GlassTiltCard
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-              onHoverChange({ x, y });
-            }}
-            onMouseLeave={() => onHoverChange(null)}
-            className="md:col-span-4"
-          >
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
-                <ConsoleIcon className="w-6 h-6" />
-              </div>
-              <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                Console & Network audits
-              </h3>
-              <p className="text-xs text-pm-muted leading-relaxed">
-                Detects asset failures, CORS blockages, and JavaScript errors automatically at the moment of pin drop, grouping them inside the drawer context.
-              </p>
-            </div>
-          </GlassTiltCard>
-
-          {/* Feature: Priority & Status Workflow */}
-          <GlassTiltCard
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-              onHoverChange({ x, y });
-            }}
-            onMouseLeave={() => onHoverChange(null)}
-            className="md:col-span-4"
-          >
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
-                <Layers className="w-6 h-6" />
-              </div>
-              <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                Workflow states
-              </h3>
-              <p className="text-xs text-pm-muted leading-relaxed">
-                Change status (New, In Progress, Resolved) and severity (Low, Medium, High, Critical) directly in the UI. Form inputs lock dynamically when resolved.
-              </p>
-            </div>
-          </GlassTiltCard>
-
-          {/* Feature: WebSocket Live Sync */}
-          <GlassTiltCard
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-              onHoverChange({ x, y });
-            }}
-            onMouseLeave={() => onHoverChange(null)}
-            className="md:col-span-4"
-          >
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
-                <Users className="w-6 h-6" />
-              </div>
-              <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                WebSocket live sync
-              </h3>
-              <p className="text-xs text-pm-muted leading-relaxed">
-                Allows multiple reviewers to view, place, and resolve pins simultaneously with real-time overlay synchronization and live cursor tracking.
-              </p>
-            </div>
-          </GlassTiltCard>
-
-          {/* Feature: Export Anywhere */}
-          <GlassTiltCard
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-              onHoverChange({ x, y });
-            }}
-            onMouseLeave={() => onHoverChange(null)}
-            className="md:col-span-4"
-          >
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-pm-accent/10 border border-pm-accent/20 flex items-center justify-center text-pm-accent-vivid">
-                <Database className="w-6 h-6" />
-              </div>
-              <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                Export & sync
-              </h3>
-              <p className="text-xs text-pm-muted leading-relaxed">
-                Export session feedback to clean Markdown documents, raw JSON datasets, or push them directly to GitHub issues in one click.
+                Send clients a review link. They see the live site, leave feedback, and you track every issue in your Review Inbox. No Chrome extension. No app to install.
               </p>
             </div>
           </GlassTiltCard>

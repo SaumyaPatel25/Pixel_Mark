@@ -2,7 +2,20 @@
 
 import React from 'react'
 import { useParams } from 'next/navigation'
-import { Canvas } from '@/components/canvas/Canvas'
+import dynamic from 'next/dynamic'
+
+const Canvas = dynamic(
+  () => import('@/components/canvas/Canvas').then((mod) => mod.Canvas),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex flex-col items-center justify-center space-y-2 opacity-30 bg-[#0a0a0f]">
+        <span className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+        <span className="text-[10px] font-mono tracking-widest uppercase">Initializing Blueprint Canvas...</span>
+      </div>
+    )
+  }
+)
 
 export default function CanvasPage() {
   const params = useParams()
