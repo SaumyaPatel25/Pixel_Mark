@@ -13,6 +13,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport = {
+  themeColor: '#0a0a0f',
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(seoConfig.siteUrl),
   title: {

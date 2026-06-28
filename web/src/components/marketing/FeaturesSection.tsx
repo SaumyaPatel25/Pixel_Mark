@@ -68,10 +68,10 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
                 🎯
               </div>
               <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                Pin feedback on the actual page
+                Website annotation tool built for speed
               </h3>
               <p className="text-xs text-pm-muted leading-relaxed">
-                Click any element and leave a note — exactly where the issue is. No more sending annotated screenshots or writing 'the button on the third section of the homepage.'
+                Click any element to drop a feedback pin exactly where the issue is. Use our visual website annotation tool to leave clear QA notes without taking screenshots or writing 'the button on the third section.'
               </p>
             </div>
           </GlassTiltCard>
@@ -91,10 +91,10 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
                 ⚡
               </div>
               <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                Get implementation-ready feedback
+                Integrated UI feedback tool for devs
               </h3>
               <p className="text-xs text-pm-muted leading-relaxed">
-                Every pin captures the element's CSS selector, browser, device, and console state automatically. No back-and-forth asking 'which browser were you on?'
+                Every feedback pin automatically records layout specs, browser version, device, and viewport size. A developer-ready UI feedback tool that eliminates back-and-forth QA emails.
               </p>
             </div>
           </GlassTiltCard>
@@ -114,10 +114,10 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
                 🔗
               </div>
               <h3 className="font-display text-lg font-bold text-white group-hover:text-pm-accent-vivid transition-colors">
-                One link. No accounts needed.
+                Secure client review links instantly
               </h3>
               <p className="text-xs text-pm-muted leading-relaxed">
-                Send clients a review link. They see the live site, leave feedback, and you track every issue in your Review Inbox. No Chrome extension. No app to install.
+                Generate secure client review links to share with stakeholders. They click, review layout changes, and add comments. No Chrome extension, login, or installation required.
               </p>
             </div>
           </GlassTiltCard>

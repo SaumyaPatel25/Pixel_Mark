@@ -41,10 +41,13 @@ export default function Home() {
     "operatingSystem": "All",
     "applicationCategory": "BusinessApplication",
     "description": "Visual website feedback tool and bug reporting platform that generates secure client review links to pin visual feedback directly on live websites.",
+    "url": seoConfig.siteUrl,
     "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
+      "@type": "AggregateOffer",
+      "priceCurrency": "USD",
+      "lowPrice": "0",
+      "highPrice": "29",
+      "offerCount": "2"
     }
   };
 

@@ -5,35 +5,27 @@ export interface FAQItem {
 
 export const faqs: FAQItem[] = [
   {
-    question: "What does PixelMark do?",
-    answer: "PixelMark is a visual feedback and website review platform that lets you drop precise feedback pins directly onto any webpage. It records the exact HTML element, CSS selector, computed styles, and browser diagnostics so developers can debug visual issues instantly without needing to reproduce them."
+    question: "What is PixelMark?",
+    answer: "PixelMark is a visual website feedback tool and bug reporting platform. It allows clients, designers, and QA testers to click anywhere on a live website and pin visual feedback directly on the page without screenshots, downloads, or extensions."
   },
   {
-    question: "Who built PixelMark and why does it exist?",
-    answer: "PixelMark was designed and engineered by Saumya Patel and the Entrext Labs team. We built it to end the frustrating cycle of vague 'it looks broken' bug reports. PixelMark bridges the communication gap between designers, clients, QA teams, and developers by translating clicks into actionable code contexts."
+    question: "Can clients use it without coding?",
+    answer: "Yes, absolutely. Clients and non-technical reviewers do not need to write code, install extension walls, or understand layout structures. They simply click the element they want to discuss, drop a pin, and type their comment. All technical metadata is captured automatically in the background."
   },
   {
-    question: "How do PixelMark review links work?",
-    answer: "When you create a project in the PixelMark dashboard, it generates a secure review link. You can share this link with clients or stakeholders. Reviewers do not need to create an account or sign in—they can open the link and start pinning feedback immediately."
+    question: "Does it work on live websites?",
+    answer: "Yes. PixelMark works on live websites, staging environments, and local dev servers. It dynamically loads your web pages through a secure visual review session and overlays a collaborative feedback layer so you can annotate in real-time."
   },
   {
-    question: "How are feedback pins captured?",
-    answer: "When a reviewer clicks on a webpage, the PixelMark agent captures the exact element's tag name, CSS selector path, and computed styles. It also logs browser metadata, viewport dimensions, console errors, and network logs. This is packaged alongside a high-fidelity viewport screenshot."
+    question: "Can developers export feedback into implementation tasks?",
+    answer: "Yes. Developers can review all pinned feedback in a unified inbox, inspect exact element selectors, browser details, and layout dimensions, and export the comments directly into implementation checklists, markdown tasks, or project tools."
   },
   {
-    question: "What happens after a website is reviewed using PixelMark?",
-    answer: "All feedback pins are synced in real-time via WebSockets to the developer's PixelMark Review Inbox. From there, you can inspect the technical metadata, mark issues as resolved, export reviews to structured Markdown/JSON, or push them directly to GitHub Issues or Linear in a single click."
+    question: "Does a client need an account to leave reviews?",
+    answer: "No. You can generate secure client review links that allow external stakeholders to view the live site and add visual feedback without needing to sign up or log in. This removes all friction from design reviews."
   },
   {
-    question: "Does PixelMark work with modern web architectures like SPAs, shadow trees, Canvas, and WebGL?",
-    answer: "Yes. PixelMark is built for the modern web. Our secure runtime engine resolves relative assets and script origins across Single Page Applications (SPAs). It penetrates encapsulated shadow trees and includes specialized context mapping for Canvas and WebGL (with native Three.js raycasting support) to track 3D object clicks."
-  },
-  {
-    question: "Is a Chrome Extension or extra software required to use PixelMark?",
-    answer: "None at all. PixelMark injects its lightweight client-side agent directly via the secure runtime. This eliminates extension installation barriers, allowing reviewers to submit feedback from any modern desktop or mobile browser."
-  },
-  {
-    question: "How can I contact the PixelMark team or owner?",
+    question: "How can I contact the PixelMark team?",
     answer: "You can reach out directly to Saumya Patel and the Entrext Labs engineering team at team@pixelmark.dev or via our LinkedIn company page. We are always active and ready to assist with custom workspace integrations and feedback reviews."
   }
 ];

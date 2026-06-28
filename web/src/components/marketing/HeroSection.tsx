@@ -313,7 +313,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
     }, 500);
 
     setTimeout(() => {
-      setLoadingText('Hydrating DOM lens...');
+      setLoadingText('Loading page content...');
     }, 1000);
 
     setTimeout(() => {
@@ -512,16 +512,16 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
           <div className="lg:col-span-5 flex flex-col justify-center text-left space-y-6">
             <div className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full bg-pm-accent-subtle border border-pm-border-bright text-pm-accent-vivid text-[10px] font-bold uppercase tracking-widest transition-colors duration-500">
               <Zap className="w-3.5 h-3.5 fill-pm-accent-vivid/20" />
-              <span>⚡ Renderer-Aware Sandbox Stage</span>
+              <span>⚡ Interactive Visual Feedback Sandbox</span>
             </div>
 
             <h1 className="font-display text-4xl md:text-5xl lg:text-6.5xl font-bold tracking-tight text-white leading-[1.05] transition-all duration-500">
-              Visual Website Feedback Tool. <br />
-              <span className="text-gradient-purple font-black">Faster Bug Reporting.</span>
+              Visual Website Feedback Tool <br />
+              <span className="text-gradient-purple font-black">& Visual Bug Reporting.</span>
             </h1>
 
             <p className="text-xs md:text-sm text-pm-muted leading-relaxed max-w-lg font-sans">
-              Get visual client review links instantly. Drop annotations directly on live websites, capture visual QA feedback, and streamline design reviews without screenshots or extensions.
+              Share secure client review links to pin visual feedback, annotations, and QA comments directly on live pages. The visual UI feedback tool and design review software built for teams who want to sign off website changes faster.
             </p>
 
             {/* URL Interactive Input */}
@@ -779,7 +779,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                           </h2>
                           
                           <p className="text-[10px] text-pm-muted leading-relaxed font-sans">
-                            From automated sandboxes to precision DOM debugging tools, we turn complex workflows into friction-free user experiences.
+                            From automated sandboxes to precision website annotation tools, we turn complex workflows into friction-free user experiences.
                           </p>
                           
                           <button 
@@ -1031,7 +1031,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                       {activeMode === 'shadow-dom' && (
                         <div className="text-center mt-6 space-y-4 w-full h-full flex flex-col justify-center items-center">
                           <span className="text-[9px] uppercase font-bold tracking-widest text-pm-accent bg-pm-accent-subtle px-2.5 py-0.5 rounded-full border border-pm-border-bright">
-                            Shadow DOM Traversal
+                            Encapsulated Element Traversal
                           </span>
                           
                           <div className="w-full max-w-sm bg-pm-surface-2/65 border border-pm-border rounded-xl p-4 text-left space-y-3 font-mono">
