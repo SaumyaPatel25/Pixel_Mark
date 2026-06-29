@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layout, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Layout, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import PixelSentinel from '@/components/auth/PixelSentinel';
 import { useMascotFormState } from '@/hooks/useMascotFormState';
 import { event as trackEvent } from '@/lib/analytics';
@@ -120,6 +120,16 @@ export default function RegisterClient() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-[#09090e] p-4 text-white font-sans overflow-hidden">
+      
+      {/* Back to Home Button */}
+      <Link 
+        href="/"
+        className="absolute top-6 left-6 z-50 flex items-center gap-2 px-3 py-2 text-white/50 hover:text-white hover:bg-white/5 rounded-xl transition-all text-xs font-bold uppercase tracking-widest group"
+      >
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+        Back to Home
+      </Link>
+
       {/* Ambient background decoration blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
         <motion.div 
