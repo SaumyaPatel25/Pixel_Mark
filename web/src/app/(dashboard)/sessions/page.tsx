@@ -183,7 +183,7 @@ function SessionsList() {
                     Audit Canvas
                   </Link>
                   <Link
-                    href={`/dashboard/sessions/${s.id}`}
+                    href={`/sessions/${s.id}`}
                     className="h-10 px-4 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] text-white/70 hover:text-white text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all"
                   >
                     <Compass className="w-3.5 h-3.5 text-cyan-400" />

@@ -416,7 +416,7 @@ export default function DashboardPage() {
                   <motion.div key={p.id} variants={staggerItem}>
                     <ProjectCard
                       project={p}
-                      onClick={() => router.push(`/dashboard/sessions?project=${p.id}`)}
+                      onClick={() => router.push(`/sessions?project=${p.id}`)}
                       sessionsCount={p.sessions.length}
                       activeSessionsCount={p.sessions.filter((s: any) => new Date(s.updated_at || s.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000).length}
                       markersCount={p.markers.length}
