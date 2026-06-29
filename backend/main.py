@@ -13,6 +13,7 @@ from routers.review import router as review_router
 from routers.ai import router as ai_router
 from routers.ai_provider_configs import router as ai_provider_configs_router
 from routers.dom_edits import router as dom_edits_router
+from routers.settings import router as settings_router
 
 
 logger = logging.getLogger("uvicorn")
@@ -77,7 +78,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
     reserved_prefixes = (
         "/auth", "/projects", "/sessions", "/markers", "/canvas", "/shares", 
         "/proxy", "/export", "/websocket", "/health", "/static", "/docs", "/openapi.json",
-        "/share-links", "/review", "/ai"
+        "/share-links", "/review", "/ai", "/waitlist", "/settings"
     )
     is_reserved = any(path.startswith(prefix) for prefix in reserved_prefixes)
     
@@ -341,10 +342,35 @@ app.include_router(websocket.router)
 app.include_router(flags.router)
 app.include_router(screenshot.router)
 app.include_router(dom_edits_router)
+app.include_router(settings_router)
 
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "2.0.0"}
+
+@app.post("/waitlist")
+async def add_to_waitlist(request: Request):
+    from database import AsyncSessionLocal
+    from models import Waitlist
+    from fastapi import HTTPException
+    
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+        
+    email = body.get("email")
+    source = body.get("source", "unknown")
+    
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Invalid email address")
+        
+    async with AsyncSessionLocal() as session_db:
+        entry = Waitlist(email=email, source=source)
+        session_db.add(entry)
+        await session_db.commit()
+        
+    return {"success": True, "message": "You're on the list! We'll email you when it launches."}
 
 @app.post("/resolve-token/{token}")
 async def resolve_token(token: str, request: Request):

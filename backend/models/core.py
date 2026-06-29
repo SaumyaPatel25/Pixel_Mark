@@ -45,6 +45,11 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    verification_token: Mapped[str] = mapped_column(String, nullable=True)
+    verification_token_expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
+    reset_token: Mapped[str] = mapped_column(String, nullable=True)
+    reset_token_expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
     org_memberships: Mapped[list["OrgMember"]] = relationship(back_populates="user")
     ai_provider_configs: Mapped[list["UserAIProviderConfig"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
@@ -301,4 +306,51 @@ class DOMEdit(Base):
     created_by: Mapped[str] = mapped_column(String, nullable=True)
     
     session: Mapped["Session"] = relationship()
+
+
+class AuthToken(Base):
+    __tablename__ = "auth_tokens"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    purpose: Mapped[str] = mapped_column(String, nullable=False)  # verify_email | login_link | password_reset
+    expires_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False)
+    used_at: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+
+
+class UserIdentity(Base):
+    __tablename__ = "user_identities"
+    __table_args__ = (UniqueConstraint('provider', 'provider_user_id', name='uq_provider_user'),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(String, nullable=False)  # google | github
+    provider_user_id: Mapped[str] = mapped_column(String, nullable=False)
+    provider_email: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Waitlist(Base):
+    __tablename__ = "waitlist"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    source: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    masked_token: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_used_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
+    key_metadata: Mapped[dict] = mapped_column(JSON, nullable=True)
 

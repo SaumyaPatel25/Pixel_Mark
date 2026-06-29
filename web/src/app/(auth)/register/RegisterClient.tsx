@@ -9,6 +9,7 @@ import { Layout, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import PixelSentinel from '@/components/auth/PixelSentinel';
 import { useMascotFormState } from '@/hooks/useMascotFormState';
 import { event as trackEvent } from '@/lib/analytics';
+import { api } from '@/lib/api';
 
 type ScenePhase = 'intro' | 'sidePosition' | 'projecting' | 'submitting' | 'success' | 'error' | 'returnCenter';
 
@@ -19,9 +20,10 @@ export default function RegisterClient() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-
   const [showPassword, setShowPassword] = useState(false);
   const [phase, setPhase] = useState<ScenePhase>('intro');
+  const [devVerificationLink, setDevVerificationLink] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
   // Password strength logic
   const getPasswordStrength = (pwd: string): 'none' | 'weak' | 'strong' => {
@@ -81,20 +83,15 @@ export default function RegisterClient() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setDevVerificationLink(null);
     setPhase('submitting');
     try {
-      await register(email, password, name || undefined);
+      const res = await register(email, password, name || undefined);
       trackEvent({ action: 'sign_up', category: 'auth' });
+      if (res && res.dev_link) {
+        setDevVerificationLink(res.dev_link);
+      }
       setPhase('success');
-      
-      // Delay to play victory animation
-      setTimeout(() => {
-        setPhase('returnCenter');
-        // Delay for center-glide return
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 800);
-      }, 1400);
     } catch (err: any) {
       setError(err.message || 'Registration failed');
       setPhase('error');
@@ -103,6 +100,19 @@ export default function RegisterClient() {
       setTimeout(() => {
         setPhase('projecting');
       }, 1500);
+    }
+  };
+
+  const handleResend = async () => {
+    setResendStatus('sending');
+    try {
+      await api.auth.resendVerification(email);
+      setResendStatus('success');
+      setTimeout(() => {
+        setResendStatus('idle');
+      }, 5000);
+    } catch (err: any) {
+      setResendStatus('error');
     }
   };
 
@@ -235,11 +245,30 @@ export default function RegisterClient() {
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-xl leading-relaxed"
+                      className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-xl leading-relaxed text-center"
                     >
                       {error}
                     </motion.div>
                   )}
+
+                  {/* Social Logins */}
+                  <div className="flex justify-center">
+                    <a
+                      href={`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765'}/auth/oauth/github/start`}
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-white/[0.02] hover:bg-white/[0.05] border border-white/10 rounded-xl transition-all duration-300 group cursor-pointer text-xs font-bold text-white"
+                    >
+                      <svg className="w-4 h-4 text-white/60 group-hover:text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                      </svg>
+                      Sign up with GitHub
+                    </a>
+                  </div>
+                  
+                  <div className="relative flex py-1 items-center">
+                    <div className="flex-grow border-t border-white/5"></div>
+                    <span className="flex-shrink mx-4 text-[9px] font-bold text-white/20 uppercase tracking-widest">or email & password</span>
+                    <div className="flex-grow border-t border-white/5"></div>
+                  </div>
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
@@ -327,6 +356,54 @@ export default function RegisterClient() {
                   <div className="text-center pt-2">
                     <Link href="/login" className="text-cyan-400 hover:text-cyan-300 text-xs transition-colors font-bold uppercase tracking-widest text-[10px]">
                       Already have an account? Sign in
+                    </Link>
+                  </div>
+                </motion.div>
+              )}
+
+              {phase === 'success' && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8, x: -30 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.85, x: -15, filter: 'blur(4px)' }}
+                  transition={{ duration: 0.4, ease: 'easeOut' }}
+                  style={{
+                    originX: 0,
+                    backgroundImage: 'linear-gradient(rgba(6, 182, 212, 0.02) 1px, transparent 1px)',
+                    backgroundSize: '100% 4px',
+                  }}
+                  className="w-full max-w-md bg-indigo-950/5 backdrop-blur-2xl border border-cyan-500/20 rounded-[32px] p-8 space-y-6 shadow-[0_0_50px_rgba(6,182,212,0.1)] text-center relative"
+                >
+                  <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400 rounded-tl-lg" />
+                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400 rounded-tr-lg" />
+                  <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 rounded-bl-lg" />
+                  <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 rounded-br-lg" />
+
+                  <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                    ✉️
+                  </div>
+
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-black italic tracking-tight text-white">Check your email</h2>
+                    <p className="text-xs text-white/40 leading-relaxed max-w-xs mx-auto">
+                      We've sent a verification link to <strong className="text-white">{email}</strong>. Please check your inbox and click the link to activate your account.
+                    </p>
+                  </div>
+
+                  <div className="border-t border-white/5 pt-4 flex flex-col gap-3">
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={resendStatus === 'sending'}
+                      className="w-full py-3 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 text-xs transition-colors font-bold uppercase tracking-widest text-[10px] rounded-xl cursor-pointer disabled:opacity-50"
+                    >
+                      {resendStatus === 'sending' ? 'Resending...' :
+                       resendStatus === 'success' ? 'Verification email resent!' :
+                       resendStatus === 'error' ? 'Resend failed. Retry.' :
+                       'Resend verification email'}
+                    </button>
+                    <Link href="/login" className="text-white/40 hover:text-white text-xs transition-colors font-bold uppercase tracking-widest text-[10px] block py-2">
+                      Back to sign in
                     </Link>
                   </div>
                 </motion.div>

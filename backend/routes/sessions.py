@@ -2,12 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
-from models import Session, PageVisit, Marker, AuditArtifact, ShareLink, CanvasFrame
+from models import Session, PageVisit, Marker, AuditArtifact, ShareLink, CanvasFrame, Project, OrgMember, User
 from schemas import (
     SessionCreate, SessionOut, PageVisitOut, SessionRendererUpdate,
     FeedbackCreate, FeedbackUpdate, FeedbackOut, FeedbackListOut
 )
-from dependencies import get_db
+from dependencies import get_db, get_current_user
 import uuid
 from datetime import datetime
 from typing import Optional, List
@@ -17,6 +17,20 @@ import logging
 
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
+
+@router.get("/", response_model=list[SessionOut])
+async def list_all_sessions(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalar_one_or_none()
+    if not member:
+        return []
+    
+    result = await db.execute(
+        select(Session)
+        .join(Project, Session.project_id == Project.id)
+        .where(Project.org_id == member.org_id)
+    )
+    return result.scalars().all()
 
 @router.post("/", response_model=SessionOut)
 async def create_session(data: SessionCreate, db: AsyncSession = Depends(get_db)):

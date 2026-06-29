@@ -484,3 +484,48 @@ class DOMEditRead(BaseModel):
     class Config:
         from_attributes = True
 
+# Email Auth Flow Schemas
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+class RequestPasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: Optional[str] = None
+    new_password: Optional[str] = None
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+class MessageResponse(BaseModel):
+    message: str
+    dev_link: Optional[str] = None
+
+
+class ApiKeyCreate(BaseModel):
+    name: str
+
+class ApiKeyRead(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    masked_token: str
+
+    class Config:
+        from_attributes = True
+
+class ApiKeyCreatedResponse(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+    raw_token: str
+
+    class Config:
+        from_attributes = True
+
+
+

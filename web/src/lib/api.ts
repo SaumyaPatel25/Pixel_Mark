@@ -20,6 +20,14 @@ async function request(path: string, options: RequestInit = {}) {
   })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      if (typeof window !== 'undefined') {
+        import('../store/authStore').then((mod) => {
+          mod.useAuthStore.getState().logout()
+          window.location.href = '/login'
+        }).catch(() => {})
+      }
+    }
     let detail: any = 'An error occurred'
     try {
       const errData = await response.json()
@@ -168,6 +176,15 @@ export const api = {
   proxyUrl(url: string) {
     return `${BASE_URL}/proxy?url=${encodeURIComponent(url)}`
   },
+  async getProjects() {
+    return this.projects.list()
+  },
+  async getAllSessions() {
+    return apiQueue.enqueueRead('Loading all sessions...', () => request('/sessions/'))
+  },
+  async getAllMarkers() {
+    return apiQueue.enqueueRead('Loading all markers...', () => request('/markers/'))
+  },
   // AUTH
   auth: {
     async register(email: string, password: string, name?: string) {
@@ -184,6 +201,29 @@ export const api = {
     },
     async me() {
       return apiQueue.enqueueRead('Loading user...', () => request('/auth/me'))
+    },
+    async verifyEmail(token: string): Promise<{ message: string }> {
+      return apiQueue.enqueueWrite('Verifying email...', () => request(`/auth/verify-email?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+      }))
+    },
+    async requestPasswordReset(email: string): Promise<{ message: string, dev_link?: string }> {
+      return apiQueue.enqueueWrite('Requesting password reset...', () => request('/auth/request-password-reset', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }))
+    },
+    async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+      return apiQueue.enqueueWrite('Resetting password...', () => request('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token, new_password: newPassword }),
+      }))
+    },
+    async resendVerification(email: string): Promise<{ message: string, dev_link?: string }> {
+      return apiQueue.enqueueWrite('Resending verification email...', () => request('/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }))
     },
   },
 
@@ -481,6 +521,20 @@ export const api = {
         method: 'GET',
       }))
     }
+  },
+  settings: {
+    async getApiKeys() {
+      return getApiKeys()
+    },
+    async createApiKey(name: string) {
+      return createApiKey(name)
+    },
+    async rotateApiKey(id: string) {
+      return rotateApiKey(id)
+    },
+    async revokeApiKey(id: string) {
+      return revokeApiKey(id)
+    }
   }
 }
 
@@ -518,7 +572,50 @@ export async function testAIProviderConfig(id: string): Promise<TestAIProviderCo
   return apiQueue.enqueueWrite('Testing AI provider connection...', () => request(`/ai/providers/${id}/test`, { method: 'POST' }))
 }
 
+export interface ApiKey {
+  id: string
+  name: string
+  created_at: string
+  last_used_at: string | null
+  revoked_at: string | null
+  masked_token: string
+}
 
+export interface ApiKeyCreatedResponse {
+  id: string
+  name: string
+  created_at: string
+  raw_token: string
+}
+
+export async function getApiKeys(): Promise<ApiKey[]> {
+  return request('/settings/api-keys')
+}
+
+export async function createApiKey(name: string): Promise<ApiKeyCreatedResponse> {
+  return apiQueue.enqueueWrite('Creating API key...', () =>
+    request('/settings/api-keys', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    })
+  )
+}
+
+export async function rotateApiKey(id: string): Promise<ApiKeyCreatedResponse> {
+  return apiQueue.enqueueWrite('Rotating API key...', () =>
+    request(`/settings/api-keys/${id}/rotate`, {
+      method: 'POST',
+    })
+  )
+}
+
+export async function revokeApiKey(id: string): Promise<{ success: boolean; message: string }> {
+  return apiQueue.enqueueWrite('Revoking API key...', () =>
+    request(`/settings/api-keys/${id}`, {
+      method: 'DELETE',
+    })
+  )
+}
 
 // AI Session Endpoints
 import { TriageResult, SessionSummary } from '../types/ai'

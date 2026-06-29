@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from models import Marker, Session, User, ShareLink, AuditArtifact
+from models import Marker, Session, User, ShareLink, AuditArtifact, Project, OrgMember
 from schemas import MarkerCreate, MarkerUpdate, MarkerOut
 from dependencies import get_db, get_current_user
 import uuid
@@ -11,10 +11,20 @@ from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/markers", tags=["markers"])
 
-async def mock_screenshot_capture_job(marker_id: str):
-    import asyncio
-    await asyncio.sleep(1)
-    print(f"[JOB] Enqueued screenshot captured successfully for marker {marker_id}")
+@router.get("/", response_model=list[MarkerOut])
+async def list_all_markers(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalar_one_or_none()
+    if not member:
+        return []
+    
+    result = await db.execute(
+        select(Marker)
+        .join(Session, Marker.session_id == Session.id)
+        .join(Project, Session.project_id == Project.id)
+        .where(Project.org_id == member.org_id)
+    )
+    return result.scalars().all()
 
 @router.post("/", response_model=MarkerOut)
 async def create_marker(

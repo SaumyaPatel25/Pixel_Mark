@@ -171,7 +171,7 @@ def prepare_proxy_response(response: Response) -> Response:
     for header in HEADERS_TO_STRIP:
         for k in list(response.headers.keys()):
             if k.lower() == header:
-                response.headers.pop(k, None)
+                del response.headers[k]
 
     return response
 

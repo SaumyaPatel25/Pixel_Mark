@@ -4,7 +4,7 @@ import React, { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
-import { LayoutDashboard, Folder, LogOut } from 'lucide-react'
+import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download } from 'lucide-react'
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -19,10 +19,10 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     const activeToken = token || (typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null)
     if (!activeToken) {
       router.push('/login')
-    } else if (!user) {
+    } else {
       fetchMe()
     }
-  }, [user, token, router, fetchMe])
+  }, [router, fetchMe])
 
   const handleSignOut = () => {
     logout()
@@ -76,6 +76,37 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               <Folder className="w-4 h-4" />
               Projects
             </Link>
+            <Link 
+              href="/docs/api" 
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                pathname === '/docs/api' 
+                  ? 'bg-white/5 text-white font-semibold' 
+                  : 'text-gray-400 hover:text-white hover:bg-white/[0.02]'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              Developer API Docs
+            </Link>
+            <Link 
+              href="/support/diagnostics" 
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                pathname === '/support/diagnostics' 
+                  ? 'bg-white/5 text-white font-semibold' 
+                  : 'text-gray-400 hover:text-white hover:bg-white/[0.02]'
+              }`}
+            >
+              <HelpCircle className="w-4 h-4" />
+              Diagnostic Support
+            </Link>
+            <div 
+              className="flex items-center justify-between px-3 py-2 rounded-xl text-sm text-gray-500 cursor-not-allowed select-none"
+            >
+              <div className="flex items-center gap-3">
+                <Download className="w-4 h-4 text-gray-600" />
+                <span>Chrome Extension</span>
+              </div>
+              <span className="text-[8px] font-black uppercase bg-purple-500/10 border border-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded">Soon</span>
+            </div>
           </nav>
         </div>
 

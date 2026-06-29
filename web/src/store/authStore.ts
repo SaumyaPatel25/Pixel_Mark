@@ -13,8 +13,11 @@ interface AuthState {
   user: User | null
   token: string | null
   isLoading: boolean
+  isVerifying: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name?: string) => Promise<void>
+  register: (email: string, password: string, name?: string) => Promise<{ message: string, dev_link?: string }>
+  verifyEmail: (token: string) => Promise<void>
+  oauthLogin: (token: string) => Promise<void>
   logout: () => void
   fetchMe: () => Promise<void>
 }
@@ -25,6 +28,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isLoading: false,
+      isVerifying: false,
 
       login: async (email, password) => {
         set({ isLoading: true })
@@ -33,12 +37,10 @@ export const useAuthStore = create<AuthState>()(
           const token = res.access_token
           localStorage.setItem('pm_token', token)
           document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
-          set({ token })
-          const meRes = await api.auth.me()
-          set({ user: meRes })
+          set({ token, user: res.user })
           // Identify the user in PostHog
-          if (typeof window !== 'undefined') {
-            posthog.identify(meRes.id, { email: meRes.email, name: meRes.name ?? undefined })
+          if (typeof window !== 'undefined' && res.user) {
+            posthog.identify(res.user.id, { email: res.user.email, name: res.user.name ?? undefined })
           }
         } finally {
           set({ isLoading: false })
@@ -48,19 +50,18 @@ export const useAuthStore = create<AuthState>()(
       register: async (email, password, name) => {
         set({ isLoading: true })
         try {
-          const res = await api.auth.register(email, password, name)
-          const token = res.access_token
-          localStorage.setItem('pm_token', token)
-          document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
-          set({ token })
-          const meRes = await api.auth.me()
-          set({ user: meRes })
-          // Identify the new user in PostHog
-          if (typeof window !== 'undefined') {
-            posthog.identify(meRes.id, { email: meRes.email, name: meRes.name ?? undefined })
-          }
+          return await api.auth.register(email, password, name)
         } finally {
           set({ isLoading: false })
+        }
+      },
+
+      verifyEmail: async (token) => {
+        set({ isVerifying: true })
+        try {
+          await api.auth.verifyEmail(token)
+        } finally {
+          set({ isVerifying: false })
         }
       },
 
@@ -79,6 +80,22 @@ export const useAuthStore = create<AuthState>()(
           set({ user: meRes })
         } catch (err) {
           get().logout()
+        } finally {
+          set({ isLoading: false })
+        }
+      },
+
+      oauthLogin: async (token) => {
+        set({ isLoading: true })
+        try {
+          localStorage.setItem('pm_token', token)
+          document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
+          set({ token })
+          const meRes = await api.auth.me()
+          set({ user: meRes })
+          if (typeof window !== 'undefined') {
+            posthog.identify(meRes.id, { email: meRes.email, name: meRes.name ?? undefined })
+          }
         } finally {
           set({ isLoading: false })
         }

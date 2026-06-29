@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import AsyncSessionLocal
-from models import User, OrgMember, RoleEnum
+from models import User, OrgMember, RoleEnum, ApiKey
 from auth import decode_token
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -18,13 +18,45 @@ async def get_current_user(
 ) -> User:
     if not credentials or not credentials.credentials:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    payload = decode_token(credentials.credentials)
-    user_id = payload.get("sub")
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
+    
+    token = credentials.credentials
+    if token.startswith("pm_"):
+        # API Key authentication
+        from services.crypto import hash_token
+        from datetime import datetime
+        
+        hashed = hash_token(token)
+        result = await db.execute(
+            select(ApiKey)
+            .where(ApiKey.token_hash == hashed)
+            .where(ApiKey.revoked_at.is_(None))
+        )
+        api_key = result.scalar_one_or_none()
+        if not api_key:
+            raise HTTPException(status_code=401, detail="Invalid or revoked API Key")
+            
+        # Update last_used_at
+        api_key.last_used_at = datetime.utcnow()
+        await db.commit()
+        
+        # Load user
+        user_result = await db.execute(select(User).where(User.id == api_key.user_id))
+        user = user_result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    else:
+        # Standard JWT Authentication
+        try:
+            payload = decode_token(token)
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        user_id = payload.get("sub")
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
 
 def require_role(minimum_role: RoleEnum):
     async def checker(org_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
