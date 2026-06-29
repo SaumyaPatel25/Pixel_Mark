@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,7 +15,8 @@ type ScenePhase = 'intro' | 'sidePosition' | 'projecting' | 'submitting' | 'succ
 
 export default function LoginClient() {
   const router = useRouter();
-  const { login, user } = useAuthStore();
+  const searchParams = useSearchParams();
+  const { login, user, logout } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -44,11 +45,20 @@ export default function LoginClient() {
   );
 
   useEffect(() => {
+    // Break infinite redirect loops: if the middleware redirected us here 
+    // (indicated by '?redirect=...'), but our local storage thinks we're 
+    // logged in, our token is stale or missing from cookies.
+    if (user && searchParams.get('redirect')) {
+      logout();
+      return;
+    }
+
     // Only auto-redirect if they are already logged in when landing on the page
-    if (user && (phase === 'intro' || phase === 'sidePosition' || phase === 'projecting')) {
+    // and no redirect parameter is present
+    if (user && !searchParams.get('redirect') && (phase === 'intro' || phase === 'sidePosition' || phase === 'projecting')) {
       window.location.href = '/dashboard';
     }
-  }, [user, phase]);
+  }, [user, phase, searchParams, logout]);
 
   // Intro -> Side Position Transition
   useEffect(() => {
