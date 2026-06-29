@@ -1,31 +1,35 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
-import { motion, useMotionValue, useSpring } from 'framer-motion'
-import { cn } from '@/lib/utils'
-import { Layout, Play, Share2, ExternalLink, Activity, FileText, Calendar } from 'lucide-react'
 
+import React, { useEffect, useState, useRef, useMemo } from 'react'
+import { motion, useMotionValue, useSpring } from 'framer-motion'
+import { Layout, Play, Share2, ExternalLink, Activity, FileText, Calendar, ShieldAlert } from 'lucide-react'
+
+// Reusable premium SVG Sparkline Component
 function Sparkline({ data }: { data: number[] }) {
   if (!data || !data.length) return <div className="w-24 h-8 bg-white/5 rounded-xl animate-pulse" />
   
   const max = Math.max(...data, 1)
-  const width = 100, height = 32
+  const min = Math.min(...data, 0)
+  const range = max - min
+  const width = 120, height = 36
   const step = width / (data.length - 1)
-  const points = data.map((v, i) => `${i * step},${height - (v / max) * height}`).join(' ')
+  
+  const points = data.map((v, i) => `${i * step},${height - ((v - min) / range) * height}`).join(' ')
   const areaPoints = `0,${height} ${points} ${width},${height} 0,${height}`
   
   return (
     <div className="flex flex-col items-end gap-1">
       <svg width={width} height={height} className="overflow-visible">
         <defs>
-          <linearGradient id="sparkArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
+          <linearGradient id="sparkAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.25" />
             <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
           </linearGradient>
         </defs>
         <motion.polyline 
           initial={{ pathLength: 0, opacity: 0 }}
           animate={{ pathLength: 1, opacity: 1 }}
-          transition={{ duration: 2, ease: "easeOut" }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
           fill="none" 
           stroke="#a78bfa" 
           strokeWidth="2" 
@@ -36,38 +40,48 @@ function Sparkline({ data }: { data: number[] }) {
         <motion.polygon 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.5 }}
-          fill="url(#sparkArea)"
+          transition={{ duration: 0.8, delay: 0.3 }}
+          fill="url(#sparkAreaGrad)"
           points={areaPoints}
         />
       </svg>
-      <span className="text-[8px] text-white/20 uppercase font-black tracking-widest">Telemetry</span>
+      <span className="text-[7px] text-white/20 uppercase font-black tracking-widest mt-0.5">Auditing Trend</span>
     </div>
   )
 }
 
-function HealthRing({ score }: { score: number }) {
-  const r = 22, circ = 2 * Math.PI * r
-  const dash = (score / 100) * circ
-  const color = score >= 80 ? '#22c55e' : score >= 50 ? '#eab308' : '#ef4444'
+// Reusable Circular Progress / Completion Ring Component
+function ProgressRing({ resolved, total }: { resolved: number; total: number }) {
+  const percent = total > 0 ? Math.round((resolved / total) * 100) : 0
+  const r = 20, circ = 2 * Math.PI * r
+  const dash = (percent / 100) * circ
+  
+  // Color guidelines: Success (Green), Pending (Amber), Zero/Idle (Slate)
+  const color = total === 0 ? '#64748b' : percent === 100 ? '#10b981' : '#f59e0b'
   
   return (
-    <div className="relative group/ring flex-shrink-0">
-      <div className="absolute inset-0 rounded-full blur-xl opacity-20 transition-all group-hover/ring:opacity-40 animate-pulse" style={{ background: color }} />
-      <svg width="60" height="60" className="-rotate-90 relative z-10">
-        <circle cx="30" cy="30" r={r} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="4" />
+    <div className="relative group/ring flex-shrink-0 flex items-center justify-center">
+      <div className="absolute inset-0 rounded-full blur-lg opacity-10 transition-all group-hover/ring:opacity-30" style={{ background: color }} />
+      <svg width="52" height="52" className="-rotate-90 relative z-10">
+        <circle cx="26" cy="26" r={r} fill="none" stroke="rgba(255,255,255,0.02)" strokeWidth="3.5" />
         <motion.circle 
-          cx="30" cy="30" r={r} fill="none" stroke={color} strokeWidth="4"
+          cx="26" cy="26" r={r} fill="none" stroke={color} strokeWidth="3.5"
           initial={{ strokeDasharray: `0 ${circ}` }}
-          animate={{ strokeDasharray: `${dash} ${circ}` }}
-          transition={{ duration: 1.5, ease: "circOut" }}
+          animate={{ strokeDasharray: `${total > 0 ? dash : 0} ${circ}` }}
+          transition={{ duration: 1.2, ease: "circOut" }}
           strokeLinecap="round"
         />
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center z-20">
-        <span className="text-sm font-black tracking-tighter" style={{ color }}>
-          {score}
-        </span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+        {total > 0 ? (
+          <span className="text-xs font-black tracking-tighter" style={{ color }}>
+            {percent}%
+          </span>
+        ) : (
+          <span className="text-[10px] font-black tracking-tighter text-slate-500">
+            0
+          </span>
+        )}
       </div>
     </div>
   )
@@ -98,18 +112,12 @@ export function ProjectCard({
   onShare,
   analytics: propAnalytics = null
 }: ProjectCardProps) {
-  const [localAnalytics, setLocalAnalytics] = useState<any>(null)
-  const [loading, setLoading] = useState(!propAnalytics)
-  const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765'
-  
-  const analytics = propAnalytics || localAnalytics
-  
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
   const cardRef = useRef<HTMLDivElement>(null)
 
-  const springX = useSpring(mouseX, { stiffness: 300, damping: 30 })
-  const springY = useSpring(mouseY, { stiffness: 300, damping: 30 })
+  const springX = useSpring(mouseX, { stiffness: 250, damping: 25 })
+  const springY = useSpring(mouseY, { stiffness: 250, damping: 25 })
 
   function handleMouse(e: React.MouseEvent) {
     if (!cardRef.current) return
@@ -118,29 +126,64 @@ export function ProjectCard({
     mouseY.set(e.clientY - rect.top)
   }
 
-  useEffect(() => {
-    if (propAnalytics) return
-    let active = true
-    const fetchAnalytics = async () => {
-      try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
-        const headers: Record<string, string> = {}
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`
-        }
-        const res = await fetch(`${BASE}/projects/${project.id}/analytics`, { headers })
-        const data = await res.json()
-        if (active) {
-          setLocalAnalytics(data)
-          setLoading(false)
-        }
-      } catch (err) {
-        if (active) setLoading(false)
+  // Calculate live statistics directly from project markers
+  const markers = project.markers || []
+  const total = markers.length
+  const resolved = markers.filter((m: any) => m.status?.toLowerCase() === 'resolved').length
+  const pending = total - resolved
+  const critical = markers.filter(
+    (m: any) => m.priority?.toLowerCase() === 'critical' && m.status?.toLowerCase() !== 'resolved'
+  ).length
+
+  // Compute status badge
+  const status = useMemo(() => {
+    if (sessionsCount === 0 && total === 0) {
+      return {
+        label: 'Idle',
+        color: 'text-slate-400 border-slate-500/10 bg-slate-500/5',
+        dot: 'bg-slate-500'
       }
     }
-    fetchAnalytics()
-    return () => { active = false }
-  }, [project.id, BASE, propAnalytics])
+    if (critical > 0 || (total > 0 && resolved / total < 0.4)) {
+      return {
+        label: 'At Risk',
+        color: 'text-rose-400 border-rose-500/20 bg-rose-500/5',
+        dot: 'bg-rose-500 shadow-[0_0_8px_#f43f5e]'
+      }
+    }
+    return {
+      label: 'Operational',
+      color: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5',
+      dot: 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
+    }
+  }, [sessionsCount, total, critical, resolved])
+
+  // Generate live activity trend based on marker creation timestamps
+  const activityData = useMemo(() => {
+    if (total === 0) {
+      return [0, 0, 0, 0, 0, 0, 0]
+    }
+    const sorted = [...markers].sort(
+      (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+    
+    const points: number[] = []
+    let acc = 0
+    sorted.forEach(() => {
+      acc++
+      points.push(acc)
+    })
+    
+    while (points.length < 7) {
+      points.unshift(0)
+    }
+    
+    if (points.length > 7) {
+      const step = (points.length - 1) / 6
+      return Array.from({ length: 7 }, (_, i) => points[Math.round(i * step)])
+    }
+    return points
+  }, [markers, total])
 
   return (
     <motion.div 
@@ -157,130 +200,164 @@ export function ProjectCard({
           onClick()
         }
       }}
-      className="w-full cursor-pointer text-left bg-[#0c0c0e] border border-white/5 rounded-[24px] p-6 transition-all group overflow-hidden relative shadow-2xl hover:shadow-purple-500/10 hover:border-white/10 focus:outline-none focus:border-purple-500/40"
+      className="w-full cursor-pointer text-left bg-[#0c0c0e]/90 border border-white/5 rounded-[24px] p-6 transition-all group overflow-hidden relative shadow-2xl hover:shadow-purple-500/5 hover:border-white/10 focus:outline-none focus:border-purple-500/40"
     >
-      {/* Spotlight Effect */}
+      {/* Spotlight Hover Glow Effect */}
       <motion.div 
         className="absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
         style={{
-          background: `radial-gradient(400px circle at ${springX}px ${springY}px, rgba(168, 85, 247, 0.08), transparent 45%)`
+          background: `radial-gradient(350px circle at ${springX}px ${springY}px, rgba(139, 92, 246, 0.07), transparent 50%)`
         }}
       />
 
-      <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+      <div className="relative z-10 flex flex-col h-full justify-between gap-5">
         
-        {/* Header Row */}
+        {/* ── TOP SECTION: TITLE, BADGES, PROGRESS RING ── */}
         <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_#06b6d4] animate-pulse" />
-              <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.25em]">Operational</span>
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Status Badge */}
+              <div className={`inline-flex items-center gap-1.5 py-0.5 px-2.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${status.color}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                {status.label}
+              </div>
+              
+              {/* Domain Chip */}
+              {project.url && (
+                <div className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-white/[0.02] border border-white/5 text-[9px] font-bold text-white/40 group-hover:text-purple-400 group-hover:border-purple-500/10 transition-colors">
+                  <span className="truncate max-w-[140px]">
+                    {project.url.replace(/^https?:\/\//, '')}
+                  </span>
+                  <ExternalLink className="w-2 h-2 opacity-50 flex-shrink-0" />
+                </div>
+              )}
             </div>
             
-            <h3 className="text-white font-black text-2xl tracking-tight leading-none group-hover:text-purple-400 transition-colors truncate">
+            <h3 className="text-white font-black text-2xl tracking-tight leading-tight group-hover:text-purple-400 transition-colors truncate">
               {project.name}
             </h3>
             
-            <p className="text-white/30 text-[10px] uppercase font-bold tracking-wider leading-relaxed mt-2 line-clamp-1">
-              {project.description || "No description provided for this substrate."}
+            <p className="text-white/35 text-xs leading-normal line-clamp-1">
+              {project.description || "No description provided for this project."}
             </p>
           </div>
           
-          {analytics ? (
-            <HealthRing score={analytics.health_score ?? 100} />
-          ) : loading ? (
-            <div className="w-14 h-14 rounded-full border border-white/5 animate-pulse flex-shrink-0" />
-          ) : (
-            <HealthRing score={100} />
-          )}
+          {/* Circular Progress Completion Ring */}
+          <ProgressRing resolved={resolved} total={total} />
         </div>
 
-        {/* Dynamic Target Environment URL Tag */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 py-1 px-3 rounded-lg bg-white/[0.02] border border-white/5 text-[9px] font-bold text-white/40 group-hover:border-purple-500/20 group-hover:text-purple-400/90 transition-colors w-fit">
-            <span className="truncate max-w-[200px]">
-              {project.url?.replace(/^https?:\/\//, '') || 'no-environment'}
-            </span>
-            <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+        {/* ── MIDDLE SECTION: DETAILED PROGRESS & TREND GRAPH ── */}
+        <div className="grid grid-cols-5 items-center gap-4 bg-white/[0.01] border border-white/[0.03] rounded-2xl p-4">
+          {/* Progress Metrics text */}
+          <div className="col-span-3 space-y-1">
+            {total > 0 ? (
+              <>
+                <p className="text-[10px] text-white/35 uppercase font-black tracking-widest leading-none">
+                  Completion Rate
+                </p>
+                <p className="text-base font-black text-white leading-none">
+                  {resolved} / {total}{' '}
+                  <span className="text-[11px] font-bold text-emerald-400/90 tracking-wide">
+                    Resolved
+                  </span>
+                </p>
+                {pending > 0 && (
+                  <p className="text-[10px] font-medium text-amber-500/85">
+                    {pending} pending issues waiting
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-[10px] text-white/30 uppercase font-black tracking-widest leading-none">
+                  Substrate Health
+                </p>
+                <p className="text-xs font-bold text-white/50 leading-relaxed pt-0.5">
+                  No markers logged yet
+                </p>
+              </>
+            )}
+          </div>
+          
+          {/* Mini Sparkline Graph */}
+          <div className="col-span-2 flex justify-end">
+            <Sparkline data={activityData} />
           </div>
         </div>
 
-        {/* Telemetry Metrics and Telemetry Sparkline */}
-        <div className="grid grid-cols-2 items-end pt-4 border-t border-white/[0.03]">
+        {/* ── BOTTOM SECTION: METRICS GRID & CTAS ── */}
+        <div className="flex items-center justify-between gap-4 pt-3 border-t border-white/[0.03] relative min-h-[40px]">
           
-          {/* Detailed stats */}
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              <div className="flex items-center gap-1.5 text-white/40">
-                <Activity className="w-3.5 h-3.5 text-cyan-500" />
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-black uppercase tracking-wider text-white/20 leading-none">Reviews</span>
-                  <span className="text-[11px] font-mono font-bold text-white/70 mt-0.5">
-                    {activeSessionsCount}/{sessionsCount} <span className="text-[8px] text-cyan-400 font-bold uppercase tracking-tight">Active</span>
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 text-white/40">
-                <FileText className="w-3.5 h-3.5 text-purple-400" />
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-black uppercase tracking-wider text-white/20 leading-none">Pins</span>
-                  <span className="text-[11px] font-mono font-bold text-white/70 mt-0.5">
-                    {markersCount.toString().padStart(2, '0')}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Last active timestamp */}
-            <div className="flex items-center gap-1 text-white/20">
-              <Calendar className="w-3 h-3" />
-              <span className="text-[9px] font-bold uppercase tracking-wide">
-                {lastActivity ? `Active ${lastActivity}` : 'No recent reviews'}
+          {/* Quick Metrics */}
+          <div className="flex items-center gap-4 text-[10px] font-bold text-white/40">
+            <div className="flex items-center gap-1">
+              <Activity className="w-3.5 h-3.5 text-purple-400" />
+              <span>
+                <strong className="text-white/70 font-mono">{sessionsCount}</strong>{' '}
+                {sessionsCount === 1 ? 'Session' : 'Sessions'}
               </span>
             </div>
+
+            <div className="flex items-center gap-1">
+              <FileText className={`w-3.5 h-3.5 ${pending > 0 ? 'text-amber-500' : 'text-slate-500'}`} />
+              <span>
+                <strong className={`font-mono ${pending > 0 ? 'text-amber-400' : 'text-white/70'}`}>
+                  {pending}
+                </strong>{' '}
+                Pending
+              </span>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-1 text-[9px] text-white/25">
+              <Calendar className="w-3 h-3" />
+              <span>{lastActivity ? `Active ${lastActivity}` : 'No reviews'}</span>
+            </div>
           </div>
 
-          {/* Sparkline column */}
-          <div className="flex justify-end pb-1 pr-1">
-            <Sparkline data={analytics?.activity || []} />
-          </div>
-        </div>
+          {/* Quick Action Button Group (Slides left/fades in on hover) */}
+          <div className="flex items-center gap-1.5 transition-all duration-300">
+            {/* Primary Workspace CTA Button */}
+            <span className="text-[10px] font-black uppercase bg-purple-600/10 border border-purple-500/25 text-purple-300 group-hover:bg-purple-600 group-hover:text-white px-4 py-1.5 rounded-xl transition-all select-none">
+              Open Workspace →
+            </span>
 
-        {/* Quick Actions Panel (fades/slides up on hover) */}
-        <div className="absolute bottom-4 right-4 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto max-lg:opacity-100 max-lg:pointer-events-auto transition-all duration-300 transform translate-y-1 group-hover:translate-y-0 max-lg:translate-y-0 z-30">
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onOpenCanvas(e)
-            }}
-            title="Open Canvas"
-            className="h-8 w-8 rounded-xl bg-indigo-950/80 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/20 flex items-center justify-center transition-all active:scale-95"
-          >
-            <Layout className="w-3.5 h-3.5" />
-          </button>
-          
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onNewSession(e)
-            }}
-            title="Start New Review Session"
-            className="h-8 w-8 rounded-xl bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600 hover:text-white hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center transition-all active:scale-95"
-          >
-            <Play className="w-3.5 h-3.5" />
-          </button>
-          
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onShare(e)
-            }}
-            title="Get Client Link"
-            className="h-8 w-8 rounded-xl bg-purple-950/80 border border-purple-500/30 text-purple-400 hover:bg-purple-600 hover:text-white hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/20 flex items-center justify-center transition-all active:scale-95"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-          </button>
+            {/* Quick Action Overlays */}
+            <div className="absolute right-0 bottom-3 flex items-center gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 bg-[#0c0c0e] pl-4">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenCanvas(e)
+                }}
+                title="Launch Canvas Sandbox"
+                className="h-8 w-8 rounded-xl bg-purple-950/80 border border-purple-500/30 text-purple-400 hover:bg-purple-600 hover:text-white hover:border-purple-500 flex items-center justify-center transition-all active:scale-95"
+              >
+                <Layout className="w-3.5 h-3.5" />
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onNewSession(e)
+                }}
+                title="Start New Review Session"
+                className="h-8 w-8 rounded-xl bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600 hover:text-white hover:border-emerald-500 flex items-center justify-center transition-all active:scale-95"
+              >
+                <Play className="w-3.5 h-3.5" />
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onShare(e)
+                }}
+                title="Generate Client Share Link"
+                className="h-8 w-8 rounded-xl bg-indigo-950/80 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 flex items-center justify-center transition-all active:scale-95"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
         </div>
 
       </div>
