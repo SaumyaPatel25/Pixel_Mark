@@ -44,10 +44,11 @@ export default function LoginClient() {
   );
 
   useEffect(() => {
-    if (user) {
-      router.push('/dashboard');
+    // Only auto-redirect if they are already logged in when landing on the page
+    if (user && (phase === 'intro' || phase === 'sidePosition' || phase === 'projecting')) {
+      window.location.href = '/dashboard';
     }
-  }, [user, router]);
+  }, [user, phase]);
 
   // Intro -> Side Position Transition
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function LoginClient() {
         setPhase('returnCenter');
         // Delay for center-glide return
         setTimeout(() => {
-          router.push('/dashboard');
+          window.location.href = '/dashboard';
         }, 800);
       }, 1400);
     } catch (err: any) {

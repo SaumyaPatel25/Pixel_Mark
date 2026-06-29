@@ -42,7 +42,7 @@ export default function CallbackClient() {
         await oauthLogin(token);
         setStatus('success');
         setTimeout(() => {
-          router.push('/dashboard');
+          window.location.href = '/dashboard';
         }, 1500);
       } catch (err: any) {
         setError(err.message || 'Verification of token handshake failed.');

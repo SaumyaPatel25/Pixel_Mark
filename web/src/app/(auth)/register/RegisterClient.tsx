@@ -57,10 +57,10 @@ export default function RegisterClient() {
   );
 
   useEffect(() => {
-    if (user) {
-      router.push('/dashboard');
+    if (user && (phase === 'intro' || phase === 'sidePosition' || phase === 'projecting')) {
+      window.location.href = '/dashboard';
     }
-  }, [user, router]);
+  }, [user, phase]);
 
   // Intro -> Side Position Transition
   useEffect(() => {
