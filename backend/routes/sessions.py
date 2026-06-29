@@ -9,17 +9,46 @@ from schemas import (
 )
 from dependencies import get_db, get_current_user
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 from utils.ssrf_guard import is_ssrf_safe, is_domain_allowed
 from routes.proxy import resolve_session_base_url, validate_public_access
 import logging
+from services.cache import cache
+
+async def close_stale_sessions(db: AsyncSession):
+    logger = logging.getLogger("pixelmark.sessions.cleanup")
+    one_min_ago = datetime.utcnow() - timedelta(seconds=60)
+    
+    # Update active sessions with last_heartbeat_at < one_min_ago to status = "idle"
+    result = await db.execute(
+        select(Session)
+        .where(Session.status == "active")
+        .where(
+            (Session.last_heartbeat_at < one_min_ago) |
+            ((Session.last_heartbeat_at.is_(None)) & (Session.created_at < one_min_ago))
+        )
+    )
+    from services.cache import SYSTEM_METRICS
+    stale_sessions = result.scalars().all()
+    for s in stale_sessions:
+        s.status = "idle"
+        logger.info(f"[OBSERVABILITY] [SESSION_IDLE_AUTO_CLOSE] Session {s.id} marked as idle due to heartbeat timeout.")
+        SYSTEM_METRICS["idle_closures"] += 1
+    
+    if stale_sessions:
+        await db.commit()
 
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 @router.get("/", response_model=list[SessionOut])
 async def list_all_sessions(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    cache_key = f"user:{current_user.id}:sessions"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
     member = org_member.scalar_one_or_none()
     if not member:
@@ -30,16 +59,92 @@ async def list_all_sessions(current_user: User = Depends(get_current_user), db: 
         .join(Project, Session.project_id == Project.id)
         .where(Project.org_id == member.org_id)
     )
-    return result.scalars().all()
+    sessions = result.scalars().all()
+    
+    # Serialize to dictionary for safe caching
+    data = [
+        {
+            "id": s.id,
+            "project_id": s.project_id,
+            "title": s.title,
+            "current_page_url": s.current_page_url,
+            "pages_visited_count": s.pages_visited_count,
+            "created_at": s.created_at,
+            "updated_at": s.updated_at,
+            "renderer_type": s.renderer_type,
+            "heavy_mode": s.heavy_mode,
+            "conservative_render_mode": s.conservative_render_mode,
+            "render_detected_at": s.render_detected_at,
+            "canvas_count": s.canvas_count,
+            "has_webgl": s.has_webgl,
+            "has_three_js": s.has_three_js,
+            "status": s.status,
+            "last_heartbeat_at": s.last_heartbeat_at
+        } for s in sessions
+    ]
+    cache.set(cache_key, data, 15)
+    return data
 
 @router.post("/", response_model=SessionOut)
-async def create_session(data: SessionCreate, db: AsyncSession = Depends(get_db)):
+async def create_session(
+    data: SessionCreate,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Auto-clean stale sessions in the background
+    background_tasks.add_task(close_stale_sessions, db)
+
+    # 1. Reuse existing active session if created within a short window (5 minutes)
+    five_min_ago = datetime.utcnow() - timedelta(minutes=5)
+    existing_res = await db.execute(
+        select(Session)
+        .where(Session.project_id == data.project_id)
+        .where(Session.status == "active")
+        .where(Session.created_at >= five_min_ago)
+        .order_by(Session.created_at.desc())
+    )
+    existing = existing_res.scalars().first()
+    if existing:
+        # Recycle/reuse
+        logger = logging.getLogger("pixelmark.sessions.create")
+        logger.info(f"[OBSERVABILITY] [SESSION_REUSE] Reusing active session {existing.id} for project {data.project_id}")
+        SYSTEM_METRICS["session_reuses"] += 1
+        return existing
+
+    # 2. Enforce concurrency limits: max 3 active sessions per organization
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalar_one_or_none()
+    if member:
+        active_count_res = await db.execute(
+            select(func.count(Session.id))
+            .join(Project, Session.project_id == Project.id)
+            .where(Project.org_id == member.org_id)
+            .where(Session.status == "active")
+        )
+        active_count = active_count_res.scalar() or 0
+        if active_count >= 3:
+            logger = logging.getLogger("pixelmark.sessions.concurrency")
+            logger.warning(f"[OBSERVABILITY] [SESSION_LIMIT_EXCEEDED] Org {member.org_id} has {active_count} active sessions. Recycling oldest.")
+            # Close oldest active session(s)
+            oldest_res = await db.execute(
+                select(Session)
+                .join(Project, Session.project_id == Project.id)
+                .where(Project.org_id == member.org_id)
+                .where(Session.status == "active")
+                .order_by(Session.created_at.asc())
+            )
+            oldest = oldest_res.scalars().all()
+            for s in oldest[:(active_count - 2)]:
+                s.status = "closed"
+            await db.commit()
+
     title = data.title
     if not title or not title.strip():
         # Auto-title logic
         title = f"Session - {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
     
-    session = Session(id=str(uuid.uuid4()), project_id=data.project_id, title=title)
+    session = Session(id=str(uuid.uuid4()), project_id=data.project_id, title=title, status="active")
     db.add(session)
     await db.commit()
     await db.refresh(session)
@@ -64,20 +169,62 @@ async def create_session(data: SessionCreate, db: AsyncSession = Depends(get_db)
     db.add(frame)
     await db.commit()
     
+    # Invalidate cache keys affected by the mutation
+    cache.invalidate(f"user:{current_user.id}:*")
+    cache.invalidate("*:projects")
+    cache.invalidate("*:project:*:analytics")
+
     return session
 
 @router.get("/project/{project_id}", response_model=list[SessionOut])
-async def list_sessions(project_id: str, db: AsyncSession = Depends(get_db)):
+async def list_sessions(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     try:
         uuid.UUID(project_id)
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
+    cache_key = f"user:{current_user.id}:project:{project_id}:sessions"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     result = await db.execute(select(Session).where(Session.project_id == project_id))
-    return result.scalars().all()
+    sessions = result.scalars().all()
+    
+    # Serialize to dictionary for safe caching
+    data = [
+        {
+            "id": s.id,
+            "project_id": s.project_id,
+            "title": s.title,
+            "current_page_url": s.current_page_url,
+            "pages_visited_count": s.pages_visited_count,
+            "created_at": s.created_at,
+            "updated_at": s.updated_at,
+            "renderer_type": s.renderer_type,
+            "heavy_mode": s.heavy_mode,
+            "conservative_render_mode": s.conservative_render_mode,
+            "render_detected_at": s.render_detected_at,
+            "canvas_count": s.canvas_count,
+            "has_webgl": s.has_webgl,
+            "has_three_js": s.has_three_js,
+            "status": s.status,
+            "last_heartbeat_at": s.last_heartbeat_at
+        } for s in sessions
+    ]
+    cache.set(cache_key, data, 15)
+    return data
 
 @router.get("/{session_id}", response_model=SessionOut)
-async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     try:
         uuid.UUID(session_id)
     except ValueError:
@@ -90,7 +237,11 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     return session
 
 @router.delete("/{session_id}")
-async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     try:
         uuid.UUID(session_id)
     except ValueError:
@@ -103,14 +254,29 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
     
     await db.delete(session)
     await db.commit()
+
+    # Invalidate cache
+    cache.invalidate(f"user:{current_user.id}:*")
+    cache.invalidate("*:projects")
+    cache.invalidate("*:project:*:analytics")
+
     return {"deleted": True}
 
 @router.get("/{session_id}/stats")
-async def get_session_stats(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_session_stats(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     try:
         uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    cache_key = f"user:{current_user.id}:session:{session_id}:stats"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
         
     session_result = await db.execute(select(Session).where(Session.id == session_id))
     session = session_result.scalar_one_or_none()
@@ -152,7 +318,7 @@ async def get_session_stats(session_id: str, db: AsyncSession = Depends(get_db))
     )
     unique_pages = visits_result.scalar() or 0
     
-    return {
+    res_data = {
         "total": total,
         "by_priority": by_priority,
         "by_status": by_status,
@@ -160,6 +326,32 @@ async def get_session_stats(session_id: str, db: AsyncSession = Depends(get_db))
         "pages_visited": session.pages_visited or 0,
         "unique_pages": unique_pages
     }
+    cache.set(cache_key, res_data, 15)
+    return res_data
+
+@router.post("/{session_id}/heartbeat")
+async def session_heartbeat(
+    session_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+        
+    result = await db.execute(select(Session).where(Session.id == session_id))
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    session.last_heartbeat_at = datetime.utcnow()
+    session.status = "active"
+    await db.commit()
+
+    # Clean up stale sessions asynchronously
+    background_tasks.add_task(close_stale_sessions, db)
+    return {"status": "active", "last_heartbeat_at": session.last_heartbeat_at}
 
 @router.get("/{session_id}/pages", response_model=list[PageVisitOut])
 async def get_session_pages(session_id: str, db: AsyncSession = Depends(get_db)):

@@ -159,6 +159,23 @@ export function AuditSurface({
     }
   }, [])
 
+  // Send active heartbeat to the proxy/review session every 25 seconds to avoid idle auto-closure
+  useEffect(() => {
+    if (!sessionId) return
+    
+    api.sessions.sendHeartbeat(sessionId).catch(err => {
+      console.warn('[AuditSurface] Initial heartbeat failed:', err)
+    })
+    
+    const interval = setInterval(() => {
+      api.sessions.sendHeartbeat(sessionId).catch(err => {
+        console.warn('[AuditSurface] Periodic heartbeat failed:', err)
+      })
+    }, 25000)
+    
+    return () => clearInterval(interval)
+  }, [sessionId])
+
   // Page state
   const [currentUrl, setCurrentUrl] = useState('')
   const [currentTitle, setCurrentTitle] = useState('')

@@ -28,17 +28,93 @@ async def create_project(data: ProjectCreate, current_user: User = Depends(get_c
     db.add(project)
     await db.commit()
     await db.refresh(project)
+
+    # Invalidate cache
+    from services.cache import cache
+    cache.invalidate(f"user:{current_user.id}:*")
+
     return project
+
+@router.get("/dashboard/summary")
+async def get_dashboard_summary(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from services.cache import cache
+    cache_key = f"user:{current_user.id}:dashboard:summary"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalar_one_or_none()
+    if not member:
+        return {
+            "total_projects": 0,
+            "total_sessions": 0,
+            "total_markers": 0,
+            "open_issues": 0
+        }
+
+    proj_count_res = await db.execute(
+        select(func.count(Project.id)).where(Project.org_id == member.org_id)
+    )
+    total_projects = proj_count_res.scalar() or 0
+
+    sess_count_res = await db.execute(
+        select(func.count(Session.id))
+        .join(Project, Session.project_id == Project.id)
+        .where(Project.org_id == member.org_id)
+    )
+    total_sessions = sess_count_res.scalar() or 0
+
+    markers_count_res = await db.execute(
+        select(func.count(Marker.id))
+        .join(Session, Marker.session_id == Session.id)
+        .join(Project, Session.project_id == Project.id)
+        .where(Project.org_id == member.org_id)
+    )
+    total_markers = markers_count_res.scalar() or 0
+
+    open_issues_res = await db.execute(
+        select(func.count(Marker.id))
+        .join(Session, Marker.session_id == Session.id)
+        .join(Project, Session.project_id == Project.id)
+        .where(Project.org_id == member.org_id)
+        .where(Marker.status.in_(["open", "in_progress"]))
+    )
+    open_issues = open_issues_res.scalar() or 0
+
+    summary_data = {
+        "total_projects": total_projects,
+        "total_sessions": total_sessions,
+        "total_markers": total_markers,
+        "open_issues": open_issues
+    }
+
+    cache.set(cache_key, summary_data, 15)
+    return summary_data
 
 @router.get("/", response_model=list[ProjectOut])
 async def list_projects(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from services.cache import cache
+    cache_key = f"user:{current_user.id}:projects"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
     member = org_member.scalar_one_or_none()
     if not member:
         return []
         
     result = await db.execute(select(Project).where(Project.org_id == member.org_id))
-    return result.scalars().all()
+    projects = result.scalars().all()
+    
+    # Serialize to dictionary for safe caching
+    data = [{"id": p.id, "name": p.name, "url": p.url, "description": p.description, "created_at": p.created_at, "org_id": p.org_id} for p in projects]
+    cache.set(cache_key, data, 30)
+    return data
 
 @router.get("/{project_id}", response_model=ProjectOut)
 async def get_project(project_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -76,6 +152,12 @@ async def get_project_analytics(project_id: str, current_user: User = Depends(ge
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    from services.cache import cache
+    cache_key = f"user:{current_user.id}:project:{project_id}:analytics"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     # Fetch markers for this project
     markers_res = await db.execute(
         select(Marker).join(Session).where(Session.project_id == project_id)
@@ -112,13 +194,18 @@ async def get_project_analytics(project_id: str, current_user: User = Depends(ge
     if total > 0:
         activity = [2, 4, total, open_count, resolved_count, len(open_markers), total]
 
-    return {
+    res_data = {
         "health_score": health_score,
         "by_severity": by_severity,
         "open": open_count,
+        "resolved": resolved_count,
+        "total": total,
         "resolution_rate": resolution_rate,
         "activity": activity
     }
+    from services.cache import cache
+    cache.set(cache_key, res_data, 15)
+    return res_data
 
 @router.patch("/{project_id}", response_model=ProjectOut)
 async def update_project(project_id: str, data: ProjectUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -141,6 +228,11 @@ async def update_project(project_id: str, data: ProjectUpdate, current_user: Use
         setattr(project, field, value)
     await db.commit()
     await db.refresh(project)
+
+    # Invalidate cache
+    from services.cache import cache
+    cache.invalidate(f"user:{current_user.id}:*")
+
     return project
 
 @router.delete("/{project_id}")
@@ -162,6 +254,11 @@ async def delete_project(project_id: str, current_user: User = Depends(get_curre
 
     await db.delete(project)
     await db.commit()
+
+    # Invalidate cache
+    from services.cache import cache
+    cache.invalidate(f"user:{current_user.id}:*")
+
     return {"deleted": True}
 
 # Environments CRUD

@@ -250,6 +250,9 @@ export const api = {
       return apiQueue.enqueueRead('Loading analytics...', () => request(`/projects/${id}/analytics`))
     },
   },
+  async getDashboardSummary() {
+    return apiQueue.enqueueRead('Loading dashboard summary...', () => request('/projects/dashboard/summary'))
+  },
 
   // SESSIONS
   sessions: {
@@ -264,6 +267,11 @@ export const api = {
     },
     async getSession(id: string) {
       return apiQueue.enqueueRead('Loading session...', () => request(`/sessions/${id}`))
+    },
+    async sendHeartbeat(sessionId: string) {
+      return request(`/sessions/${sessionId}/heartbeat`, {
+        method: 'POST'
+      })
     },
     async getVisits(sessionId: string) {
       return apiQueue.enqueueRead('Loading visits...', () => request(`/sessions/${sessionId}/pages`))

@@ -83,10 +83,10 @@ export default function DashboardPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const [projectsList, sessionsList, markersList] = await Promise.all([
+      const [projectsList, sessionsList, summary] = await Promise.all([
         api.getProjects(),
         api.getAllSessions(),
-        api.getAllMarkers()
+        api.getDashboardSummary()
       ])
 
       const projectMap: Record<string, any> = {}
@@ -94,17 +94,9 @@ export default function DashboardPage() {
         projectMap[p.id] = p
       })
 
-      const sessionToProjectMap: Record<string, string> = {}
-      sessionsList.forEach((s: any) => {
-        sessionToProjectMap[s.id] = s.project_id
-      })
-
       const sessionsByProject: Record<string, any[]> = {}
-      const markersByProject: Record<string, any[]> = {}
-
       projectsList.forEach((p: any) => {
         sessionsByProject[p.id] = []
-        markersByProject[p.id] = []
       })
 
       sessionsList.forEach((s: any) => {
@@ -113,49 +105,29 @@ export default function DashboardPage() {
         }
       })
 
-      markersList.forEach((m: any) => {
-        const projId = sessionToProjectMap[m.session_id]
-        if (projId && markersByProject[projId]) {
-          markersByProject[projId].push(m)
-        }
-      })
-
-      // Construct detailed projects object mapping local metrics
+      // Construct detailed projects object mapping local sessions (analytics is loaded inside card)
       const detailed = projectsList.map((p: any) => {
         const pSessions = sessionsByProject[p.id] || []
-        const pMarkers = markersByProject[p.id] || []
-        const open = pMarkers.filter((m: any) => m.status === 'open' || m.status === 'in_progress').length
-        const resolved = pMarkers.filter((m: any) => m.status === 'resolved').length
         
         return {
           ...p,
           sessions: pSessions,
-          markers: pMarkers,
-          analytics: {
-            total: pMarkers.length,
-            open,
-            resolved,
-            resolution_rate: pMarkers.length ? Math.round((resolved / pMarkers.length) * 100) : 100
-          }
+          markers: [], // Analytics and markers are lazy loaded inside each ProjectCard to save load
+          analytics: null // Pass null so card fetches its own analytics endpoint
         }
       })
 
       setProjectsData(detailed)
 
-      // Calculate stats values
-      const activeProjects = projectsList.length
-      const reviewSessions = sessionsList.length
-      const feedbackPins = markersList.filter((m: any) => m.status === 'open' || m.status === 'in_progress').length
-      const waitingIssues = markersList.filter((m: any) => m.priority === 'critical' && (m.status === 'open' || m.status === 'in_progress')).length
-
+      // Calculate stats values using the lightweight backend summary (Task 8 & 9)
       setStatsData({
-        totalProjects: activeProjects,
-        totalSessions: reviewSessions,
-        totalMarkers: feedbackPins,
-        openIssues: waitingIssues
+        totalProjects: summary.total_projects,
+        totalSessions: summary.total_sessions,
+        totalMarkers: summary.total_markers,
+        openIssues: summary.open_issues
       })
 
-      // Aggregate recent activities
+      // Aggregate recent activities using sessions (no heavy markers fetch needed)
       const activities: any[] = []
       sessionsList.forEach((s: any) => {
         const pName = projectMap[s.project_id]?.name || 'Unknown Project'
@@ -165,23 +137,6 @@ export default function DashboardPage() {
           projectName: pName,
           date: s.created_at,
           description: `Session started for ${pName}`
-        })
-      })
-      markersList.forEach((m: any) => {
-        const projId = sessionToProjectMap[m.session_id]
-        const pName = projectMap[projId]?.name || 'Unknown Project'
-        const user = m.created_by || 'A user'
-        const hasUrl = m.page_url || m.url
-        const description = hasUrl
-          ? `${user} left feedback on ${hasUrl}`
-          : `New marker created on ${pName}`
-
-        activities.push({
-          id: `marker-${m.id}`,
-          type: 'marker',
-          projectName: pName,
-          date: m.created_at,
-          description
         })
       })
 

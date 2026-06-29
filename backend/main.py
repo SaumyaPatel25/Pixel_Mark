@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Request
 import os
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +14,7 @@ from routers.ai import router as ai_router
 from routers.ai_provider_configs import router as ai_provider_configs_router
 from routers.dom_edits import router as dom_edits_router
 from routers.settings import router as settings_router
+from dependencies import get_db
 
 
 logger = logging.getLogger("uvicorn")
@@ -28,6 +29,9 @@ async def lifespan(app: FastAPI):
             logger.info(f"Connecting to Neon DB (Attempt {i}/{retries})...")
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+                from sqlalchemy import text
+                await conn.execute(text("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';"))
+                await conn.execute(text("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ;"))
             logger.info("✓ Neon DB connection successful & tables verified!")
             break
         except Exception as e:
@@ -77,7 +81,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
     # 1. Determine if this path is reserved for the primary PixelMark backend API and static folders
     reserved_prefixes = (
         "/auth", "/projects", "/sessions", "/markers", "/canvas", "/shares", 
-        "/proxy", "/export", "/websocket", "/health", "/static", "/docs", "/openapi.json",
+        "/proxy", "/export", "/websocket", "/health", "/metrics", "/static", "/docs", "/openapi.json",
         "/share-links", "/review", "/ai", "/waitlist", "/settings"
     )
     is_reserved = any(path.startswith(prefix) for prefix in reserved_prefixes)
@@ -347,6 +351,34 @@ app.include_router(settings_router)
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "2.0.0"}
+
+@app.get("/metrics")
+async def get_system_metrics(db = Depends(get_db)):
+    from services.cache import cache, SYSTEM_METRICS
+    from sqlalchemy import select, func
+    from models import Session
+    
+    try:
+        active_sessions_res = await db.execute(
+            select(func.count(Session.id)).where(Session.status == "active")
+        )
+        active_sessions_count = active_sessions_res.scalar() or 0
+    except Exception:
+        active_sessions_count = 0
+
+    cache_stats = cache.get_stats()
+    
+    return {
+        "cache_hit_rate_pct": cache_stats["hit_rate_pct"],
+        "cache_hits": cache_stats["hits"],
+        "cache_misses": cache_stats["misses"],
+        "cache_invalidations": cache_stats["invalidations"],
+        "active_proxy_sessions": active_sessions_count,
+        "idle_session_closures": SYSTEM_METRICS["idle_closures"],
+        "session_reuse_count": SYSTEM_METRICS["session_reuses"],
+        "fallback_to_screenshot_count": SYSTEM_METRICS["fallback_to_screenshot"],
+        "current_cache_size": cache_stats["size"]
+    }
 
 @app.post("/waitlist")
 async def add_to_waitlist(request: Request):

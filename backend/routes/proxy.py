@@ -450,6 +450,8 @@ async def proxy_page(
                 return prepare_proxy_response(response)
                 
     except Exception as e:
+        from services.cache import SYSTEM_METRICS
+        SYSTEM_METRICS["fallback_to_screenshot"] += 1
         return prepare_proxy_response(Response(
             content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target page {url} is unreachable.</p><p style='color:gray;'>{str(e)}</p></body></html>",
             media_type="text/html",

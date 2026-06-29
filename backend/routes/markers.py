@@ -205,6 +205,12 @@ async def create_marker(
     await db.commit()
     await db.refresh(marker)
 
+    # Invalidate cache
+    from services.cache import cache
+    cache.invalidate(f"*:session:{marker.session_id}:*")
+    cache.invalidate("*:projects")
+    cache.invalidate("*:project:*:analytics")
+
 
     # Enqueue background screenshot job if requested
     if data.screenshot_required:
@@ -463,6 +469,13 @@ async def update_marker(marker_id: str, data: MarkerUpdate, db: AsyncSession = D
         setattr(marker, field, value)
     await db.commit()
     await db.refresh(marker)
+
+    # Invalidate cache
+    from services.cache import cache
+    cache.invalidate(f"*:session:{marker.session_id}:*")
+    cache.invalidate("*:projects")
+    cache.invalidate("*:project:*:analytics")
+
     return marker
 
 @router.delete("/{marker_id}")
@@ -495,4 +508,11 @@ async def delete_marker(marker_id: str, db: AsyncSession = Depends(get_db)):
     
     await db.delete(marker)
     await db.commit()
+
+    # Invalidate cache
+    from services.cache import cache
+    cache.invalidate(f"*:session:{marker.session_id}:*")
+    cache.invalidate("*:projects")
+    cache.invalidate("*:project:*:analytics")
+
     return {"deleted": True}

@@ -126,25 +126,95 @@ export function ProjectCard({
     mouseY.set(e.clientY - rect.top)
   }
 
-  // Calculate live statistics directly from project markers
-  const markers = project.markers || []
-  const total = markers.length
-  const resolved = markers.filter((m: any) => m.status?.toLowerCase() === 'resolved').length
-  const pending = total - resolved
-  const critical = markers.filter(
-    (m: any) => m.priority?.toLowerCase() === 'critical' && m.status?.toLowerCase() !== 'resolved'
-  ).length
+  // Support local analytics load if project.markers is not pre-populated (Task 8)
+  const [localAnalytics, setLocalAnalytics] = useState<any>(propAnalytics)
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(!propAnalytics && (!project.markers || !project.markers.length))
+
+  useEffect(() => {
+    if (propAnalytics || (project.markers && project.markers.length)) {
+      setIsLoadingAnalytics(false)
+      return
+    }
+    let active = true
+    const fetchAnalytics = async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
+        const headers: Record<string, string> = {}
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+        const BASE = typeof window !== 'undefined' && window.location.port === '3000' 
+          ? 'http://localhost:8765' 
+          : ''
+        const res = await fetch(`${BASE}/projects/${project.id}/analytics`, { headers })
+        const data = await res.json()
+        if (active) {
+          setLocalAnalytics(data)
+          setIsLoadingAnalytics(false)
+        }
+      } catch (err) {
+        if (active) setIsLoadingAnalytics(false)
+      }
+    }
+    fetchAnalytics()
+    return () => { active = false }
+  }, [project.id, propAnalytics, project.markers])
+
+  // Resolve metrics from either project.markers OR localAnalytics
+  const metrics = useMemo(() => {
+    if (project.markers && project.markers.length) {
+      const total = project.markers.length
+      const resolved = project.markers.filter((m: any) => m.status?.toLowerCase() === 'resolved').length
+      const pending = total - resolved
+      const critical = project.markers.filter(
+        (m: any) => m.priority?.toLowerCase() === 'critical' && m.status?.toLowerCase() !== 'resolved'
+      ).length
+      
+      const sorted = [...project.markers].sort(
+        (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      const points: number[] = []
+      let acc = 0
+      sorted.forEach(() => {
+        acc++
+        points.push(acc)
+      })
+      while (points.length < 7) points.unshift(0)
+      let activity = points
+      if (points.length > 7) {
+        const step = (points.length - 1) / 6
+        activity = Array.from({ length: 7 }, (_, i) => points[Math.round(i * step)])
+      }
+
+      return { total, resolved, pending, critical, activity }
+    } else if (localAnalytics) {
+      return {
+        total: localAnalytics.total || 0,
+        resolved: localAnalytics.resolved || 0,
+        pending: (localAnalytics.total || 0) - (localAnalytics.resolved || 0),
+        critical: localAnalytics.by_severity?.P0 || 0,
+        activity: localAnalytics.activity || [0, 0, 0, 0, 0, 0, 0]
+      }
+    }
+    return {
+      total: 0,
+      resolved: 0,
+      pending: 0,
+      critical: 0,
+      activity: [0, 0, 0, 0, 0, 0, 0]
+    }
+  }, [project.markers, localAnalytics])
 
   // Compute status badge
   const status = useMemo(() => {
-    if (sessionsCount === 0 && total === 0) {
+    if (sessionsCount === 0 && metrics.total === 0) {
       return {
         label: 'Idle',
         color: 'text-slate-400 border-slate-500/10 bg-slate-500/5',
         dot: 'bg-slate-500'
       }
     }
-    if (critical > 0 || (total > 0 && resolved / total < 0.4)) {
+    if (metrics.critical > 0 || (metrics.total > 0 && metrics.resolved / metrics.total < 0.4)) {
       return {
         label: 'At Risk',
         color: 'text-rose-400 border-rose-500/20 bg-rose-500/5',
@@ -156,34 +226,9 @@ export function ProjectCard({
       color: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5',
       dot: 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
     }
-  }, [sessionsCount, total, critical, resolved])
+  }, [sessionsCount, metrics.total, metrics.critical, metrics.resolved])
 
-  // Generate live activity trend based on marker creation timestamps
-  const activityData = useMemo(() => {
-    if (total === 0) {
-      return [0, 0, 0, 0, 0, 0, 0]
-    }
-    const sorted = [...markers].sort(
-      (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    )
-    
-    const points: number[] = []
-    let acc = 0
-    sorted.forEach(() => {
-      acc++
-      points.push(acc)
-    })
-    
-    while (points.length < 7) {
-      points.unshift(0)
-    }
-    
-    if (points.length > 7) {
-      const step = (points.length - 1) / 6
-      return Array.from({ length: 7 }, (_, i) => points[Math.round(i * step)])
-    }
-    return points
-  }, [markers, total])
+  const activityData = metrics.activity
 
   return (
     <motion.div 
@@ -243,27 +288,27 @@ export function ProjectCard({
           </div>
           
           {/* Circular Progress Completion Ring */}
-          <ProgressRing resolved={resolved} total={total} />
+          <ProgressRing resolved={metrics.resolved} total={metrics.total} />
         </div>
 
         {/* ── MIDDLE SECTION: DETAILED PROGRESS & TREND GRAPH ── */}
         <div className="grid grid-cols-5 items-center gap-4 bg-white/[0.01] border border-white/[0.03] rounded-2xl p-4">
           {/* Progress Metrics text */}
           <div className="col-span-3 space-y-1">
-            {total > 0 ? (
+            {metrics.total > 0 ? (
               <>
                 <p className="text-[10px] text-white/35 uppercase font-black tracking-widest leading-none">
                   Completion Rate
                 </p>
                 <p className="text-base font-black text-white leading-none">
-                  {resolved} / {total}{' '}
+                  {metrics.resolved} / {metrics.total}{' '}
                   <span className="text-[11px] font-bold text-emerald-400/90 tracking-wide">
                     Resolved
                   </span>
                 </p>
-                {pending > 0 && (
+                {metrics.pending > 0 && (
                   <p className="text-[10px] font-medium text-amber-500/85">
-                    {pending} pending issues waiting
+                    {metrics.pending} pending issues waiting
                   </p>
                 )}
               </>
@@ -299,10 +344,10 @@ export function ProjectCard({
             </div>
 
             <div className="flex items-center gap-1">
-              <FileText className={`w-3.5 h-3.5 ${pending > 0 ? 'text-amber-500' : 'text-slate-500'}`} />
+              <FileText className={`w-3.5 h-3.5 ${metrics.pending > 0 ? 'text-amber-500' : 'text-slate-500'}`} />
               <span>
-                <strong className={`font-mono ${pending > 0 ? 'text-amber-400' : 'text-white/70'}`}>
-                  {pending}
+                <strong className={`font-mono ${metrics.pending > 0 ? 'text-amber-400' : 'text-white/70'}`}>
+                  {metrics.pending}
                 </strong>{' '}
                 Pending
               </span>

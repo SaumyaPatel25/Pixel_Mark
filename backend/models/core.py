@@ -158,7 +158,9 @@ class Session(Base):
     canvas_count: Mapped[int] = mapped_column(nullable=True)
     has_webgl: Mapped[bool] = mapped_column(Boolean, nullable=True)
     has_three_js: Mapped[bool] = mapped_column(Boolean, nullable=True)
-    
+    status: Mapped[str] = mapped_column(String, default="active", server_default="active", nullable=False)
+    last_heartbeat_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
+
     project: Mapped["Project"] = relationship(back_populates="sessions")
     markers: Mapped[list["Marker"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     share_links: Mapped[list["ShareLink"]] = relationship(back_populates="session", cascade="all, delete-orphan")
