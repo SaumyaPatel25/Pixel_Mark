@@ -112,7 +112,7 @@ async def list_projects(current_user: User = Depends(get_current_user), db: Asyn
     projects = result.scalars().all()
     
     # Serialize to dictionary for safe caching
-    data = [{"id": p.id, "name": p.name, "url": p.url, "description": p.description, "created_at": p.created_at, "org_id": p.org_id} for p in projects]
+    data = [{"id": p.id, "name": p.name, "url": p.url, "created_at": p.created_at, "org_id": p.org_id} for p in projects]
     cache.set(cache_key, data, 30)
     return data
 
