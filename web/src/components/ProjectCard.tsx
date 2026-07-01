@@ -143,9 +143,7 @@ export function ProjectCard({
         if (token) {
           headers['Authorization'] = `Bearer ${token}`
         }
-        const BASE = typeof window !== 'undefined' && window.location.port === '3000' 
-          ? 'http://localhost:8765' 
-          : ''
+        const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
         const res = await fetch(`${BASE}/projects/${project.id}/analytics`, { headers })
         const data = await res.json()
         if (active) {
