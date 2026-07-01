@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 import { Layout, Play, Share2, ExternalLink, Activity, FileText, Calendar, ShieldAlert } from 'lucide-react'
+import { api } from '@/lib/api'
 
 // Reusable premium SVG Sparkline Component
 function Sparkline({ data }: { data: number[] }) {
@@ -138,14 +139,7 @@ export function ProjectCard({
     let active = true
     const fetchAnalytics = async () => {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
-        const headers: Record<string, string> = {}
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`
-        }
-        const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
-        const res = await fetch(`${BASE}/projects/${project.id}/analytics`, { headers })
-        const data = await res.json()
+        const data = await api.projects.getAnalytics(project.id)
         if (active) {
           setLocalAnalytics(data)
           setIsLoadingAnalytics(false)
