@@ -478,7 +478,8 @@ export default function ProjectPage() {
                         sessionId={sessionId}
                         projectId={id}
                         onMarkerCreated={(marker) => {
-                          loadComments(id)
+                          // Refresh markers from server after creation to stay in sync
+                          useMarkerStore.getState().loadSessionMarkers(id)
                         }}
                       />
                     ) : (
