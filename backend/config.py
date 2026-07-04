@@ -20,6 +20,7 @@ class Settings:
     google_client_secret: str = ""
     github_client_id: str = ""
     github_client_secret: str = ""
+    redis_url: str = "redis://localhost:6379/0"
 
 
 def load_config() -> Settings:
@@ -45,7 +46,8 @@ def load_config() -> Settings:
         google_client_secret=google_secret,
         github_client_id=github_id,
         github_client_secret=github_secret,
-        backend_url=os.getenv("BACKEND_URL", "http://localhost:8765")
+        backend_url=os.getenv("BACKEND_URL", "http://localhost:8765"),
+        redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0")
     )
 
 settings = load_config()

@@ -19,3 +19,4 @@ openai>=1.0.0
 resend
 itsdangerous
 passlib[bcrypt]
+redis>=5.0.0

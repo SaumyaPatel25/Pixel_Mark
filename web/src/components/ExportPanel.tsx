@@ -41,12 +41,15 @@ const FORMATS = [
   },
 ]
 
+import { useMarkerStore } from '@/store/markerStore'
+
 export function ExportPanel({ projectId, projectName, commentCount, onClose }: Props) {
   const [format, setFormat] = useState<ExportFormat>('markdown')
   const [downloading, setDownloading] = useState(false)
   const [copied, setCopied] = useState(false)
   
-  const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765'
+  const BASE = process.env.NEXT_PUBLIC_API_URL || ''
+  const sessionId = useMarkerStore(state => state.activeSessionId)
 
   const download = async () => {
     if (!projectId || projectId === 'undefined') {
@@ -56,7 +59,9 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
 
     setDownloading(true)
     try {
-      const url = `${BASE}/export?project_id=${projectId}&format=${format}`
+      const url = sessionId
+        ? `${BASE}/export/session/${sessionId}/${format}`
+        : `${BASE}/export?project_id=${projectId}&format=${format}`
       console.log('[Export] Fetching:', url)
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
@@ -97,7 +102,10 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
       if (token) {
         headers['Authorization'] = `Bearer ${token}`
       }
-      const res  = await fetch(`${BASE}/export?project_id=${projectId}&format=markdown`, { headers })
+      const url = sessionId
+        ? `${BASE}/export/session/${sessionId}/markdown`
+        : `${BASE}/export?project_id=${projectId}&format=markdown`
+      const res  = await fetch(url, { headers })
       const text = await res.text()
       await navigator.clipboard.writeText(text)
       setCopied(true)

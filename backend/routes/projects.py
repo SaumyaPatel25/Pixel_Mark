@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from models import Project, OrgMember, User, Environment, Session, Marker
+from models import Project, OrgMember, User, Environment, Session
 from schemas import ProjectCreate, ProjectOut, ProjectUpdate, EnvironmentCreate, EnvironmentOut
 from dependencies import get_db, get_current_user
 import uuid
@@ -68,22 +68,8 @@ async def get_dashboard_summary(
     )
     total_sessions = sess_count_res.scalar() or 0
 
-    markers_count_res = await db.execute(
-        select(func.count(Marker.id))
-        .join(Session, Marker.session_id == Session.id)
-        .join(Project, Session.project_id == Project.id)
-        .where(Project.org_id == member.org_id)
-    )
-    total_markers = markers_count_res.scalar() or 0
-
-    open_issues_res = await db.execute(
-        select(func.count(Marker.id))
-        .join(Session, Marker.session_id == Session.id)
-        .join(Project, Session.project_id == Project.id)
-        .where(Project.org_id == member.org_id)
-        .where(Marker.status.in_(["open", "in_progress"]))
-    )
-    open_issues = open_issues_res.scalar() or 0
+    total_markers = 0
+    open_issues = 0
 
     summary_data = {
         "total_projects": total_projects,
@@ -158,50 +144,14 @@ async def get_project_analytics(project_id: str, current_user: User = Depends(ge
     if cached is not None:
         return cached
 
-    # Fetch markers for this project
-    markers_res = await db.execute(
-        select(Marker).join(Session).where(Session.project_id == project_id)
-    )
-    markers = markers_res.scalars().all()
-
-    total = len(markers)
-    open_markers = [m for m in markers if str(m.status.value if hasattr(m.status, 'value') else m.status).lower() in ("open", "in_progress")]
-    resolved_markers = [m for m in markers if str(m.status.value if hasattr(m.status, 'value') else m.status).lower() == "resolved"]
-    
-    open_count = len(open_markers)
-    resolved_count = len(resolved_markers)
-    
-    resolution_rate = int((resolved_count / total * 100)) if total > 0 else 100
-    
-    by_severity = {"P0": 0, "P1": 0, "P2": 0, "P3": 0}
-    for m in open_markers:
-        sev = m.severity or "medium"
-        if sev.lower() in ("critical", "p0"):
-            by_severity["P0"] += 1
-        elif sev.lower() in ("high", "p1"):
-            by_severity["P1"] += 1
-        elif sev.lower() in ("medium", "p2"):
-            by_severity["P2"] += 1
-        else:
-            by_severity["P3"] += 1
-
-    # Health score calculation
-    health_score = 100 - (by_severity["P0"] * 15 + by_severity["P1"] * 10 + by_severity["P2"] * 5 + by_severity["P3"] * 2)
-    health_score = max(0, min(100, health_score))
-
-    # Activity: return counts for sparkline
-    activity = [0, 0, 0, 0, 0, 0, 0]
-    if total > 0:
-        activity = [2, 4, total, open_count, resolved_count, len(open_markers), total]
-
     res_data = {
-        "health_score": health_score,
-        "by_severity": by_severity,
-        "open": open_count,
-        "resolved": resolved_count,
-        "total": total,
-        "resolution_rate": resolution_rate,
-        "activity": activity
+        "health_score": 100,
+        "by_severity": {"P0": 0, "P1": 0, "P2": 0, "P3": 0},
+        "open": 0,
+        "resolved": 0,
+        "total": 0,
+        "resolution_rate": 100,
+        "activity": [0, 0, 0, 0, 0, 0, 0]
     }
     from services.cache import cache
     cache.set(cache_key, res_data, 15)

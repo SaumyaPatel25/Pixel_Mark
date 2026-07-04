@@ -20,16 +20,16 @@ import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { useScreenCapture } from '@/hooks/useScreenCapture'
 import { useViewportHeight } from '@/hooks/useViewportHeight'
 import { useProjectStore } from '@/store/projectStore'
-import { useCommentStore } from '@/store/commentStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
+import { useMarkerStore } from '@/store/markerStore'
 
 import { useUIStore } from '@/store/uiStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
-const WS_BASE  = (process.env.NEXT_PUBLIC_WS_BASE  || 'ws://127.0.0.1:8765').replace(/\/$/, '')
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+const WS_BASE  = (process.env.NEXT_PUBLIC_WS_BASE  || '').replace(/\/$/, '')
 
 const drawerVariants = {
   open: { x: 0, y: 0 },
@@ -61,12 +61,7 @@ export default function ProjectPage() {
     error: projectError 
   } = useProjectStore()
   
-  const { 
-    comments, 
-    loadComments, 
-    loading: isCommentLoading,
-    error: commentError 
-  } = useCommentStore()
+  const markerCount = useMarkerStore(state => state.orderedMarkerIds.length)
 
   const { activeTesters, setConnected, updateCursor } = useRealtimeStore()
   
@@ -239,11 +234,10 @@ export default function ProjectPage() {
       await fetchProjects()
       const found = useProjectStore.getState().projects.find(p => p.id === id)
       if (found) setCurrentProject(found)
-      await loadComments(id)
     }
 
     init()
-  }, [id, fetchProjects, loadComments, setCurrentProject])
+  }, [id, fetchProjects, setCurrentProject])
 
   // Mouse Tracking
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -273,7 +267,7 @@ export default function ProjectPage() {
     </div>
   )
 
-  const error = projectError || commentError
+  const error = projectError
   if (error) return (
     <div className="h-screen bg-[#0a0a0b] flex items-center justify-center p-6 text-center">
       <div className="max-w-md space-y-6">
@@ -540,7 +534,7 @@ export default function ProjectPage() {
             <ExportPanel 
               projectId={id} 
               projectName={currentProject?.name || 'Unknown Project'}
-              commentCount={comments.length}
+              commentCount={markerCount}
               onClose={() => toggleExportPanel(false)}
             />
         )}

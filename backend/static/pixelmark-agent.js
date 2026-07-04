@@ -83,11 +83,26 @@
   };
 
   window.addEventListener('error', function(e) {
-    pushCircular(window.__PIXELMARK__.consoleErrors, {
-      message: e.message || "Uncaught Error",
-      timestamp: new Date().toISOString(),
-      stack: e.error ? e.error.stack : ""
-    });
+    const target = e.target || e.srcElement;
+    const isAsset = target && (target.tagName === 'IMG' || target.tagName === 'SCRIPT' || target.tagName === 'LINK');
+    
+    if (isAsset) {
+      const url = target.src || target.href;
+      if (url) {
+        window.parent.postMessage({
+          type: 'PIXELMARK_ASSET_DEGRADED',
+          url: url,
+          tagName: target.tagName,
+          timestamp: new Date().toISOString()
+        }, '*');
+      }
+    } else {
+      pushCircular(window.__PIXELMARK__.consoleErrors, {
+        message: e.message || "Uncaught Error",
+        timestamp: new Date().toISOString(),
+        stack: e.error ? e.error.stack : ""
+      });
+    }
   }, true);
 
   // ─── Client-side Asset URL Rewrite Helper ─────────────────────────────────
@@ -1504,6 +1519,29 @@
     const browserInfo = getBrowserInfo();
     const issueHint = detectIssueType(target, rendererType);
     const logicalUrl = getAbsoluteTargetUrl();
+
+    let offset_x_ratio = null;
+    let offset_y_ratio = null;
+    if (bbox && bbox.width > 0 && bbox.height > 0) {
+      offset_x_ratio = (clickX - bbox.left) / bbox.width;
+      offset_y_ratio = (clickY - bbox.top) / bbox.height;
+    }
+    
+    const canonical_anchor = {
+      page_x: pageX,
+      page_y: pageY,
+      viewport_width: viewport.width,
+      viewport_height: viewport.height,
+      scroll_x: window.scrollX,
+      scroll_y: window.scrollY,
+      css_selector: domCtx.css_selector || null,
+      xpath: domCtx.xpath || null,
+      element_tag: domCtx.tag_name || null,
+      element_text_excerpt: domCtx.inner_text ? domCtx.inner_text.slice(0, 100) : null,
+      offset_x_ratio: offset_x_ratio,
+      offset_y_ratio: offset_y_ratio,
+      element_rect: bbox
+    };
     
     const payload = {
       id: crypto.randomUUID(),
@@ -1522,6 +1560,7 @@
         normalized_x: clickX / viewport.width,
         normalized_y: clickY / viewport.height
       },
+      canonical_anchor: canonical_anchor,
       displayX: clickX,
         displayY: clickY,
         pageX: pageX,
@@ -1814,25 +1853,29 @@
         } catch(e) {}
       }
 
+      let degraded = false;
+      const anchor = pin.canonical_anchor || {};
+
       if (el instanceof Element) {
         try {
           const rect = el.getBoundingClientRect();
-          let relX = 0.5;
-          let relY = 0.5;
+          let relX = anchor.offset_x_ratio !== undefined && anchor.offset_x_ratio !== null ? anchor.offset_x_ratio : 0.5;
+          let relY = anchor.offset_y_ratio !== undefined && anchor.offset_y_ratio !== null ? anchor.offset_y_ratio : 0.5;
 
-          const bbox = pin.boundingBox;
-          if (bbox && bbox.width && bbox.height) {
-            const origLeft = bbox.left !== undefined ? bbox.left : bbox.x || 0;
-            const origTop = bbox.top !== undefined ? bbox.top : bbox.y || 0;
-            
-            const clickVx = pin.viewportX !== undefined ? pin.viewportX : (pin.click?.viewport_x !== undefined ? pin.click.viewport_x : (pin.click?.client_x !== undefined ? pin.click.client_x : null));
-            const clickVy = pin.viewportY !== undefined ? pin.viewportY : (pin.click?.viewport_y !== undefined ? pin.click.viewport_y : (pin.click?.client_y !== undefined ? pin.click.client_y : null));
-
-            if (typeof clickVx === 'number' && typeof clickVy === 'number' && !isNaN(clickVx) && !isNaN(clickVy)) {
-              relX = (clickVx - origLeft) / bbox.width;
-              relY = (clickVy - origTop) / bbox.height;
-              relX = Math.max(0, Math.min(1, relX));
-              relY = Math.max(0, Math.min(1, relY));
+          // Legacy fallback calculation
+          if (anchor.offset_x_ratio == null) {
+            const bbox = pin.boundingBox;
+            if (bbox && bbox.width && bbox.height) {
+              const origLeft = bbox.left !== undefined ? bbox.left : bbox.x || 0;
+              const origTop = bbox.top !== undefined ? bbox.top : bbox.y || 0;
+              const clickVx = pin.viewportX !== undefined ? pin.viewportX : (pin.click?.viewport_x !== undefined ? pin.click.viewport_x : (pin.click?.client_x !== undefined ? pin.click.client_x : null));
+              const clickVy = pin.viewportY !== undefined ? pin.viewportY : (pin.click?.viewport_y !== undefined ? pin.click.viewport_y : (pin.click?.client_y !== undefined ? pin.click.client_y : null));
+              if (typeof clickVx === 'number' && typeof clickVy === 'number' && !isNaN(clickVx) && !isNaN(clickVy)) {
+                relX = (clickVx - origLeft) / bbox.width;
+                relY = (clickVy - origTop) / bbox.height;
+                relX = Math.max(0, Math.min(1, relX));
+                relY = Math.max(0, Math.min(1, relY));
+              }
             }
           }
 
@@ -1845,40 +1888,21 @@
         }
       }
 
-      if (!resolved && pin.boundingBox) {
-        const captureScrollX = pin.scrollPosition?.x || 0;
-        const captureScrollY = pin.scrollPosition?.y || 0;
-        const width = pin.boundingBox.width || 0;
-        const height = pin.boundingBox.height || 0;
-        const left = pin.boundingBox.left !== undefined ? pin.boundingBox.left : pin.boundingBox.x || 0;
-        const top = pin.boundingBox.top !== undefined ? pin.boundingBox.top : pin.boundingBox.y || 0;
-
-        let relX = 0.5;
-        let relY = 0.5;
-        
-        const clickVx = pin.viewportX !== undefined ? pin.viewportX : (pin.click?.viewport_x !== undefined ? pin.click.viewport_x : (pin.click?.client_x !== undefined ? pin.click.client_x : null));
-        const clickVy = pin.viewportY !== undefined ? pin.viewportY : (pin.click?.viewport_y !== undefined ? pin.click.viewport_y : (pin.click?.client_y !== undefined ? pin.click.client_y : null));
-        
-        if (typeof clickVx === 'number' && typeof clickVy === 'number' && !isNaN(clickVx) && !isNaN(clickVy)) {
-          relX = (clickVx - left) / width;
-          relY = (clickVy - top) / height;
-          relX = Math.max(0, Math.min(1, relX));
-          relY = Math.max(0, Math.min(1, relY));
-        }
-
-        // Bounding box is viewport-relative at capture time. Subtract scroll delta to get current viewport position.
-        const deltaX = window.scrollX - captureScrollX;
-        const deltaY = window.scrollY - captureScrollY;
-        clientX = (left + relX * width) - deltaX;
-        clientY = (top + relY * height) - deltaY;
-        resolved = true;
-        source = "bbox";
-      }
-
       if (!resolved) {
-        // Fallback using page coordinates (x/y in payload) and current scroll
-        const pageX = pin.x || 0;
-        const pageY = pin.y || 0;
+        // Fallback using canonical page coordinates
+        degraded = true;
+        
+        let pageX = pin.x || 0;
+        let pageY = pin.y || 0;
+        
+        if (anchor.page_x !== undefined && anchor.page_x !== null) {
+          pageX = anchor.page_x;
+          pageY = anchor.page_y;
+        } else if (pin.click && pin.click.page_x !== undefined) {
+          pageX = pin.click.page_x;
+          pageY = pin.click.page_y;
+        }
+        
         clientX = pageX - window.scrollX;
         clientY = pageY - window.scrollY;
         resolved = true;
@@ -1891,7 +1915,8 @@
         clientY: Math.round(clientY),
         pageX: Math.round(clientX + window.scrollX),
         pageY: Math.round(clientY + window.scrollY),
-        source: source
+        source: source,
+        degraded: degraded
       };
     });
 

@@ -2,60 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from dependencies import get_db, get_current_user
-from models import CanvasFrame, CanvasFlow, User, OrgMember, Project, Session, Marker
+from models import CanvasFrame, CanvasFlow, User, OrgMember, Project, Session
 from schemas import (
     CanvasData, CanvasFrameCreate, CanvasFrameUpdate, CanvasFrameRead,
-    CanvasFlowCreate, CanvasFlowRead, CanvasMarkerSummary, CanvasPriorityDistribution
+    CanvasFlowCreate, CanvasFlowRead, CanvasPriorityDistribution
 )
 import uuid
 
 router = APIRouter(prefix="/canvas", tags=["canvas"])
 
 async def get_frame_read(f: CanvasFrame, db: AsyncSession) -> CanvasFrameRead:
-    marker_count = 0
-    top_markers = []
     priority_dist = CanvasPriorityDistribution()
-
-    if f.session_id:
-        m_count_res = await db.execute(
-            select(func.count(Marker.id)).where(Marker.session_id == f.session_id)
-        )
-        marker_count = m_count_res.scalar() or 0
-
-        markers_res = await db.execute(
-            select(Marker.title, Marker.priority).where(Marker.session_id == f.session_id)
-        )
-        markers_list = markers_res.all()
-
-        critical_count = 0
-        high_count = 0
-        medium_count = 0
-        low_count = 0
-        for m in markers_list:
-            p_val = getattr(m[1], "value", str(m[1])).lower()
-            if p_val == "critical":
-                critical_count += 1
-            elif p_val == "high":
-                high_count += 1
-            elif p_val == "medium":
-                medium_count += 1
-            elif p_val == "low":
-                low_count += 1
-
-        priority_dist = CanvasPriorityDistribution(
-            critical=critical_count,
-            high=high_count,
-            medium=medium_count,
-            low=low_count
-        )
-
-        top_markers = [
-            CanvasMarkerSummary(
-                title=m[0] or "Untitled Indicator",
-                priority=getattr(m[1], "value", str(m[1]))
-            )
-            for m in markers_list[:3]
-        ]
 
     return CanvasFrameRead(
         id=f.id,
@@ -69,8 +26,6 @@ async def get_frame_read(f: CanvasFrame, db: AsyncSession) -> CanvasFrameRead:
         color=f.color,
         snapshot_url=f.snapshot_url,
         created_at=f.created_at,
-        marker_count=marker_count,
-        top_markers=top_markers,
         priority_distribution=priority_dist
     )
 

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models import Marker, User, Session
+from models import User, Session
+from markers.models import Marker
 from dependencies import get_db, get_current_user
 import csv, io
 
@@ -10,107 +11,131 @@ router = APIRouter(prefix="/export", tags=["export"])
 
 @router.get("/session/{session_id}/markdown", response_class=PlainTextResponse)
 async def export_markdown(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = await db.execute(select(Marker).where(Marker.session_id == session_id).order_by(Marker.marker_number.asc()))
-    markers = result.scalars().all()
-    
-    # Group markers by page_url or url
-    grouped = {}
-    for m in markers:
-        url = m.page_url or m.url or "Unknown Page"
-        if url not in grouped:
-            grouped[url] = []
-        grouped[url].append(m)
+    # 1. Fetch Session Info
+    session_res = await db.execute(select(Session).where(Session.id == session_id))
+    session = session_res.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
         
-    lines = [f"# QA Report — Session {session_id}\n"]
-    for url, list_markers in grouped.items():
-        title = list_markers[0].page_title or "Untitled Page"
-        renderer = list_markers[0].renderer_type or "dom"
-        lines.append(f"## Page: {title}")
-        lines.append(f"- **URL:** {url}")
-        lines.append(f"- **Renderer: {renderer.upper()}**")
+    # 2. Fetch Markers
+    markers_res = await db.execute(
+        select(Marker)
+        .where(Marker.session_id == session_id, Marker.is_deleted == False)
+        .order_by(Marker.created_at.asc())
+    )
+    markers = list(markers_res.scalars().all())
+
+    # 3. Build Markdown Report
+    lines = []
+    lines.append(f"# QA Review Report: {session.title or 'Untitled Session'}")
+    lines.append(f"**Session ID:** `{session.id}`")
+    lines.append(f"**Generated At:** {session.created_at.strftime('%Y-%m-%d %H:%M:%S') if session.created_at else 'N/A'}")
+    lines.append("")
+    lines.append("## Executive Summary")
+    
+    total = len(markers)
+    open_count = sum(1 for m in markers if m.status == 'open')
+    resolved_count = sum(1 for m in markers if m.status == 'resolved')
+    
+    lines.append(f"- **Total Markers dropped:** {total}")
+    lines.append(f"- **Open Issues:** {open_count}")
+    lines.append(f"- **Resolved Issues:** {resolved_count}")
+    lines.append("")
+    
+    lines.append("## Detailed Feedback Stream")
+    lines.append("")
+    
+    for idx, m in enumerate(markers):
+        lines.append(f"### {idx + 1}. {m.title or 'Untitled Issue'} ({m.priority.upper()})")
+        lines.append(f"- **Status:** `{m.status}`")
+        lines.append(f"- **Creator:** {m.creator_name or 'Anonymous'} ({m.creator_role or 'Unknown Role'})")
+        lines.append(f"- **Target URL:** [{m.page_url}]({m.page_url})")
+        if m.target_selector:
+            lines.append(f"- **CSS Selector:** `{m.target_selector}`")
+        if m.renderer_type:
+            lines.append(f"- **Renderer Type:** `{m.renderer_type}`")
+        if m.screenshot_url:
+            lines.append(f"- **Screenshot:** [View Image]({m.screenshot_url})")
+        lines.append("")
+        lines.append("#### Description")
+        lines.append(m.description or "*No description provided.*")
+        lines.append("")
         lines.append("---")
         lines.append("")
         
-        for m in list_markers:
-            lines.append(f"### #{m.marker_number or 0} [{m.priority.upper()}] {m.title or 'Untitled'}")
-            lines.append(f"- **Status:** {m.status}")
-            lines.append(f"- **Browser:** {m.browser or 'N/A'} | **Viewport:** {m.viewport}")
-            lines.append(f"- **XPath:** `{m.xpath or 'N/A'}`")
-            lines.append(f"- **CSS Selector:** `{m.css_selector or 'N/A'}`")
-            lines.append(f"- **Description:** {m.description or 'No description'}")
-            if m.canvas_context:
-                lines.append(f"- **Canvas Context:** {m.canvas_context}")
-            if m.is_inside_shadow_dom:
-                lines.append(f"- **Shadow DOM: Yes** (Depth: {m.shadow_root_depth or 1})")
-                if m.shadow_host_tag:
-                    host_str = m.shadow_host_tag
-                    if m.shadow_host_id:
-                        host_str += f"#{m.shadow_host_id}"
-                    lines.append(f"- **Shadow Host: `{host_str}`**")
-                if m.shadow_path:
-                    lines.append(f"- **Shadow Path: `{m.shadow_path}`**")
-            if m.console_errors:
-                lines.append(f"- **Console Errors:** {m.console_errors}")
-            lines.append("")
     return "\n".join(lines)
 
 @router.get("/session/{session_id}/csv")
 async def export_csv(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = await db.execute(select(Marker).where(Marker.session_id == session_id).order_by(Marker.marker_number.asc()))
-    markers = result.scalars().all()
+    markers_res = await db.execute(
+        select(Marker)
+        .where(Marker.session_id == session_id, Marker.is_deleted == False)
+        .order_by(Marker.created_at.asc())
+    )
+    markers = list(markers_res.scalars().all())
+
     output = io.StringIO()
     writer = csv.writer(output)
-    # Header columns supporting stable backward compatibility + new fields
     writer.writerow([
-        "ID","Title","Priority","Status","URL","Browser","XPath","CSS Selector","Description","Created At",
-        "Page URL","Page Title","Renderer Type","Marker Number","Canvas Context","Screenshot URL",
-        "Is Inside Shadow DOM","Shadow Root Depth","Shadow Host Tag","Shadow Host ID","Shadow Host Class List","Shadow Path"
+        "Marker Number", "ID", "Title", "Description", "Priority", 
+        "Status", "Creator Name", "Creator Role", "Page URL", "Page Title", 
+        "Anchor Kind", "Renderer Type", "Created At", "Screenshot URL"
     ])
-    for m in markers:
+    
+    for idx, m in enumerate(markers):
         writer.writerow([
-            m.id, m.title, m.priority, m.status, m.url, m.browser, m.xpath, m.css_selector, m.description, m.created_at,
-            m.page_url, m.page_title, m.renderer_type, m.marker_number, str(m.canvas_context) if m.canvas_context else "", m.screenshot_url,
-            "true" if m.is_inside_shadow_dom else "false",
-            m.shadow_root_depth if m.shadow_root_depth is not None else "",
-            m.shadow_host_tag or "",
-            m.shadow_host_id or "",
-            str(m.shadow_host_class_list) if m.shadow_host_class_list else "",
-            m.shadow_path or ""
+            idx + 1,
+            m.id,
+            m.title or "Untitled Issue",
+            m.description or "",
+            m.priority,
+            m.status,
+            m.creator_name or "Anonymous",
+            m.creator_role or "",
+            m.page_url or "",
+            m.page_title or "",
+            m.anchor_kind,
+            m.renderer_type or "",
+            m.created_at.isoformat() if m.created_at else "",
+            m.screenshot_url or ""
         ])
+        
     return PlainTextResponse(output.getvalue(), media_type="text/csv")
 
 @router.get("/session/{session_id}/json")
 async def export_json(session_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = await db.execute(select(Marker).where(Marker.session_id == session_id).order_by(Marker.marker_number.asc()))
-    markers = result.scalars().all()
-    return JSONResponse([
-        {
-            "id": m.id, 
-            "title": m.title, 
-            "priority": m.priority, 
+    markers_res = await db.execute(
+        select(Marker)
+        .where(Marker.session_id == session_id, Marker.is_deleted == False)
+        .order_by(Marker.created_at.asc())
+    )
+    markers = list(markers_res.scalars().all())
+    
+    data = []
+    for idx, m in enumerate(markers):
+        data.append({
+            "number": idx + 1,
+            "id": m.id,
+            "title": m.title,
+            "description": m.description,
+            "priority": m.priority,
             "status": m.status,
-            "url": m.url, 
+            "creator_name": m.creator_name,
+            "creator_role": m.creator_role,
+            "color_token": m.color_token,
+            "anchor_kind": m.anchor_kind,
             "page_url": m.page_url,
             "page_title": m.page_title,
+            "target_selector": m.target_selector,
+            "target_xpath": m.target_xpath,
+            "dom_text_excerpt": m.dom_text_excerpt,
             "renderer_type": m.renderer_type,
-            "canvas_context": m.canvas_context,
-            "marker_number": m.marker_number,
             "screenshot_url": m.screenshot_url,
-            "xpath": m.xpath, 
-            "css_selector": m.css_selector,
-            "browser": m.browser, 
-            "viewport": m.viewport, 
-            "description": m.description,
-            "is_inside_shadow_dom": m.is_inside_shadow_dom,
-            "shadow_root_depth": m.shadow_root_depth,
-            "shadow_host_tag": m.shadow_host_tag,
-            "shadow_host_id": m.shadow_host_id,
-            "shadow_host_class_list": m.shadow_host_class_list,
-            "shadow_path": m.shadow_path,
-            "created_at": m.created_at.isoformat() if m.created_at else None
-        }
-        for m in markers
-    ])
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "version": m.version
+        })
+        
+    return JSONResponse(data)
 
 @router.get("")
 @router.get("/")
@@ -143,3 +168,4 @@ async def export_by_project_query(
     else:
         markdown_text = await export_markdown(session.id, db, current_user)
         return PlainTextResponse(markdown_text)
+

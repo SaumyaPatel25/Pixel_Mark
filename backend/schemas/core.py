@@ -122,193 +122,20 @@ class SessionRendererUpdate(BaseModel):
     three_detected: bool
 
 # Markers
-class MarkerCreate(BaseModel):
-    session_id: Optional[str] = None
-    project_id: Optional[str] = None
-    page_visit_id: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    url: Optional[str] = None
-    page_url: Optional[str] = None
-    page_title: Optional[str] = None
-    renderer_type: Optional[str] = "dom"
-    canvas_context: Optional[dict] = None
-    agent_version: Optional[str] = "2.0"
-    xpath: Optional[str] = None
+class CanonicalAnchor(BaseModel):
+    page_x: float
+    page_y: float
+    viewport_width: float
+    viewport_height: float
+    scroll_x: float
+    scroll_y: float
     css_selector: Optional[str] = None
-    inner_text: Optional[str] = None
-    viewport: Optional[dict] = None
-    browser: Optional[str] = None
-    os: Optional[str] = None
-    scroll_position: Optional[dict] = None
-    console_errors: Optional[List[Any]] = None
-    network_errors: Optional[List[Any]] = None
-    screenshot_url: Optional[str] = None
-    priority: Optional[PriorityEnum] = PriorityEnum.medium
-    is_inside_shadow_dom: Optional[bool] = False
-    shadow_root_depth: Optional[int] = None
-    shadow_host_tag: Optional[str] = None
-    shadow_host_id: Optional[str] = None
-    shadow_host_class_list: Optional[List[str]] = None
-    shadow_path: Optional[str] = None
-    
-    # Step 2B ingestion fields
-    share_token: Optional[str] = None
-    x: Optional[float] = None
-    y: Optional[float] = None
-    viewport_x: Optional[float] = None
-    viewport_y: Optional[float] = None
-    norm_x: Optional[float] = None
-    norm_y: Optional[float] = None
-    canvas_snapshot: Optional[str] = None
-    element_selector: Optional[str] = None
-    element_text: Optional[str] = None
-    element_tag: Optional[str] = None
-    note: Optional[str] = None
-    severity: Optional[str] = "medium"
-    screenshot_required: Optional[bool] = False
-    created_via: Optional[str] = "agent"
-    share_link_id: Optional[str] = None
-    user_id: Optional[str] = None
-
-    # Step 2v2 structured issue fields
-    issue_type: Optional[str] = "other"  # layout | copy | interaction | navigation | rendering | canvas_webgl | other
-    aria_label: Optional[str] = None
-    aria_role: Optional[str] = None
-    bounding_box: Optional[dict] = None   # {x, y, width, height, top, right, bottom, left}
-    browser_info: Optional[dict] = None   # {name, version, os, platform, user_agent}
-
-class MarkerUpdate(BaseModel):
-    status: Optional[str] = None
-    priority: Optional[PriorityEnum] = None
-    assignee_id: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-
-class MarkerRead(BaseModel):
-    id: str
-    session_id: str
-    page_visit_id: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    url: Optional[str] = None
-    page_url: Optional[str] = None
-    page_title: Optional[str] = None
-    renderer_type: Optional[str] = None
-    canvas_context: Optional[dict] = None
-    marker_number: int
-    agent_version: Optional[str] = None
     xpath: Optional[str] = None
-    css_selector: Optional[str] = None
-    inner_text: Optional[str] = None
-    viewport: Optional[dict] = None
-    browser: Optional[str] = None
-    os: Optional[str] = None
-    scroll_position: Optional[dict] = None
-    console_errors: Optional[List[Any]] = None
-    network_errors: Optional[List[Any]] = None
-    screenshot_url: Optional[str] = None
-    priority: PriorityEnum
-    status: str
-    ai_summary: Optional[str] = None
-    is_inside_shadow_dom: Optional[bool] = False
-    shadow_root_depth: Optional[int] = None
-    shadow_host_tag: Optional[str] = None
-    shadow_host_id: Optional[str] = None
-    shadow_host_class_list: Optional[List[str]] = None
-    shadow_path: Optional[str] = None
-    
-    # Step 2B ingestion fields
-    x: Optional[float] = None
-    y: Optional[float] = None
-    viewport_x: Optional[float] = None
-    viewport_y: Optional[float] = None
-    norm_x: Optional[float] = None
-    norm_y: Optional[float] = None
-    canvas_snapshot: Optional[str] = None
-    element_selector: Optional[str] = None
-    element_text: Optional[str] = None
     element_tag: Optional[str] = None
-    note: Optional[str] = None
-    severity: Optional[str] = "medium"
-    screenshot_required: Optional[bool] = False
-    created_via: Optional[str] = "agent"
-    share_link_id: Optional[str] = None
-    user_id: Optional[str] = None
-
-    # Step 2v2 structured issue fields
-    issue_type: Optional[str] = "other"
-    aria_label: Optional[str] = None
-    aria_role: Optional[str] = None
-    bounding_box: Optional[dict] = None
-    browser_info: Optional[dict] = None
-    
-    # Step 3 feedback models
-    project_id: Optional[str] = None
-    comment: Optional[str] = None
-    capture_payload: Optional[dict] = None
-    coordinates: Optional[dict] = None
-    target: Optional[dict] = None
-    source: Optional[dict] = None
-    screenshots: Optional[dict] = None
-    diagnostics: Optional[dict] = None
-    created_by: Optional[str] = None
-    parent_page_id: Optional[str] = None
-    
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    class Config: from_attributes = True
-
-class MarkerOut(MarkerRead):
-    pass
-
-# Feedback schemas (Step 3)
-class FeedbackCreate(BaseModel):
-    pageurl: str
-    pagetitle: Optional[str] = None
-    issuetype: Optional[str] = "other"
-    priority: Optional[str] = "medium"
-    comment: Optional[str] = ""
-    renderertype: Optional[str] = "dom"
-    createdvia: Optional[str] = "agent"
-    capturepayload: dict
-    share_token: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-
-class FeedbackUpdate(BaseModel):
-    status: Optional[str] = None
-    issuetype: Optional[str] = None
-    priority: Optional[str] = None
-    comment: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-
-class FeedbackOut(BaseModel):
-    id: str
-    sessionid: str
-    pageurl: str
-    pagetitle: Optional[str] = None
-    status: str
-    issuetype: Optional[str] = None
-    priority: Optional[str] = None
-    comment: Optional[str] = None
-    renderertype: Optional[str] = None
-    createdvia: Optional[str] = None
-    createdat: datetime
-    updatedat: Optional[datetime] = None
-    capturepayload: Optional[dict] = None
-    
-    # Metadata for frontend mapping
-    project_id: Optional[str] = None
-    marker_number: Optional[int] = None
-    share_link_id: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-
-class FeedbackListOut(BaseModel):
-    items: List[FeedbackOut]
-    total: int
+    element_text_excerpt: Optional[str] = None
+    offset_x_ratio: Optional[float] = None
+    offset_y_ratio: Optional[float] = None
+    element_rect: Optional[dict] = None
 
 # Environments
 class EnvironmentCreate(BaseModel):
@@ -341,10 +168,6 @@ class CanvasFrameUpdate(BaseModel):
     color: Optional[str] = None
     title: Optional[str] = None
 
-class CanvasMarkerSummary(BaseModel):
-    title: Optional[str] = None
-    priority: str
-
 class CanvasPriorityDistribution(BaseModel):
     critical: int = 0
     high: int = 0
@@ -363,8 +186,6 @@ class CanvasFrameRead(BaseModel):
     color: str
     snapshot_url: Optional[str] = None
     created_at: datetime
-    marker_count: int = 0
-    top_markers: List[CanvasMarkerSummary] = []
     priority_distribution: CanvasPriorityDistribution = CanvasPriorityDistribution()
     class Config: from_attributes = True
 
@@ -443,14 +264,7 @@ class SessionStatsRead(BaseModel):
     pages_visited: int
     unique_pages: int
 
-class PageMarkersGroup(BaseModel):
-    page_url: str
-    page_title: Optional[str] = None
-    marker_count: int
-    markers: List[MarkerOut]
 
-class PageGroupedMarkersRead(BaseModel):
-    pages: List[PageMarkersGroup]
 
 from pydantic import Field
 import uuid

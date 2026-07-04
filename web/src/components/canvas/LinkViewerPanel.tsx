@@ -150,7 +150,7 @@ export function LinkViewerPanel({
     }
   }
 
-  const proxyUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765'}/proxy/session/${sessionId}/page?url=${encodeURIComponent(url)}`
+  const proxyUrl = `${process.env.NEXT_PUBLIC_API_URL || ''}/proxy/session/${sessionId}/page?url=${encodeURIComponent(url)}`
 
   if (!sessionId) {
     return <div className="flex-1 flex items-center justify-center text-white/40 text-sm bg-[#1a1a24]">Loading session...</div>

@@ -1,5 +1,4 @@
 'use client'
-import { useCaptureStore, usePinStore } from '@/store/overlayStore'
 import { useUIStore } from '@/store/uiStore'
 import { normalizeCapturePayload, normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -20,6 +19,11 @@ import { useScreenshotStore } from '@/store/screenshotStore'
 import { ScreenshotPermissionBanner } from '@/components/audit/ScreenshotPermissionBanner'
 import { RegionSelectionOverlay } from '@/components/audit/RegionSelectionOverlay'
 import { MarkerPinLayer } from '@/components/audit/MarkerPinLayer'
+import { useMarkerStore } from '@/store/markerStore'
+import { useSessionSocket } from '@/lib/useSessionSocket'
+import { ActorContext, canCurrentActorMutateMarker } from '@/lib/permissions'
+import { ReviewerIdentity } from '@/types/markers'
+
 // ─── Collapsible list helper component (Phase 3.5 Upgrade) ────────────────────
 const CollapsibleList = ({ title, count, items, renderItem }: { title: string; count: number; items: any[]; renderItem: (item: any, idx: number) => React.ReactNode }) => {
   const [open, setOpen] = useState(false)
@@ -51,6 +55,8 @@ interface AuditSurfaceProps {
   sessionId: string
   projectId: string
   shareToken?: string
+  reviewerIdentity?: ReviewerIdentity | null
+  isReviewerGateOpen?: boolean
   onMarkerCreated?: (marker: any) => void
   onPageChanged?: (url: string, title: string) => void
 }
@@ -139,6 +145,8 @@ export function AuditSurface({
   sessionId,
   projectId,
   shareToken,
+  reviewerIdentity,
+  isReviewerGateOpen,
   onMarkerCreated,
   onPageChanged
 }: AuditSurfaceProps) {
@@ -184,6 +192,8 @@ export function AuditSurface({
   const [isLoading, setIsLoading] = useState(true)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [failedAssets, setFailedAssets] = useState<{ url: string; critical: boolean }[]>([])
+  const [degradedAssets, setDegradedAssets] = useState<{ url: string; tagName: string }[]>([])
+  const [bootTimeout, setBootTimeout] = useState(false)
   const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [scrollPos, setScrollPos] = useState({ x: 0, y: 0 })
@@ -192,11 +202,20 @@ export function AuditSurface({
   const [feedbackModeActive, setFeedbackModeActive] = useState(false)
   const { fetchEdits, createEdit } = useDOMEditStore()
   const edits = useDOMEditStore(state => state.edits)
-  const captures = Object.values(useCaptureStore(state => state.capturesById))
-  const captureOrder = useCaptureStore(state => state.captureOrder)
   const [manualPlacementMode, setManualPlacementMode] = useState(false)
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 })
   const [isHoveringOverlay, setIsHoveringOverlay] = useState(false)
+  
+  // Phase 4: Canonical Marker Store Integration
+  const { markersById, orderedMarkerIds, createMarkerViaApi, updateMarkerViaApi, moveMarkerViaApi, deleteMarkerViaApi, selectMarker, selectedMarkerId } = useMarkerStore()
+  const markers = Object.values(markersById)
+  
+  // Setup Realtime Sync
+  const actor: ActorContext = !!shareToken 
+    ? (reviewerIdentity ? { id: reviewerIdentity.id, role: 'reviewer' } : { id: 'anon', role: 'reviewer' })
+    : { id: 'developer-user', role: 'developer' }
+
+  const socketStatus = useSessionSocket(sessionId, actor)
 
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -213,7 +232,7 @@ export function AuditSurface({
   // Phase 4 Feedback drawer state extensions
   const [issueTitle, setIssueTitle] = useState('')
   const [tags, setTags] = useState('')
-  const [isListSidebarOpen, setIsListSidebarOpen] = useState(projectId === 'public')
+  const [isListSidebarOpen, setIsListSidebarOpen] = useState(!!shareToken)
   
   // Collapsible Evidence Panel States (Phase 3.5 Upgrade)
   const [screenshotPanelExpanded, setScreenshotPanelExpanded] = useState(true)
@@ -290,8 +309,7 @@ export function AuditSurface({
 
       // Upsert and get ID
       const payload = normalizeCapturePayload(regionCtx)
-      id = useCaptureStore.getState().upsertCapture(payload)
-      useCaptureStore.getState().openFeedbackDrawer(id)
+      // Upsert handled implicitly or wait until screenshot completes
       useUIStore.getState().toggleCommandCenter(true)
     }
 
@@ -316,58 +334,54 @@ export function AuditSurface({
   }, [])
 
 
-  const selectedCaptureId = useCaptureStore(state => state.selectedCaptureId)
-  const isFeedbackDrawerOpen = useCaptureStore(state => state.isFeedbackDrawerOpen)
-  const activeCapture = useCaptureStore(state => selectedCaptureId ? state.capturesById[selectedCaptureId] : null)
-  const isSubmitted = activeCapture ? (activeCapture.status !== 'draft' && activeCapture.status !== 'failed') : false
-  const isResolved = activeCapture?.status === 'resolved' || activeCapture?.status === 'dismissed'
-  const isFailed = activeCapture?.status === 'failed'
-  const isFormReadOnly = isResolved && (statusVal === 'resolved' || statusVal === 'dismissed')
+  const activeMarker = useMarkerStore(state => state.selectedMarkerId ? state.markersById[state.selectedMarkerId] : null)
+  const isSubmitted = !!activeMarker
+  const isResolved = activeMarker?.status === 'resolved'
+  const isFailed = false
+  const canMutate = activeMarker ? canCurrentActorMutateMarker(actor, activeMarker) : true
+  const isFormReadOnly = (isResolved && statusVal === 'resolved') || !canMutate
 
   useEffect(() => {
-    setIsDrawerOpen(isFeedbackDrawerOpen)
-  }, [isFeedbackDrawerOpen])
+    setIsDrawerOpen(!!selectedMarkerId)
+  }, [selectedMarkerId])
 
   useEffect(() => {
-    if (selectedCaptureId) {
-      const capture = useCaptureStore.getState().capturesById[selectedCaptureId]
-      if (capture) {
+    if (selectedMarkerId) {
+      const marker = useMarkerStore.getState().markersById[selectedMarkerId]
+      if (marker) {
         setCaptureCtx({
-          page_url: capture.pageUrl,
-          page_title: capture.pageTitle,
-          x: capture.coordinates.pageX || 0,
-          y: capture.coordinates.pageY || 0,
-          viewport_x: capture.coordinates.viewportX || 0,
-          viewport_y: capture.coordinates.viewportY || 0,
-          element_selector: capture.target.selector || '',
-          element_text: capture.target.text || '',
-          element_tag: capture.target.tagName || '',
-          element_id: capture.target.elementId || '',
-          aria_label: capture.target.ariaLabel,
-          aria_role: capture.target.ariaRole,
-          bounding_box: capture.boundingBox as any,
-          xpath: capture.target.xpath || '',
-          renderer_type: capture.rendererType,
-          canvas_context: capture.canvasContext,
-          screenshot_data_url: capture.screenshots.cropDataUrl || capture.screenshots.fullPageDataUrl,
-          screenshot_required: capture.screenshots.screenshotRequired,
-          viewport: capture.viewport as any,
-          scroll_position: { x: capture.viewport.scrollX || 0, y: capture.viewport.scrollY || 0 },
-          console_errors: capture.diagnostics.consoleErrors,
-          network_errors: capture.diagnostics.networkErrors,
-          browser_info: capture.diagnostics.browserInfo,
-          issue_type_hint: (capture.issueType || 'other') as IssueType,
-          created_via: capture.createdVia as CreatedVia,
-          agent_version: capture.agentVersion || '2.0',
-          timestamp: capture.timestamp
+          page_url: marker.page_url,
+          page_title: marker.page_title,
+          x: marker.page_x || 0,
+          y: marker.page_y || 0,
+          viewport_x: marker.viewport_x || 0,
+          viewport_y: marker.viewport_y || 0,
+          element_selector: marker.target_selector || '',
+          element_text: marker.dom_text_excerpt || '',
+          element_tag: marker.element_rect_json?.tagName || '',
+          element_id: '',
+          aria_label: marker.element_rect_json?.ariaLabel,
+          aria_role: marker.element_rect_json?.ariaRole,
+          bounding_box: null,
+          xpath: marker.target_xpath || '',
+          renderer_type: marker.renderer_type || 'dom',
+          canvas_context: null,
+          screenshot_data_url: marker.screenshot_url,
+          screenshot_required: false,
+          viewport: { width: marker.viewport_width || 1200, height: marker.viewport_height || 800 },
+          scroll_position: { x: marker.scroll_x || 0, y: marker.scroll_y || 0 },
+          console_errors: marker.console_errors_json || [],
+          network_errors: marker.network_errors_json || [],
+          browser_info: { browser: marker.browser, os: marker.os },
+          issue_type_hint: 'other',
+          created_via: 'manual',
+          agent_version: '2.0',
+          timestamp: marker.created_at
         })
-        setNoteText(capture.userComment || '')
-        setIssueType((capture.issueType || 'other') as IssueType)
-        setSeverity((capture.priority || 'medium') as Severity)
-        setStatusVal(capture.status || 'new')
-        setIssueTitle(capture.title || '')
-        setTags(capture.tags || '')
-        console.log(`[OBSERVABILITY] [FEEDBACK_OPENED] Opened feedback ID=${capture.id} status=${capture.status || 'new'} priority=${capture.priority || 'medium'}`)
+        setNoteText(marker.description || '')
+        setSeverity((marker.priority || 'medium') as Severity)
+        setStatusVal(marker.status || 'open')
+        setIssueTitle(marker.title || '')
       }
     } else {
       setCaptureCtx(null)
@@ -378,13 +392,13 @@ export function AuditSurface({
       setSeverity('medium')
       setStatusVal('new')
     }
-  }, [selectedCaptureId])
+  }, [selectedMarkerId])
 
   // Save current active draft form state to localStorage
   useEffect(() => {
-    if (selectedCaptureId && !isSubmitted && !isResolved) {
+    if (selectedMarkerId && !isSubmitted && !isResolved) {
       const draftState = {
-        activePinId: selectedCaptureId,
+        activePinId: selectedMarkerId,
         issueTitle,
         noteText,
         issueType,
@@ -393,10 +407,10 @@ export function AuditSurface({
       }
       localStorage.setItem('pixelmark_current_draft_form', JSON.stringify(draftState))
       console.log('[OBSERVABILITY] [DRAFT_SAVED] Current open draft form autosaved')
-    } else if (!selectedCaptureId) {
+    } else if (!selectedMarkerId) {
       localStorage.removeItem('pixelmark_current_draft_form')
     }
-  }, [selectedCaptureId, issueTitle, noteText, issueType, severity, tags, isSubmitted, isResolved])
+  }, [selectedMarkerId, issueTitle, noteText, issueType, severity, tags, isSubmitted, isResolved])
 
   // Restore current active draft form state from localStorage on mount/load
   useEffect(() => {
@@ -406,11 +420,11 @@ export function AuditSurface({
         if (saved) {
           const parsed = JSON.parse(saved)
           if (parsed && parsed.activePinId) {
-            const pins = usePinStore.getState().pins
-            const exists = pins.some(p => p.id === parsed.activePinId)
-            if (exists) {
-              if (useCaptureStore.getState().selectedCaptureId !== parsed.activePinId) {
-                useCaptureStore.getState().openFeedbackDrawer(parsed.activePinId)
+            const markers = useMarkerStore.getState().markersById
+            if (markers[parsed.activePinId]) {
+              if (useMarkerStore.getState().selectedMarkerId !== parsed.activePinId) {
+                selectMarker(parsed.activePinId)
+                setIsDrawerOpen(true)
               }
               setIssueTitle(parsed.issueTitle || '')
               setNoteText(parsed.noteText || '')
@@ -518,6 +532,23 @@ export function AuditSurface({
     return () => clearTimeout(t)
   }, [isLoading])
 
+  // Boot timer for iframe
+  useEffect(() => {
+    if (!currentUrl) return
+    if (!isLoading) {
+      setBootTimeout(false)
+      return
+    }
+    
+    const timer = setTimeout(() => {
+      if (isLoading && !iframeReady) {
+        setBootTimeout(true)
+      }
+    }, 10000)
+    
+    return () => clearTimeout(timer)
+  }, [currentUrl, isLoading, iframeReady])
+
   // Fetch session URL on mount to avoid race conditions with iframe postMessage
   useEffect(() => {
     if (!sessionId) return
@@ -568,23 +599,9 @@ export function AuditSurface({
     }
   }, [sessionId, projectId])
 
-  useEffect(() => {
-    if (!sessionId) return
+  // Removed legacy hydration useEffect since useMarkerStore.loadSessionMarkers handles this canonical list
 
-    console.log(`[PixelMark Hydration] loading all session feedback`)
-    
-    api.feedback.list(sessionId, undefined, shareToken)
-      .then((data) => {
-        const items = data.items || []
-        console.log(`[PixelMark Hydration] loaded all ${items.length} session items`)
-        useCaptureStore.getState().hydratePersistedFeedback(items)
-      })
-      .catch((err) => {
-        console.error('[PixelMark Hydration] failed to load all session feedback:', err)
-      })
-  }, [sessionId, shareToken])
-
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
   const proxyUrl = `${API_BASE}/proxy/session/${sessionId}${shareToken ? `?share_token=${shareToken}` : ''}`
 
   const handleSelectPage = useCallback((url: string) => {
@@ -615,11 +632,15 @@ export function AuditSurface({
 
   // ─── Open feedback drawer with context ───────────────────────────────────
   const openFeedbackDrawer = useCallback((ctx: any) => {
-    const payload = normalizeCapturePayload(ctx)
-    const id = useCaptureStore.getState().upsertCapture(payload)
-    useCaptureStore.getState().openFeedbackDrawer(id)
-    useUIStore.getState().toggleCommandCenter(true)
-  }, [])
+    selectMarker(null)
+    setCaptureCtx(ctx)
+    setIsDrawerOpen(true)
+    setNoteText('')
+    setIssueTitle('')
+    setIssueType('other')
+    setSeverity('medium')
+    setStatusVal('new')
+  }, [selectMarker])
 
   // ─── Listen for messages from the agent ──────────────────────────────────
   useEffect(() => {
@@ -652,25 +673,32 @@ export function AuditSurface({
           useSessionStore.getState().setRendererType(data.rendererType || 'dom')
           break
 
-        case 'PIXELMARK_RENDERER_DETECTED':
-          if (data.session_id) {
+        case 'PIXELMARK_RENDERER_DETECTED': {
+          const rType = data.rendererType || data.renderer_type || 'dom'
+          const hCanvas = data.hasCanvas !== undefined ? data.hasCanvas : !!data.has_canvas
+          const cCount = data.canvasCount !== undefined ? data.canvasCount : Number(data.canvas_count || 0)
+          const rDetected = data.rafDetected !== undefined ? data.rafDetected : !!data.raf_detected
+          const tDetected = data.threeDetected !== undefined ? data.threeDetected : !!data.three_detected
+
+          if (sessionId) {
             try {
-              await api.sessions.updateRenderer(data.session_id, {
-                renderer_type: data.renderer_type,
-                has_canvas: !!data.has_canvas,
-                canvas_count: Number(data.canvas_count || 0),
-                raf_detected: !!data.raf_detected,
-                three_detected: !!data.three_detected,
-              });
+              api.sessions.updateRenderer(sessionId, {
+                renderer_type: rType,
+                has_canvas: hCanvas,
+                canvas_count: cCount,
+                raf_detected: rDetected,
+                three_detected: tDetected,
+              }).catch(err => console.error('[AuditSurface] Failed to update session renderer in backend:', err));
             } catch (err) {
-              console.error('[AuditSurface] Failed to update session renderer in backend:', err);
+              console.error('[AuditSurface] API call failed:', err);
             }
           }
-          useSessionStore.getState().setRendererType(data.renderer_type);
-          setRendererType(data.renderer_type);
+          
+          useSessionStore.getState().setRendererType(rType);
+          setRendererType(rType);
 
           // Resize event injection after 1000ms delay in heavy mode
-          if (data.renderer_type !== 'dom') {
+          if (rType !== 'dom') {
             setTimeout(() => {
               try {
                 let isSameOrigin = false;
@@ -693,6 +721,7 @@ export function AuditSurface({
             }, 1000);
           }
           break
+        }
 
         case 'PIXELMARK_NAV':
           try {
@@ -738,13 +767,13 @@ export function AuditSurface({
           }
           break
 
-        // ── Capture progress events ─────────────────────────────────────────
-        case 'PIXELMARK_CAPTURE_STARTED':
-          useCaptureStore.getState().setCaptureInProgress(true)
-          break
-
-        case 'PIXELMARK_CAPTURE_COMPLETED':
-          useCaptureStore.getState().setCaptureInProgress(false)
+        case 'PIXELMARK_ASSET_DEGRADED':
+          if (data.url) {
+            setDegradedAssets(prev => {
+              if (prev.some(a => a.url === data.url)) return prev
+              return [...prev, { url: data.url, tagName: data.tagName || 'unknown' }]
+            })
+          }
           break
 
         // ── Open feedback drawer — canonical handler (normalizes payload) ───
@@ -753,127 +782,209 @@ export function AuditSurface({
           const rawData = data.payload ? { ...data, ...data.payload } : data
           const normalized = normalizeCapturePayload(rawData)
 
-          // If it's an existing pin, don't trigger new screenshot orchestration or overwrite
-          const existingCapture = useCaptureStore.getState().capturesById[normalized.id]
-          if (existingCapture) {
-            console.log(`[Markers] opened id=${normalized.id}`)
-            useCaptureStore.getState().selectCapture(normalized.id)
-            useCaptureStore.getState().openFeedbackDrawer(normalized.id)
+          // If it's an existing marker, select it and open the drawer
+          const existingMarker = useMarkerStore.getState().markersById[normalized.id]
+          if (existingMarker) {
+            console.log(`[Markers] opened existing marker id=${normalized.id}`)
+            selectMarker(normalized.id)
+            setIsDrawerOpen(true)
             useUIStore.getState().toggleCommandCenter(true)
             break
           }
 
-          // Compute coordinates once using the new helper
+          // Compute coordinates
           const coords = normalizeMarkerCoordinates(normalized)
           normalized.displayX = coords.displayX
           normalized.displayY = coords.displayY
           normalized.pageX = coords.pageX
           normalized.pageY = coords.pageY
 
-          console.log(`[Markers] created id=${normalized.id} x=${normalized.displayX} y=${normalized.displayY} source=${coords.source}`)
+          console.log(`[Markers] creating marker id=${normalized.id} x=${normalized.displayX} y=${normalized.displayY}`)
 
-          normalized.screenshotdataurl = 'pending';
-          const captureId = useCaptureStore.getState().upsertCapture(normalized)
-          useCaptureStore.getState().openFeedbackDrawer(captureId)
-          useUIStore.getState().toggleCommandCenter(true)
-          console.log(`[Markers] opened id=${captureId}`)
+          const isCanvas = normalized.rendererType === 'webgl' || normalized.rendererType === 'threejs' || normalized.rendererType === 'canvas2d'
+          const anchorKind = isCanvas ? 'canvas-relative' : (normalized.selector ? 'dom-relative' : 'viewport-absolute')
 
-          const pageUrl = normalized.pageUrl || currentUrl;
-          const { screenshotMode } = useScreenshotStore.getState();
+          const VALID_RENDERER_TYPES = ['dom', 'shadow-dom', 'canvas2d', 'webgl', 'threejs']
+          const VALID_ANCHOR_KINDS = ['dom-relative', 'viewport-absolute', 'canvas-relative', 'webgl-clip-space', 'manual']
 
-          const runBackgroundScreenshot = (capId: string, url: string, bbox: any) => {
-            useScreenshotStore.getState().setScreenshotState('capturing', null, null, null);
+          const rawRendererType = normalized.rendererType || normalized.renderer_type || 'dom'
+          const safeRendererType = VALID_RENDERER_TYPES.includes(rawRendererType) ? rawRendererType : 'dom'
+          const safeAnchorKind = VALID_ANCHOR_KINDS.includes(anchorKind) ? anchorKind : 'viewport-absolute'
 
-            let cropRect = undefined;
-            if (screenshotMode === 'element' && bbox) {
-              const bb = bbox as any;
-              cropRect = { x: bb.left || bb.x || 0, y: bb.top || bb.y || 0, width: bb.width || 0, height: bb.height || 0 };
-            }
-
-            Promise.all([
-              import('@/utils/captureOrchestrator'),
-            ]).then(([{ orchestrateScreenshot, createDetailedPlaceholderScreenshot }]) => {
-              orchestrateScreenshot(sessionId, url, screenshotMode, cropRect, shareToken, iframeRef.current)
-                .then((res) => {
-                  useScreenshotStore.getState().setScreenshotState('success', res.dataUrl, res.source, null);
-
-                  window.postMessage({
-                    type: 'PIXELMARK_UPDATE_SCREENSHOT',
-                    id: capId,
-                    screenshotdataurl: res.dataUrl,
-                    screenshotsource: res.source,
-                    screenshotrequired: true
-                  }, '*');
-                })
-                .catch((err) => {
-                  console.error('[PixelMark Screenshot] background capture failed:', err);
-                  
-                  // Fail-soft: generate detailed placeholder PNG
-                  const fallbackPng = createDetailedPlaceholderScreenshot({
-                    url: pageUrl,
-                    title: normalized.pageTitle || currentTitle,
-                    tag: normalized.target.tagName || 'ELEMENT',
-                    selector: normalized.target.selector || '',
-                    reason: err.message || String(err),
-                    timestamp: new Date().toISOString()
-                  });
-
-                  useScreenshotStore.getState().setScreenshotState('failed', fallbackPng, 'placeholder-error', err.message || String(err));
-
-                  window.postMessage({
-                    type: 'PIXELMARK_UPDATE_SCREENSHOT',
-                    id: capId,
-                    screenshotdataurl: fallbackPng,
-                    screenshotsource: 'failed-fallback',
-                    screenshotrequired: false
-                  }, '*');
-                });
-            }).catch((err) => {
-              console.error('[PixelMark Screenshot] failed to import orchestrator:', err);
-              useScreenshotStore.getState().setScreenshotState('failed', null, null, err.message || String(err));
-            });
-          };
-
-          if (screenshotMode === 'region') {
-            setPendingRegionCaptureId(captureId)
-          } else {
-            // Asynchronous non-blocking background capture
-            setTimeout(() => {
-              runBackgroundScreenshot(captureId, pageUrl, normalized.boundingBox);
-            }, screenshotMode === 'fullpage' ? 300 : 0);
+          // Build anchor-kind-specific coordinate fields — backend enforces strict separation
+          const basePayload = {
+            project_id: projectId,
+            anchor_kind: safeAnchorKind,
+            page_url: normalized.pageUrl || normalized.page_url || currentUrl,
+            page_title: normalized.pageTitle || normalized.page_title || currentTitle,
+            viewport_width: normalized.viewport_width ?? normalized.viewport?.width ?? window.innerWidth,
+            viewport_height: normalized.viewport_height ?? normalized.viewport?.height ?? window.innerHeight,
+            scroll_x: normalized.scrollX ?? normalized.viewport?.scrollX ?? normalized.scroll_position?.x ?? 0,
+            scroll_y: normalized.scrollY ?? normalized.viewport?.scrollY ?? normalized.scroll_position?.y ?? 0,
+            element_rect_json: normalized.target ? {
+              tagName: normalized.target.tagName,
+              classList: normalized.target.classList,
+              ariaLabel: normalized.target.ariaLabel,
+              ariaRole: normalized.target.ariaRole,
+            } : null,
+            canvas_id: normalized.canvasId || null,
+            renderer_type: safeRendererType,
+            title: '',
+            description: '',
+            status: 'open',
+            priority: 'medium',
           }
+
+          let coordinateFields: Record<string, any> = {}
+
+          if (safeAnchorKind === 'dom-relative') {
+            coordinateFields = {
+              target_selector: normalized.selector || normalized.target?.selector || null,
+              target_xpath: normalized.xpath || normalized.target?.xpath || null,
+              dom_text_excerpt: normalized.target?.text || normalized.dom_text_excerpt || null,
+              offset_x_ratio: typeof normalized.coordinates?.normX === 'number' ? normalized.coordinates.normX : 0.5,
+              offset_y_ratio: typeof normalized.coordinates?.normY === 'number' ? normalized.coordinates.normY : 0.5,
+              page_x: normalized.coordinates?.pageX ?? normalized.pageX ?? 0,
+              page_y: normalized.coordinates?.pageY ?? normalized.pageY ?? 0,
+            }
+          } else if (safeAnchorKind === 'canvas-relative') {
+            coordinateFields = {
+              canvas_x_ratio: typeof normalized.coordinates?.normX === 'number' ? normalized.coordinates.normX : 0.5,
+              canvas_y_ratio: typeof normalized.coordinates?.normY === 'number' ? normalized.coordinates.normY : 0.5,
+              page_x: normalized.coordinates?.pageX ?? normalized.pageX ?? 0,
+              page_y: normalized.coordinates?.pageY ?? normalized.pageY ?? 0,
+            }
+          } else if (safeAnchorKind === 'webgl-clip-space') {
+            coordinateFields = {
+              webgl_clip_x: normalized.webglClipX ?? 0,
+              webgl_clip_y: normalized.webglClipY ?? 0,
+            }
+          } else {
+            // viewport-absolute or manual
+            coordinateFields = {
+              viewport_x: normalized.coordinates?.viewportX ?? normalized.displayX ?? 0,
+              viewport_y: normalized.coordinates?.viewportY ?? normalized.displayY ?? 0,
+              page_x: normalized.coordinates?.pageX ?? normalized.pageX ?? 0,
+              page_y: normalized.coordinates?.pageY ?? normalized.pageY ?? 0,
+            }
+          }
+
+          const markerPayload = { ...basePayload, ...coordinateFields }
+
+          console.log('[AuditSurface] Creating marker payload:', markerPayload)
+
+          // Asynchronously create the marker in the backend
+          createMarkerViaApi(sessionId, markerPayload, reviewerIdentity?.id)
+            .then((newMarker) => {
+              selectMarker(newMarker.id)
+              setIsDrawerOpen(true)
+              useUIStore.getState().toggleCommandCenter(true)
+
+              const pageUrl = normalized.pageUrl || currentUrl;
+              const { screenshotMode } = useScreenshotStore.getState();
+
+              const runBackgroundScreenshot = (markerId: string, url: string, bbox: any) => {
+                useScreenshotStore.getState().setScreenshotState('capturing', null, null, null);
+
+                let cropRect = undefined;
+                if (screenshotMode === 'element' && bbox) {
+                  const bb = bbox as any;
+                  cropRect = { x: bb.left || bb.x || 0, y: bb.top || bb.y || 0, width: bb.width || 0, height: bb.height || 0 };
+                }
+
+                Promise.all([
+                  import('@/utils/captureOrchestrator'),
+                ]).then(([{ orchestrateScreenshot, createDetailedPlaceholderScreenshot }]) => {
+                  orchestrateScreenshot(sessionId, url, screenshotMode, cropRect, shareToken, iframeRef.current)
+                    .then((res) => {
+                      useScreenshotStore.getState().setScreenshotState('success', res.dataUrl, res.source, null);
+                      updateMarkerViaApi(markerId, { screenshot_url: res.dataUrl }, reviewerIdentity?.id)
+                    })
+                    .catch((err) => {
+                      console.error('[PixelMark Screenshot] background capture failed:', err);
+                      const fallbackPng = createDetailedPlaceholderScreenshot({
+                        url: pageUrl,
+                        title: normalized.pageTitle || currentTitle,
+                        tag: normalized.target?.tagName || 'ELEMENT',
+                        selector: normalized.target?.selector || '',
+                        reason: err.message || String(err),
+                        timestamp: new Date().toISOString()
+                      });
+
+                      useScreenshotStore.getState().setScreenshotState('failed', fallbackPng, 'placeholder-error', err.message || String(err));
+                      updateMarkerViaApi(markerId, { screenshot_url: fallbackPng }, reviewerIdentity?.id)
+                    });
+                }).catch((err) => {
+                  console.error('[PixelMark Screenshot] failed to import orchestrator:', err);
+                });
+              };
+
+              if (screenshotMode === 'region') {
+                setPendingRegionCaptureId(newMarker.id)
+              } else {
+                setTimeout(() => {
+                  runBackgroundScreenshot(newMarker.id, pageUrl, normalized.boundingBox);
+                }, screenshotMode === 'fullpage' ? 300 : 0);
+              }
+            })
+            .catch((err) => {
+              console.error('[AuditSurface] Failed to create marker on open drawer:', err)
+            })
 
           break
         }
 
+        case 'PIXELMARK_CREATE_MARKER': {
+          if (isReviewerGateOpen) return
+          if (!!shareToken && !reviewerIdentity) {
+            console.warn('[AuditSurface] Cannot create marker without reviewer identity')
+            return
+          }
+          
+          try {
+            const newMarker = await createMarkerViaApi(sessionId, {
+              project_id: projectId,
+              anchor_kind: data.anchor_kind,
+              page_url: data.page_url,
+              page_title: data.page_title,
+              target_selector: data.target_selector,
+              target_xpath: data.target_xpath,
+              dom_text_excerpt: data.dom_text_excerpt,
+              offset_x_ratio: data.offset_x_ratio,
+              offset_y_ratio: data.offset_y_ratio,
+              viewport_x: data.viewport_x,
+              viewport_y: data.viewport_y,
+              page_x: data.page_x,
+              page_y: data.page_y,
+              viewport_width: data.viewport_width,
+              viewport_height: data.viewport_height,
+              element_rect_json: data.element_rect_json,
+              scroll_x: data.scroll_x,
+              scroll_y: data.scroll_y,
+              canvas_id: data.canvas_id,
+              renderer_type: data.renderer_type
+            }, reviewerIdentity?.id)
+            
+            // Select and open Drawer (we can still use the legacy UI for the drawer if not yet refactored)
+            selectMarker(newMarker.id)
+            
+            // We could optionally also add it to legacy CaptureStore to keep old UI working
+            // For now we just rely on MarkerStore
+            console.log('[AuditSurface] Created canonical marker:', newMarker.id)
+            
+          } catch (err: any) {
+             console.error('[AuditSurface] Failed to create canonical marker:', err)
+             setSubmitError(err.message || 'Failed to place marker')
+          }
+          break
+        }
+
         case 'PIXELMARK_UPDATE_SCREENSHOT': {
-          // Log screenshot received status (Part 2)
-          const strategy = data.screenshotsource || data.screenshottype || data.screenshotttype || 'none';
-          const hasScreenshot = !!data.screenshotdataurl;
-          console.log(`[PixelMark Drawer] screenshot received: ${hasScreenshot ? 'yes' : 'no'} strategy=${strategy}`);
-
           if (data.id) {
-            const existing = useCaptureStore.getState().capturesById[data.id]
+            const existing = useMarkerStore.getState().markersById[data.id]
             if (existing) {
-              const updatedScreenshots = {
-                ...existing.screenshots,
-                cropDataUrl: data.screenshotdataurl,
-                fullPageDataUrl: data.screenshotdataurl,
-                canvasSnapshot: data.canvasSnapshot || data.screenshotdataurl,
-                screenshotRequired: !!data.screenshotdataurl
-              }
-              
-              useCaptureStore.getState().updateCaptureDraft(data.id, {
-                screenshots: updatedScreenshots,
-                screenshottype: data.screenshottype || strategy,
-                screenshotttype: data.screenshotttype || strategy,
-                screenshotsource: data.screenshotsource || strategy,
-                screenshottimestamp: data.screenshottimestamp,
-                screenshotdataurl: data.screenshotdataurl,
-                screenshotrequired: !!data.screenshotdataurl,
-              })
-
-              if (selectedCaptureId === data.id) {
+              useMarkerStore.getState().updateMarkerViaApi(data.id, { screenshot_url: data.screenshotdataurl }, reviewerIdentity?.id).catch(console.error)
+              if (useMarkerStore.getState().selectedMarkerId === data.id) {
                 setCaptureCtx(prev => prev ? {
                   ...prev,
                   screenshot_data_url: data.screenshotdataurl,
@@ -900,14 +1011,7 @@ export function AuditSurface({
           console.log(`[PixelMark Pin] recomputed ${data.resolvedPins?.length} markers`)
           
           data.resolvedPins?.forEach((p: any) => {
-            if (p.source !== 'none') {
-              const existing = useCaptureStore.getState().capturesById[p.id]
-              if (existing) {
-                useCaptureStore.getState().updateCaptureDraft(p.id, {
-                  renderedPosition: { left: p.clientX, top: p.clientY, source: p.source }
-                })
-              }
-            }
+            // Local state handles positioning in `setResolvedPositions` below
           })
 
           setResolvedPositions(prev => {
@@ -929,7 +1033,7 @@ export function AuditSurface({
         }
 
         case 'PIXELMARK_UNDO_LAST':
-          useCaptureStore.getState().undoLastLocalCapture()
+          console.log('Undo not supported in canonical marker store')
           break
 
         // ── Open specific existing capture ────────────────────────────────
@@ -938,8 +1042,8 @@ export function AuditSurface({
             if (data.pageUrl && data.pageUrl !== currentUrl) {
               handleSelectPage(data.pageUrl)
             }
-            useCaptureStore.getState().selectCapture(data.id)
-            useCaptureStore.getState().openFeedbackDrawer(data.id)
+            selectMarker(data.id)
+            setIsDrawerOpen(true)
           }
           break
         }
@@ -977,8 +1081,8 @@ export function AuditSurface({
       const payload = customEvent.detail
       if (payload && payload.id) {
         console.log(`[PixelMark Pins] CustomEvent PIXELMARKOPENFEEDBACKDRAWER received for id=${payload.id}`)
-        useCaptureStore.getState().selectCapture(payload.id)
-        useCaptureStore.getState().openFeedbackDrawer(payload.id)
+        selectMarker(payload.id)
+        setIsDrawerOpen(true)
         useUIStore.getState().toggleCommandCenter(true)
       }
     }
@@ -988,7 +1092,7 @@ export function AuditSurface({
       window.removeEventListener('message', handleAgentMessage)
       window.removeEventListener('PIXELMARKOPENFEEDBACKDRAWER', handleCustomOpen)
     }
-  }, [sessionId, projectId, shareToken, onMarkerCreated, onPageChanged, openFeedbackDrawer, currentUrl, handleSelectPage])
+  }, [sessionId, projectId, shareToken, onMarkerCreated, onPageChanged, openFeedbackDrawer, currentUrl, handleSelectPage, reviewerIdentity])
 
   // Pre-load all edits on session mount
   useEffect(() => {
@@ -1021,19 +1125,21 @@ export function AuditSurface({
     })
   }, [currentUrl, isLoading, sessionId, shareToken, fetchEdits, iframeReady])
 
-  const pinsSignature = JSON.stringify(captures.map(c => {
-    const pageX = c.pageX ?? 0
-    const pageY = c.pageY ?? 0
-    const capScrollX = c.viewport?.scrollX ?? 0
-    const capScrollY = c.viewport?.scrollY ?? 0
-    const viewportX = c.coordinates?.clientX ?? (pageX - capScrollX)
-    const viewportY = c.coordinates?.clientY ?? (pageY - capScrollY)
+  const pinsSignature = JSON.stringify(orderedMarkerIds.map(id => {
+    const c = markersById[id]
+    if (!c) return null
+    const pageX = c.page_x ?? 0
+    const pageY = c.page_y ?? 0
+    const capScrollX = c.scroll_x ?? 0
+    const capScrollY = c.scroll_y ?? 0
+    const viewportX = c.viewport_x ?? (pageX - capScrollX)
+    const viewportY = c.viewport_y ?? (pageY - capScrollY)
 
     return {
       id: c.id,
-      selector: c.selector ?? c.target?.selector,
-      xpath: c.xpath ?? c.target?.xpath,
-      boundingBox: c.boundingBox,
+      selector: c.target_selector,
+      xpath: c.target_xpath,
+      boundingBox: c.element_rect_json,
       x: pageX,
       y: pageY,
       viewportX,
@@ -1042,9 +1148,9 @@ export function AuditSurface({
         x: capScrollX,
         y: capScrollY
       },
-      pageUrl: c.pageUrl
+      pageUrl: c.page_url
     }
-  }))
+  }).filter(Boolean))
 
   useEffect(() => {
     if (isLoading || !iframeRef.current?.contentWindow) return
@@ -1067,12 +1173,17 @@ export function AuditSurface({
           return
         }
         e.preventDefault()
-        useCaptureStore.getState().undoLastLocalCapture()
+        const lastId = orderedMarkerIds[orderedMarkerIds.length - 1]
+        if (lastId) {
+          deleteMarkerViaApi(lastId, reviewerIdentity?.id)
+            .then(() => selectMarker(null))
+            .catch((err) => console.error('[AuditSurface] Failed to undo marker:', err))
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [orderedMarkerIds, reviewerIdentity, deleteMarkerViaApi, selectMarker])
 
   // ─── Cursor relay: forward cursor coords to iframe so cursor-reactive
   //     backgrounds (spotlight/glow/WebGL mouse effects) keep working when
@@ -1216,130 +1327,56 @@ export function AuditSurface({
       return
     }
 
-    const ctx = captureCtx
-    const activeId = selectedCaptureId
+    const activeId = selectedMarkerId
 
     try {
-      if (isSubmitted) {
-        // Update flow
-        if (!activeId) throw new Error("No active capture ID found")
-        const patch = {
-          comment: noteText.trim(),
-          issuetype: issueType,
-          priority: severity,
+      let resolvedMarker;
+      if (!activeId) {
+        if (!captureCtx) throw new Error("No capture context found for creation")
+        const newPayload = {
+          project_id: projectId,
+          anchor_kind: captureCtx.element_tag === 'MANUAL' ? 'viewport-absolute' : (captureCtx.element_selector ? 'dom-relative' : 'viewport-absolute'),
+          page_url: captureCtx.page_url || currentUrl,
+          page_title: captureCtx.page_title || currentTitle,
+          viewport_x: captureCtx.viewport_x || 0,
+          viewport_y: captureCtx.viewport_y || 0,
+          page_x: captureCtx.x || 0,
+          page_y: captureCtx.y || 0,
+          viewport_width: captureCtx.viewport?.width || window.innerWidth,
+          viewport_height: captureCtx.viewport?.height || window.innerHeight,
+          scroll_x: captureCtx.scroll_position?.x || 0,
+          scroll_y: captureCtx.scroll_position?.y || 0,
           title: issueTitle.trim(),
           description: noteText.trim(),
+          priority: severity,
+          status: statusVal,
+          renderer_type: rendererType,
+        }
+        console.log('[PixelMark Submit] creating new canonical marker:', newPayload)
+        resolvedMarker = await createMarkerViaApi(sessionId, newPayload, reviewerIdentity?.id)
+        console.log('[OBSERVABILITY] [MARKER_CREATED] Marker successfully created on backend. ID =', resolvedMarker.id)
+      } else {
+        const patch = {
+          title: issueTitle.trim(),
+          description: noteText.trim(),
+          priority: severity,
           status: statusVal,
         }
-        console.log('[PixelMark Submit] updating feedback payload:', patch)
-        const updated = await api.feedback.update(sessionId, activeId, patch, shareToken)
-        console.log('[OBSERVABILITY] [FEEDBACK_UPDATED] Feedback successfully updated on backend. ID =', updated.id)
-        
-        // Map backend record back into CapturePayload-compatible frontend object
-        const normalized = normalizeCapturePayload({
-          id: updated.id,
-          status: updated.status,
-          createdVia: updated.createdvia,
-          timestamp: updated.createdat,
-          sessionId: updated.sessionid,
-          pageUrl: updated.pageurl,
-          pageTitle: updated.pagetitle,
-          rendererType: updated.renderertype,
-          issueType: updated.issuetype,
-          priority: updated.priority,
-          comment: updated.comment,
-          title: updated.title,
-          description: updated.description,
-          ...updated.capturepayload,
-        })
-        
-        useCaptureStore.getState().upsertCapture(normalized)
-        useCaptureStore.getState().markCaptureSubmitted(normalized.id)
-        
-        if (onMarkerCreated) onMarkerCreated(normalized)
-        setSubmitSuccess(true)
-        setTimeout(() => {
-          setSubmitSuccess(false)
-        }, 1200)
-      } else {
-        // Create flow
-        if (!activeId) throw new Error("No active capture ID found")
-        const currentCapture = useCaptureStore.getState().capturesById[activeId]
-        if (!currentCapture) throw new Error("Capture context not found in store")
-
-        // Build FeedbackCreate payload
-        const feedbackPayload = {
-          pageurl: currentCapture.pageUrl || currentUrl || window.location.href,
-          pagetitle: currentCapture.pageTitle || currentTitle || 'Untitled Page',
-          issuetype: issueType,
-          priority: severity,
-          comment: noteText.trim(),
-          renderertype: currentCapture.rendererType || rendererType || 'dom',
-          createdvia: currentCapture.createdVia || 'manual',
-          title: issueTitle.trim(),
-          description: noteText.trim(),
-          capturepayload: {
-            ...currentCapture,
-            userComment: noteText.trim(),
-            priority: severity,
-            issueType: issueType,
-            title: issueTitle.trim(),
-            description: noteText.trim(),
-            tags: tags.trim(),
-          },
-          share_token: shareToken || null,
-        }
-
-        console.log('[PixelMark Submit] sending feedback payload:', feedbackPayload)
-        const created = await api.feedback.create(sessionId, feedbackPayload, shareToken)
-        console.log('[OBSERVABILITY] [FEEDBACK_SUBMITTED] Feedback successfully submitted to backend. ID =', created.id)
-
-        // Map backend record back into CapturePayload-compatible frontend object
-        const normalized = normalizeCapturePayload({
-          id: created.id,
-          status: created.status,
-          createdVia: created.createdvia,
-          timestamp: created.createdat,
-          sessionId: created.sessionid,
-          pageUrl: created.pageurl,
-          pageTitle: created.pagetitle,
-          rendererType: created.renderertype,
-          issueType: created.issuetype,
-          priority: created.priority,
-          comment: created.comment,
-          title: created.title,
-          description: created.description,
-          ...created.capturepayload,
-        })
-
-        // Remove old temporary draft ID if it was different
-        if (normalized.id !== activeId) {
-          useCaptureStore.getState().removeCapture(activeId)
-        }
-        useCaptureStore.getState().upsertCapture(normalized)
-        useCaptureStore.getState().markCaptureSubmitted(normalized.id)
-
-        if (onMarkerCreated) onMarkerCreated(normalized)
-        setSubmitSuccess(true)
-        setTimeout(() => {
-          setIsDrawerOpen(false)
-          setCaptureCtx(null)
-          setNoteText('')
-          setIssueTitle('')
-          setTags('')
-          setSeverity('medium')
-          setIssueType('other')
-          setSubmitSuccess(false)
-        }, 1100)
+        console.log('[PixelMark Submit] updating canonical marker:', activeId, patch)
+        resolvedMarker = await updateMarkerViaApi(activeId, patch, reviewerIdentity?.id)
+        console.log('[OBSERVABILITY] [MARKER_UPDATED] Marker successfully updated on backend. ID =', resolvedMarker.id)
       }
-    } catch (err: unknown) {
-      console.warn('[OBSERVABILITY] [API_FAILURE] Feedback submission API call failed:', err)
-      console.error('[AuditSurface] Feedback submission failed:', err)
-      const message = err instanceof Error ? err.message : 'Could not save feedback'
-      setSubmitError(message)
-      if (activeId) {
-        useCaptureStore.getState().markCaptureFailed(activeId, message)
-      }
+      
+      setSubmitSuccess(true)
+      setTimeout(() => {
+        setSubmitSuccess(false)
+        setIsDrawerOpen(false)
+        selectMarker(null)
+      }, 1000)
+    } catch (err: any) {
+      console.warn('[OBSERVABILITY] [API_FAILURE] Marker submit API call failed:', err)
+      console.error('[AuditSurface] Marker submit failed:', err)
+      setSubmitError(err.message || 'Could not save marker')
     } finally {
       setIsSubmitting(false)
     }
@@ -1354,7 +1391,7 @@ export function AuditSurface({
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="w-full h-full flex bg-black relative select-none">
+    <div className="w-full h-[100dvh] flex bg-black relative select-none">
       <ScreenshotPermissionBanner />
       <RegionSelectionOverlay 
         onConfirm={handleRegionConfirm} 
@@ -1362,7 +1399,7 @@ export function AuditSurface({
       />
 
       {/* ── Left Sidebar: Collapsible Session Feedback List ── */}
-      {projectId === 'public' && isListSidebarOpen && (
+      {!!shareToken && isListSidebarOpen && (
         <div className="w-80 h-full border-r border-white/5 bg-[#0d0d14] flex flex-col flex-shrink-0 z-30 select-none animate-in slide-in-from-left duration-300">
           {/* Sidebar Header */}
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
@@ -1372,7 +1409,7 @@ export function AuditSurface({
               </div>
               <h3 className="text-xs font-black uppercase tracking-widest text-white">Feedback Feed</h3>
               <span className="px-1.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[8px] font-black text-purple-400 font-mono">
-                {captures.filter(c => !c.deletedAt && c.visible !== false).length}
+                {markers.length}
               </span>
             </div>
             <button
@@ -1387,7 +1424,7 @@ export function AuditSurface({
 
           {/* Sidebar Feed List */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-            {captures.filter(c => !c.deletedAt && c.visible !== false).length === 0 ? (
+            {markers.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
                 <div className="w-10 h-10 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center">
                   <Pin className="w-5 h-5 text-white/20" />
@@ -1396,27 +1433,24 @@ export function AuditSurface({
                 <p className="text-[9px] text-white/20 max-w-[180px] leading-relaxed">Drop a pin or click Leave Feedback above to start.</p>
               </div>
             ) : (
-              captures
-                .filter(c => !c.deletedAt && c.visible !== false)
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              markers
+                .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
                 .map((item, idx) => {
-                  const isSelected = selectedCaptureId === item.id
-                  const isSubmitted = item.status === 'submitted'
+                  const isSelected = selectedMarkerId === item.id
                   const isResolved = item.status === 'resolved'
-                  const isFailed = item.status === 'failed'
                   
-                  const markerNumber = captureOrder.indexOf(item.id) + 1
+                  const markerNumber = orderedMarkerIds.indexOf(item.id) + 1
                   
                   // Extract path from pageUrl
                   let pathname = '/'
                   try {
-                    const parsed = new URL(item.pageUrl)
+                    const parsed = new URL(item.page_url)
                     pathname = parsed.pathname + parsed.search
                   } catch (e) {
-                    pathname = item.pageUrl
+                    pathname = item.page_url || '/'
                   }
 
-                  const screenshotUrl = item.screenshotdataurl || item.screenshots?.cropDataUrl || item.screenshots?.fullPageDataUrl
+                  const screenshotUrl = item.screenshot_url
 
                   return (
                     <button
@@ -1424,11 +1458,11 @@ export function AuditSurface({
                       type="button"
                       onClick={async () => {
                         // If it's a different page, navigate iframe first
-                        if (item.pageUrl && item.pageUrl !== currentUrl) {
-                          handleSelectPage(item.pageUrl)
+                        if (item.page_url && item.page_url !== currentUrl) {
+                          handleSelectPage(item.page_url)
                         }
-                        useCaptureStore.getState().selectCapture(item.id)
-                        useCaptureStore.getState().openFeedbackDrawer(item.id)
+                        selectMarker(item.id)
+                        setIsDrawerOpen(true)
                       }}
                       className={cn(
                         "w-full text-left p-3.5 rounded-2xl border transition-all flex flex-col gap-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500",
@@ -1510,7 +1544,7 @@ export function AuditSurface({
 
           {/* Left: back + URL */}
           <div className="flex items-center gap-3 min-w-0">
-            {projectId === 'public' && (
+            {!!shareToken && (
               <button
                 type="button"
                 onClick={() => setIsListSidebarOpen(p => !p)}
@@ -1545,6 +1579,36 @@ export function AuditSurface({
                 {currentUrl || 'Connecting…'}
               </span>
             </div>
+            
+            {/* Session Health Indicator */}
+            {degradedAssets.length > 0 && (
+              <div 
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 cursor-help relative group"
+                title={`${degradedAssets.length} non-critical assets failed to load`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span className="text-[9px] font-black uppercase tracking-wider hidden md:block">Session Health: Degraded</span>
+                
+                {/* Tooltip for developers */}
+                <div className="absolute top-full left-0 mt-2 hidden group-hover:block bg-[#09090b] border border-amber-500/20 p-3 rounded-xl shadow-2xl z-50 w-64 min-w-max">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block mb-2">Degraded Assets ({degradedAssets.length})</span>
+                  <div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar text-[10px] font-mono text-white/60">
+                    {degradedAssets.slice(0, 10).map((asset, i) => (
+                      <div key={i} className="truncate" title={asset.url}>
+                        [{asset.tagName}] {asset.url}
+                      </div>
+                    ))}
+                    {degradedAssets.length > 10 && <div className="text-white/40 italic">...and {degradedAssets.length - 10} more</div>}
+                  </div>
+                  <button 
+                    onClick={() => setDegradedAssets([])}
+                    className="mt-2 w-full text-[9px] uppercase font-bold tracking-widest text-amber-400 hover:bg-amber-500/10 py-1 rounded-md transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right: controls */}
@@ -1878,16 +1942,30 @@ export function AuditSurface({
 
           {/* ── Marker Pin Layer (Dedicated Portalled Layer) ────────────────── */}
           <MarkerPinLayer
-            captures={captures}
+            markers={markers}
+            orderedMarkerIds={orderedMarkerIds}
             currentUrl={currentUrl}
             scrollPos={scrollPos}
-            resolvedPositions={resolvedPositions}
             iframeNode={iframeRef.current}
-            selectedCaptureId={selectedCaptureId}
-            captureOrder={captureOrder}
+            selectedMarkerId={selectedMarkerId}
+            actor={actor}
             onSelectPin={(id) => {
-              useCaptureStore.getState().selectCapture(id)
-              useCaptureStore.getState().openFeedbackDrawer(id)
+              selectMarker(id)
+              setIsDrawerOpen(true)
+            }}
+            onDeletePin={async (id) => {
+              try {
+                await deleteMarkerViaApi(id, reviewerIdentity?.id)
+              } catch (e) {
+                console.error('Failed to delete', e)
+              }
+            }}
+            onUpdateMarker={async (id, patch) => {
+              try {
+                await moveMarkerViaApi(id, patch, reviewerIdentity?.id)
+              } catch (e) {
+                console.error('Failed to update marker position', e)
+              }
             }}
           />
 
@@ -1900,12 +1978,12 @@ export function AuditSurface({
           )}
 
           {/* ── Failure Recovery Overlay ─────────────────────────────── */}
-          {isStalled && (
-            <div className="absolute inset-0 bg-[#0a0a0f]/90 backdrop-blur-md flex flex-col items-center justify-center z-50 p-8 text-center select-text animate-in fade-in">
+          {(isStalled || bootTimeout) && (
+            <div className="absolute inset-0 bg-[#0a0a0f]/95 backdrop-blur-md flex flex-col items-center justify-center z-50 p-8 text-center select-text animate-in fade-in">
               <AlertTriangle className="w-12 h-12 text-amber-500 mb-4 animate-bounce" />
-              <h3 className="text-white text-base font-black uppercase tracking-wider mb-2">Render Stalled / Failed</h3>
+              <h3 className="text-white text-base font-black uppercase tracking-wider mb-2">Session Load Failed</h3>
               <p className="text-white/40 text-[10px] max-w-md leading-relaxed mb-6 uppercase tracking-wider">
-                This page is taking longer than expected to load. Heavy animation, WebGL assets, or proxy script limits can cause stalls.
+                The proxied review site is taking longer than expected to load or a critical error occurred. You can retry the proxy, use a static snapshot, or open the original site.
               </p>
               
               {/* Failed Network Assets */}
@@ -1927,23 +2005,38 @@ export function AuditSurface({
                   onClick={() => {
                     setIsLoading(true);
                     setIsStalled(false);
+                    setBootTimeout(false);
                     if (iframeRef.current) {
                       iframeRef.current.src = iframeRef.current.src; // Reload
                     }
                   }}
                   className="h-10 px-6 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-[10px] uppercase tracking-widest transition-all"
                 >
-                  Retry Render
+                  Retry Proxy
                 </button>
                 <button
                   onClick={() => {
                     setIsLoading(false);
                     setIsStalled(false);
+                    setBootTimeout(false);
+                    if (iframeRef.current) {
+                      const currentSrc = new URL(iframeRef.current.src);
+                      currentSrc.searchParams.set("snapshot_mode", "true");
+                      iframeRef.current.src = currentSrc.toString();
+                    }
                   }}
                   className="h-10 px-6 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-extrabold text-[10px] uppercase tracking-widest transition-all"
                 >
                   Use Static Snapshot
                 </button>
+                <a
+                  href={currentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-10 px-6 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-extrabold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
+                >
+                  Open Original URL
+                </a>
               </div>
             </div>
           )}
@@ -2034,11 +2127,11 @@ export function AuditSurface({
                   isFailed ? "bg-rose-500/10 border border-rose-500/20 text-rose-400" :
                   "bg-purple-500/10 border border-purple-500/20 text-purple-400"
                 )}>
-                  {activeCapture?.status || 'draft'}
+                  {activeMarker?.status || 'draft'}
                 </span>
-                {activeCapture?.id && (
+                {activeMarker?.id && (
                   <span className="font-mono text-[7px] text-white/30">
-                    ID: {activeCapture.id}
+                    ID: {activeMarker.id}
                   </span>
                 )}
               </div>
@@ -2087,12 +2180,12 @@ export function AuditSurface({
                     ))}
                   </div>
                   {(() => {
-                    const screenshotUrl = activeCapture?.screenshotdataurl || activeCapture?.screenshots?.cropDataUrl || activeCapture?.screenshots?.fullPageDataUrl || captureCtx?.screenshot_data_url
-                    const isScreenshotPending = screenshotUrl === 'pending' || activeCapture?.screenshottype === 'pending' || activeCapture?.screenshotttype === 'pending' || activeCapture?.screenshotsource === 'pending'
-                    const source = activeCapture?.screenshotsource || activeCapture?.screenshottype || activeCapture?.screenshotttype || captureCtx?.screenshotsource || captureCtx?.screenshottype || 'unknown'
+                    const screenshotUrl = activeMarker?.screenshot_url || captureCtx?.screenshot_data_url
+                    const isScreenshotPending = screenshotUrl === 'pending' || '' === 'pending' || '' === 'pending' || '' === 'pending'
+                    const source = '' || '' || '' || captureCtx?.screenshotsource || captureCtx?.screenshottype || 'unknown'
                     
                     if (screenshotUrl && !isScreenshotPending) {
-                      const hasLoadError = imgErrorId === (activeCapture?.id || 'current')
+                      const hasLoadError = imgErrorId === (activeMarker?.id || 'current')
                       if (hasLoadError) {
                         return (
                           <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-2xl min-h-[120px] gap-2">
@@ -2110,7 +2203,7 @@ export function AuditSurface({
                               alt="Page snapshot at capture time"
                               className="w-full object-cover"
                               style={{ maxHeight: 240 }}
-                              onError={() => setImgErrorId(activeCapture?.id || 'current')}
+                              onError={() => setImgErrorId(activeMarker?.id || 'current')}
                             />
                           </div>
                           <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-white/30 px-1">
@@ -2164,13 +2257,13 @@ export function AuditSurface({
               {domPanelExpanded && (
                 <div className="mt-2.5 space-y-3">
                   {(() => {
-                    const domSnapshot = activeCapture?.domsnapshot || null
-                    const tag = domSnapshot?.tagname || activeCapture?.target?.tagName || captureCtx?.element_tag || 'UNKNOWN'
-                    const elemId = domSnapshot?.id || activeCapture?.target?.elementId || captureCtx?.element_id || ''
-                    const selector = domSnapshot?.cssselector || activeCapture?.target?.selector || captureCtx?.element_selector || ''
-                    const innerText = domSnapshot?.innerText || activeCapture?.target?.text || captureCtx?.element_text || ''
+                    const domSnapshot = null || null
+                    const tag = domSnapshot?.tagname || '' || captureCtx?.element_tag || 'UNKNOWN'
+                    const elemId = domSnapshot?.id || '' || captureCtx?.element_id || ''
+                    const selector = domSnapshot?.cssselector || activeMarker?.target_selector || captureCtx?.element_selector || ''
+                    const innerText = domSnapshot?.innerText || activeMarker?.dom_text_excerpt || captureCtx?.element_text || ''
                     const ancestors = domSnapshot?.ancestors || domSnapshot?.ancestorChain || []
-                    const bbox = domSnapshot?.boundingBox || activeCapture?.boundingBox || captureCtx?.bounding_box
+                    const bbox = domSnapshot?.boundingBox || activeMarker?.element_rect_json || captureCtx?.bounding_box
                     const innerHTML = domSnapshot?.innerHTML || ''
 
                     // Ancestor Breadcrumb
@@ -2274,9 +2367,9 @@ export function AuditSurface({
 
             {/* ── Collapsible Panel: Canvas details (Phase 3.5 Upgrade) ── */}
             {(() => {
-              const canvasCtx = activeCapture?.canvasContext || captureCtx?.canvas_context
-              const canvasDom = activeCapture?.canvasdomsnapshot || null
-              const isCanvasRenderer = activeCapture?.rendererType === 'webgl' || activeCapture?.rendererType === 'threejs' || activeCapture?.rendererType === 'mixed' || !!canvasCtx || !!canvasDom
+              const canvasCtx = null || captureCtx?.canvas_context
+              const canvasDom = null || null
+              const isCanvasRenderer = activeMarker?.renderer_type === 'webgl' || activeMarker?.renderer_type === 'threejs' || activeMarker?.renderer_type === 'mixed' || !!canvasCtx || !!canvasDom
 
               if (!isCanvasRenderer) return null
               return (
@@ -2356,7 +2449,7 @@ export function AuditSurface({
                 <div className="mt-2.5 space-y-3">
                   {/* Browser Info */}
                   {(() => {
-                    const browserInfo = activeCapture?.diagnostics?.browserInfo || captureCtx?.browser_info
+                    const browserInfo = activeMarker?.browser || captureCtx?.browser_info
                     if (!browserInfo) return null
                     return (
                       <div className="bg-white/[0.01] border border-white/[0.04] p-2.5 rounded-xl text-[10px] space-y-1">
@@ -2376,8 +2469,8 @@ export function AuditSurface({
                   {/* Console Errors */}
                   <CollapsibleList
                     title="Console Errors"
-                    count={activeCapture?.diagnostics?.consoleErrors?.length || captureCtx?.console_errors?.length || 0}
-                    items={activeCapture?.diagnostics?.consoleErrors || captureCtx?.console_errors || []}
+                    count={activeMarker?.console_errors_json?.length || captureCtx?.console_errors?.length || 0}
+                    items={activeMarker?.console_errors_json || captureCtx?.console_errors || []}
                     renderItem={(err, idx) => (
                       <div key={idx} className="text-[9px] font-mono text-rose-400 bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg break-all">
                         {err.message || String(err)}
@@ -2388,8 +2481,8 @@ export function AuditSurface({
                   {/* Network Errors */}
                   <CollapsibleList
                     title="Network Errors"
-                    count={activeCapture?.diagnostics?.networkErrors?.length || captureCtx?.network_errors?.length || 0}
-                    items={activeCapture?.diagnostics?.networkErrors || captureCtx?.network_errors || []}
+                    count={activeMarker?.network_errors_json?.length || captureCtx?.network_errors?.length || 0}
+                    items={activeMarker?.network_errors_json || captureCtx?.network_errors || []}
                     renderItem={(err, idx) => (
                       <div key={idx} className="text-[9px] font-mono text-rose-400 bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg break-all">
                         ❌ {err.method || 'GET'} {err.url || 'Unknown URL'} ({err.status || 'Failed'})
@@ -2471,6 +2564,7 @@ export function AuditSurface({
                 <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">Status</label>
                 <div className="relative">
                   <select
+                    disabled={isFormReadOnly}
                     value={statusVal}
                     onChange={(e) => {
                       const newStatus = e.target.value
@@ -2585,22 +2679,24 @@ export function AuditSurface({
                 {submitError}
               </p>
             )}
-            {!isSubmitted && !isResolved && activeCapture && (
+            {activeMarker && canMutate && (
               <button
                 type="button"
-                onClick={() => {
-                  const id = activeCapture.id;
-                  useCaptureStore.getState().removeLocalCapture(id);
-                  useCaptureStore.getState().selectCapture(null);
-                  useCaptureStore.getState().closeFeedbackDrawer();
-                  setIsDrawerOpen(false);
-                  setCaptureCtx(null);
-                  setManualPlacementMode(false);
-                  setFeedbackModeActive(false);
+                onClick={async () => {
+                  try {
+                    await deleteMarkerViaApi(activeMarker.id, reviewerIdentity?.id)
+                    setIsDrawerOpen(false)
+                    selectMarker(null)
+                    setCaptureCtx(null)
+                    setManualPlacementMode(false)
+                    setFeedbackModeActive(false)
+                  } catch (err: any) {
+                    setSubmitError(err.message || 'Failed to delete marker')
+                  }
                 }}
                 className="h-10 w-full rounded-2xl bg-rose-950/30 border border-rose-500/30 hover:bg-rose-500/20 text-rose-400 font-extrabold text-[9px] uppercase tracking-widest transition-all focus:ring-2 focus:ring-rose-500 focus:outline-none"
               >
-                {activeCapture.status === 'failed' ? 'Discard Draft' : noteText.trim() ? 'Discard Draft' : 'Undo Marker'}
+                Delete Feedback Pin
               </button>
             )}
             <button

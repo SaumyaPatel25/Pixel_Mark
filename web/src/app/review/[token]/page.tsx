@@ -3,10 +3,14 @@ import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { api, ShareLinkPublicRead } from '@/lib/api'
 import { AuditSurface } from '@/components/audit/AuditSurface'
+import ReviewerNameGate from '@/components/reviewer/ReviewerNameGate'
 import { Loader2, Shield, Lock, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { motion } from 'framer-motion'
+import { getStoredReviewerIdentity, clearStoredReviewerIdentity } from '@/lib/reviewerIdentity'
+import { getMarkerColors } from '@/lib/markerColors'
+import { ReviewerIdentity } from '@/types/markers'
 
 export default function ReviewPage() {
   const params = useParams()
@@ -20,12 +24,15 @@ export default function ReviewPage() {
   const [verifying, setVerifying] = useState(false)
   const [needsPassword, setNeedsPassword] = useState(false)
 
+  // Reviewer identity state — stored in sessionStorage only (not localStorage)
+  const [reviewerIdentity, setReviewerIdentity] = useState<ReviewerIdentity | null>(null)
+  const [showIdentityGate, setShowIdentityGate] = useState(false)
+
   const fetchSession = async (pwd?: string) => {
     try {
       setLoading(true)
       setError(null)
       
-      // Resolve token
       const resolved = await api.shareLinks.resolve({ token, password: pwd })
       setSessionInfo(resolved)
       setNeedsPassword(false)
@@ -43,7 +50,6 @@ export default function ReviewPage() {
 
   useEffect(() => {
     if (token) {
-      // Check info first to see if password is required without throwing 403
       const checkInfo = async () => {
         try {
           const info = await api.shareLinks.getInfo(token)
@@ -61,6 +67,24 @@ export default function ReviewPage() {
       checkInfo()
     }
   }, [token])
+
+  // Once session resolves, check reviewer identity from sessionStorage
+  useEffect(() => {
+    if (sessionInfo) {
+      const stored = getStoredReviewerIdentity(sessionInfo.session_id)
+      if (stored) {
+        setReviewerIdentity(stored)
+      } else {
+        // Show gate to collect reviewer display name
+        setShowIdentityGate(true)
+      }
+    }
+  }, [sessionInfo])
+
+  const handleIdentityReady = (identity: ReviewerIdentity) => {
+    setReviewerIdentity(identity)
+    setShowIdentityGate(false)
+  }
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -139,6 +163,14 @@ export default function ReviewPage() {
   if (sessionInfo) {
     return (
       <div className="h-screen flex flex-col overflow-hidden bg-[#0a0a0f]">
+        {/* Reviewer identity gate — shown until reviewer registers name */}
+        {showIdentityGate && (
+          <ReviewerNameGate
+            sessionId={sessionInfo.session_id}
+            onIdentityReady={handleIdentityReady}
+          />
+        )}
+
         {/* Minimal Public Header */}
         <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#0a0a0f] z-40">
           <div className="flex items-center gap-4">
@@ -154,7 +186,20 @@ export default function ReviewPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+            {/* Show reviewer's identity chip if logged in */}
+            {reviewerIdentity && (
+              <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/8">
+                <div
+                  className="w-4 h-4 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: getMarkerColors(reviewerIdentity.color_token).dot }}
+                />
+                <span className="text-[10px] font-black text-white/70 uppercase tracking-wide">
+                  {reviewerIdentity.display_name}
+                </span>
+              </div>
+            )}
+
             <div className="hidden md:flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/5">
               <Pin className="w-3 h-3 text-purple-400" />
               <span className="text-[9px] font-bold text-white/60 uppercase tracking-widest">Drop pins to leave feedback</span>
@@ -170,8 +215,10 @@ export default function ReviewPage() {
         <main className="flex-1 relative bg-black">
           <AuditSurface 
             sessionId={sessionInfo.session_id}
-            projectId="public" 
+            projectId={sessionInfo.project_id!} 
             shareToken={token}
+            reviewerIdentity={reviewerIdentity}
+            isReviewerGateOpen={showIdentityGate}
           />
         </main>
       </div>

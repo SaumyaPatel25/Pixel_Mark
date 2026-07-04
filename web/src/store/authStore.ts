@@ -35,7 +35,6 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await api.auth.login(email, password)
           const token = res.access_token
-          localStorage.setItem('pm_token', token)
           document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
           set({ token, user: res.user })
           // Identify the user in PostHog
@@ -66,7 +65,6 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        localStorage.removeItem('pm_token')
         document.cookie = 'pm_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         set({ user: null, token: null })
         // Reset PostHog — severs link between anonymous and identified session
@@ -88,7 +86,6 @@ export const useAuthStore = create<AuthState>()(
       oauthLogin: async (token) => {
         set({ isLoading: true })
         try {
-          localStorage.setItem('pm_token', token)
           document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
           set({ token })
           const meRes = await api.auth.me()

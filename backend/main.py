@@ -7,16 +7,19 @@ from contextlib import asynccontextmanager
 from database import engine, Base
 import asyncio
 import logging
-from routes import auth, projects, sessions, markers, proxy, export, websocket, canvas, shares, flags, screenshot
+from routes import auth, projects, sessions, proxy, export, websocket, canvas, shares, flags, screenshot
 from routers.share_links import router as share_links_router
 from routers.review import router as review_router
 from routers.ai import router as ai_router
 from routers.ai_provider_configs import router as ai_provider_configs_router
 from routers.dom_edits import router as dom_edits_router
 from routers.settings import router as settings_router
+from markers.router import router as markers_router
+from realtime.router import router as realtime_router
 from dependencies import get_db
-
-
+from proxy.runtime_policy import check_third_party_policy, get_failure_fallback_response
+from proxy.asset_resolver import resolve_asset_url, get_asset_failure_fallback
+import logging
 logger = logging.getLogger("uvicorn")
 
 @asynccontextmanager
@@ -29,9 +32,6 @@ async def lifespan(app: FastAPI):
             logger.info(f"Connecting to Neon DB (Attempt {i}/{retries})...")
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-                from sqlalchemy import text
-                await conn.execute(text("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';"))
-                await conn.execute(text("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ;"))
             logger.info("✓ Neon DB connection successful & tables verified!")
             break
         except Exception as e:
@@ -190,45 +190,25 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                     )
                                     return prepare_proxy_response(response)
                                 except Exception as e:
-                                    logger.error(f"[PROXY_NEXT] Failed to proxy next route {target_url}: {str(e)}")
                                     from routes.proxy import prepare_proxy_response
-                                    return prepare_proxy_response(FAResponse(content=b"", status_code=204))
+                                    logger.error(f"[PROXY FALLBACK] [DECISION] Path={path}, Strategy=next (FAIL), Status=500, Reason={str(e)}")
+                                    fallback_response = get_failure_fallback_response(target_url, str(e))
+                                    return prepare_proxy_response(fallback_response)
                                 
-                            # Check allow/block policy for third-party requests (Prompt 10)
+                            # 1. Resolve relative asset URLs
+                            target_url, resolution_strategy = resolve_asset_url(target_url, base_url)
                             parsed_target = urllib.parse.urlparse(target_url)
                             parsed_base = urllib.parse.urlparse(base_url)
                             is_third_party = parsed_target.netloc != parsed_base.netloc
                             
-                            if is_third_party:
-                                BLOCKED_EXTERNAL_ORIGINS = [
-                                    "firebase.googleapis.com",
-                                    "firebaseapp.com",
-                                    "firestore.googleapis.com",
-                                    "google-analytics.com",
-                                    "analytics.google.com",
-                                    "googletagmanager.com",
-                                    "hotjar.com",
-                                    "segment.io",
-                                ]
-                                hostname = parsed_target.netloc.lower()
-                                is_blocked = any(hostname == origin or hostname.endswith("." + origin) for origin in BLOCKED_EXTERNAL_ORIGINS)
-                                
-                                if is_blocked:
-                                    from routes.proxy import prepare_proxy_response
-                                    logger.info(f"[THIRD_PARTY POLICY] BLOCKED fallback external SDK/tracker request: {target_url}")
-                                    if ".js" in target_url or "javascript" in target_url:
-                                        return prepare_proxy_response(FAResponse(
-                                            content=f'console.warn("Blocked by PixelMark proxy: {target_url}");'.encode("utf-8"),
-                                            media_type="application/javascript"
-                                        ))
-                                    from fastapi.responses import JSONResponse
-                                    return prepare_proxy_response(JSONResponse({
-                                        "error": "blocked_by_pixelmark_proxy",
-                                        "status": "mocked",
-                                        "projectId": "pixelmark-mock"
-                                    }, status_code=200))
-                                else:
-                                    logger.info(f"[THIRD_PARTY POLICY] ALLOWED standard fallback CDN/asset request: {target_url}")
+                            logger.info(f"[PROXY FALLBACK] [REQUEST] Incoming fallback asset: session_id={session_id}, path={path}, method={request.method}")
+
+                            # 2. Check third-party policy
+                            is_handled, policy_response = check_third_party_policy(target_url)
+                            if is_handled:
+                                from routes.proxy import prepare_proxy_response
+                                logger.info(f"[PROXY FALLBACK] [DECISION] URL={target_url}, Strategy=third-party-policy (BLOCKED), Status=200")
+                                return prepare_proxy_response(policy_response)
 
                             # Check if request is Next.js React Server Component (RSC) streaming request
                             is_rsc_request = "rsc" in request.headers or any(k.lower().startswith("next-") for k in request.headers.keys())
@@ -261,8 +241,41 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                                     "X-PixelMark-Session": session_id
                                 }
-                                async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
-                                    resp = await client.get(target_url, headers=headers)
+                                start_time = datetime.utcnow()
+                                async with httpx.AsyncClient(follow_redirects=False, timeout=10.0, verify=False) as client:
+                                    redirect_count = 0
+                                    max_redirects = 5
+                                    current_url = target_url
+                                    resp = None
+                                    
+                                    while redirect_count < max_redirects:
+                                        if not is_ssrf_safe(current_url):
+                                            from routes.proxy import prepare_proxy_response
+                                            logger.warning(f"[REDIRECT SAFEGUARD] SSRF target blocked in fallback: {current_url}")
+                                            return prepare_proxy_response(FAResponse(content=b"", status_code=204))
+                                        if not is_domain_allowed(current_url, base_url, is_asset=True):
+                                            from routes.proxy import prepare_proxy_response
+                                            logger.warning(f"[REDIRECT SAFEGUARD] Redirect escaped domain scope in fallback: {current_url}")
+                                            return prepare_proxy_response(FAResponse(content=b"", status_code=204))
+                                            
+                                        resp = await client.get(current_url, headers=headers)
+                                        
+                                        if resp.status_code in (301, 302, 303, 307, 308):
+                                            redirect_url = resp.headers.get("location", "")
+                                            if not redirect_url:
+                                                break
+                                            next_url = urllib.parse.urljoin(current_url, redirect_url)
+                                            if not is_domain_allowed(next_url, base_url, is_asset=True):
+                                                from routes.proxy import prepare_proxy_response
+                                                logger.warning(f"[REDIRECT SAFEGUARD] Redirect to disallowed origin blocked in fallback: {next_url}")
+                                                return prepare_proxy_response(FAResponse(content=b"", status_code=204))
+                                                
+                                            current_url = next_url
+                                            redirect_count += 1
+                                        else:
+                                            break
+                                            
+                                    duration = (datetime.utcnow() - start_time).total_seconds() * 1000
                                     content_type = resp.headers.get("content-type", "application/octet-stream")
                                     
                                     if "text/html" in content_type:
@@ -281,6 +294,13 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                         api_base = os.getenv("API_BASE", "") or str(request.base_url)
                                         if proto == "https" and api_base.startswith("http://"):
                                             api_base = "https://" + api_base[7:]
+                                        is_next_site = "_next/static" in resp.text or "__NEXT_DATA__" in resp.text
+                                        if is_next_site and not session.conservative_render_mode:
+                                            session.conservative_render_mode = True
+                                            db.add(session)
+                                            await db.commit()
+                                            logger.info(f"[PROXY FALLBACK] Next.js detected via signature in fallback. Flipping conservative_render_mode=True for session={session.id}")
+                                        
                                         rewritten_html = rewrite_html(
                                             resp.text, 
                                             session.id, 
@@ -290,12 +310,15 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                             conservative_render_mode=session.conservative_render_mode,
                                             snapshot_mode=snapshot_mode
                                         )
+                                        logger.info(f"[PROXY FALLBACK] [DECISION] Path={path}, Strategy={resolution_strategy}, Status={resp.status_code}, Duration={duration:.1f}ms, Type=HTML")
                                         response = FAResponse(content=rewritten_html.encode("utf-8"), media_type="text/html")
                                         from routes.proxy import set_cache_headers
                                         set_cache_headers(response, urllib.parse.urlparse(target_url).path, request.url.query)
                                     else:
                                         from routes.proxy import prepare_proxy_response, save_cached_asset
                                         save_cached_asset(target_url, resp.content, content_type)
+                                        byte_size = len(resp.content)
+                                        logger.info(f"[PROXY FALLBACK] [DECISION] Path={path}, Strategy={resolution_strategy}, Status={resp.status_code}, Duration={duration:.1f}ms, Bytes={byte_size}")
                                         response = FAResponse(content=resp.content, media_type=content_type, status_code=resp.status_code)
                                         from routes.proxy import set_cache_headers
                                         set_cache_headers(response, urllib.parse.urlparse(target_url).path, request.url.query)
@@ -333,7 +356,6 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(sessions.router)
-app.include_router(markers.router)
 app.include_router(canvas.router)
 app.include_router(shares.router)
 app.include_router(share_links_router, prefix="/share-links", tags=["share-links"])
@@ -347,6 +369,8 @@ app.include_router(flags.router)
 app.include_router(screenshot.router)
 app.include_router(dom_edits_router)
 app.include_router(settings_router)
+app.include_router(markers_router)
+app.include_router(realtime_router)
 
 @app.get("/health")
 async def health():

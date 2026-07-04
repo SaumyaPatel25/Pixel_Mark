@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   }
 }
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
 
 async function getApiKeysServerSide() {
   try {

@@ -1,310 +1,366 @@
 import { create } from 'zustand'
-import { api, triageSession, summarizeSession } from '@/lib/api'
-import { TriageResult, SessionSummary } from '@/types/ai'
-import { posthog } from '@/lib/posthog'
+import { Marker, SessionSocketEvent } from '@/types/markers'
+import { api } from '@/lib/api'
 
-export type Priority = 'critical' | 'high' | 'medium' | 'low'
-export type Status = 'open' | 'in_progress' | 'resolved'
-
-export interface Marker {
-  id: string
-  session_id: string
-  title?: string | null
-  description?: string | null
-  url?: string | null
-  page_url?: string | null
-  page_title?: string | null
-  renderer_type?: string | null
-  canvas_context?: any | null
-  marker_number?: number | null
-  xpath?: string | null
-  css_selector?: string | null
-  inner_text?: string | null
-  viewport?: { width: number; height: number } | null
-  browser?: string | null
-  os?: string | null
-  scroll_position?: { x: number; y: number } | null
-  console_errors?: string[] | null
-  network_errors?: any[] | null
-  screenshot_url?: string | null
-  is_inside_shadow_dom?: boolean | null
-  shadow_root_depth?: number | null
-  shadow_host_tag?: string | null
-  shadow_host_id?: string | null
-  shadow_host_class_list?: string[] | null
-  shadow_path?: string | null
-  priority: Priority
-  status: Status
-  ai_summary?: string | null
-  created_at: string
-}
-
-interface MarkerStore {
-  markers: Marker[]
-  filtered: Marker[]
+interface MarkerStoreState {
+  markersById: Record<string, Marker>
+  orderedMarkerIds: string[]
+  connectionStatus: 'connected' | 'disconnected' | 'connecting'
+  lastSnapshotAt: string | null
+  selectedMarkerId: string | null
+  currentSessionId: string | null
+  activeSessionId: string | null
   filters: {
-    status?: Status
-    priority?: Priority
-    browser?: string
+    status: 'all' | 'open' | 'resolved'
+    priority: 'all' | 'critical' | 'high' | 'medium' | 'low'
+    creatorId: 'all' | string
   }
-  isLoading: boolean
-  fetchMarkers: (sessionId: string) => Promise<void>
-  updateMarker: (id: string, data: Partial<Marker>) => Promise<void>
-  deleteMarker: (id: string) => Promise<void>
-  setFilter: (filters: Partial<MarkerStore['filters']>) => void
-  clearFilters: () => void
+  participants: any[]
 
-  triageResult: TriageResult | null
-  sessionSummary: SessionSummary | null
-  isTriaging: boolean
-  isSummarizing: boolean
-  triageError: string | null
-  summaryError: string | null
+  // Actions
+  loadSessionMarkers: (sessionId: string) => Promise<void>
+  applySnapshot: (markers: Marker[]) => void
+  upsertMarkerFromServer: (marker: Marker, force?: boolean) => void
+  removeMarkerFromServer: (markerId: string) => void
+  createMarkerViaApi: (sessionId: string, payload: any, xReviewerId?: string) => Promise<Marker>
+  updateMarkerViaApi: (markerId: string, patch: any, xReviewerId?: string) => Promise<Marker>
+  moveMarkerViaApi: (markerId: string, patch: any, xReviewerId?: string) => Promise<Marker>
+  deleteMarkerViaApi: (markerId: string, xReviewerId?: string) => Promise<void>
+  handleRealtimeEvent: (event: SessionSocketEvent) => void
+  reconcileSession: (sessionId: string) => Promise<void>
+  resetForSessionChange: (sessionId: string) => void
+  setSelectedMarkerId: (id: string | null) => void
+  selectMarker: (id: string | null) => void
+  setFilters: (filters: Partial<MarkerStoreState['filters']>) => void
+  setConnectionStatus: (status: MarkerStoreState['connectionStatus']) => void
 
-  triageSession: (sessionId: string) => Promise<void>
-  summarizeSession: (sessionId: string) => Promise<void>
-  clearAIState: () => void
+  // Derived Selectors
+  getMarkersForSession: (sessionId: string) => Marker[]
+  getMarkersForPage: (pageUrlOrVisitId: string) => Marker[]
+  getVisibleMarkers: () => Marker[]
+  getMarkerStats: () => { total: number; open: number; resolved: number; critical: number; high: number; medium: number; low: number }
+  getMarkersGroupedByCreator: () => Record<string, Marker[]>
+  getMarkersGroupedByStatus: () => Record<string, Marker[]>
+  getMarkersGroupedByPage: () => Record<string, { pageTitle: string; markers: Marker[] }>
 }
 
-export const useMarkerStore = create<MarkerStore>((set, get) => ({
-  markers: [],
-  filtered: [],
-  filters: {},
-  isLoading: false,
-
-  triageResult: null,
-  sessionSummary: null,
-  isTriaging: false,
-  isSummarizing: false,
-  triageError: null,
-  summaryError: null,
-
-  fetchMarkers: async (sessionId) => {
-    set({ isLoading: true })
-    try {
-      const res = await api.markers.getMarkers(sessionId)
-      set({ markers: res || [], filtered: res || [], filters: {} })
-    } finally {
-      set({ isLoading: false })
-    }
+export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
+  markersById: {},
+  orderedMarkerIds: [],
+  connectionStatus: 'disconnected',
+  lastSnapshotAt: null,
+  selectedMarkerId: null,
+  currentSessionId: null,
+  activeSessionId: null,
+  filters: {
+    status: 'all',
+    priority: 'all',
+    creatorId: 'all',
   },
+  participants: [],
 
-  updateMarker: async (id, data) => {
-    // Optimistic Update
-    const oldMarkers = get().markers
-    const updatedMarkers = oldMarkers.map((m) =>
-      m.id === id ? { ...m, ...data } : m
-    )
-    set({ markers: updatedMarkers })
-    get().setFilter({}) // Refresh filters
+  setSelectedMarkerId: (id) => set({ selectedMarkerId: id }),
+  selectMarker: (id) => set({ selectedMarkerId: id }),
+  setFilters: (filters) => set((state) => ({ filters: { ...state.filters, ...filters } })),
+  setConnectionStatus: (status) => set({ connectionStatus: status }),
 
-    try {
-      await api.markers.updateMarker(id, data)
-    } catch (err) {
-      // Rollback
-      set({ markers: oldMarkers })
-      get().setFilter({})
-      throw err
-    }
-  },
-
-  deleteMarker: async (id) => {
-    const oldMarkers = get().markers
-    set({ markers: oldMarkers.filter((m) => m.id !== id) })
-    get().setFilter({})
-
-    try {
-      await api.markers.deleteMarker(id)
-    } catch (err) {
-      set({ markers: oldMarkers })
-      get().setFilter({})
-      throw err
-    }
-  },
-
-  setFilter: (newFilters) => {
-    const updatedFilters = { ...get().filters, ...newFilters }
-    set({ filters: updatedFilters })
-
-    const { markers } = get()
-    const filtered = markers.filter((m) => {
-      if (updatedFilters.status && m.status !== updatedFilters.status) return false
-      if (updatedFilters.priority && m.priority !== updatedFilters.priority) return false
-      if (
-        updatedFilters.browser &&
-        (!m.browser || !m.browser.toLowerCase().includes(updatedFilters.browser.toLowerCase()))
-      )
-        return false
-      return true
-    })
-
-    set({ filtered, filters: newFilters })
-  },
-
-  clearFilters: () => {
-    set({ filtered: get().markers, filters: {} })
-  },
-
-  triageSession: async (sessionId: string) => {
-    const marker_count = get().markers.length
-    posthog.capture('ai_triage_started', { session_id: sessionId, marker_count })
-    set({ isTriaging: true, triageError: null })
-    try {
-      const res = await triageSession(sessionId)
-      
-      const triagedMarkers = res.triaged_markers || (res as any).markers || []
-      const oldMarkers = get().markers
-      
-      const newMarkers = oldMarkers.map((m) => {
-        const t = triagedMarkers.find(x => x.id === m.id)
-        if (t) {
-          return { ...m, priority: t.priority as Priority, ai_summary: t.ai_summary }
-        }
-        return m
-      })
-
-      set({ markers: newMarkers, triageResult: res })
-      get().setFilter({})
-      
-      const triaged_count = res.triaged_markers?.length || (res as any).triaged_count || triagedMarkers.length
-      posthog.capture('ai_triage_succeeded', { session_id: sessionId, triaged_count })
-    } catch (err: any) {
-      const msg = (err.message || '').toLowerCase()
-      let failure_type: "no_provider" | "provider_unavailable" | "unsupported" | "unknown" = "unknown"
-      if (msg.includes("no active default")) {
-        failure_type = "no_provider"
-      } else if (msg.includes("not implemented") || msg.includes("unsupported")) {
-        failure_type = "unsupported"
-      } else if (msg.includes("could not reach") || msg.includes("unreachable") || msg.includes("unavailable") || msg.includes("503") || msg.includes("501") || msg.includes("connection failed")) {
-        failure_type = "provider_unavailable"
-      }
-      posthog.capture('ai_triage_failed', { session_id: sessionId, failure_type })
-      set({ triageError: err.message || 'Triage failed' })
-    } finally {
-      set({ isTriaging: false })
-    }
-  },
-
-  summarizeSession: async (sessionId: string) => {
-    posthog.capture('ai_summary_started', { session_id: sessionId })
-    set({ isSummarizing: true, summaryError: null })
-    try {
-      const res = await summarizeSession(sessionId)
-      set({ sessionSummary: res })
-      
-      posthog.capture('ai_summary_succeeded', {
-        session_id: sessionId,
-        overall_health: res.overall_health,
-        total_markers: res.counts ? (res.counts.critical + res.counts.high + res.counts.medium + res.counts.low) : 0
-      })
-    } catch (err: any) {
-      const msg = (err.message || '').toLowerCase()
-      let failure_type: "no_provider" | "provider_unavailable" | "unsupported" | "unknown" = "unknown"
-      if (msg.includes("no active default")) {
-        failure_type = "no_provider"
-      } else if (msg.includes("not implemented") || msg.includes("unsupported")) {
-        failure_type = "unsupported"
-      } else if (msg.includes("could not reach") || msg.includes("unreachable") || msg.includes("unavailable") || msg.includes("503") || msg.includes("501") || msg.includes("connection failed")) {
-        failure_type = "provider_unavailable"
-      }
-      posthog.capture('ai_summary_failed', { session_id: sessionId, failure_type })
-      set({ summaryError: err.message || 'Summarization failed' })
-    } finally {
-      set({ isSummarizing: false })
-    }
-  },
-
-  clearAIState: () => {
+  resetForSessionChange: (sessionId) => {
     set({
-      triageResult: null,
-      sessionSummary: null,
-      triageError: null,
-      summaryError: null,
+      currentSessionId: sessionId,
+      activeSessionId: sessionId,
+      markersById: {},
+      orderedMarkerIds: [],
+      selectedMarkerId: null,
+      lastSnapshotAt: null,
+      filters: {
+        status: 'all',
+        priority: 'all',
+        creatorId: 'all',
+      },
+      participants: [],
     })
+  },
+
+  loadSessionMarkers: async (sessionId) => {
+    try {
+      const markers = await api.markers.list(sessionId)
+      get().applySnapshot(markers)
+    } catch (err) {
+      console.error('[MarkerStore] Failed to load session markers:', err)
+    }
+  },
+
+  applySnapshot: (markers) => {
+    const activeMarkers = markers.filter((m) => !m.is_deleted)
+    // Deterministic sort: created_at asc, id asc
+    activeMarkers.sort((a, b) => {
+      const timeA = new Date(a.created_at).getTime()
+      const timeB = new Date(b.created_at).getTime()
+      if (timeA !== timeB) return timeA - timeB
+      return a.id.localeCompare(b.id)
+    })
+
+    const markersById: Record<string, Marker> = {}
+    markers.forEach((m) => {
+      markersById[m.id] = m
+    })
+
+    set({
+      markersById,
+      orderedMarkerIds: activeMarkers.map((m) => m.id),
+      lastSnapshotAt: new Date().toISOString(),
+    })
+  },
+
+  upsertMarkerFromServer: (marker, force = false) => {
+    set((state) => {
+      const existing = state.markersById[marker.id]
+      // Stale event guard: ignore incoming version if older than local version
+      if (!force && existing && marker.version <= existing.version) {
+        return state
+      }
+
+      const markersById = { ...state.markersById, [marker.id]: marker }
+      
+      // Update orderedMarkerIds
+      let orderedMarkerIds = [...state.orderedMarkerIds]
+      if (marker.is_deleted) {
+        orderedMarkerIds = orderedMarkerIds.filter((id) => id !== marker.id)
+      } else {
+        if (!orderedMarkerIds.includes(marker.id)) {
+          orderedMarkerIds.push(marker.id)
+        }
+        // Resort to maintain deterministic order
+        orderedMarkerIds.sort((idA, idB) => {
+          const mA = markersById[idA]
+          const mB = markersById[idB]
+          if (!mA || !mB) return 0
+          const timeA = new Date(mA.created_at).getTime()
+          const timeB = new Date(mB.created_at).getTime()
+          if (timeA !== timeB) return timeA - timeB
+          return mA.id.localeCompare(mB.id)
+        })
+      }
+
+      return { markersById, orderedMarkerIds }
+    })
+  },
+
+  removeMarkerFromServer: (markerId) => {
+    set((state) => {
+      const markersById = { ...state.markersById }
+      if (markersById[markerId]) {
+        markersById[markerId] = { ...markersById[markerId], is_deleted: true }
+      }
+      const orderedMarkerIds = state.orderedMarkerIds.filter((id) => id !== markerId)
+      return { markersById, orderedMarkerIds }
+    })
+  },
+
+  createMarkerViaApi: async (sessionId, payload, xReviewerId) => {
+    // Writes go strictly through REST
+    const created = await api.markers.create(sessionId, payload, xReviewerId)
+    // Server broadcast will announce this, but we immediately insert it locally
+    get().upsertMarkerFromServer(created)
+    return created
+  },
+
+  updateMarkerViaApi: async (markerId, patch, xReviewerId) => {
+    const existing = get().markersById[markerId]
+    const expected_version = existing ? existing.version : undefined
+    
+    // Save original for rollback if request fails
+    const original = existing ? { ...existing } : null
+
+    // Optimistically update version and title/desc to avoid lag
+    if (existing) {
+      const optimisticMarker = {
+        ...existing,
+        ...patch,
+        version: existing.version + 1,
+      }
+      get().upsertMarkerFromServer(optimisticMarker)
+    }
+
+    try {
+      const updated = await api.markers.update(markerId, { ...patch, expected_version }, xReviewerId)
+      get().upsertMarkerFromServer(updated)
+      return updated
+    } catch (err) {
+      // Rollback on error
+      if (original) {
+        get().upsertMarkerFromServer(original, true)
+      }
+      throw err
+    }
+  },
+
+  moveMarkerViaApi: async (markerId, patch, xReviewerId) => {
+    const existing = get().markersById[markerId]
+    const expected_version = existing ? existing.version : undefined
+    
+    // Save original for rollback
+    const original = existing ? { ...existing } : null
+
+    // Ephemeral position update
+    if (existing) {
+      const optimisticMarker = {
+        ...existing,
+        ...patch,
+        version: existing.version + 1,
+      }
+      get().upsertMarkerFromServer(optimisticMarker)
+    }
+
+    try {
+      const updated = await api.markers.patchPosition(markerId, { ...patch, expected_version }, xReviewerId)
+      get().upsertMarkerFromServer(updated)
+      return updated
+    } catch (err) {
+      if (original) {
+        get().upsertMarkerFromServer(original, true)
+      }
+      throw err
+    }
+  },
+
+  deleteMarkerViaApi: async (markerId, xReviewerId) => {
+    const existing = get().markersById[markerId]
+    const original = existing ? { ...existing } : null
+
+    // Optimistically remove from list
+    get().removeMarkerFromServer(markerId)
+
+    try {
+      await api.markers.delete(markerId, xReviewerId)
+    } catch (err) {
+      // Rollback on error
+      if (original) {
+        get().upsertMarkerFromServer(original, true)
+      }
+      throw err
+    }
+  },
+
+  handleRealtimeEvent: (event) => {
+    switch (event.type) {
+      case 'marker_created':
+      case 'marker_updated':
+      case 'marker_moved':
+      case 'marker_resolved':
+        if (event.data?.marker) {
+          get().upsertMarkerFromServer(event.data.marker)
+        }
+        break
+      case 'marker_deleted':
+        if (event.marker_id) {
+          get().removeMarkerFromServer(event.marker_id)
+        }
+        break
+      case 'session_snapshot':
+        if (event.data?.markers) {
+          get().applySnapshot(event.data.markers)
+        }
+        break
+      case 'session_reconciled':
+        console.log('[MarkerStore] Realtime session reconciled:', event.data?.message)
+        break
+      case 'presence_updated':
+        if (event.data?.participants) {
+          set({ participants: event.data.participants })
+        }
+        break
+      default:
+        break
+    }
+  },
+
+  reconcileSession: async (sessionId) => {
+    // Re-fetch markers from REST to ensure complete convergence with source of truth
+    await get().loadSessionMarkers(sessionId)
+  },
+
+  // Derived Selectors Implementation
+  getMarkersForSession: (sessionId) => {
+    return Object.values(get().markersById).filter(m => m.session_id === sessionId && !m.is_deleted)
+  },
+
+  getMarkersForPage: (pageUrlOrVisitId) => {
+    return Object.values(get().markersById).filter(m => 
+      (m.page_url === pageUrlOrVisitId || m.page_visit_id === pageUrlOrVisitId) && !m.is_deleted
+    )
+  },
+
+  getVisibleMarkers: () => {
+    const { markersById, orderedMarkerIds, filters } = get()
+    return orderedMarkerIds
+      .map(id => markersById[id])
+      .filter(m => {
+        if (!m || m.is_deleted) return false
+        if (filters.status !== 'all' && m.status !== filters.status) return false
+        if (filters.priority !== 'all' && m.priority !== filters.priority) return false
+        if (filters.creatorId && filters.creatorId !== 'all' && m.creator_id !== filters.creatorId && m.creator_name !== filters.creatorId) return false
+        return true
+      })
+  },
+
+  getMarkerStats: () => {
+    const markers = Object.values(get().markersById).filter(m => !m.is_deleted)
+    const stats = {
+      total: markers.length,
+      open: 0,
+      resolved: 0,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+    }
+    markers.forEach(m => {
+      if (m.status === 'open') stats.open++
+      else if (m.status === 'resolved') stats.resolved++
+      
+      if (m.priority === 'critical') stats.critical++
+      else if (m.priority === 'high') stats.high++
+      else if (m.priority === 'medium') stats.medium++
+      else if (m.priority === 'low') stats.low++
+    })
+    return stats
+  },
+
+  getMarkersGroupedByCreator: () => {
+    const markers = Object.values(get().markersById).filter(m => !m.is_deleted)
+    const groups: Record<string, Marker[]> = {}
+    markers.forEach(m => {
+      const creator = m.creator_name || m.creator_id || 'Anonymous'
+      if (!groups[creator]) groups[creator] = []
+      groups[creator].push(m)
+    })
+    return groups
+  },
+
+  getMarkersGroupedByStatus: () => {
+    const markers = Object.values(get().markersById).filter(m => !m.is_deleted)
+    const groups: Record<string, Marker[]> = { open: [], resolved: [] }
+    markers.forEach(m => {
+      if (m.status === 'open') groups.open.push(m)
+      else if (m.status === 'resolved') groups.resolved.push(m)
+    })
+    return groups
+  },
+
+  getMarkersGroupedByPage: () => {
+    const markers = Object.values(get().markersById).filter(m => !m.is_deleted)
+    const groups: Record<string, { pageTitle: string; markers: Marker[] }> = {}
+    markers.forEach(m => {
+      const pageKey = m.page_url || 'Unknown Page'
+      if (!groups[pageKey]) {
+        groups[pageKey] = {
+          pageTitle: m.page_title || 'Untitled Page',
+          markers: []
+        }
+      }
+      groups[pageKey].markers.push(m)
+    })
+    return groups
   }
 }))
-
-
-// Phase 3 Multi-page State Selectors
-export function groupMarkersByPage(markers: Marker[]): Record<string, Marker[]> {
-  const grouped: Record<string, Marker[]> = {}
-  markers.forEach((m) => {
-    const url = m.page_url || m.url || 'Unknown Page'
-    if (!grouped[url]) grouped[url] = []
-    grouped[url].push(m)
-  })
-  return grouped
-}
-
-export interface UniquePageInfo {
-  url: string
-  path: string
-  title: string
-  markerCount: number
-  renderers: string[]
-}
-
-export function getUniquePages(markers: Marker[]): UniquePageInfo[] {
-  const grouped = groupMarkersByPage(markers)
-  return Object.entries(grouped).map(([url, list]) => {
-    let path = url
-    try {
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        const parsed = new URL(url)
-        path = parsed.pathname + parsed.search
-      }
-    } catch {
-      // Fallback
-    }
-    
-    // Clean up empty paths or root paths to show a better label
-    if (path === '/' || path === '') {
-      path = '/index'
-    }
-
-    const title = list[0]?.page_title || list[0]?.title || 'Untitled Page'
-    
-    const renderers = Array.from(new Set(
-      list.map(m => m.renderer_type || 'dom').filter(Boolean)
-    )) as string[]
-
-    return {
-      url,
-      path,
-      title,
-      markerCount: list.length,
-      renderers
-    }
-  })
-}
-
-export function getRendererSummary(markers: Marker[]): Record<string, number> {
-  const summary: Record<string, number> = {
-    dom: 0,
-    shadow_dom: 0,
-    canvas2d: 0,
-    webgl: 0,
-    threejs: 0,
-    unknown: 0
-  }
-  markers.forEach((m) => {
-    const r = (m.renderer_type || 'dom').toLowerCase()
-    if (r in summary) {
-      summary[r]++
-    } else {
-      summary.unknown = (summary.unknown || 0) + 1
-    }
-  })
-  return summary
-}
-
-export function getPageThumbnailMap(markers: Marker[]): Record<string, string> {
-  const map: Record<string, string> = {}
-  markers.forEach((m) => {
-    const url = m.page_url || m.url || 'Unknown Page'
-    if (!map[url] && m.screenshot_url) {
-      map[url] = m.screenshot_url
-    }
-  })
-  return map
-}

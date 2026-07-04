@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from main import app
 from dependencies import get_db, get_current_user
 from database import Base
-from models import User, Project, Session as DbSession, Marker, OrgMember, Organization
+from models import User, Project, Session as DbSession, OrgMember, Organization
 from models.core import UserAIProviderConfig
 from utils.encryption import decrypt_secret
 

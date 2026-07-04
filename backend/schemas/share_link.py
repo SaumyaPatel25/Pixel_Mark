@@ -44,6 +44,7 @@ class ShareLinkOut(BaseModel):
 class ShareLinkPublicRead(BaseModel):
     token: str
     session_id: str
+    project_id: Optional[str] = None
     can_comment: bool
     label: Optional[str]
     session_title: Optional[str]

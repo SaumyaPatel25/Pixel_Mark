@@ -1,9 +1,18 @@
 // PixelMark Core API Client (Unified exception & structured error handler)
-// Version 2.0.1
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
+// Version 2.0.2
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
 import { apiQueue } from './apiQueue'
-async function request(path: string, options: RequestInit = {}) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
+
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift();
+  return null;
+}
+
+export async function request(path: string, options: RequestInit = {}) {
+  const token = getCookie('pm_token')
   const headers = new Headers(options.headers || {})
 
   if (token) {
@@ -15,6 +24,7 @@ async function request(path: string, options: RequestInit = {}) {
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {
+    cache: 'no-store', // Prevent Next.js from caching dynamic dashboard data
     ...options,
     headers,
   })
@@ -29,8 +39,11 @@ async function request(path: string, options: RequestInit = {}) {
       }
     }
     let detail: any = 'An error occurred'
+    let rawBody = ''
     try {
-      const errData = await response.json()
+      rawBody = await response.text()
+      console.log('[API] Raw error response body:', rawBody)
+      const errData = JSON.parse(rawBody)
       if (errData.detail) {
         if (typeof errData.detail === 'string') {
           detail = errData.detail
@@ -43,10 +56,20 @@ async function request(path: string, options: RequestInit = {}) {
         } else {
           detail = JSON.stringify(errData.detail)
         }
+      } else if (errData.error) {
+        // Handle custom backend error format
+        detail = errData.message || errData.error
+        if (errData.fields && Array.isArray(errData.fields)) {
+          const fieldMsgs = errData.fields.map((f: any) => `${f.field}: ${f.issue}`)
+          detail += ' (' + fieldMsgs.join(', ') + ')'
+        }
       }
     } catch {
-      // Non-JSON error
+      // Non-JSON error — use raw body if available
+      if (rawBody) detail = rawBody
     }
+    const method = (options.method || 'GET').toUpperCase()
+    console.error(`[API] ${method} ${path} → ${response.status} ${response.statusText}`, detail)
     throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail))
   }
 
@@ -122,10 +145,14 @@ export interface ShareLinkCreate {
 export interface ShareLinkPublicRead {
   token: string
   session_id: string
+  project_id: string | null
   can_comment: boolean
   label: string | null
   session_title: string | null
+  title: string | null
   project_name: string | null
+  name: string | null
+  target_url: string | null
 }
 
 export interface ShareLinkAccess {
@@ -337,24 +364,34 @@ export const api = {
 
   // MARKERS
   markers: {
-    async getMarkers(sessionId: string) {
+    async list(sessionId: string) {
       return apiQueue.enqueueRead('Loading pins...', () => request(`/markers/session/${sessionId}`))
     },
-    async createMarker(data: any) {
-      return apiQueue.enqueueWrite('Saving feedback pin...', () => request('/markers/', {
+    async create(sessionId: string, data: any, xReviewerId?: string) {
+      const headers: Record<string, string> = {}
+      if (xReviewerId) headers['X-Reviewer-Id'] = xReviewerId
+      return apiQueue.enqueueWrite('Saving feedback pin...', () => request(`/sessions/${sessionId}/markers`, {
         method: 'POST',
+        headers: Object.keys(headers).length ? headers : undefined,
         body: JSON.stringify(data),
       }))
     },
-    async updateMarker(id: string, data: any) {
+    async update(id: string, data: any, xReviewerId?: string) {
+      const headers: Record<string, string> = {}
+      if (xReviewerId) headers['X-Reviewer-Id'] = xReviewerId
       return apiQueue.enqueueWrite('Updating pin...', () => request(`/markers/${id}`, {
         method: 'PATCH',
+        headers: Object.keys(headers).length ? headers : undefined,
         body: JSON.stringify(data),
       }), `update-marker-${id}`)
     },
-    async deleteMarker(id: string) {
-      return apiQueue.enqueueWrite('Deleting pin...', () => request(`/markers/${id}`, {
+    async delete(id: string, expected_version?: number, xReviewerId?: string) {
+      const headers: Record<string, string> = {}
+      if (xReviewerId) headers['X-Reviewer-Id'] = xReviewerId
+      const url = expected_version !== undefined ? `/markers/${id}?expected_version=${expected_version}` : `/markers/${id}`
+      return apiQueue.enqueueWrite('Deleting pin...', () => request(url, {
         method: 'DELETE',
+        headers: Object.keys(headers).length ? headers : undefined,
       }), `delete-marker-${id}`)
     },
     async uploadScreenshot(id: string, blob: Blob) {
@@ -463,33 +500,81 @@ export const api = {
     },
   },
 
-  // FEEDBACK
-  feedback: {
-    async create(sessionId: string, data: any, shareToken?: string) {
-      const url = `/sessions/${sessionId}/feedback${shareToken ? `?share_token=${shareToken}` : ''}`
-      return apiQueue.enqueueWrite('Submitting feedback...', () => request(url, {
+  // MARKERS (Step 3 Rebuild)
+  markers: {
+    async list(sessionId: string, params?: { page_url?: string; creator_role?: string; creator_id?: string; status?: string; include_deleted?: boolean }): Promise<any[]> {
+      const q = new URLSearchParams()
+      if (params) {
+        if (params.page_url) q.append('page_url', params.page_url)
+        if (params.creator_role) q.append('creator_role', params.creator_role)
+        if (params.creator_id) q.append('creator_id', params.creator_id)
+        if (params.status) q.append('status', params.status)
+        if (params.include_deleted !== undefined) q.append('include_deleted', String(params.include_deleted))
+      }
+      const qs = q.toString()
+      return apiQueue.enqueueRead('Loading markers...', () => request(`/sessions/${sessionId}/markers${qs ? `?${qs}` : ''}`))
+    },
+    async create(sessionId: string, data: any, xReviewerId?: string): Promise<any> {
+      const headers: Record<string, string> = {}
+      if (xReviewerId) {
+        headers['X-Reviewer-Id'] = xReviewerId
+      }
+      return apiQueue.enqueueWrite('Creating marker...', () => request(`/sessions/${sessionId}/markers`, {
         method: 'POST',
+        headers,
         body: JSON.stringify(data),
       }))
     },
-    async list(sessionId: string, pageUrl?: string, shareToken?: string) {
-      const params = new URLSearchParams()
-      if (pageUrl) params.append('pageurl', pageUrl)
-      if (shareToken) params.append('share_token', shareToken)
-      const query = params.toString()
-      return apiQueue.enqueueRead('Loading feedback list...', () => request(`/sessions/${sessionId}/feedback${query ? `?${query}` : ''}`))
-    },
-    async get(sessionId: string, feedbackId: string, shareToken?: string) {
-      const url = `/sessions/${sessionId}/feedback/${feedbackId}${shareToken ? `?share_token=${shareToken}` : ''}`
-      return apiQueue.enqueueRead('Loading feedback details...', () => request(url))
-    },
-    async update(sessionId: string, feedbackId: string, patch: any, shareToken?: string) {
-      const url = `/sessions/${sessionId}/feedback/${feedbackId}${shareToken ? `?share_token=${shareToken}` : ''}`
-      return apiQueue.enqueueWrite('Updating feedback...', () => request(url, {
+    async update(markerId: string, data: { title?: string; description?: string; status?: string; priority?: string; color_token?: string; expected_version?: number }, xReviewerId?: string): Promise<any> {
+      const headers: Record<string, string> = {}
+      if (xReviewerId) {
+        headers['X-Reviewer-Id'] = xReviewerId
+      }
+      return apiQueue.enqueueWrite('Updating marker...', () => request(`/markers/${markerId}`, {
         method: 'PATCH',
-        body: JSON.stringify(patch),
-      }), `update-feedback-${feedbackId}`)
+        headers,
+        body: JSON.stringify(data),
+      }))
     },
+    async patchPosition(markerId: string, data: any, xReviewerId?: string): Promise<any> {
+      const headers: Record<string, string> = {}
+      if (xReviewerId) {
+        headers['X-Reviewer-Id'] = xReviewerId
+      }
+      return apiQueue.enqueueWrite('Moving marker...', () => request(`/markers/${markerId}/position`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(data),
+      }))
+    },
+    async delete(markerId: string, xReviewerId?: string): Promise<{ success: boolean; message: string }> {
+      const headers: Record<string, string> = {}
+      if (xReviewerId) {
+        headers['X-Reviewer-Id'] = xReviewerId
+      }
+      return apiQueue.enqueueWrite('Deleting marker...', () => request(`/markers/${markerId}`, {
+        method: 'DELETE',
+        headers,
+      }))
+    },
+    async registerReviewerIdentity(sessionId: string, data: { display_name: string; color_token?: string }): Promise<any> {
+      return apiQueue.enqueueWrite('Registering reviewer...', () => request(`/sessions/${sessionId}/reviewer-identities`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }))
+    }
+  },
+  // Deprecated compat alias
+  feedback: {
+    async create(sessionId: string, data: any, shareToken?: string, xReviewerId?: string) {
+      return api.markers.create(sessionId, data, xReviewerId)
+    },
+    async list(sessionId: string, pageUrl?: string, shareToken?: string) {
+      return api.markers.list(sessionId, { page_url: pageUrl })
+    },
+    async update(sessionId: string, markerId: string, patch: any, shareToken?: string, xReviewerId?: string) {
+      return api.markers.update(markerId, patch, xReviewerId)
+    }
   },
   screenshot: {
     async take(sessionId: string, targetUrl: string, shareToken?: string) {

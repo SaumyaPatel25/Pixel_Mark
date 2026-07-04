@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { useCommentStore } from '@/store/commentStore'
+
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE?.replace(/\/$/, '')
   || 'ws://localhost:8765'
@@ -75,22 +75,8 @@ export function useRealtimeSync({ projectId, onMessage, enabled = true }: Realti
         const payload = JSON.parse(event.data as string)
         console.log('[PixelMark WS] Recv:', payload.type)
 
-        // Route message types to the correct store actions
-        switch (payload.type) {
-          case 'NEW_COMMENT':
-            useCommentStore.getState().addCommentFromWS(payload.comment)
-            break
-          case 'COMMENT_TRIAGED':
-            useCommentStore.getState().updateSeverity(payload.comment_id, payload.severity)
-            break
-          case 'COMMENT_RESOLVED':
-            useCommentStore.getState().updateStatus(payload.comment_id, 'resolved')
-            break
-          default:
-            // Fallback for generic untyped messages or other modules
-            if (onMessage) onMessage(payload)
-            else console.warn('[PixelMark WS] Unknown message type:', payload.type)
-        }
+        // Forward to custom onMessage handler
+        if (onMessage) onMessage(payload)
       } catch {
         console.warn('[PixelMark WS] Unparseable message — ignored')
       }

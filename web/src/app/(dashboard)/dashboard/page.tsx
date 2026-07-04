@@ -51,7 +51,6 @@ export default function DashboardPage() {
   const [statsData, setStatsData] = useState({
     totalProjects: 0,
     totalSessions: 0,
-    totalMarkers: 0,
     openIssues: 0
   })
 
@@ -76,7 +75,7 @@ export default function DashboardPage() {
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFilter, setDateFilter] = useState<'all' | '24h' | '7d' | '30d'>('all')
-  const [sortOrder, setSortOrder] = useState<'recent' | 'markers' | 'name'>('recent')
+  const [sortOrder, setSortOrder] = useState<'recent' | 'name'>('recent')
 
   // Load all telemetry from the unified parallel fetching flow
   const fetchDashboardData = async () => {
@@ -112,7 +111,6 @@ export default function DashboardPage() {
         return {
           ...p,
           sessions: pSessions,
-          markers: [], // Analytics and markers are lazy loaded inside each ProjectCard to save load
           analytics: null // Pass null so card fetches its own analytics endpoint
         }
       })
@@ -123,7 +121,6 @@ export default function DashboardPage() {
       setStatsData({
         totalProjects: summary.total_projects,
         totalSessions: summary.total_sessions,
-        totalMarkers: summary.total_markers,
         openIssues: summary.open_issues
       })
 
@@ -231,8 +228,6 @@ export default function DashboardPage() {
       .sort((a, b) => {
         if (sortOrder === 'name') {
           return a.name.localeCompare(b.name)
-        } else if (sortOrder === 'markers') {
-          return b.markers.length - a.markers.length
         } else {
           // Default: recent
           const aTime = a.sessions.length
@@ -310,7 +305,7 @@ export default function DashboardPage() {
           {[
             { label: 'Active Projects', val: statsData.totalProjects, icon: Folder, color: 'text-indigo-400', bg: 'from-indigo-500/5 to-indigo-500/0' },
             { label: 'Review Sessions', val: statsData.totalSessions, icon: Play, color: 'text-emerald-400', bg: 'from-emerald-500/5 to-emerald-500/0' },
-            { label: 'Feedback Pins', val: statsData.totalMarkers, icon: FileText, color: 'text-purple-400', bg: 'from-purple-500/5 to-purple-500/0' },
+
             { label: 'Waiting Issues', val: statsData.openIssues, icon: AlertCircle, color: 'text-rose-500', bg: 'from-rose-500/5 to-rose-500/0' }
           ].map((stat, i) => (
             <div 
@@ -377,7 +372,7 @@ export default function DashboardPage() {
                     className="bg-transparent text-[11px] font-bold text-white/60 focus:text-white outline-none cursor-pointer pr-1"
                   >
                     <option value="recent" className="bg-[#0c0c0e]">Sort: Recent</option>
-                    <option value="markers" className="bg-[#0c0c0e]">Sort: Feedback Pins</option>
+
                     <option value="name" className="bg-[#0c0c0e]">Sort: Name</option>
                   </select>
                 </div>
@@ -419,7 +414,7 @@ export default function DashboardPage() {
                       onClick={() => router.push(`/sessions?project=${p.id}`)}
                       sessionsCount={p.sessions.length}
                       activeSessionsCount={p.sessions.filter((s: any) => new Date(s.updated_at || s.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000).length}
-                      markersCount={p.markers.length}
+
                       lastActivity={p.sessions.length ? formatRelativeTime(new Date(Math.max(...p.sessions.map((s: any) => new Date(s.updated_at || s.created_at).getTime())))) : null}
                       analytics={p.analytics}
                       onOpenCanvas={() => {

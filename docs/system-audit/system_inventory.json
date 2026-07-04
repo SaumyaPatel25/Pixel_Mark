@@ -1,0 +1,70 @@
+{
+  "services": [
+    "FastAPI Backend",
+    "Next.js Frontend",
+    "Neon PostgreSQL",
+    "WebSocket Collaboration Engine"
+  ],
+  "routes": [
+    "/auth/login",
+    "/auth/register",
+    "/auth/me",
+    "/projects",
+    "/sessions",
+    "/markers",
+    "/proxy",
+    "/websocket/session/{session_id}",
+    "/share-links",
+    "/export",
+    "/ai"
+  ],
+  "models": [
+    "User",
+    "Project",
+    "Session",
+    "Marker",
+    "CanvasFrame",
+    "Environment",
+    "ShareLink",
+    "DOMEdit"
+  ],
+  "frontend_pages": [
+    "/login",
+    "/signup",
+    "/projects",
+    "/dashboard",
+    "/sessions/[id]",
+    "/review/[token]",
+    "/settings"
+  ],
+  "stores": [
+    "Zustand (implied for marker state)"
+  ],
+  "websockets": [
+    "wss://{host}/websocket/session/{session_id}"
+  ],
+  "env_vars": [
+    "DATABASE_URL",
+    "JWT_SECRET",
+    "NEXT_PUBLIC_API_URL",
+    "FRONTEND_URL"
+  ],
+  "broken_features": [
+    "Marker coordinate scaling/drift across viewports",
+    "Proxying sites with aggressive CSPs or Framebusting headers",
+    "NextAuth vs Local JWT authentication sync",
+    "Schema validation mismatches on Export routes"
+  ],
+  "completed_features": [
+    "Local JWT Authentication",
+    "Project & Session CRUD",
+    "Basic WebSocket broadcasting",
+    "Dashboard API integration"
+  ],
+  "missing_features": [
+    "Guest Reviewer naming/identity for share links",
+    "Alembic DB migrations",
+    "OAuth (Google/GitHub) implementation",
+    "WebSocket offline state reconciliation (ACK/catch-up)"
+  ]
+}

@@ -102,6 +102,7 @@ async def resolve_share_link(
     return ShareLinkPublicRead(
         token=link.token,
         session_id=link.session_id,
+        project_id=session.project_id if session else None,
         can_comment=link.can_comment,
         label=link.label,
         session_title=session.title if session else None,

@@ -13,6 +13,8 @@ import uuid
 import os
 import hashlib
 from datetime import datetime
+from proxy.runtime_policy import check_third_party_policy, get_failure_fallback_response
+from proxy.asset_resolver import resolve_asset_url, get_asset_failure_fallback
 
 router = APIRouter(prefix="/proxy", tags=["proxy"])
 
@@ -306,6 +308,14 @@ async def proxy_initial(
                 api_base = os.getenv("API_BASE", "") or str(request.base_url)
                 if proto == "https" and api_base.startswith("http://"):
                     api_base = "https://" + api_base[7:]
+                
+                is_next_site = "_next/static" in resp.text or "__NEXT_DATA__" in resp.text
+                if is_next_site and not session.conservative_render_mode:
+                    session.conservative_render_mode = True
+                    db.add(session)
+                    await db.commit()
+                    logger.info(f"[PROXY_REWRITE] Next.js detected via signature in proxy_initial. Flipping conservative_render_mode=True for session={session_id}")
+                
                 rewritten_html = rewrite_html(
                     html=resp.text, 
                     session_id=session_id, 
@@ -417,6 +427,14 @@ async def proxy_page(
                 api_base = os.getenv("API_BASE", "") or str(request.base_url)
                 if proto == "https" and api_base.startswith("http://"):
                     api_base = "https://" + api_base[7:]
+                
+                is_next_site = "_next/static" in resp.text or "__NEXT_DATA__" in resp.text
+                if is_next_site and not session.conservative_render_mode:
+                    session.conservative_render_mode = True
+                    db.add(session)
+                    await db.commit()
+                    logger.info(f"[PROXY_REWRITE] Next.js detected via signature in proxy_page. Flipping conservative_render_mode=True for session={session_id}")
+                
                 rewritten_html = rewrite_html(
                     html=resp.text, 
                     session_id=session_id, 
@@ -513,15 +531,14 @@ async def handle_proxy_asset_request(
     parsed_base = urllib.parse.urlparse(base_url)
     target_origin = f"{parsed_base.scheme}://{parsed_base.netloc}"
     
-    # If the URL is relative or lacks a host, resolve it against target origin
-    # to enforce target-origin asset resolution.
+    # 1. Resolve relative URLs using asset_resolver
+    url, resolution_strategy = resolve_asset_url(url, target_origin)
     parsed_target = urllib.parse.urlparse(url)
-    if not parsed_target.netloc:
-        url = urllib.parse.urljoin(target_origin, url)
-        parsed_target = urllib.parse.urlparse(url)
-        
     is_third_party = parsed_target.netloc != parsed_base.netloc
-        
+    
+    # Log incoming request details with structured format
+    logger.info(f"[ASSET RESOLVER] [REQUEST] Incoming asset request: session_id={session_id}, original_path={request.url.path}, method={request.method}")
+
     # Guardrail: Circuit Breaker for failing asset routes
     from utils.guardrails import check_circuit_breaker, record_domain_failure, record_domain_success, CircuitBreakerTripped
     try:
@@ -530,46 +547,20 @@ async def handle_proxy_asset_request(
         logger.warning(f"[CIRCUIT_BREAKER] [TRIPPED] Short-circuiting request to {url} immediately.")
         return prepare_proxy_response(Response(content=b"", status_code=204))
 
-    # Check allow/block policy for third-party requests (Prompt 10)
-    if is_third_party:
-        BLOCKED_EXTERNAL_ORIGINS = [
-            "firebase.googleapis.com",
-            "firebaseinstallations.googleapis.com",
-            "firebaseapp.com",
-            "firestore.googleapis.com",
-            "google-analytics.com",
-            "analytics.google.com",
-            "googletagmanager.com",
-            "hotjar.com",
-            "segment.io",
-        ]
-        hostname = parsed_target.netloc.lower()
-        is_blocked = any(hostname == origin or hostname.endswith("." + origin) for origin in BLOCKED_EXTERNAL_ORIGINS)
-        
-        if is_blocked:
-            logger.info(f"[ASSET RESOLVER] [THIRD_PARTY POLICY] BLOCKED external SDK/tracker request: {url}")
-            if ".js" in url or "javascript" in url:
-                return prepare_proxy_response(Response(
-                    content=f'console.warn("Blocked by PixelMark proxy: {url}");'.encode("utf-8"),
-                    media_type="application/javascript"
-                ))
-            from fastapi.responses import JSONResponse
-            return prepare_proxy_response(JSONResponse({
-                "error": "blocked_by_pixelmark_proxy",
-                "status": "mocked",
-                "projectId": "pixelmark-mock"
-            }, status_code=200))
-        else:
-            logger.info(f"[ASSET RESOLVER] [THIRD_PARTY POLICY] ALLOWED standard CDN/asset request: {url}")
+    # 2. Check third-party policy
+    is_handled, policy_response = check_third_party_policy(url)
+    if is_handled:
+        logger.info(f"[ASSET RESOLVER] [DECISION] URL={url}, Strategy=third-party-policy (BLOCKED), Status=200")
+        return prepare_proxy_response(policy_response)
 
     if not is_ssrf_safe(url):
-        logger.warning(f"[ASSET RESOLVER] SSRF target blocked: {url}")
+        logger.warning(f"[ASSET RESOLVER] [DECISION] SSRF target blocked: {url}. Strategy=blocked, Status=403")
         if is_third_party:
             return prepare_proxy_response(Response(content=b"", status_code=204))
         raise HTTPException(status_code=403, detail="SSRF target blocked")
         
     if not is_domain_allowed(url, base_url, is_asset=True):
-        logger.warning(f"[ASSET RESOLVER] Asset domain scoping block: {url}")
+        logger.warning(f"[ASSET RESOLVER] [DECISION] Asset domain scoping block: {url}. Strategy=blocked, Status=mocked")
         if ".js" in url or "javascript" in url:
             return prepare_proxy_response(Response(
                 content=f'console.warn("PixelMark Warning: Script asset blocked by domain scoping: {url}");'.encode("utf-8"),
@@ -588,7 +579,7 @@ async def handle_proxy_asset_request(
     if request.method == "GET":
         cached_content, cached_type = get_cached_asset(url)
         if cached_content is not None:
-            logger.info(f"[ASSET RESOLVER] Requested URL: {request.url.path}, Resolved URL: {url}, Status: CACHE_HIT")
+            logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy}, Status=CACHE_HIT")
             response = Response(content=cached_content, media_type=cached_type)
             set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
             response.headers["X-PixelMark-Cache"] = "HIT"
@@ -624,6 +615,8 @@ async def handle_proxy_asset_request(
         max_redirects = 5
         resp = None
         
+        # Track initial redirect check
+        start_time = datetime.utcnow()
         async with httpx.AsyncClient(follow_redirects=False, timeout=10.0, verify=False) as client:
             while redirect_count < max_redirects:
                 if not is_ssrf_safe(current_url):
@@ -645,33 +638,36 @@ async def handle_proxy_asset_request(
                     redirect_url = resp.headers.get("location", "")
                     if not redirect_url:
                         break
-                    current_url = urllib.parse.urljoin(current_url, redirect_url)
+                    # Validate redirect safety check
+                    next_url = urllib.parse.urljoin(current_url, redirect_url)
+                    if not is_domain_allowed(next_url, base_url, is_asset=True):
+                        logger.warning(f"[REDIRECT SAFEGUARD] Redirect to disallowed origin blocked: {next_url}")
+                        return prepare_proxy_response(Response(content=b"", status_code=204))
+                        
+                    current_url = next_url
                     redirect_count += 1
                     logger.info(f"[REDIRECT SAFEGUARD] Following redirect {redirect_count}: {current_url}")
                 else:
                     break
 
+            duration = (datetime.utcnow() - start_time).total_seconds() * 1000
+            
             if resp.status_code >= 400:
                 record_domain_failure(url)
                 logger.warning(f"[ASSET RESOLVER] Target server returned {resp.status_code} for URL: {url}")
-                if ".js" in url or "javascript" in url:
-                    return prepare_proxy_response(Response(
-                        content=f'console.warn("PixelMark Warning: Script asset returned status {resp.status_code}: {url}");'.encode("utf-8"),
-                        media_type="application/javascript"
-                    ))
-                if is_third_party:
-                    content = b"{}" if "json" in url or "config" in url else b""
-                    media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
-                    return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
-                # Return standard 204 graceful fallback rather than a 500 error
-                return prepare_proxy_response(Response(content=b"", status_code=204))
+                
+                # Graceful fallback response for failure
+                fallback_response = get_asset_failure_fallback(url, resp.status_code)
+                logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy} (FALLBACK), Status={resp.status_code}, Duration={duration:.1f}ms")
+                return prepare_proxy_response(fallback_response)
                 
             content_type = resp.headers.get("content-type", "application/octet-stream")
             if request.method == "GET":
                 save_cached_asset(url, resp.content, content_type)
             
             record_domain_success(url)
-            logger.info(f"[ASSET RESOLVER] Requested URL: {request.url.path}, Resolved URL: {url}, Status: {resp.status_code}")
+            byte_size = len(resp.content)
+            logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy}, Status={resp.status_code}, Duration={duration:.1f}ms, Bytes={byte_size}")
             response = Response(content=resp.content, status_code=resp.status_code, media_type=content_type)
             set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
             response.headers["X-PixelMark-Cache"] = "MISS"
@@ -680,17 +676,11 @@ async def handle_proxy_asset_request(
     except Exception as e:
         record_domain_failure(url)
         logger.error(f"[ASSET RESOLVER] Exception resolving asset {url}: {str(e)}")
-        if ".js" in url or "javascript" in url:
-            return prepare_proxy_response(Response(
-                content=f'console.warn("PixelMark Warning: Script asset failed to connect: {url} ({str(e)})");'.encode("utf-8"),
-                media_type="application/javascript"
-            ))
-        if is_third_party:
-            content = b"{}" if "json" in url or "config" in url else b""
-            media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
-            return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
-        # Graceful fallback response
-        return prepare_proxy_response(Response(content=b"", status_code=204))
+        
+        # Upstream failure handling
+        fallback_response = get_failure_fallback_response(url, str(e))
+        logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy} (UPSTREAM_FAIL), Status=500, Reason={str(e)}")
+        return prepare_proxy_response(fallback_response)
 
 
 @router.api_route("/session/{session_id}/asset", methods=["GET", "POST", "OPTIONS"])

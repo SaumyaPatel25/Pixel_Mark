@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
+const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
 
 type PageState = 'loading' | 'ready' | 'password' | 'revoked' | 'expired' | 'exhausted' | 'not_found' | 'error'
 
@@ -95,7 +95,7 @@ export default function TesterLanding() {
     localStorage.setItem('tester_role',       data.role)
     localStorage.setItem('tester_token',      data.token)
     localStorage.setItem('tester_project_id', data.project_id)
-    router.push(`/review/${data.project_id}?token=${data.token}&role=${data.role}`)
+    router.push(`/review/${data.token}?role=${data.role}`)
   }
 
   // ── Error screens ──────────────────────────────────────────────────────────

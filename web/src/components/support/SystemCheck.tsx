@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
 
 interface StatusState {
   api: 'checking' | 'healthy' | 'unhealthy'

@@ -123,9 +123,10 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
         'segment.io', 'api.segment.io'
       ];
       
-      if (PASSTHROUGH_ORIGINS.some(o => host === o || host.endsWith('.' + o))) {{
-        return absoluteUrl;
-      }}
+      const isExact = PASSTHROUGH_ORIGINS.some(o => host === o);
+      const isSuffix = PASSTHROUGH_ORIGINS.some(o => host.endsWith('.' + o));
+      const isGoogleCollect = (host === 'www.google.com' || host === 'google.com') && parsed.pathname.startsWith('/g/collect');
+      if (isExact || isSuffix || isGoogleCollect) return absoluteUrl;
     }} catch(e) {{}}
 
     return proxyBase + '/asset?url=' + encodeURIComponent(absoluteUrl);
@@ -179,6 +180,36 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
       return originalSetAttribute.call(this, name, val);
     }};
   }} catch(e) {{}}
+
+  const originalFetch = window.fetch;
+  window.fetch = async function(input, init) {{
+    let url = typeof input === 'string' ? input : input?.url;
+    const method = (init && init.method) || (input && input.method) || 'GET';
+    if (url && typeof url === 'string') {{
+      const rewritten = rewriteUrl(url);
+      if (rewritten !== url) {{
+        if (typeof input === 'string') {{
+          input = rewritten;
+        }} else if (input && typeof input === 'object') {{
+          try {{
+            input = new Request(rewritten, input);
+          }} catch (e) {{
+            try {{ Object.defineProperty(input, 'url', {{ value: rewritten }}); }} catch (_) {{}}
+          }}
+        }}
+      }}
+    }}
+    return originalFetch.call(this, input, init);
+  }};
+
+  const originalXHROpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url, ...args) {{
+    if (url && typeof url === 'string') {{
+      url = rewriteUrl(url);
+    }}
+    this._method = method;
+    return originalXHROpen.apply(this, [method, url, ...args]);
+  }};
 
   const nativePushState = History.prototype.pushState;
   const nativeReplaceState = History.prototype.replaceState;
@@ -716,23 +747,56 @@ def rewrite_html(
     )
 
     # 1. Bootstrap — window.__PIXELMARK_TARGET_URL__, SESSION_ID, BASE
-    html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
-
-    # 1.5. Cursor relay bridge — seed global cursor state and fire initial synthetic
-    #      mousemove so cursor-reactive backgrounds/WebGL effects activate immediately.
-    html = inject_cursor_relay_bridge(html)
-
-    # 2. WebGL patch — preserveDrawingBuffer before any canvas library runs
-    html = inject_webgl_patch(html)
-
-    # 3. Service Worker killer — unregister + mock register()
-    html = inject_sw_killer(html)
-
-    # 4. Base tag — resolve all relative assets against target URL
-    html = inject_base_tag(html, page_url)
-
-    # 5. Chunk Guard — recover from bfcache stale chunk errors
-    html = inject_chunk_guard(html)
+    if conservative_render_mode:
+        logger.info("[PROXY_REWRITE] Conservative Render Mode Active - injecting scripts at the end of <head>")
+        
+        # Inject base tag first (still early)
+        html = inject_base_tag(html, page_url)
+        
+        # Build the combined script block of all pixelmark shims
+        # We extract the script inner contents or just concatenate the tags
+        bootstrap_script = inject_bootstrap("<html><head></head></html>", page_url, str(session_id), proxy_base_url, api_base)
+        cursor_script = inject_cursor_relay_bridge("<html><head></head></html>")
+        webgl_script = inject_webgl_patch("<html><head></head></html>")
+        sw_script = inject_sw_killer("<html><head></head></html>")
+        guard_script = inject_chunk_guard("<html><head></head></html>")
+        
+        # Extract the scripts from the dummy htmls
+        def extract_script(h):
+            m = re.findall(r'<!--.*?-->|<script\b[^>]*>([\s\S]*?)</script>', h)
+            # Just grab the scripts
+            scripts = []
+            for item in re.finditer(r'(<!--.*?-->|<script\b[^>]*>[\s\S]*?</script>)', h):
+                scripts.append(item.group(1))
+            return "\n".join(scripts)
+            
+        combined_shims = "\n".join([
+            extract_script(bootstrap_script),
+            extract_script(cursor_script),
+            extract_script(webgl_script),
+            extract_script(sw_script),
+            extract_script(guard_script)
+        ])
+        
+        # Inject at the very end of <head>
+        head_end_match = re.search(r'</head>', html, re.IGNORECASE)
+        if head_end_match:
+            idx = head_end_match.start()
+            html = html[:idx] + f"\n{combined_shims}\n" + html[idx:]
+        else:
+            # Fallback if no head closing tag
+            html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
+            html = inject_cursor_relay_bridge(html)
+            html = inject_webgl_patch(html)
+            html = inject_sw_killer(html)
+            html = inject_chunk_guard(html)
+    else:
+        html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
+        html = inject_cursor_relay_bridge(html)
+        html = inject_webgl_patch(html)
+        html = inject_sw_killer(html)
+        html = inject_base_tag(html, page_url)
+        html = inject_chunk_guard(html)
 
     # 6. Agent — append-only before </body>, never touch existing scripts
     html = inject_agent(html, agent_script_url)

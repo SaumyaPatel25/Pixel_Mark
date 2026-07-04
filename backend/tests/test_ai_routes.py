@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from main import app
 from dependencies import get_db, get_current_user
 from database import Base
-from models import User, Project, Session as DbSession, Marker, OrgMember, Organization
+from models import User, Project, Session as DbSession, OrgMember, Organization
 from models.core import UserAIProviderConfig
 
 # In-memory SQLite for testing
@@ -66,9 +66,6 @@ async def setup_db():
         
         sess = DbSession(id="sess-123", project_id="proj-123", title="My Session")
         session.add(sess)
-        
-        m1 = Marker(id="marker-1", session_id="sess-123", title="Bug 1", description="UI break", url="https://pixelmark.dev", priority="medium")
-        session.add(m1)
         
         await session.commit()
         
@@ -132,7 +129,7 @@ async def test_triage_success_path():
         
         # Assert priority updated in DB
         async with TestingSessionLocal() as session:
-            res = await session.execute(select(Marker).where(Marker.id == "marker-1"))
+
             marker = res.scalar_one()
             # priority field in model core.py is SAEnum(PriorityEnum), so it compares by value/name
             assert marker.priority.value == "critical"

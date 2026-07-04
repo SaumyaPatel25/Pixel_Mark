@@ -45,14 +45,6 @@ export default function LoginClient() {
   );
 
   useEffect(() => {
-    // Break infinite redirect loops: if the middleware redirected us here 
-    // (indicated by '?redirect=...'), but our local storage thinks we're 
-    // logged in, our token is stale or missing from cookies.
-    if (user && searchParams.get('redirect')) {
-      logout();
-      return;
-    }
-
     // Only auto-redirect if they are already logged in when landing on the page
     // and no redirect parameter is present
     if (user && !searchParams.get('redirect') && (phase === 'intro' || phase === 'sidePosition' || phase === 'projecting')) {
@@ -293,7 +285,7 @@ export default function LoginClient() {
                   {/* Social Logins */}
                   <div className="flex justify-center">
                     <a
-                      href={`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765'}/auth/oauth/github/start`}
+                      href={`${process.env.NEXT_PUBLIC_API_URL || ''}/auth/oauth/github/start`}
                       className="flex items-center justify-center gap-2 w-full py-3 bg-white/[0.02] hover:bg-white/[0.05] border border-white/10 rounded-xl transition-all duration-300 group cursor-pointer text-xs font-bold text-white"
                     >
                       <svg className="w-4 h-4 text-white/60 group-hover:text-white" viewBox="0 0 24 24" fill="currentColor">

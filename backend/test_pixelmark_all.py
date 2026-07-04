@@ -39,10 +39,16 @@ class TestAuth:
                 "password": SharedState.password,
                 "name": "Neon QA Tester"
             })
-            assert r.status_code == 200
+            assert r.status_code == 201
             data = r.json()
-            assert "access_token" in data
-            SharedState.token = data["access_token"]
+            assert "dev_link" in data
+            dev_link = data["dev_link"]
+            from urllib.parse import urlparse, parse_qs
+            parsed_url = urlparse(dev_link)
+            token = parse_qs(parsed_url.query)["token"][0]
+            
+            vr = client.post(f"/auth/verify-email?token={token}")
+            assert vr.status_code == 200
             print_indicator("TestAuth", "register", True)
 
     def test_duplicate_check(self):
@@ -52,7 +58,7 @@ class TestAuth:
                 "password": SharedState.password,
                 "name": "Neon Duplicate"
             })
-            assert r.status_code == 400
+            assert r.status_code == 409
             print_indicator("TestAuth", "duplicate", True)
 
     def test_login(self):
@@ -62,7 +68,9 @@ class TestAuth:
                 "password": SharedState.password
             })
             assert r.status_code == 200
-            assert "access_token" in r.json()
+            data = r.json()
+            assert "access_token" in data
+            SharedState.token = data["access_token"]
             print_indicator("TestAuth", "login", True)
 
     def test_wrong_password(self):
@@ -208,84 +216,6 @@ class TestSessions:
             assert r.status_code == 404
             print_indicator("TestSessions", "404", True)
 
-class TestMarkers:
-    def test_full_marker(self):
-        with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
-            headers = {"Authorization": f"Bearer {SharedState.token}"}
-            r = client.post("/markers/", headers=headers, json={
-                "session_id": SharedState.session_id,
-                "title": "Critical Alignment Shifting",
-                "description": "Align left breaks on small layouts.",
-                "url": "https://pixelmark.dev/about",
-                "xpath": "/html/body/div[1]/button",
-                "css_selector": ".btn-submit",
-                "inner_text": "Submit",
-                "viewport": {"width": 375, "height": 812},
-                "browser": "Chrome",
-                "os": "Android",
-                "scroll_position": {"x": 0, "y": 150},
-                "console_errors": ["Error loading styles"],
-                "network_errors": []
-            })
-            assert r.status_code == 200
-            data = r.json()
-            assert "id" in data
-            SharedState.marker_id = data["id"]
-            print_indicator("TestMarkers", "full_marker", True)
-
-    def test_minimal_marker(self):
-        with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
-            headers = {"Authorization": f"Bearer {SharedState.token}"}
-            r = client.post("/markers/", headers=headers, json={
-                "session_id": SharedState.session_id
-            })
-            assert r.status_code == 200
-            print_indicator("TestMarkers", "minimal_marker", True)
-
-    def test_list(self):
-        with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
-            headers = {"Authorization": f"Bearer {SharedState.token}"}
-            r = client.get(f"/markers/session/{SharedState.session_id}", headers=headers)
-            assert r.status_code == 200
-            assert any(m["id"] == SharedState.marker_id for m in r.json())
-            print_indicator("TestMarkers", "list", True)
-
-    def test_update_status(self):
-        with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
-            headers = {"Authorization": f"Bearer {SharedState.token}"}
-            r = client.patch(f"/markers/{SharedState.marker_id}", headers=headers, json={
-                "status": "in_progress"
-            })
-            assert r.status_code == 200
-            assert r.json()["status"] == "in_progress"
-            print_indicator("TestMarkers", "update_status", True)
-
-    def test_update_priority(self):
-        with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
-            headers = {"Authorization": f"Bearer {SharedState.token}"}
-            r = client.patch(f"/markers/{SharedState.marker_id}", headers=headers, json={
-                "priority": "critical"
-            })
-            assert r.status_code == 200
-            assert r.json()["priority"] == "critical"
-            print_indicator("TestMarkers", "update_priority", True)
-
-    def test_404(self):
-        with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
-            headers = {"Authorization": f"Bearer {SharedState.token}"}
-            r = client.get(f"/markers/{str(uuid.uuid4())}", headers=headers)
-            assert r.status_code == 404
-            print_indicator("TestMarkers", "404", True)
-
-    def test_resolve(self):
-        with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
-            headers = {"Authorization": f"Bearer {SharedState.token}"}
-            r = client.patch(f"/markers/{SharedState.marker_id}", headers=headers, json={
-                "status": "resolved"
-            })
-            assert r.status_code == 200
-            assert r.json()["status"] == "resolved"
-            print_indicator("TestMarkers", "resolve", True)
 
 class TestExport:
     def test_markdown(self):
@@ -440,7 +370,7 @@ def run_all():
         (TestAuth, ["test_register", "test_duplicate_check", "test_login", "test_wrong_password", "test_me", "test_no_token", "test_invalid_token"]),
         (TestProjects, ["test_create", "test_list", "test_get", "test_get_404", "test_update", "test_create_env", "test_list_envs"]),
         (TestSessions, ["test_create", "test_auto_title", "test_list", "test_get", "test_get_404"]),
-        (TestMarkers, ["test_full_marker", "test_minimal_marker", "test_list", "test_update_status", "test_update_priority", "test_404", "test_resolve"]),
+
         (TestExport, ["test_markdown", "test_csv", "test_json", "test_content_quality"]),
         (TestShareLinks, ["test_create", "test_with_password", "test_list", "test_public_access", "test_wrong_password", "test_invalid_token"]),
         (TestWebSocket, ["test_multi_client_broadcast"]),

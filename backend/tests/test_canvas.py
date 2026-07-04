@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from main import app
 from dependencies import get_db, get_current_user
 from database import Base
-from models import User, Project, Session as DbSession, Marker, OrgMember, Organization, CanvasFrame, CanvasFlow
+from models import User, Project, Session as DbSession, OrgMember, Organization, CanvasFrame, CanvasFlow
 
 # In-memory SQLite for testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -77,9 +77,6 @@ async def setup_db():
         sess2 = DbSession(id=MOCK_SESSION2_ID, project_id=MOCK_PROJECT_ID, title="Session 2")
         session.add(sess2)
 
-        # Marker inside Session 1
-        m1 = Marker(id=MOCK_MARKER_ID, session_id=MOCK_SESSION1_ID, title="Bug 1", description="UI break", url="https://pixelmark.dev", priority="critical")
-        session.add(m1)
         
         await session.commit()
         

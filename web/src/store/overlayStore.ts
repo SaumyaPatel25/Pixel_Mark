@@ -35,9 +35,9 @@ const performOneTimeCleanup = () => {
       localStorage.removeItem(key)
     })
 
-    // Also reset version 2 tombstone list to start clean
+    // Clean up old tombstone versions — but preserve v3 which is the live source of truth
     localStorage.removeItem('pixelmark_deleted_markers_v2')
-    localStorage.removeItem('pixelmark_deleted_markers_v3')
+    // NOTE: Do NOT remove v3 here — it tracks deletions that must survive page refreshes
 
     // Set cleanup complete marker
     localStorage.setItem(versionKey, CURRENT_VERSION)
@@ -64,31 +64,36 @@ const getTombstonedMarkerIds = (): string[] => {
 }
 
 // ─── PART 6: Pin Deletion Flow Helper ────────────────────────────────────────
-export const deleteMarker = async (id: string) => {
-  console.log(`[Markers] deleted id=${id}`)
+export const deleteMarker = async (id: string): Promise<void> => {
+  console.log(`[Markers] deleting id=${id}`)
 
-  // Check if it was a local draft (no persisted ID or status is draft) BEFORE removing it from the store
+  // Check if it was a local draft (no persisted ID or status is draft) BEFORE removing from store
   const pin = usePinStore.getState().pins.find(p => p.id === id)
   const isDraft = !pin || pin.status === 'draft' || !pin.persistedId
 
-  // 1. Remove from local overlay store state
+  // Save snapshots for rollback
+  const prevPins = usePinStore.getState().pins
+  const markerStore = useMarkerStore.getState()
+  const prevMarkers = markerStore?.markers ?? []
+  const prevFiltered = markerStore?.filtered ?? []
+
+  // 1. Optimistically remove from local overlay store state
   usePinStore.getState().removePin(id)
 
-  // 2. Remove from useMarkerStore if it exists
+  // 2. Optimistically remove from useMarkerStore if it exists
   try {
-    const markerStore = useMarkerStore.getState()
     if (markerStore && markerStore.markers) {
       useMarkerStore.setState({
-        markers: markerStore.markers.filter(m => m.id !== id),
-        filtered: markerStore.filtered.filter(m => m.id !== id)
+        markers: prevMarkers.filter(m => m.id !== id),
+        filtered: prevFiltered.filter(m => m.id !== id)
       })
     }
   } catch (e) {
-    // Ignore if not loaded
+    // Ignore if markerStore not loaded in this context
   }
 
   if (!isDraft) {
-    // 3. Persist deletion in cleanup-safe versioned tombstone list
+    // 3. Add to tombstone BEFORE the API call so reconciliation can't restore it
     if (typeof window !== 'undefined') {
       try {
         const deletedIds = getTombstonedMarkerIds()
@@ -101,11 +106,31 @@ export const deleteMarker = async (id: string) => {
       }
     }
 
-    // 4. Asynchronously send delete call to backend
+    // 4. Call backend — roll back if it fails
     try {
       await api.markers.deleteMarker(id)
+      console.log(`[Markers] backend confirmed delete id=${id}`)
     } catch (err) {
-      console.warn('[Markers] backend delete failed, but marker was removed locally:', err)
+      console.error('[Markers] backend delete failed — restoring marker', err)
+
+      // Rollback optimistic removal
+      usePinStore.setState({ pins: prevPins })
+      try {
+        if (markerStore && markerStore.markers) {
+          useMarkerStore.setState({ markers: prevMarkers, filtered: prevFiltered })
+        }
+      } catch (e) { /* ignore */ }
+
+      // Remove from tombstone since delete failed
+      if (typeof window !== 'undefined') {
+        try {
+          const deletedIds = getTombstonedMarkerIds().filter(tid => tid !== id)
+          localStorage.setItem('pixelmark_deleted_markers_v3', JSON.stringify(deletedIds))
+        } catch (e) { /* ignore */ }
+      }
+
+      // Re-throw so the UI caller can show an error
+      throw err
     }
   }
 }
