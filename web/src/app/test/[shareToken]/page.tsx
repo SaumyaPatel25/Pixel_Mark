@@ -1,24 +1,21 @@
 // src/app/test/[shareToken]/page.tsx
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { api } from '@/lib/api'
-import { Comment } from '@/lib/api-contracts'
 import { Loader2, AlertCircle } from 'lucide-react'
-
 import { useProjectStore } from '@/store/projectStore'
-import { useCommentStore } from '@/store/commentStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
-
+import { useMarkerStore } from '@/store/markerStore'
 
 export default function TesterPage() {
   const params = useParams()
   const shareToken = params.shareToken as string
-  
+
   const { currentProject, setCurrentProject, loading: isProjectLoading, error: projectError } = useProjectStore()
-  const { comments, loadComments, error: commentError } = useCommentStore()
   const { setConnected, updateCursor } = useRealtimeStore()
+  const { loadSessionMarkers } = useMarkerStore()
 
   const wsRef = useRef<WebSocket | null>(null)
   const lastEmitRef = useRef(0)
@@ -36,9 +33,9 @@ export default function TesterPage() {
           created_at: new Date().toISOString()
         }
         setCurrentProject(project)
-        
-        // 2. Load existing comments
-        await loadComments(project.id)
+
+        // 2. Load existing markers
+        await loadSessionMarkers(project.id)
 
         // 3. Setup WebSocket
         const tester_id = localStorage.getItem('tester_id') ?? (() => {
@@ -60,9 +57,6 @@ export default function TesterPage() {
           if (data.type === 'CURSOR_MOVE') {
             updateCursor(data.tester_id, data.x, data.y, data.name || data.tester_name)
           }
-          if (data.type === 'NEW_COMMENT') {
-            useCommentStore.getState().addCommentFromWS(data.comment)
-          }
         }
       } catch (err: unknown) {
         console.error('[TesterPage] Audit Initialization Failed:', err)
@@ -71,7 +65,7 @@ export default function TesterPage() {
 
     initAudit()
     return () => wsRef.current?.close()
-  }, [shareToken, setCurrentProject, loadComments, setConnected, updateCursor])
+  }, [shareToken, setCurrentProject, loadSessionMarkers, setConnected, updateCursor])
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const now = Date.now()
@@ -92,14 +86,13 @@ export default function TesterPage() {
     </div>
   )
 
-  const error = projectError || commentError
-  if (error || !currentProject) return (
+  if (projectError || !currentProject) return (
     <div className="flex h-screen items-center justify-center bg-[#0a0a0a] text-white p-6 text-center">
       <div className="space-y-4">
         <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
         <h1 className="text-2xl font-black uppercase tracking-widest text-white/90">Audit Expired</h1>
         <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-          {typeof error === 'string' ? error : 'Invalid link or unauthorized access'}
+          {typeof projectError === 'string' ? projectError : 'Invalid link or unauthorized access'}
         </p>
       </div>
     </div>
@@ -117,7 +110,7 @@ export default function TesterPage() {
           <span className="text-xs font-bold uppercase tracking-widest">{currentProject.name}</span>
         </div>
 
-        <iframe 
+        <iframe
           src={api.proxyUrl(currentProject.url || '')}
           className="w-full h-full border-none"
           title="Testing Viewport"
