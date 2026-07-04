@@ -220,13 +220,16 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
                 
                 const markerNumber = orderedMarkerIds.indexOf(item.id) + 1
                 
-                // Extract path from pageUrl
+                // Extract path from pageUrl safely
                 let pathname = '/'
-                try {
-                  const parsed = new URL(item.page_url)
-                  pathname = parsed.pathname + parsed.search
-                } catch (e) {
-                  pathname = item.page_url || '/'
+                const pageUrl = item.page_url
+                if (typeof pageUrl === 'string' && pageUrl.trim() !== '') {
+                  try {
+                    const parsed = new URL(pageUrl)
+                    pathname = parsed.pathname + parsed.search
+                  } catch (e) {
+                    pathname = pageUrl || '/'
+                  }
                 }
 
                 const screenshotUrl = item.screenshot_url
