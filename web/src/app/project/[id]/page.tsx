@@ -202,19 +202,28 @@ export default function ProjectPage() {
   const onMessage = useCallback((msg: any) => {
     switch (msg.type) {
       case 'COMMENT_TRIAGED':
-        useCommentStore.getState().updateTriage(msg.comment_id, {
-          severity: msg.severity,
-          ai_summary: msg.ai_summary,
-          suggested_fix: msg.suggested_fix,
-        })
+        // Legacy event: triage data now arrives as a marker_updated realtime event.
+        // If the server sends a marker payload, upsert it; otherwise silently ignore.
+        if (msg.marker) {
+          useMarkerStore.getState().upsertMarkerFromServer(msg.marker)
+        }
         break
-        
+
       case 'NEW_COMMENT':
-        useCommentStore.getState().addCommentFromWS(msg.comment)
+        // Legacy event: new feedback pins now arrive as marker_created realtime events.
+        if (msg.marker) {
+          useMarkerStore.getState().upsertMarkerFromServer(msg.marker)
+        }
         break
 
       case 'CURSOR_MOVE':
         updateCursor(msg.tester_id, msg.x, msg.y, msg.name || msg.tester_name)
+        break
+
+      default:
+        // Forward all other events (marker_created, marker_updated, marker_deleted,
+        // session_snapshot, presence_updated, etc.) to the marker store handler.
+        useMarkerStore.getState().handleRealtimeEvent(msg)
         break
     }
   }, [updateCursor])
