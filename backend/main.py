@@ -24,6 +24,25 @@ logger = logging.getLogger("uvicorn")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Confirm .env loading order — env vars must be loaded before any module-level constant reads them.
+    # In our project, config.py loads .env at import time, which ensures GITHUB_CLIENT_ID is populated.
+    from config import settings
+    import sys
+    
+    is_testing = "pytest" in sys.modules or os.environ.get("TESTING") == "true"
+    
+    if settings.github_client_id:
+        logger.info("Startup check: GITHUB_CLIENT_ID is present.")
+    else:
+        logger.warning("Startup check: GITHUB_CLIENT_ID is missing.")
+        
+    if not is_testing:
+        if not settings.github_client_id or not settings.github_client_secret:
+            raise ValueError(
+                "CRITICAL CONFIGURATION ERROR: GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set. "
+                "Please configure them in your environment variables or .env file."
+            )
+
     # Production-grade Neon DB reconnection retry backoff loop on startup
     retries = 5
     delay = 3
