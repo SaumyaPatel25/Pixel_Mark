@@ -362,47 +362,6 @@ export const api = {
     },
   },
 
-  // MARKERS
-  markers: {
-    async list(sessionId: string) {
-      return apiQueue.enqueueRead('Loading pins...', () => request(`/markers/session/${sessionId}`))
-    },
-    async create(sessionId: string, data: any, xReviewerId?: string) {
-      const headers: Record<string, string> = {}
-      if (xReviewerId) headers['X-Reviewer-Id'] = xReviewerId
-      return apiQueue.enqueueWrite('Saving feedback pin...', () => request(`/sessions/${sessionId}/markers`, {
-        method: 'POST',
-        headers: Object.keys(headers).length ? headers : undefined,
-        body: JSON.stringify(data),
-      }))
-    },
-    async update(id: string, data: any, xReviewerId?: string) {
-      const headers: Record<string, string> = {}
-      if (xReviewerId) headers['X-Reviewer-Id'] = xReviewerId
-      return apiQueue.enqueueWrite('Updating pin...', () => request(`/markers/${id}`, {
-        method: 'PATCH',
-        headers: Object.keys(headers).length ? headers : undefined,
-        body: JSON.stringify(data),
-      }), `update-marker-${id}`)
-    },
-    async delete(id: string, expected_version?: number, xReviewerId?: string) {
-      const headers: Record<string, string> = {}
-      if (xReviewerId) headers['X-Reviewer-Id'] = xReviewerId
-      const url = expected_version !== undefined ? `/markers/${id}?expected_version=${expected_version}` : `/markers/${id}`
-      return apiQueue.enqueueWrite('Deleting pin...', () => request(url, {
-        method: 'DELETE',
-        headers: Object.keys(headers).length ? headers : undefined,
-      }), `delete-marker-${id}`)
-    },
-    async uploadScreenshot(id: string, blob: Blob) {
-      const formData = new FormData()
-      formData.append('screenshot', blob, 'screenshot.png')
-      return apiQueue.enqueueWrite('Uploading screenshot...', () => request(`/markers/${id}/screenshot`, {
-        method: 'POST',
-        body: formData,
-      }))
-    },
-  },
 
   // EXPORT
   export: {

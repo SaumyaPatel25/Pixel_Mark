@@ -1,6 +1,6 @@
 'use client'
 import { useUIStore } from '@/store/uiStore'
-import { normalizeCapturePayload, normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
+import { normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useDOMEditStore } from '@/store/domEditStore'
 
@@ -137,6 +137,148 @@ const issueTypeColorMap: Record<string, string> = {
   rose:   'bg-rose-600 border-rose-500 text-white shadow-rose-950/30',
   cyan:   'bg-cyan-600 border-cyan-500 text-white shadow-cyan-950/30',
   slate:  'bg-slate-600 border-slate-500 text-white shadow-slate-950/30',
+}
+
+const VALID_RENDERER_TYPES = ['dom', 'shadow-dom', 'canvas2d', 'webgl', 'threejs', 'canvas'] as const
+type RendererType = (typeof VALID_RENDERER_TYPES)[number]
+
+const VALID_ANCHOR_KINDS = [
+  'dom-relative',
+  'viewport-absolute',
+  'canvas-relative',
+  'webgl-clip-space',
+  'manual',
+] as const
+type AnchorKind = (typeof VALID_ANCHOR_KINDS)[number]
+
+type CapturePayload = {
+  id?: string
+  // camelCase
+  rendererType?: string | null
+  anchorKind?: string | null
+  pageUrl?: string | null
+  pageTitle?: string | null
+  viewportWidth?: number | null
+  viewportHeight?: number | null
+  pageX?: number | null
+  pageY?: number | null
+  displayX?: number | null
+  displayY?: number | null
+  scrollX?: number | null
+  scrollY?: number | null
+  scroll_position?: { x?: number | null; y?: number | null } | null
+  canvasId?: string | null
+  selector?: string | null
+  xpath?: string | null
+  dom_text_excerpt?: string | null
+  webglClipX?: number | null
+  webglClipY?: number | null
+  target?: {
+    tagName?: string | null
+    classList?: string[] | null
+    ariaLabel?: string | null
+    ariaRole?: string | null
+    selector?: string | null
+    xpath?: string | null
+    text?: string | null
+  } | null
+  coordinates?: {
+    normX?: number | null
+    normY?: number | null
+    pageX?: number | null
+    pageY?: number | null
+    viewportX?: number | null
+    viewportY?: number | null
+  } | null
+  boundingBox?: Record<string, any> | null
+
+  // snake_case from older agent/backend payloads
+  renderer_type?: string | null
+  anchor_kind?: string | null
+  page_url?: string | null
+  page_title?: string | null
+  viewport_width?: number | null
+  viewport_height?: number | null
+  page_x?: number | null
+  page_y?: number | null
+
+  // legacy/general fields
+  x?: number | null
+  y?: number | null
+  viewport?: {
+    width?: number | null
+    height?: number | null
+    scrollX?: number | null
+    scrollY?: number | null
+  } | null
+
+  [key: string]: unknown
+}
+
+type NormalizedCapturePayload = CapturePayload & {
+  id: string
+  rendererType: RendererType
+  anchorKind: AnchorKind
+  pageUrl: string
+  pageTitle: string
+  viewportWidth: number
+  viewportHeight: number
+  pageX: number
+  pageY: number
+  x: number
+  y: number
+}
+
+function normalizeCapturePayload(
+  raw: CapturePayload,
+  currentUrl: string,
+  currentTitle: string
+): NormalizedCapturePayload {
+  const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID()
+    }
+    return `capture_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+  }
+  const id = typeof raw.id === 'string' ? raw.id : generateId()
+
+  const rawRendererType = raw.rendererType ?? raw.renderer_type ?? 'dom'
+  const rendererType: RendererType = VALID_RENDERER_TYPES.includes(rawRendererType as RendererType)
+    ? (rawRendererType as RendererType)
+    : 'dom'
+
+  const rawAnchorKind = raw.anchorKind ?? raw.anchor_kind
+  const isCanvas = rendererType === 'webgl' || rendererType === 'threejs' || rendererType === 'canvas2d' || rendererType === 'canvas'
+  const selectorVal = raw.selector ?? raw.target?.selector ?? null
+  const computedAnchorKind = isCanvas ? 'canvas-relative' : (selectorVal ? 'dom-relative' : 'viewport-absolute')
+
+  const anchorKind: AnchorKind = VALID_ANCHOR_KINDS.includes(rawAnchorKind as AnchorKind)
+    ? (rawAnchorKind as AnchorKind)
+    : computedAnchorKind as AnchorKind
+
+  const pageUrl = raw.pageUrl ?? raw.page_url ?? currentUrl
+  const pageTitle = raw.pageTitle ?? raw.page_title ?? currentTitle
+  const viewportWidth = raw.viewportWidth ?? raw.viewport_width ?? raw.viewport?.width ?? (typeof window !== 'undefined' ? window.innerWidth : 1200)
+  const viewportHeight = raw.viewportHeight ?? raw.viewport_height ?? raw.viewport?.height ?? (typeof window !== 'undefined' ? window.innerHeight : 800)
+  const pageX = raw.pageX ?? raw.page_x ?? raw.x ?? 0
+  const pageY = raw.pageY ?? raw.page_y ?? raw.y ?? 0
+  const x = raw.x ?? pageX
+  const y = raw.y ?? pageY
+
+  return {
+    ...raw,
+    id,
+    rendererType,
+    anchorKind,
+    pageUrl,
+    pageTitle,
+    viewportWidth,
+    viewportHeight,
+    pageX,
+    pageY,
+    x,
+    y,
+  }
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -308,7 +450,7 @@ export function AuditSurface({
       }
 
       // Upsert and get ID
-      const payload = normalizeCapturePayload(regionCtx)
+      const payload = normalizeCapturePayload(regionCtx as unknown as CapturePayload, currentUrl, currentTitle)
       // Upsert handled implicitly or wait until screenshot completes
       useUIStore.getState().toggleCommandCenter(true)
     }
@@ -780,7 +922,7 @@ export function AuditSurface({
         case 'PIXELMARKOPENFEEDBACKDRAWER':
         case 'PIXELMARK_OPEN_FEEDBACK_DRAWER': {
           const rawData = data.payload ? { ...data, ...data.payload } : data
-          const normalized = normalizeCapturePayload(rawData)
+          const normalized = normalizeCapturePayload(rawData, currentUrl, currentTitle)
 
           // If it's an existing marker, select it and open the drawer
           const existingMarker = useMarkerStore.getState().markersById[normalized.id]
@@ -801,24 +943,17 @@ export function AuditSurface({
 
           console.log(`[Markers] creating marker id=${normalized.id} x=${normalized.displayX} y=${normalized.displayY}`)
 
-          const isCanvas = normalized.rendererType === 'webgl' || normalized.rendererType === 'threejs' || normalized.rendererType === 'canvas2d'
-          const anchorKind = isCanvas ? 'canvas-relative' : (normalized.selector ? 'dom-relative' : 'viewport-absolute')
-
-          const VALID_RENDERER_TYPES = ['dom', 'shadow-dom', 'canvas2d', 'webgl', 'threejs']
-          const VALID_ANCHOR_KINDS = ['dom-relative', 'viewport-absolute', 'canvas-relative', 'webgl-clip-space', 'manual']
-
-          const rawRendererType = normalized.rendererType || 'dom'
-          const safeRendererType = VALID_RENDERER_TYPES.includes(rawRendererType) ? rawRendererType : 'dom'
-          const safeAnchorKind = VALID_ANCHOR_KINDS.includes(anchorKind) ? anchorKind : 'viewport-absolute'
+          const safeRendererType = normalized.rendererType
+          const safeAnchorKind = normalized.anchorKind
 
           // Build anchor-kind-specific coordinate fields — backend enforces strict separation
           const basePayload = {
             project_id: projectId,
             anchor_kind: safeAnchorKind,
-            page_url: normalized.pageUrl || normalized.page_url || currentUrl,
-            page_title: normalized.pageTitle || normalized.page_title || currentTitle,
-            viewport_width: normalized.viewport_width ?? normalized.viewport?.width ?? window.innerWidth,
-            viewport_height: normalized.viewport_height ?? normalized.viewport?.height ?? window.innerHeight,
+            page_url: normalized.pageUrl,
+            page_title: normalized.pageTitle,
+            viewport_width: normalized.viewportWidth,
+            viewport_height: normalized.viewportHeight,
             scroll_x: normalized.scrollX ?? normalized.viewport?.scrollX ?? normalized.scroll_position?.x ?? 0,
             scroll_y: normalized.scrollY ?? normalized.viewport?.scrollY ?? normalized.scroll_position?.y ?? 0,
             element_rect_json: normalized.target ? {
@@ -988,9 +1123,9 @@ export function AuditSurface({
                 setCaptureCtx(prev => prev ? {
                   ...prev,
                   screenshot_data_url: data.screenshotdataurl,
-                  screenshottype: data.screenshottype || strategy,
-                  screenshotttype: data.screenshotttype || strategy,
-                  screenshotsource: data.screenshotsource || strategy,
+                  screenshottype: data.screenshottype || 'viewport',
+                  screenshotttype: data.screenshotttype || 'viewport',
+                  screenshotsource: data.screenshotsource || 'local',
                   screenshottimestamp: data.screenshottimestamp,
                 } : null)
               }
@@ -1443,11 +1578,14 @@ export function AuditSurface({
                   
                   // Extract path from pageUrl
                   let pathname = '/'
-                  try {
-                    const parsed = new URL(item.page_url)
-                    pathname = parsed.pathname + parsed.search
-                  } catch (e) {
-                    pathname = item.page_url || '/'
+                  const pageUrl = item.page_url ?? undefined
+                  if (pageUrl && pageUrl.trim()) {
+                    try {
+                      const parsed = new URL(pageUrl)
+                      pathname = parsed.pathname + parsed.search
+                    } catch {
+                      pathname = pageUrl
+                    }
                   }
 
                   const screenshotUrl = item.screenshot_url
@@ -1498,9 +1636,9 @@ export function AuditSurface({
                       </div>
 
                       {/* Comment description */}
-                      {item.note && (
+                      {item.description && (
                         <p className="text-[10px] text-white/50 line-clamp-2 leading-relaxed">
-                          {item.note}
+                          {item.description}
                         </p>
                       )}
 
@@ -1512,7 +1650,7 @@ export function AuditSurface({
                           ) : (
                             <svg className="w-3.5 h-3.5 text-white/10 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
                           )}
-                          <span className="truncate max-w-[90px] font-mono" title={item.pageUrl}>
+                          <span className="truncate max-w-[90px] font-mono" title={pageUrl}>
                             {pathname}
                           </span>
                         </div>
@@ -2181,8 +2319,8 @@ export function AuditSurface({
                   </div>
                   {(() => {
                     const screenshotUrl = activeMarker?.screenshot_url || captureCtx?.screenshot_data_url
-                    const isScreenshotPending = screenshotUrl === 'pending' || '' === 'pending' || '' === 'pending' || '' === 'pending'
-                    const source = '' || '' || '' || captureCtx?.screenshotsource || captureCtx?.screenshottype || 'unknown'
+                    const isScreenshotPending = screenshotUrl === 'pending'
+                    const source = captureCtx?.screenshotsource || captureCtx?.screenshottype || 'unknown'
                     
                     if (screenshotUrl && !isScreenshotPending) {
                       const hasLoadError = imgErrorId === (activeMarker?.id || 'current')
@@ -2257,7 +2395,7 @@ export function AuditSurface({
               {domPanelExpanded && (
                 <div className="mt-2.5 space-y-3">
                   {(() => {
-                    const domSnapshot = null || null
+                    const domSnapshot: any = null
                     const tag = domSnapshot?.tagname || '' || captureCtx?.element_tag || 'UNKNOWN'
                     const elemId = domSnapshot?.id || '' || captureCtx?.element_id || ''
                     const selector = domSnapshot?.cssselector || activeMarker?.target_selector || captureCtx?.element_selector || ''
@@ -2367,9 +2505,9 @@ export function AuditSurface({
 
             {/* ── Collapsible Panel: Canvas details (Phase 3.5 Upgrade) ── */}
             {(() => {
-              const canvasCtx = null || captureCtx?.canvas_context
-              const canvasDom = null || null
-              const isCanvasRenderer = activeMarker?.renderer_type === 'webgl' || activeMarker?.renderer_type === 'threejs' || activeMarker?.renderer_type === 'mixed' || !!canvasCtx || !!canvasDom
+              const canvasCtx: any = captureCtx?.canvas_context
+              const canvasDom: any = null
+              const isCanvasRenderer = (activeMarker?.renderer_type as any) === 'webgl' || (activeMarker?.renderer_type as any) === 'threejs' || (activeMarker?.renderer_type as any) === 'mixed' || !!canvasCtx || !!canvasDom
 
               if (!isCanvasRenderer) return null
               return (

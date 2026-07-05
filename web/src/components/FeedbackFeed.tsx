@@ -37,7 +37,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
   }, [sessionId, fetchEdits])
 
   const handleCardClick = (item: any) => {
-    const pageUrl = item.page_url ?? undefined
+    const pageUrl = item.page_url ?? item.pageUrl ?? undefined
     console.log(`[FeedbackFeed] Clicked card id=${item.id} pageUrl=${pageUrl}`)
     
     // Select marker
@@ -224,12 +224,12 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
                 // Extract path from pageUrl safely
                 let pathname = '/'
                 const pageUrl = item.page_url ?? undefined
-                if (pageUrl && pageUrl.trim() !== '') {
+                if (pageUrl && pageUrl.trim()) {
                   try {
                     const parsed = new URL(pageUrl)
                     pathname = parsed.pathname + parsed.search
-                  } catch (e) {
-                    pathname = pageUrl || '/'
+                  } catch {
+                    pathname = pageUrl
                   }
                 }
 

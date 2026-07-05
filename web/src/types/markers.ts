@@ -1,7 +1,7 @@
 export type MarkerAnchorKind = 'dom-relative' | 'viewport-absolute' | 'canvas-relative' | 'webgl-clip-space' | 'manual';
 export type MarkerRendererType = 'dom' | 'shadow-dom' | 'canvas2d' | 'webgl' | 'threejs';
 export type CreatorRole = 'developer' | 'reviewer';
-export type MarkerStatus = 'open' | 'resolved';
+export type MarkerStatus = 'open' | 'triaged' | 'in_progress' | 'resolved' | 'dismissed';
 export type MarkerPriority = 'critical' | 'high' | 'medium' | 'low';
 
 export interface Marker {
@@ -56,6 +56,8 @@ export interface Marker {
   network_errors_json: any[] | null;
   screenshot_url: string | null;
   encrypted_context: string | null;
+  issueType?: string | null;
+  issue_type?: string | null;
 }
 
 export interface ReviewerIdentity {

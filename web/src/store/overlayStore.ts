@@ -71,22 +71,17 @@ export const deleteMarker = async (id: string): Promise<void> => {
   const pin = usePinStore.getState().pins.find(p => p.id === id)
   const isDraft = !pin || pin.status === 'draft' || !pin.persistedId
 
-  // Save snapshots for rollback
   const prevPins = usePinStore.getState().pins
   const markerStore = useMarkerStore.getState()
-  const prevMarkers = markerStore?.markers ?? []
-  const prevFiltered = markerStore?.filtered ?? []
+  const originalMarker = markerStore?.markersById?.[id]
 
   // 1. Optimistically remove from local overlay store state
   usePinStore.getState().removePin(id)
 
   // 2. Optimistically remove from useMarkerStore if it exists
   try {
-    if (markerStore && markerStore.markers) {
-      useMarkerStore.setState({
-        markers: prevMarkers.filter(m => m.id !== id),
-        filtered: prevFiltered.filter(m => m.id !== id)
-      })
+    if (markerStore?.removeMarkerFromServer) {
+      markerStore.removeMarkerFromServer(id)
     }
   } catch (e) {
     // Ignore if markerStore not loaded in this context
@@ -108,7 +103,7 @@ export const deleteMarker = async (id: string): Promise<void> => {
 
     // 4. Call backend — roll back if it fails
     try {
-      await api.markers.deleteMarker(id)
+      await api.markers.delete(id)
       console.log(`[Markers] backend confirmed delete id=${id}`)
     } catch (err) {
       console.error('[Markers] backend delete failed — restoring marker', err)
@@ -116,8 +111,8 @@ export const deleteMarker = async (id: string): Promise<void> => {
       // Rollback optimistic removal
       usePinStore.setState({ pins: prevPins })
       try {
-        if (markerStore && markerStore.markers) {
-          useMarkerStore.setState({ markers: prevMarkers, filtered: prevFiltered })
+        if (originalMarker) {
+          useMarkerStore.getState().upsertMarkerFromServer(originalMarker, true)
         }
       } catch (e) { /* ignore */ }
 
