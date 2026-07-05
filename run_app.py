@@ -25,7 +25,7 @@ def run_services():
     ]
     
     # 2. Frontend Command
-    frontend_cmd = ["npm", "run", "dev"]
+    frontend_cmd = ["npx", "next", "dev"]
 
     print("\n" + "="*50)
     print("LAUNCHING FULLSTACK APP...")
@@ -50,6 +50,7 @@ def run_services():
         frontend_proc = subprocess.Popen(
             frontend_cmd,
             cwd=frontend_dir,
+            env={**os.environ, "NODE_OPTIONS": "--max-old-space-size=4096"},
             shell=True 
         )
         processes.append(frontend_proc)
