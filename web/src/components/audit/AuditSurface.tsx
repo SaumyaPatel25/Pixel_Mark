@@ -211,7 +211,7 @@ export function AuditSurface({
   const markers = Object.values(markersById)
   
   // Setup Realtime Sync
-  const actor: ActorContext = !!shareToken 
+  const actor: { id: string; role: 'developer' | 'reviewer' } = !!shareToken 
     ? (reviewerIdentity ? { id: reviewerIdentity.id, role: 'reviewer' } : { id: 'anon', role: 'reviewer' })
     : { id: 'developer-user', role: 'developer' }
 

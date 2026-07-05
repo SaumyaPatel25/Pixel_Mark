@@ -37,7 +37,8 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
   }, [sessionId, fetchEdits])
 
   const handleCardClick = (item: any) => {
-    console.log(`[FeedbackFeed] Clicked card id=${item.id} pageUrl=${item.page_url}`)
+    const pageUrl = item.page_url ?? undefined
+    console.log(`[FeedbackFeed] Clicked card id=${item.id} pageUrl=${pageUrl}`)
     
     // Select marker
     useMarkerStore.getState().setSelectedMarkerId(item.id)
@@ -46,7 +47,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
     window.postMessage({
       type: 'PIXELMARK_OPEN_CAPTURE',
       id: item.id,
-      pageUrl: item.page_url
+      pageUrl
     }, '*')
   }
 
