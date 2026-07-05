@@ -350,38 +350,38 @@ export function AuditSurface({
       const marker = useMarkerStore.getState().markersById[selectedMarkerId]
       if (marker) {
         setCaptureCtx({
-          page_url: marker.page_url,
-          page_title: marker.page_title,
-          x: marker.page_x || 0,
-          y: marker.page_y || 0,
-          viewport_x: marker.viewport_x || 0,
-          viewport_y: marker.viewport_y || 0,
-          element_selector: marker.target_selector || '',
-          element_text: marker.dom_text_excerpt || '',
-          element_tag: marker.element_rect_json?.tagName || '',
+          page_url: marker.page_url ?? '',
+          page_title: marker.page_title ?? '',
+          x: marker.page_x ?? 0,
+          y: marker.page_y ?? 0,
+          viewport_x: marker.viewport_x ?? 0,
+          viewport_y: marker.viewport_y ?? 0,
+          element_selector: marker.target_selector ?? '',
+          element_text: marker.dom_text_excerpt ?? '',
+          element_tag: marker.element_rect_json?.tagName ?? '',
           element_id: '',
-          aria_label: marker.element_rect_json?.ariaLabel,
-          aria_role: marker.element_rect_json?.ariaRole,
+          aria_label: marker.element_rect_json?.ariaLabel ?? null,
+          aria_role: marker.element_rect_json?.ariaRole ?? null,
           bounding_box: null,
-          xpath: marker.target_xpath || '',
-          renderer_type: marker.renderer_type || 'dom',
+          xpath: marker.target_xpath ?? '',
+          renderer_type: marker.renderer_type ?? 'dom',
           canvas_context: null,
-          screenshot_data_url: marker.screenshot_url,
+          screenshot_data_url: marker.screenshot_url ?? null,
           screenshot_required: false,
-          viewport: { width: marker.viewport_width || 1200, height: marker.viewport_height || 800 },
-          scroll_position: { x: marker.scroll_x || 0, y: marker.scroll_y || 0 },
-          console_errors: marker.console_errors_json || [],
-          network_errors: marker.network_errors_json || [],
-          browser_info: { browser: marker.browser, os: marker.os },
+          viewport: { width: marker.viewport_width ?? 1200, height: marker.viewport_height ?? 800 },
+          scroll_position: { x: marker.scroll_x ?? 0, y: marker.scroll_y ?? 0 },
+          console_errors: marker.console_errors_json ?? [],
+          network_errors: marker.network_errors_json ?? [],
+          browser_info: { browser: marker.browser ?? '', os: marker.os ?? '' },
           issue_type_hint: 'other',
           created_via: 'manual',
           agent_version: '2.0',
           timestamp: marker.created_at
         })
-        setNoteText(marker.description || '')
-        setSeverity((marker.priority || 'medium') as Severity)
-        setStatusVal(marker.status || 'open')
-        setIssueTitle(marker.title || '')
+        setNoteText(marker.description ?? '')
+        setSeverity((marker.priority ?? 'medium') as Severity)
+        setStatusVal(marker.status ?? 'open')
+        setIssueTitle(marker.title ?? '')
       }
     } else {
       setCaptureCtx(null)
