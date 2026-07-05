@@ -20,6 +20,7 @@ class Settings:
     google_client_secret: str = ""
     github_client_id: str = ""
     github_client_secret: str = ""
+    github_redirect_uri: str = ""
     auto_verify_users: bool = True
     redis_url: str = "redis://localhost:6379/0"
 
@@ -35,6 +36,7 @@ def load_config() -> Settings:
     google_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
     github_id = os.environ.get("GITHUB_CLIENT_ID", "")
     github_secret = os.environ.get("GITHUB_CLIENT_SECRET", "")
+    github_redirect = os.environ.get("GITHUB_REDIRECT_URI", "")
     auto_verify = os.environ.get("AUTO_VERIFY_USERS", "true").lower() in ("true", "1", "yes")
 
     return Settings(
@@ -48,6 +50,7 @@ def load_config() -> Settings:
         google_client_secret=google_secret,
         github_client_id=github_id,
         github_client_secret=github_secret,
+        github_redirect_uri=github_redirect,
         backend_url=os.getenv("BACKEND_URL", "http://localhost:8765"),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
         auto_verify_users=auto_verify

@@ -312,7 +312,7 @@ async def handle_oauth_user_login(
 @router.get("/oauth/github/start")
 async def github_start(request: Request):
     state = secrets.token_urlsafe(32)
-    redirect_uri = f"{settings.backend_url.rstrip('/')}/auth/oauth/github/callback"
+    redirect_uri = settings.github_redirect_uri or f"{settings.backend_url.rstrip('/')}/auth/oauth/github/callback"
     github_auth_url = (
         "https://github.com/login/oauth/authorize"
         f"?client_id={settings.github_client_id}"
