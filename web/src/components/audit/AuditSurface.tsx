@@ -807,7 +807,7 @@ export function AuditSurface({
           const VALID_RENDERER_TYPES = ['dom', 'shadow-dom', 'canvas2d', 'webgl', 'threejs']
           const VALID_ANCHOR_KINDS = ['dom-relative', 'viewport-absolute', 'canvas-relative', 'webgl-clip-space', 'manual']
 
-          const rawRendererType = normalized.rendererType || normalized.renderer_type || 'dom'
+          const rawRendererType = normalized.rendererType || 'dom'
           const safeRendererType = VALID_RENDERER_TYPES.includes(rawRendererType) ? rawRendererType : 'dom'
           const safeAnchorKind = VALID_ANCHOR_KINDS.includes(anchorKind) ? anchorKind : 'viewport-absolute'
 
