@@ -24,6 +24,7 @@ export default function RegisterClient() {
   const [phase, setPhase] = useState<ScenePhase>('intro');
   const [devVerificationLink, setDevVerificationLink] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [isDirectLogin, setIsDirectLogin] = useState(false);
 
   // Password strength logic
   const getPasswordStrength = (pwd: string): 'none' | 'weak' | 'strong' => {
@@ -88,10 +89,18 @@ export default function RegisterClient() {
     try {
       const res = await register(email, password, name || undefined);
       trackEvent({ action: 'sign_up', category: 'auth' });
-      if (res && res.dev_link) {
-        setDevVerificationLink(res.dev_link);
+      if (res && res.access_token) {
+        setIsDirectLogin(true);
+        setPhase('success');
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 1500);
+      } else {
+        if (res && res.dev_link) {
+          setDevVerificationLink(res.dev_link);
+        }
+        setPhase('success');
       }
-      setPhase('success');
     } catch (err: any) {
       setError(err.message || 'Registration failed');
       setPhase('error');
@@ -389,33 +398,50 @@ export default function RegisterClient() {
                   <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 rounded-bl-lg" />
                   <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 rounded-br-lg" />
 
-                  <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-                    ✉️
-                  </div>
+                  {isDirectLogin ? (
+                    <>
+                      <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                        🎉
+                      </div>
 
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-black italic tracking-tight text-white">Check your email</h2>
-                    <p className="text-xs text-white/40 leading-relaxed max-w-xs mx-auto">
-                      We've sent a verification link to <strong className="text-white">{email}</strong>. Please check your inbox and click the link to activate your account.
-                    </p>
-                  </div>
+                      <div className="space-y-2">
+                        <h2 className="text-2xl font-black italic tracking-tight text-white font-display">Account Created!</h2>
+                        <p className="text-xs text-white/40 leading-relaxed max-w-xs mx-auto">
+                          Welcome, <strong className="text-white">{name || email}</strong>! Logging you in and redirecting to the dashboard...
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                        ✉️
+                      </div>
 
-                  <div className="border-t border-white/5 pt-4 flex flex-col gap-3">
-                    <button
-                      type="button"
-                      onClick={handleResend}
-                      disabled={resendStatus === 'sending'}
-                      className="w-full py-3 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 text-xs transition-colors font-bold uppercase tracking-widest text-[10px] rounded-xl cursor-pointer disabled:opacity-50"
-                    >
-                      {resendStatus === 'sending' ? 'Resending...' :
-                       resendStatus === 'success' ? 'Verification email resent!' :
-                       resendStatus === 'error' ? 'Resend failed. Retry.' :
-                       'Resend verification email'}
-                    </button>
-                    <Link href="/login" className="text-white/40 hover:text-white text-xs transition-colors font-bold uppercase tracking-widest text-[10px] block py-2">
-                      Back to sign in
-                    </Link>
-                  </div>
+                      <div className="space-y-2">
+                        <h2 className="text-2xl font-black italic tracking-tight text-white">Check your email</h2>
+                        <p className="text-xs text-white/40 leading-relaxed max-w-xs mx-auto">
+                          We've sent a verification link to <strong className="text-white">{email}</strong>. Please check your inbox and click the link to activate your account.
+                        </p>
+                      </div>
+
+                      <div className="border-t border-white/5 pt-4 flex flex-col gap-3">
+                        <button
+                          type="button"
+                          onClick={handleResend}
+                          disabled={resendStatus === 'sending'}
+                          className="w-full py-3 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 text-xs transition-colors font-bold uppercase tracking-widest text-[10px] rounded-xl cursor-pointer disabled:opacity-50"
+                        >
+                          {resendStatus === 'sending' ? 'Resending...' :
+                           resendStatus === 'success' ? 'Verification email resent!' :
+                           resendStatus === 'error' ? 'Resend failed. Retry.' :
+                           'Resend verification email'}
+                        </button>
+                        <Link href="/login" className="text-white/40 hover:text-white text-xs transition-colors font-bold uppercase tracking-widest text-[10px] block py-2">
+                          Back to sign in
+                        </Link>
+                      </div>
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

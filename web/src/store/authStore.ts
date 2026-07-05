@@ -15,7 +15,13 @@ interface AuthState {
   isLoading: boolean
   isVerifying: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name?: string) => Promise<{ message: string, dev_link?: string }>
+  register: (email: string, password: string, name?: string) => Promise<{ 
+    message: string
+    dev_link?: string
+    access_token?: string
+    token_type?: string
+    user?: User
+  }>
   verifyEmail: (token: string) => Promise<void>
   oauthLogin: (token: string) => Promise<void>
   logout: () => void
@@ -49,7 +55,16 @@ export const useAuthStore = create<AuthState>()(
       register: async (email, password, name) => {
         set({ isLoading: true })
         try {
-          return await api.auth.register(email, password, name)
+          const res = await api.auth.register(email, password, name)
+          if (res.access_token) {
+            const token = res.access_token
+            document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
+            set({ token, user: res.user })
+            if (typeof window !== 'undefined' && res.user) {
+              posthog.identify(res.user.id, { email: res.user.email, name: res.user.name ?? undefined })
+            }
+          }
+          return res
         } finally {
           set({ isLoading: false })
         }

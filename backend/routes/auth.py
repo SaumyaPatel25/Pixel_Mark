@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import RedirectResponse
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from database import AsyncSessionLocal
@@ -27,6 +28,13 @@ class ExtendedTokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserOut
 
+class RegisterResponse(BaseModel):
+    message: str
+    dev_link: Optional[str] = None
+    access_token: Optional[str] = None
+    token_type: Optional[str] = None
+    user: Optional[UserOut] = None
+
 async def login_or_register_oauth_user(email: str, name: str, db: AsyncSession) -> str:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
@@ -52,7 +60,7 @@ async def login_or_register_oauth_user(email: str, name: str, db: AsyncSession) 
             
     return create_access_token({"sub": user.id})
 
-@router.post("/register", response_model=MessageResponse, status_code=201)
+@router.post("/register", response_model=RegisterResponse, status_code=201)
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none():
@@ -63,7 +71,7 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
         email=data.email, 
         hashed_password=hash_password(data.password), 
         name=data.name,
-        is_verified=False
+        is_verified=settings.auto_verify_users
     )
     # auto-create personal org
     org = Organization(id=str(uuid.uuid4()), name=f"{data.name or data.email}'s workspace", slug=str(uuid.uuid4())[:8])
@@ -72,6 +80,15 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     db.add_all([user, org, membership])
     await db.commit()
     
+    if settings.auto_verify_users:
+        token = create_access_token({"sub": user.id})
+        return RegisterResponse(
+            message="Registration successful. Direct login activated.",
+            access_token=token,
+            token_type="bearer",
+            user=UserOut.model_validate(user)
+        )
+        
     # Create verification token (24h = 1440 min)
     token = await create_token(db, user.id, "verify_email", 1440)
     
@@ -85,7 +102,7 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if not settings.resend_api_key or settings.resend_api_key.startswith("re_mock") or settings.resend_api_key.startswith("YOUR_"):
         dev_link = f"{settings.app_public_url}/auth/verify-email?token={token}"
         
-    return MessageResponse(
+    return RegisterResponse(
         message="Verification email sent. Please check your inbox.",
         dev_link=dev_link
     )
