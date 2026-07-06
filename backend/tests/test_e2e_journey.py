@@ -8,12 +8,14 @@ from markers.models import Marker
 
 @pytest.fixture(autouse=True)
 async def setup_db():
+    await engine.dispose()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
 
 @pytest.fixture
 async def async_client():

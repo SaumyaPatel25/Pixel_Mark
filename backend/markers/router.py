@@ -41,7 +41,7 @@ async def resolve_actor_context(
         else:
             print(f"[DEBUG resolve_actor_context] Reviewer NOT found in DB for id={x_reviewer_id}")
             
-        if reviewer and reviewer.session_id == session_id:
+        if reviewer and str(reviewer.session_id) == session_id:
             from datetime import datetime, timezone
             reviewer.last_seen_at = datetime.now(timezone.utc)
             resolved = {
