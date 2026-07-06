@@ -29,9 +29,14 @@ async def developer_token():
         await db.commit()
         await db.refresh(user)
 
-        from services.crypto import generate_token, hash_token
+        from services.crypto import generate_token, hash_token, mask_token
         token = generate_token()
-        api_key = ApiKey(user_id=user.id, name="Test Key", token_hash=hash_token(token))
+        api_key = ApiKey(
+            user_id=user.id,
+            name="Test Key",
+            token_hash=hash_token(token),
+            masked_token=mask_token(token)
+        )
         db.add(api_key)
         await db.commit()
         return token
