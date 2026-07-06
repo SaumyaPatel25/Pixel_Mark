@@ -203,7 +203,7 @@ async def create_marker(
     return marker
 
 
-@router.get("/sessions/{session_id}/markers", response_model=List[MarkerListItem])
+@router.get("/sessions/{session_id}/markers", response_model=List[MarkerRead])
 async def list_markers(
     session_id: str,
     page_url: Optional[str] = None,
@@ -224,7 +224,7 @@ async def list_markers(
     )
     return markers
 
-@router.get("/markers/project/{project_id}", response_model=List[MarkerListItem])
+@router.get("/markers/project/{project_id}", response_model=List[MarkerRead])
 async def list_project_markers(
     project_id: str,
     page_url: Optional[str] = None,
