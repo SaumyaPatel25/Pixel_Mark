@@ -1,3 +1,5 @@
+import { CanonicalMarkerAnchor, CanonicalMarkerAnchorMode } from '@/types/markers'
+
 export type CaptureStatus = 'draft' | 'new' | 'triaged' | 'in_progress' | 'resolved' | 'dismissed' | 'failed' | 'submitted' | 'archived'
 
 export type CapturePayload = {
@@ -119,6 +121,89 @@ export type CapturePayload = {
   title?: string | null
   description?: string | null
   tags?: string | null
+  annotatedDataUrl?: string | null
+  needsRecapture?: boolean
+}
+
+export function normalizeMarkerAnchor(raw: any, currentUrl?: string): CanonicalMarkerAnchor {
+  if (!raw || typeof raw !== 'object') raw = {}
+  
+  const pageUrl = currentUrl ?? raw.pageUrl ?? raw.pageurl ?? raw.page_url ?? null
+  const pageTitle = raw.pageTitle ?? raw.pagetitle ?? raw.page_title ?? null
+  const elementSelector = raw.selector ?? raw.target?.selector ?? raw.elementSelector ?? raw.elementselector ?? raw.element_selector ?? null
+  const xpath = raw.xpath ?? raw.target?.xpath ?? null
+  const textHint = raw.target?.text ?? raw.elementText ?? raw.elementtext ?? raw.element_text ?? raw.dom_text_excerpt ?? raw.domTextExcerpt ?? null
+  
+  let bbox = raw.boundingBox ?? raw.boundingbox ?? raw.bounding_box ?? raw.element_rect_json ?? raw.elementRectJson ?? null
+  if (bbox && typeof bbox === 'object') {
+    bbox = {
+      left: bbox.left ?? bbox.x ?? 0,
+      top: bbox.top ?? bbox.y ?? 0,
+      width: bbox.width ?? 0,
+      height: bbox.height ?? 0,
+      right: bbox.right ?? null,
+      bottom: bbox.bottom ?? null
+    }
+  } else {
+    bbox = null
+  }
+
+  const offsetXRatio = raw.offsetXRatio ?? raw.offset_x_ratio ?? null
+  const offsetYRatio = raw.offsetYRatio ?? raw.offset_y_ratio ?? null
+
+  // Ensure robust fallback coordinates
+  const displayX = raw.displayX ?? raw.display_x ?? raw.click?.client_x ?? raw.click?.viewport_x ?? raw.click?.viewportX ?? raw.coordinates?.viewportX ?? raw.coordinates?.displayX ?? null
+  const displayY = raw.displayY ?? raw.display_y ?? raw.click?.client_y ?? raw.click?.viewport_y ?? raw.click?.viewportY ?? raw.coordinates?.viewportY ?? raw.coordinates?.displayY ?? null
+  
+  let pageX = raw.pageX ?? raw.page_x ?? raw.x ?? raw.click?.page_x ?? raw.coordinates?.pageX ?? null
+  let pageY = raw.pageY ?? raw.page_y ?? raw.y ?? raw.click?.page_y ?? raw.coordinates?.pageY ?? null
+  
+  const scrollXAtCapture = raw.scrollX ?? raw.scroll_x ?? raw.viewport?.scrollX ?? raw.viewport?.scroll_position?.x ?? raw.scrollPosition?.x ?? null
+  const scrollYAtCapture = raw.scrollY ?? raw.scroll_y ?? raw.viewport?.scrollY ?? raw.viewport?.scroll_position?.y ?? raw.scrollPosition?.y ?? null
+
+  // Compute pageXY from displayXY + scroll if missing
+  if (pageX === null && displayX !== null && scrollXAtCapture !== null) pageX = displayX + scrollXAtCapture
+  if (pageY === null && displayY !== null && scrollYAtCapture !== null) pageY = displayY + scrollYAtCapture
+
+  const canvasContext = raw.canvasContext ?? raw.canvascontext ?? raw.canvas_context ?? raw.click?.canvas_context ?? null
+  const isCanvas = !!canvasContext || (raw.anchor_kind === 'canvas-relative' || raw.anchorKind === 'canvas-relative')
+
+  let anchorMode: CanonicalMarkerAnchorMode = 'unresolved'
+  if (isCanvas) {
+    anchorMode = 'canvas'
+  } else if (elementSelector && elementSelector !== 'unknown') {
+    anchorMode = 'dom'
+  } else if (xpath) {
+    anchorMode = 'dom'
+  } else if (textHint && textHint.length > 2) {
+    anchorMode = 'fuzzy_dom'
+  } else if (bbox) {
+    anchorMode = 'bbox'
+  } else if (pageX !== null && pageY !== null) {
+    anchorMode = 'page_xy'
+  } else if (displayX !== null && displayY !== null) {
+    anchorMode = 'viewport_fallback'
+  }
+
+  return {
+    pageUrl,
+    pageTitle,
+    anchorMode,
+    elementSelector,
+    xpath,
+    textHint,
+    boundingBoxAtCapture: bbox,
+    offsetXRatio,
+    offsetYRatio,
+    pageX,
+    pageY,
+    viewportX: displayX,
+    viewportY: displayY,
+    scrollXAtCapture,
+    scrollYAtCapture,
+    rendererType: raw.rendererType ?? raw.renderertype ?? raw.renderer_type ?? 'dom',
+    canvasContext
+  }
 }
 
 export function normalizeMarkerCoordinates(eventOrPayload: any): {
@@ -140,6 +225,21 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
   let clientYVal = 0
   let source = 'unknown'
 
+  let iframeLeft = 0
+  let iframeTop = 0
+  let scaleX = 1
+  let scaleY = 1
+  if (typeof document !== 'undefined') {
+    const iframe = document.getElementById('pixelmark-proxy-iframe') || document.querySelector('iframe')
+    if (iframe) {
+      const rect = iframe.getBoundingClientRect()
+      iframeLeft = rect.left
+      iframeTop = rect.top
+      scaleX = rect.width / (iframe.offsetWidth || iframe.clientWidth || 1)
+      scaleY = rect.height / (iframe.offsetHeight || iframe.clientHeight || 1)
+    }
+  }
+
   // 1. Check if it's a DOM click event (MouseEvent) or looks like one
   const isDomEvent = eventOrPayload && (
     typeof eventOrPayload.clientX === 'number' && 
@@ -156,31 +256,23 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
 
     if (isIframeTarget) {
       const rect = target.getBoundingClientRect()
-      displayX = rawClientX + rect.left
-      displayY = rawClientY + rect.top
-      clientXVal = rawClientX
-      clientYVal = rawClientY
-      source = 'iframe_dom_event_translated'
-    } else {
-      let iframeLeft = 0
-      let iframeTop = 0
-      if (typeof document !== 'undefined') {
-        const iframe = document.getElementById('pixelmark-proxy-iframe') || document.querySelector('iframe')
-        if (iframe) {
-          const rect = iframe.getBoundingClientRect()
-          iframeLeft = rect.left
-          iframeTop = rect.top
-        }
-      }
+      const sX = rect.width / (target.offsetWidth || target.clientWidth || 1)
+      const sY = rect.height / (target.offsetHeight || target.clientHeight || 1)
       displayX = rawClientX
       displayY = rawClientY
-      clientXVal = rawClientX - iframeLeft
-      clientYVal = rawClientY - iframeTop
+      clientXVal = (rawClientX - rect.left) / sX
+      clientYVal = (rawClientY - rect.top) / sY
+      source = 'iframe_dom_event_translated'
+    } else {
+      displayX = rawClientX
+      displayY = rawClientY
+      clientXVal = (rawClientX - iframeLeft) / scaleX
+      clientYVal = (rawClientY - iframeTop) / scaleY
       source = 'viewport_dom_event'
     }
 
-    pageX = eventOrPayload.pageX ?? (rawClientX + (typeof window !== 'undefined' ? window.scrollX : 0))
-    pageY = eventOrPayload.pageY ?? (rawClientY + (typeof window !== 'undefined' ? window.scrollY : 0))
+    pageX = eventOrPayload.pageX ?? (clientXVal + (eventOrPayload.scrollX ?? eventOrPayload.viewport?.scrollX ?? eventOrPayload.scroll_position?.x ?? 0))
+    pageY = eventOrPayload.pageY ?? (clientYVal + (eventOrPayload.scrollY ?? eventOrPayload.viewport?.scrollY ?? eventOrPayload.scroll_position?.y ?? 0))
   } else {
     // 2. It's a prebuilt payload
     const p = eventOrPayload || {}
@@ -207,35 +299,24 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
       source = 'prebuilt_payload'
     }
 
-    let iframeLeft = 0
-    let iframeTop = 0
-    if (typeof document !== 'undefined') {
-      const iframe = document.getElementById('pixelmark-proxy-iframe') || document.querySelector('iframe')
-      if (iframe) {
-        const rect = iframe.getBoundingClientRect()
-        iframeLeft = rect.left
-        iframeTop = rect.top
-      }
-    }
-
     if (isFromIframe && !alreadyNormalized) {
-      displayX = cX + iframeLeft
-      displayY = cY + iframeTop
+      displayX = cX * scaleX + iframeLeft
+      displayY = cY * scaleY + iframeTop
       clientXVal = cX
       clientYVal = cY
       source = 'iframe_payload_translated'
     } else {
       displayX = cX
       displayY = cY
-      clientXVal = cX - iframeLeft
-      clientYVal = cY - iframeTop
+      clientXVal = (cX - iframeLeft) / scaleX
+      clientYVal = (cY - iframeTop) / scaleY
       if (alreadyNormalized) {
         source = 'already_normalized'
       }
     }
 
-    pageX = p.pageX ?? p.page_x ?? p.x ?? p.click?.page_x ?? p.coordinates?.pageX ?? (displayX + (typeof window !== 'undefined' ? window.scrollX : 0))
-    pageY = p.pageY ?? p.page_y ?? p.y ?? p.click?.page_y ?? p.coordinates?.pageY ?? (displayY + (typeof window !== 'undefined' ? window.scrollY : 0))
+    pageX = p.pageX ?? p.page_x ?? p.x ?? p.click?.page_x ?? p.coordinates?.pageX ?? (clientXVal + (p.scrollX ?? p.viewport?.scrollX ?? p.scroll_position?.x ?? 0))
+    pageY = p.pageY ?? p.page_y ?? p.y ?? p.click?.page_y ?? p.coordinates?.pageY ?? (clientYVal + (p.scrollY ?? p.viewport?.scrollY ?? p.scroll_position?.y ?? 0))
   }
 
   // Clamp to parent window viewport bounds
@@ -418,5 +499,7 @@ export function normalizeCapturePayload(raw: any): CapturePayload {
     title: raw.title ?? raw.capturepayload?.title ?? raw.issueTitle ?? null,
     description: raw.description ?? raw.capturepayload?.description ?? raw.issueDescription ?? raw.comment ?? raw.note ?? raw.userComment ?? '',
     tags: raw.tags ?? raw.capturepayload?.tags ?? null,
+    annotatedDataUrl: raw.annotatedDataUrl ?? raw.annotated_data_url ?? null,
+    needsRecapture: raw.needsRecapture ?? raw.needs_recapture ?? false,
   }
 }

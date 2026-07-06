@@ -90,8 +90,8 @@ class SessionRead(BaseModel):
     
     # Heavy render metadata (Step 2E)
     renderer_type: Optional[str] = None
-    heavy_mode: bool = False
-    conservative_render_mode: bool = False
+    heavy_mode: Optional[bool] = False
+    conservative_render_mode: Optional[bool] = False
     render_detected_at: Optional[datetime] = None
     canvas_count: Optional[int] = None
     has_webgl: Optional[bool] = None

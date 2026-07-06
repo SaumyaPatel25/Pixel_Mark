@@ -73,6 +73,7 @@ export default function ReviewPage() {
     if (sessionInfo) {
       const stored = getStoredReviewerIdentity(sessionInfo.session_id)
       if (stored) {
+        console.log(`PixelMark reviewer identity restored [${stored.id}]`)
         setReviewerIdentity(stored)
       } else {
         // Show gate to collect reviewer display name

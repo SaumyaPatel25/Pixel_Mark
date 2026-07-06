@@ -1,4 +1,4 @@
-import { captureFrameFromStream, captureFullPage, CropRect } from './screenshotCapture';
+import { captureFrameFromStream, captureFullPage, CropRect, captureScreenshotForTarget } from './screenshotCapture';
 import { api } from '@/lib/api';
 import { useScreenshotStore, ScreenshotMode } from '@/store/screenshotStore';
 
@@ -13,12 +13,31 @@ export async function orchestrateScreenshot(
   mode: ScreenshotMode,
   cropRect?: CropRect,
   shareToken?: string,
-  iframeNode?: HTMLIFrameElement | null
+  iframeNode?: HTMLIFrameElement | null,
+  targetEl?: Element | null
 ): Promise<CaptureStrategyResult> {
   
   const { screenshotStream, screenshotPermission } = useScreenshotStore.getState();
 
   console.log(`[PixelMark Screenshot] mode=${mode} permission=${screenshotPermission}`);
+
+  // Tier 1 & Tier 2: Client-side capture (Canvas-native and html2canvas fallbacks)
+  if (mode === 'element' && targetEl) {
+    try {
+      const clientCapture = await captureScreenshotForTarget(targetEl, cropRect ? {
+        left: cropRect.x,
+        top: cropRect.y,
+        width: cropRect.width,
+        height: cropRect.height
+      } : null);
+      if (clientCapture.dataUrl) {
+        console.log(`[PixelMark Screenshot] Client-side capture successful: method=${clientCapture.method}`);
+        return { dataUrl: clientCapture.dataUrl, source: 'element' };
+      }
+    } catch (err) {
+      console.warn('[PixelMark Screenshot] Client-side capture failed, falling back to stream/api:', err);
+    }
+  }
 
   // Layer 1: Screen Capture API via active stream
   if (screenshotStream && screenshotPermission === 'granted') {

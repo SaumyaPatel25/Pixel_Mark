@@ -1,10 +1,55 @@
 export type MarkerAnchorKind = 'dom-relative' | 'viewport-absolute' | 'canvas-relative' | 'webgl-clip-space' | 'manual';
-export type MarkerRendererType = 'dom' | 'shadow-dom' | 'canvas2d' | 'webgl' | 'threejs';
+export type MarkerRendererType = 'dom' | 'shadow-dom' | 'canvas2d' | 'webgl' | 'threejs' | 'mixed' | 'spa';
 export type CreatorRole = 'developer' | 'reviewer';
 export type MarkerStatus = 'open' | 'triaged' | 'in_progress' | 'resolved' | 'dismissed';
 export type MarkerPriority = 'critical' | 'high' | 'medium' | 'low';
 
-export interface Marker {
+export type CanonicalMarkerAnchorMode = 'dom' | 'fuzzy_dom' | 'bbox' | 'page_xy' | 'canvas' | 'viewport_fallback' | 'unresolved';
+
+export interface CanonicalMarkerAnchor {
+  pageUrl?: string | null;
+  pageTitle?: string | null;
+
+  anchorMode?: CanonicalMarkerAnchorMode | null;
+
+  elementSelector?: string | null;
+  xpath?: string | null;
+  textHint?: string | null;
+
+  boundingBoxAtCapture?: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    right?: number | null;
+    bottom?: number | null;
+  } | null;
+
+  offsetXRatio?: number | null;
+  offsetYRatio?: number | null;
+
+  pageX?: number | null;
+  pageY?: number | null;
+
+  viewportX?: number | null;
+  viewportY?: number | null;
+
+  scrollXAtCapture?: number | null;
+  scrollYAtCapture?: number | null;
+
+  rendererType?: string | null;
+  canvasContext?: any;
+}
+
+export type ResolvedMarkerPosition = {
+  left: number;
+  top: number;
+  source: CanonicalMarkerAnchorMode;
+  confidence: number;
+  degraded: boolean;
+};
+
+export interface Marker extends CanonicalMarkerAnchor {
   id: string;
   session_id: string;
   project_id: string;
@@ -38,7 +83,7 @@ export interface Marker {
   webgl_clip_x: number | null;
   webgl_clip_y: number | null;
   renderer_type: MarkerRendererType | null;
-  anchor_mode?: 'dom' | 'fuzzy_dom' | 'viewport_fallback' | null;
+  anchor_mode?: CanonicalMarkerAnchorMode | null;
 
   title: string | null;
   description: string | null;
@@ -58,6 +103,8 @@ export interface Marker {
   encrypted_context: string | null;
   issueType?: string | null;
   issue_type?: string | null;
+  needsRecapture?: boolean;
+  expected_version?: number;
 }
 
 export interface ReviewerIdentity {

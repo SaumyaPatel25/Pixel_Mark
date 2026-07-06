@@ -62,6 +62,9 @@ class ConnectionManager:
         
         try:
             payload = EventEnvelope.model_validate(event).model_dump(mode="json")
+            evt_type = payload.get("type")
+            if evt_type in ["marker_created", "marker_updated", "marker_moved", "marker_resolved", "marker_deleted"]:
+                logger.info(f"PixelMark ws marker event [{evt_type}] [{payload.get('marker_id')}] [{payload.get('actor_id')}]")
         except Exception as e:
             logger.error(f"[WS] Event serialization failed during broadcast: {e}")
             return

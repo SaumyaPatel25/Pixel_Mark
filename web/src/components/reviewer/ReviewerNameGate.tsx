@@ -11,14 +11,14 @@ interface ReviewerNameGateProps {
   onIdentityReady: (identity: ReviewerIdentity) => void
 }
 
-// Ordered list of tasteful default colors for new reviewers
+// Ordered list of tasteful default colors for new reviewers (curated palette)
 const REVIEWER_COLOR_OPTIONS = [
-  { token: 'violet', hex: '#8b5cf6' },
-  { token: 'emerald', hex: '#10b981' },
-  { token: 'coral', hex: '#ef4444' },
-  { token: 'amber', hex: '#f59e0b' },
-  { token: 'sky', hex: '#0ea5e9' },
-  { token: 'rose', hex: '#f43f5e' },
+  { token: 'violet', hex: '#7a39bb' },
+  { token: 'emerald', hex: '#437a22' },
+  { token: 'coral', hex: '#01696f' },
+  { token: 'amber', hex: '#da7101' },
+  { token: 'sky', hex: '#006494' },
+  { token: 'rose', hex: '#a12c7b' },
 ]
 
 export default function ReviewerNameGate({ sessionId, onIdentityReady }: ReviewerNameGateProps) {
@@ -40,6 +40,8 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
         display_name: trimmed,
         color_token: selectedColor,
       })
+
+      console.log(`PixelMark participant resolved [${identity.id}] [reviewer]`)
 
       // Persist to sessionStorage so future page loads in the same tab skip this gate
       setStoredReviewerIdentity(sessionId, identity)

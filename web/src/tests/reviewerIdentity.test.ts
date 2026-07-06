@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { getStoredReviewerIdentity, setStoredReviewerIdentity, clearStoredReviewerIdentity, reviewerStorageKey } from '@/lib/reviewerIdentity'
 import { ReviewerIdentity } from '@/types/markers'
 
@@ -12,25 +12,25 @@ const MOCK_IDENTITY: ReviewerIdentity = {
   created_at: new Date().toISOString(),
 }
 
-describe('reviewerIdentity: sessionStorage helpers', () => {
+describe('reviewerIdentity: localStorage helpers', () => {
   beforeEach(() => {
-    sessionStorage.clear()
+    localStorage.clear()
   })
 
   afterEach(() => {
-    sessionStorage.clear()
+    localStorage.clear()
   })
 
   it('generates the correct storage key', () => {
     expect(reviewerStorageKey(SESSION_ID)).toBe(`pm:reviewer:${SESSION_ID}`)
   })
 
-  it('returns null for a session with no stored identity', () => {
+  it('returns null when no identity has ever been stored', () => {
     const result = getStoredReviewerIdentity(SESSION_ID)
     expect(result).toBeNull()
   })
 
-  it('stores and retrieves identity', () => {
+  it('stores and retrieves identity via global key', () => {
     setStoredReviewerIdentity(SESSION_ID, MOCK_IDENTITY)
     const result = getStoredReviewerIdentity(SESSION_ID)
     expect(result).not.toBeNull()
@@ -39,28 +39,29 @@ describe('reviewerIdentity: sessionStorage helpers', () => {
     expect(result?.color_token).toBe('violet')
   })
 
-  it('retrieves the identity for the correct session_id only', () => {
+  it('retrieves the same global identity regardless of session_id (cross-session persistence)', () => {
     setStoredReviewerIdentity(SESSION_ID, MOCK_IDENTITY)
+    // Different session ID — should still return the globally stored identity
     const result = getStoredReviewerIdentity('other-session')
-    expect(result).toBeNull()
+    expect(result?.id).toBe('reviewer-1')
   })
 
-  it('clears stored identity', () => {
+  it('clears stored identity globally', () => {
     setStoredReviewerIdentity(SESSION_ID, MOCK_IDENTITY)
     clearStoredReviewerIdentity(SESSION_ID)
     const result = getStoredReviewerIdentity(SESSION_ID)
     expect(result).toBeNull()
   })
 
-  it('clearing one session does not affect another', () => {
+  it('clearing identity removes it across all sessions', () => {
     const otherSession = 'other-session'
     const otherIdentity = { ...MOCK_IDENTITY, id: 'reviewer-2', session_id: otherSession }
-    setStoredReviewerIdentity(SESSION_ID, MOCK_IDENTITY)
     setStoredReviewerIdentity(otherSession, otherIdentity)
 
-    clearStoredReviewerIdentity(SESSION_ID)
+    clearStoredReviewerIdentity(otherSession)
 
+    // Both sessions should now return null (global key cleared)
     expect(getStoredReviewerIdentity(SESSION_ID)).toBeNull()
-    expect(getStoredReviewerIdentity(otherSession)?.id).toBe('reviewer-2')
+    expect(getStoredReviewerIdentity(otherSession)).toBeNull()
   })
 })

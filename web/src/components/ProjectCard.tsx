@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { motion, useMotionValue, useSpring } from 'framer-motion'
-import { Layout, Play, Share2, ExternalLink, Activity, FileText, Calendar, ShieldAlert } from 'lucide-react'
+import { motion, useMotionValue, useSpring, AnimatePresence } from 'framer-motion'
+import { Layout, Play, Share2, ExternalLink, Activity, FileText, Calendar, ShieldAlert, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
 import { api } from '@/lib/api'
 
 // Reusable premium SVG Sparkline Component
@@ -98,6 +98,7 @@ interface ProjectCardProps {
   onOpenCanvas: (e: React.MouseEvent) => void
   onNewSession: (e: React.MouseEvent) => void
   onShare: (e: React.MouseEvent) => void
+  onDelete?: (e: React.MouseEvent) => Promise<void>
   analytics?: any
 }
 
@@ -111,11 +112,13 @@ export function ProjectCard({
   onOpenCanvas,
   onNewSession,
   onShare,
+  onDelete,
   analytics: propAnalytics = null
 }: ProjectCardProps) {
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
   const cardRef = useRef<HTMLDivElement>(null)
+  const [deleteStep, setDeleteStep] = useState<'idle' | 'confirm' | 'deleting'>('idle')
 
   const springX = useSpring(mouseX, { stiffness: 250, damping: 25 })
   const springY = useSpring(mouseY, { stiffness: 250, damping: 25 })
@@ -392,6 +395,56 @@ export function ProjectCard({
               >
                 <Share2 className="w-3.5 h-3.5" />
               </button>
+
+              {/* Delete button — two-step confirm */}
+              {onDelete && (
+                <AnimatePresence mode="wait">
+                  {deleteStep === 'idle' && (
+                    <motion.button
+                      key="del-idle"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.15 }}
+                      onClick={(e) => { e.stopPropagation(); setDeleteStep('confirm') }}
+                      title="Delete Project"
+                      className="h-8 w-8 rounded-xl bg-rose-950/80 border border-rose-500/30 text-rose-400 hover:bg-rose-600 hover:text-white hover:border-rose-500 flex items-center justify-center transition-all active:scale-95"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </motion.button>
+                  )}
+                  {deleteStep === 'confirm' && (
+                    <motion.button
+                      key="del-confirm"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.15 }}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        setDeleteStep('deleting')
+                        await onDelete(e)
+                      }}
+                      onBlur={() => setDeleteStep('idle')}
+                      title="Click to confirm deletion"
+                      className="h-8 px-2.5 rounded-xl bg-rose-600 border border-rose-500 text-white text-[9px] font-black uppercase tracking-widest flex items-center gap-1 hover:bg-rose-500 transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                      Confirm
+                    </motion.button>
+                  )}
+                  {deleteStep === 'deleting' && (
+                    <motion.div
+                      key="del-loading"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="h-8 w-8 rounded-xl bg-rose-950/80 border border-rose-500/30 text-rose-400 flex items-center justify-center"
+                    >
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              )}
             </div>
           </div>
 

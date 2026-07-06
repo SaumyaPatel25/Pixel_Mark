@@ -80,7 +80,19 @@ async def resolve_actor_context(
                 "role": reviewer.role,
                 "color_token": reviewer.color_token
             }
+            logger.info(f"PixelMark participant resolved [{reviewer.id}] [{reviewer.role}]")
             print(f"[DEBUG resolve_actor_context] Resolved to reviewer actor: {resolved}")
+            return resolved
+        else:
+            # Rejects fallback to current_user if reviewer context was supplied but not resolved
+            resolved = {
+                "id": x_reviewer_id or "anonymous-guest",
+                "name": "Anonymous Reviewer",
+                "role": "reviewer",
+                "color_token": "#8b5cf6"
+            }
+            logger.info(f"PixelMark participant resolved [{resolved['id']}] [reviewer]")
+            print(f"[DEBUG resolve_actor_context] Resolved to fallback reviewer actor: {resolved}")
             return resolved
 
     if current_user:
@@ -90,16 +102,19 @@ async def resolve_actor_context(
             "role": "developer",
             "color_token": "#4f46e5"
         }
+        logger.info(f"PixelMark participant resolved [{current_user.id}] [developer]")
         print(f"[DEBUG resolve_actor_context] Resolved to developer actor: {resolved}")
         return resolved
 
     # Default fallback
-    return {
+    resolved = {
         "id": "anonymous-guest",
         "name": "Anonymous Reviewer",
         "role": "reviewer",
         "color_token": "#8b5cf6"
     }
+    logger.info(f"PixelMark participant resolved [anonymous-guest] [reviewer]")
+    return resolved
 
 # Dependency wrapper for session-scoped actor retrieval
 async def get_session_actor(
@@ -118,8 +133,44 @@ async def create_reviewer_identity(
     db: AsyncSession = Depends(get_db)
 ):
     repo = MarkerRepository(db)
-    color_token = payload.color_token or "#d946ef" # magenta for reviewers
     
+    # 1. Curated readable palette:
+    CURATED_PALETTE = [
+        "violet",
+        "emerald",
+        "coral",
+        "amber",
+        "sky",
+        "rose",
+        "purple",
+        "magenta",
+        "indigo"
+    ]
+    
+    # Check what colors are already taken in this session
+    res = await db.execute(
+        select(ReviewerIdentity.color_token)
+        .where(ReviewerIdentity.session_id == session_id)
+    )
+    existing_colors = {r[0] for r in res.all()}
+    
+    color_token = payload.color_token
+    if color_token:
+        # If color_token is already taken, let's find the first free one from our curated list
+        if color_token in existing_colors:
+            for c in CURATED_PALETTE:
+                if c not in existing_colors:
+                    color_token = c
+                    break
+    else:
+        # If not chosen: pick first available from curated palette
+        for c in CURATED_PALETTE:
+            if c not in existing_colors:
+                color_token = c
+                break
+        if not color_token:
+            color_token = CURATED_PALETTE[len(existing_colors) % len(CURATED_PALETTE)]
+
     reviewer = ReviewerIdentity(
         session_id=session_id,
         display_name=payload.display_name,
@@ -128,6 +179,10 @@ async def create_reviewer_identity(
     )
     await repo.create_reviewer_identity(reviewer)
     await db.commit()
+    await db.refresh(reviewer)
+    
+    # Log resolved participant:
+    logger.info(f"PixelMark participant resolved [{reviewer.id}] [reviewer]")
     return reviewer
 
 
@@ -159,6 +214,8 @@ async def create_marker(
     await repo.create_marker(marker)
     await db.commit()
     await db.refresh(marker)
+
+    logger.info(f"PixelMark marker author attached [{marker.id}] [{marker.creator_id}]")
 
     # Autoritative realtime sync: Broadcast created event after successful REST commit
     try:

@@ -4,7 +4,7 @@ import { normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useDOMEditStore } from '@/store/domEditStore'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import {
   Loader2, ArrowLeft, Monitor, Pin, Plus, X, Check,
   AlertTriangle, ChevronDown, MousePointer2, Layers,
@@ -23,6 +23,7 @@ import { useMarkerStore } from '@/store/markerStore'
 import { useSessionSocket } from '@/lib/useSessionSocket'
 import { ActorContext, canCurrentActorMutateMarker } from '@/lib/permissions'
 import { ReviewerIdentity } from '@/types/markers'
+import { DrawingCanvas } from './DrawingCanvas'
 
 // ─── Collapsible list helper component (Phase 3.5 Upgrade) ────────────────────
 const CollapsibleList = ({ title, count, items, renderItem }: { title: string; count: number; items: any[]; renderItem: (item: any, idx: number) => React.ReactNode }) => {
@@ -281,6 +282,14 @@ function normalizeCapturePayload(
   }
 }
 
+function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function AuditSurface({
@@ -359,6 +368,12 @@ export function AuditSurface({
 
   const socketStatus = useSessionSocket(sessionId, actor)
 
+  useEffect(() => {
+    if (actor && actor.id !== 'anon' && actor.id !== 'anon_dev') {
+      console.log(`PixelMark participant resolved [${actor.id}] [${actor.role}]`)
+    }
+  }, [actor.id, actor.role])
+
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [captureCtx, setCaptureCtx] = useState<CaptureContext | null>(null)
@@ -385,6 +400,117 @@ export function AuditSurface({
   const [innerHTMLPanelExpanded, setInnerHTMLPanelExpanded] = useState(false)
   
   const [pendingRegionCaptureId, setPendingRegionCaptureId] = useState<string | null>(null)
+
+  const [isDrawingModeActive, setIsDrawingModeActive] = useState(false)
+  const [annotatedScreenshotUrl, setAnnotatedScreenshotUrl] = useState<string | null>(null)
+  const [annotationShapes, setAnnotationShapes] = useState<any[]>([])
+
+  const [isRecapturing, setIsRecapturing] = useState<Record<string, boolean>>({})
+
+  const needsRecaptureMap = useRef<Record<string, boolean>>({})
+
+  const getIframeElement = useCallback((selector: string | null, xpath: string | null): Element | null => {
+    if (!iframeRef.current) return null
+    let doc: Document | null = null
+    try {
+      doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document || null
+    } catch (_) {}
+
+    if (!doc) return null
+    let targetEl: Element | null = null
+    if (selector && selector !== 'visual-canvas-context') {
+      try { targetEl = doc.querySelector(selector); } catch (_) {}
+    }
+    if (!targetEl && xpath) {
+      try {
+        const result = doc.evaluate(xpath, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+        targetEl = result.singleNodeValue as Element;
+      } catch (_) {}
+    }
+    return targetEl
+  }, [])
+
+  const triggerScreenshotRecapture = useCallback(async (markerId: string) => {
+    const marker = useMarkerStore.getState().markersById[markerId]
+    if (!marker) return
+
+    const screenshotMode = useScreenshotStore.getState().markerModes[markerId] || 'element'
+    
+    if (screenshotMode === 'region') {
+      setPendingRegionCaptureId(markerId)
+      useScreenshotStore.getState().setMode('region')
+      setIsRecapturing(prev => ({ ...prev, [markerId]: false }))
+      return
+    }
+
+    console.log(`[PixelMark Recapture] triggering screenshot recapture for marker id=${markerId} mode=${screenshotMode}`)
+    needsRecaptureMap.current[markerId] = true
+    setIsRecapturing(prev => ({ ...prev, [markerId]: true }))
+
+    const targetEl = getIframeElement(marker.target_selector, marker.target_xpath)
+
+    let cropRect = undefined
+    if (screenshotMode === 'element' && targetEl) {
+      const bb = targetEl.getBoundingClientRect()
+      cropRect = {
+        x: bb.left || 0,
+        y: bb.top || 0,
+        width: bb.width || 0,
+        height: bb.height || 0
+      }
+    }
+
+    const { orchestrateScreenshot } = await import('@/utils/captureOrchestrator')
+
+    try {
+      const res = await orchestrateScreenshot(
+        sessionId || '',
+        marker.page_url || currentUrl,
+        screenshotMode,
+        cropRect,
+        shareToken,
+        iframeRef.current,
+        targetEl
+      )
+
+      if (res && res.dataUrl) {
+        console.log(`[PixelMark Recapture] recapture successful for marker id=${markerId}`)
+        await updateMarkerViaApi(markerId, { screenshot_url: res.dataUrl }, reviewerIdentity?.id)
+        needsRecaptureMap.current[markerId] = false
+
+        if (selectedMarkerId === markerId) {
+          setCaptureCtx(prev => prev ? {
+            ...prev,
+            screenshot_data_url: res.dataUrl
+          } : null)
+        }
+      }
+    } catch (err: any) {
+      console.error('[PixelMark Recapture] recapture failed:', err)
+    } finally {
+      setIsRecapturing(prev => ({ ...prev, [markerId]: false }))
+    }
+  }, [sessionId, currentUrl, shareToken, reviewerIdentity, updateMarkerViaApi, selectedMarkerId, getIframeElement])
+
+  const debouncedRecapture = useMemo(() => {
+    return debounce((markerId: string) => {
+      triggerScreenshotRecapture(markerId)
+    }, 400)
+  }, [triggerScreenshotRecapture])
+
+  // Reset drawing states when selected marker changes
+  useEffect(() => {
+    setIsDrawingModeActive(false)
+    setAnnotatedScreenshotUrl(null)
+    setAnnotationShapes([])
+  }, [selectedMarkerId])
+
+  // Trigger recapture when screenshot panel is expanded and marker needs recapture
+  useEffect(() => {
+    if (screenshotPanelExpanded && selectedMarkerId && needsRecaptureMap.current[selectedMarkerId]) {
+      triggerScreenshotRecapture(selectedMarkerId)
+    }
+  }, [screenshotPanelExpanded, selectedMarkerId, triggerScreenshotRecapture])
 
   const handleRegionConfirm = useCallback(async (rect: { x: number; y: number; width: number; height: number }) => {
     let id = pendingRegionCaptureId
@@ -456,6 +582,9 @@ export function AuditSurface({
     }
 
     const captureId = id; // save for closure
+    if (captureId) {
+      setIsRecapturing(prev => ({ ...prev, [captureId]: true }))
+    }
 
     import('@/utils/captureOrchestrator').then(({ orchestrateScreenshot }) => {
       orchestrateScreenshot(sessionId, currentUrl, 'region', rect, shareToken, iframeRef.current).then((res) => {
@@ -466,14 +595,22 @@ export function AuditSurface({
           screenshotsource: res.source,
           screenshotrequired: true
         }, '*')
-      }).catch(err => console.error('[AuditSurface] orchestration failed', err))
+      }).catch(err => {
+        console.error('[AuditSurface] orchestration failed', err)
+        if (captureId) {
+          setIsRecapturing(prev => ({ ...prev, [captureId]: false }))
+        }
+      })
     })
   }, [pendingRegionCaptureId, sessionId, currentUrl, currentTitle, rendererType, shareToken])
 
   const handleRegionCancel = useCallback(() => {
+    if (pendingRegionCaptureId) {
+      setIsRecapturing(prev => ({ ...prev, [pendingRegionCaptureId]: false }))
+    }
     setPendingRegionCaptureId(null)
     useScreenshotStore.getState().setMode('element')
-  }, [])
+  }, [pendingRegionCaptureId])
 
 
   const activeMarker = useMarkerStore(state => state.selectedMarkerId ? state.markersById[state.selectedMarkerId] : null)
@@ -491,6 +628,9 @@ export function AuditSurface({
     if (selectedMarkerId) {
       const marker = useMarkerStore.getState().markersById[selectedMarkerId]
       if (marker) {
+        const existingMode = useScreenshotStore.getState().markerModes[selectedMarkerId] || 'element'
+        useScreenshotStore.getState().setModeForMarker(selectedMarkerId, existingMode)
+
         setCaptureCtx({
           page_url: marker.page_url ?? '',
           page_title: marker.page_title ?? '',
@@ -942,6 +1082,14 @@ export function AuditSurface({
           normalized.pageY = coords.pageY
 
           console.log(`[Markers] creating marker id=${normalized.id} x=${normalized.displayX} y=${normalized.displayY}`)
+          console.log(`[PixelMark Click Test] Click at known location:`, {
+            inputX: normalized.displayX,
+            inputY: normalized.displayY,
+            storedPageX: normalized.pageX,
+            storedPageY: normalized.pageY,
+            scrollX: normalized.scrollX ?? normalized.viewport?.scrollX ?? normalized.scroll_position?.x ?? 0,
+            scrollY: normalized.scrollY ?? normalized.viewport?.scrollY ?? normalized.scroll_position?.y ?? 0,
+          })
 
           const safeRendererType = normalized.rendererType
           const safeAnchorKind = normalized.anchorKind
@@ -1011,12 +1159,14 @@ export function AuditSurface({
           // Asynchronously create the marker in the backend
           createMarkerViaApi(sessionId, markerPayload, reviewerIdentity?.id)
             .then((newMarker) => {
+              const { screenshotMode } = useScreenshotStore.getState();
+              useScreenshotStore.getState().setModeForMarker(newMarker.id, screenshotMode);
+
               selectMarker(newMarker.id)
               setIsDrawerOpen(true)
               useUIStore.getState().toggleCommandCenter(true)
 
               const pageUrl = normalized.pageUrl || currentUrl;
-              const { screenshotMode } = useScreenshotStore.getState();
 
               const runBackgroundScreenshot = (markerId: string, url: string, bbox: any) => {
                 useScreenshotStore.getState().setScreenshotState('capturing', null, null, null);
@@ -1100,6 +1250,9 @@ export function AuditSurface({
               renderer_type: data.renderer_type
             }, reviewerIdentity?.id)
             
+            const { screenshotMode } = useScreenshotStore.getState()
+            useScreenshotStore.getState().setModeForMarker(newMarker.id, screenshotMode)
+
             // Select and open Drawer (we can still use the legacy UI for the drawer if not yet refactored)
             selectMarker(newMarker.id)
             
@@ -1116,6 +1269,7 @@ export function AuditSurface({
 
         case 'PIXELMARK_UPDATE_SCREENSHOT': {
           if (data.id) {
+            setIsRecapturing(prev => ({ ...prev, [data.id]: false }))
             const existing = useMarkerStore.getState().markersById[data.id]
             if (existing) {
               useMarkerStore.getState().updateMarkerViaApi(data.id, { screenshot_url: data.screenshotdataurl }, reviewerIdentity?.id).catch(console.error)
@@ -1146,7 +1300,9 @@ export function AuditSurface({
           console.log(`[PixelMark Pin] recomputed ${data.resolvedPins?.length} markers`)
           
           data.resolvedPins?.forEach((p: any) => {
-            // Local state handles positioning in `setResolvedPositions` below
+            if (needsRecaptureMap.current[p.id]) {
+              triggerScreenshotRecapture(p.id)
+            }
           })
 
           setResolvedPositions(prev => {
@@ -1486,6 +1642,7 @@ export function AuditSurface({
           priority: severity,
           status: statusVal,
           renderer_type: rendererType,
+          screenshot_url: annotatedScreenshotUrl || captureCtx.screenshot_data_url || null
         }
         console.log('[PixelMark Submit] creating new canonical marker:', newPayload)
         resolvedMarker = await createMarkerViaApi(sessionId, newPayload, reviewerIdentity?.id)
@@ -1496,6 +1653,7 @@ export function AuditSurface({
           description: noteText.trim(),
           priority: severity,
           status: statusVal,
+          screenshot_url: annotatedScreenshotUrl || activeMarker?.screenshot_url || null
         }
         console.log('[PixelMark Submit] updating canonical marker:', activeId, patch)
         resolvedMarker = await updateMarkerViaApi(activeId, patch, reviewerIdentity?.id)
@@ -2101,6 +2259,7 @@ export function AuditSurface({
             onUpdateMarker={async (id, patch) => {
               try {
                 await moveMarkerViaApi(id, patch, reviewerIdentity?.id)
+                debouncedRecapture(id)
               } catch (e) {
                 console.error('Failed to update marker position', e)
               }
@@ -2305,7 +2464,7 @@ export function AuditSurface({
                       <button
                         key={mode}
                         type="button"
-                        onClick={() => useScreenshotStore.getState().setMode(mode)}
+                        onClick={() => useScreenshotStore.getState().setModeForMarker(activeMarker?.id || 'new', mode)}
                         className={cn(
                           "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
                           screenshotMode === mode
@@ -2318,6 +2477,15 @@ export function AuditSurface({
                     ))}
                   </div>
                   {(() => {
+                    if (pendingRegionCaptureId === activeMarker?.id) {
+                      return (
+                        <div className="flex flex-col items-center justify-center p-6 bg-purple-500/5 border border-purple-500/20 rounded-2xl gap-2 min-h-[120px]">
+                          <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-purple-400">Select a region to capture</span>
+                        </div>
+                      )
+                    }
+
                     const screenshotUrl = activeMarker?.screenshot_url || captureCtx?.screenshot_data_url
                     const isScreenshotPending = screenshotUrl === 'pending'
                     const source = captureCtx?.screenshotsource || captureCtx?.screenshottype || 'unknown'
@@ -2334,16 +2502,70 @@ export function AuditSurface({
                       }
                       return (
                         <div className="space-y-2">
-                          <div className="relative rounded-xl overflow-hidden border border-white/10">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={screenshotUrl}
-                              alt="Page snapshot at capture time"
-                              className="w-full object-cover"
-                              style={{ maxHeight: 240 }}
-                              onError={() => setImgErrorId(activeMarker?.id || 'current')}
-                            />
+                          <div className="flex justify-between items-center px-1 mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[8px] font-black uppercase tracking-widest text-white/40">
+                                {needsRecaptureMap.current[activeMarker?.id || ''] ? '⚠️ Position changed' : 'Image Preview'}
+                              </span>
+                              {isRecapturing[activeMarker?.id || ''] && (
+                                <span className="flex items-center gap-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1.5 py-0.5 rounded text-[8px] font-mono animate-pulse">
+                                  <Loader2 className="w-2 h-2 animate-spin" />
+                                  Updating screenshot…
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => triggerScreenshotRecapture(activeMarker!.id)}
+                                className={cn(
+                                  "flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                                  needsRecaptureMap.current[activeMarker?.id || '']
+                                    ? "bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20 animate-pulse"
+                                    : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                                )}
+                                title="Retake Screenshot"
+                              >
+                                Retake
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setIsDrawingModeActive(d => !d)}
+                                className={cn(
+                                  "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                                  isDrawingModeActive
+                                    ? "bg-purple-600/20 text-purple-400 border border-purple-500/30"
+                                    : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                                )}
+                              >
+                                <Pencil className="w-3 h-3" />
+                                {isDrawingModeActive ? 'Close Drawing' : 'Draw Annotation'}
+                              </button>
+                            </div>
                           </div>
+
+                          {isDrawingModeActive ? (
+                            <DrawingCanvas
+                              baseImageUrl={screenshotUrl}
+                              initialShapes={annotationShapes}
+                              onSave={(annotatedUrl, shapes) => {
+                                setAnnotatedScreenshotUrl(annotatedUrl)
+                                setAnnotationShapes(shapes)
+                              }}
+                            />
+                          ) : (
+                            <div className="relative rounded-xl overflow-hidden border border-white/10">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={annotatedScreenshotUrl || screenshotUrl}
+                                alt="Page snapshot at capture time"
+                                className="w-full object-cover"
+                                style={{ maxHeight: 240 }}
+                                onError={() => setImgErrorId(activeMarker?.id || 'current')}
+                              />
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-white/30 px-1">
                             <span>Page snapshot at capture time</span>
                             <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded text-[7px] font-mono">

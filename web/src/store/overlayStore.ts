@@ -105,27 +105,42 @@ export const deleteMarker = async (id: string): Promise<void> => {
     try {
       await api.markers.delete(id)
       console.log(`[Markers] backend confirmed delete id=${id}`)
-    } catch (err) {
-      console.error('[Markers] backend delete failed — restoring marker', err)
-
-      // Rollback optimistic removal
-      usePinStore.setState({ pins: prevPins })
-      try {
-        if (originalMarker) {
-          useMarkerStore.getState().upsertMarkerFromServer(originalMarker, true)
-        }
-      } catch (e) { /* ignore */ }
-
-      // Remove from tombstone since delete failed
-      if (typeof window !== 'undefined') {
+    } catch (err: any) {
+      const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && err.message.includes('404'))
+      if (is404) {
+        console.log(`PixelMark delete reconciled stale marker [${id}]`)
+        usePinStore.getState().removePin(id)
         try {
-          const deletedIds = getTombstonedMarkerIds().filter(tid => tid !== id)
-          localStorage.setItem('pixelmark_deleted_markers_v3', JSON.stringify(deletedIds))
-        } catch (e) { /* ignore */ }
-      }
+          useMarkerStore.getState().removeMarkerLocally(id)
+        } catch (_) {}
+        try {
+          const current = useMarkerStore.getState().currentSessionId
+          if (current) {
+            useMarkerStore.getState().reconcileSessionMarkers(current)
+          }
+        } catch (_) {}
+      } else {
+        console.error('[Markers] backend delete failed — restoring marker', err)
 
-      // Re-throw so the UI caller can show an error
-      throw err
+        // Rollback optimistic removal
+        usePinStore.setState({ pins: prevPins })
+        try {
+          if (originalMarker) {
+            useMarkerStore.getState().upsertMarkerFromServer(originalMarker, true)
+          }
+        } catch (e) { /* ignore */ }
+
+        // Remove from tombstone since delete failed
+        if (typeof window !== 'undefined') {
+          try {
+            const deletedIds = getTombstonedMarkerIds().filter(tid => tid !== id)
+            localStorage.setItem('pixelmark_deleted_markers_v3', JSON.stringify(deletedIds))
+          } catch (e) { /* ignore */ }
+        }
+
+        // Re-throw so the UI caller can show an error
+        throw err
+      }
     }
   }
 }

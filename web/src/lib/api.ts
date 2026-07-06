@@ -11,6 +11,15 @@ function getCookie(name: string) {
   return null;
 }
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
+
 export async function request(path: string, options: RequestInit = {}) {
   const token = getCookie('pm_token')
   const headers = new Headers(options.headers || {})
@@ -70,7 +79,7 @@ export async function request(path: string, options: RequestInit = {}) {
     }
     const method = (options.method || 'GET').toUpperCase()
     console.error(`[API] ${method} ${path} → ${response.status} ${response.statusText}`, detail)
-    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail))
+    throw new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail), response.status)
   }
 
   const contentType = response.headers.get('Content-Type')

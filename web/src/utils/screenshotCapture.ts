@@ -1,3 +1,5 @@
+import html2canvas from 'html2canvas';
+
 export interface CropRect {
   x: number;
   y: number;
@@ -276,4 +278,187 @@ export async function captureFullPage(
     } catch (_) {}
     return captureFrameFromStream(stream);
   }
+}
+
+export type CaptureMethod = 'canvas-native' | 'html2canvas-crop' | 'html2canvas-full-fallback' | 'none';
+
+function isCanvasTransparent(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return true;
+  try {
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] !== 0) return false;
+    }
+  } catch (e) {
+    return false;
+  }
+  return true;
+}
+
+function runHtml2CanvasWithTimeout(element: HTMLElement, options: any, timeoutMs = 2000): Promise<HTMLCanvasElement> {
+  return Promise.race([
+    html2canvas(element, options),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('html2canvas timed out')), timeoutMs))
+  ]);
+}
+
+async function waitForLayoutSettle(): Promise<void> {
+  return new Promise(resolve => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(resolve, 50);
+      });
+    });
+  });
+}
+
+const USE_FAST_RENDERER = false;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ])
+}
+
+async function captureWithFastRenderer(
+  target: HTMLElement,
+  rect: DOMRect,
+  win: Window
+): Promise<string | null> {
+  try {
+    const clone = target.cloneNode(true) as HTMLElement;
+    const xml = new XMLSerializer().serializeToString(clone);
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${rect.width}" height="${rect.height}">
+        <foreignObject width="100%" height="100%">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="width:100%; height:100%;">
+            ${xml}
+          </div>
+        </foreignObject>
+      </svg>
+    `;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  } catch (err) {
+    console.warn('[Fast Renderer] Failed:', err);
+    return null;
+  }
+}
+
+export async function captureScreenshotForTarget(
+  target: Element | null,
+  boundingBox: { left: number; top: number; width: number; height: number } | null
+): Promise<{ dataUrl: string | null; method: CaptureMethod }> {
+  if (!target) {
+    return { dataUrl: null, method: 'none' };
+  }
+
+  const markerId = target.id || 'unknown';
+  console.time("PixelMark recapture " + markerId);
+
+  // Tier 1: Canvas-Native Capture
+  if (target instanceof HTMLCanvasElement || target.tagName === 'CANVAS') {
+    try {
+      const dataUrl = (target as HTMLCanvasElement).toDataURL('image/png');
+      if (dataUrl && dataUrl !== 'data:,') {
+        console.log('[PixelMark Capture] Canvas-Native capture successful');
+        console.timeEnd("PixelMark recapture " + markerId);
+        return { dataUrl, method: 'canvas-native' };
+      }
+    } catch (err) {
+      console.warn('[PixelMark Capture] Canvas-Native capture failed:', err);
+    }
+  }
+
+  // Wait for layout to settle and get fresh bounding rect
+  await waitForLayoutSettle();
+  const rect = target.getBoundingClientRect();
+  const doc = target.ownerDocument || document;
+  const win = doc.defaultView || window;
+
+  const scrollX = win.scrollX || win.pageXOffset || 0;
+  const scrollY = win.scrollY || win.pageYOffset || 0;
+  const pageX = rect.left + scrollX;
+  const pageY = rect.top + scrollY;
+
+  // Feature-flagged Alternative Fast Renderer Path
+  if (USE_FAST_RENDERER) {
+    const fastDataUrl = await captureWithFastRenderer(target as HTMLElement, rect, win);
+    if (fastDataUrl) {
+      console.log('[PixelMark Capture] Fast native SVG capture successful');
+      console.timeEnd("PixelMark recapture " + markerId);
+      return { dataUrl: fastDataUrl, method: 'html2canvas-crop' };
+    }
+  }
+
+  // Cap scale explicitly, never use raw devicePixelRatio for recapture
+  const CAPTURE_SCALE = Math.min(win.devicePixelRatio || 1, 1.5);
+
+  // Tier 2a: html2canvas on target element with tight bounds
+  try {
+    const canvasPromise = (html2canvas(doc.body, {
+      x: pageX,
+      y: pageY,
+      width: rect.width || 100,
+      height: rect.height || 100,
+      scale: CAPTURE_SCALE,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      imageTimeout: 1500,
+      foreignObjectRendering: false, // faster and more reliable
+      backgroundColor: null,
+    } as any) as any) as Promise<HTMLCanvasElement>;
+
+    const elementCanvas = await withTimeout(canvasPromise, 1800);
+    if (elementCanvas && elementCanvas.width > 0 && elementCanvas.height > 0 && !isCanvasTransparent(elementCanvas)) {
+      const dataUrl = elementCanvas.toDataURL('image/png');
+      console.log('[PixelMark Capture] html2canvas element crop successful');
+      console.timeEnd("PixelMark recapture " + markerId);
+      return { dataUrl, method: 'html2canvas-crop' };
+    }
+    console.warn('[PixelMark Capture] html2canvas element crop timed out or returned empty, falling back to full-page');
+  } catch (err) {
+    console.warn('[PixelMark Capture] html2canvas element crop failed:', err);
+  }
+
+  // Tier 2b: html2canvas on doc.body as full-page fallback, then crop
+  try {
+    const bodyEl = doc.body;
+    const bodyCanvasPromise = (html2canvas(bodyEl, {
+      scale: 1, // downscale the source render to 1 first (perf optimization)
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      imageTimeout: 1500,
+      foreignObjectRendering: false,
+      backgroundColor: null,
+    } as any) as any) as Promise<HTMLCanvasElement>;
+
+    const bodyCanvas = await withTimeout(bodyCanvasPromise, 1800);
+    if (bodyCanvas && bodyCanvas.width > 0 && bodyCanvas.height > 0) {
+      const cropCanvas = doc.createElement('canvas');
+      cropCanvas.width = rect.width || 100;
+      cropCanvas.height = rect.height || 100;
+      const cropCtx = cropCanvas.getContext('2d');
+      if (cropCtx) {
+        cropCtx.drawImage(
+          bodyCanvas,
+          pageX, pageY, rect.width || 100, rect.height || 100,
+          0, 0, rect.width || 100, rect.height || 100
+        );
+        const dataUrl = cropCanvas.toDataURL('image/png');
+        console.log('[PixelMark Capture] html2canvas full-page fallback crop successful');
+        console.timeEnd("PixelMark recapture " + markerId);
+        return { dataUrl, method: 'html2canvas-full-fallback' };
+      }
+    }
+  } catch (err) {
+    console.error('[PixelMark Capture] html2canvas full-page fallback failed:', err);
+  }
+
+  console.timeEnd("PixelMark recapture " + markerId);
+  return { dataUrl: null, method: 'none' };
 }

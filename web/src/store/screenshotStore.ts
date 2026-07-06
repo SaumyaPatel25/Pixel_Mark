@@ -7,6 +7,7 @@ interface ScreenshotState {
   screenshotPermission: ScreenshotPermission
   screenshotStream: MediaStream | null
   screenshotMode: ScreenshotMode
+  markerModes: Record<string, ScreenshotMode>
   screenshotStatus: 'idle' | 'capturing' | 'success' | 'failed'
   screenshotDataUrl: string | null
   screenshotSource: string | null
@@ -14,6 +15,7 @@ interface ScreenshotState {
   setPermission: (perm: ScreenshotPermission) => void
   setStream: (stream: MediaStream | null) => void
   setMode: (mode: ScreenshotMode) => void
+  setModeForMarker: (markerId: string, mode: ScreenshotMode) => void
   setScreenshotState: (
     status: 'idle' | 'capturing' | 'success' | 'failed',
     dataUrl: string | null,
@@ -27,6 +29,7 @@ export const useScreenshotStore = create<ScreenshotState>((set, get) => ({
   screenshotPermission: 'idle',
   screenshotStream: null,
   screenshotMode: 'element',
+  markerModes: {},
   screenshotStatus: 'idle',
   screenshotDataUrl: null,
   screenshotSource: null,
@@ -40,6 +43,12 @@ export const useScreenshotStore = create<ScreenshotState>((set, get) => ({
     set({ screenshotStream: stream })
   },
   setMode: (mode) => set({ screenshotMode: mode }),
+  setModeForMarker: (markerId, mode) => {
+    set(state => ({
+      markerModes: { ...state.markerModes, [markerId]: mode },
+      screenshotMode: mode
+    }))
+  },
   setScreenshotState: (status, dataUrl, source, error) =>
     set({
       screenshotStatus: status,
@@ -58,7 +67,8 @@ export const useScreenshotStore = create<ScreenshotState>((set, get) => ({
       screenshotStatus: 'idle',
       screenshotDataUrl: null,
       screenshotSource: null,
-      screenshotError: null
+      screenshotError: null,
+      markerModes: {}
     })
   }
 }))

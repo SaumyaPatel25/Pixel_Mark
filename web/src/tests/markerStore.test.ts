@@ -241,7 +241,7 @@ describe('MarkerStore: Derived Selectors', () => {
     useMarkerStore.setState({
       markersById: { m1, m2, m3, m4 },
       orderedMarkerIds: ['m1', 'm2', 'm3'],
-      filters: { status: 'all', priority: 'all' }
+      filters: { status: 'all', priority: 'all', creatorId: 'all' }
     })
   })
 

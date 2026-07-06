@@ -73,15 +73,10 @@ export function useSessionSocket(
       useMarkerStore.getState().setConnectionStatus('connected')
       backoffRef.current = 1000 // Reset backoff on success
 
-      // If this connection was a reconnect, trigger store-level reconciliation
-      if (isReconnectingRef.current) {
-        console.log(`[WebSocket] Reconnect detected. Reconciling store markers...`)
-        useMarkerStore.getState().reconcileSession(sessionId)
-        isReconnectingRef.current = false
-      } else {
-        // First connection: request snapshot immediately
-        requestSnapshot()
-      }
+      // Reconnect/Open always triggers full session markers reconcile
+      console.log(`[WebSocket] Reconnect/Open detected. Reconciling store markers...`)
+      useMarkerStore.getState().reconcileSessionMarkers(sessionId)
+      isReconnectingRef.current = false
 
       // Start heartbeat
       startHeartbeat()
@@ -160,7 +155,7 @@ export function useSessionSocket(
         socketRef.current.close()
       }
     }
-  }, [sessionId])
+  }, [sessionId, actorContext?.id, actorContext?.role])
 
   return {
     isConnected,

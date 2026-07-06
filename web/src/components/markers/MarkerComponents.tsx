@@ -12,6 +12,7 @@ interface MarkerPinProps {
   onDragStart?: (markerId: string, e: React.PointerEvent) => void
   onClick?: (markerId: string) => void
   size?: 'sm' | 'md'
+  dragging?: boolean
 }
 
 /**
@@ -19,31 +20,31 @@ interface MarkerPinProps {
  * Color is driven deterministically by marker.color_token.
  * Delete/move affordances are shown only if the actor has permission.
  */
-export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClick, size = 'md' }: MarkerPinProps) {
+export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClick, size = 'md', dragging = false }: MarkerPinProps) {
   const colors = getMarkerColors(marker.color_token)
   const canMutate = canCurrentActorMutateMarker(actor, marker)
   const initials = (marker.creator_name ?? '?').slice(0, 2).toUpperCase()
   const sizeClass = size === 'sm' ? 'w-7 h-7 text-[10px]' : 'w-9 h-9 text-xs'
   const [isHovered, setIsHovered] = useState(false)
 
-  const showStrip = canMutate && (onDelete || onMove || onDragStart) && isHovered
+  const showStrip = canMutate && (onDelete || onMove || onDragStart) && isHovered && !dragging
 
   return (
     <div
-      className="relative cursor-pointer select-none"
+      className={`relative select-none ${dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => onClick?.(marker.id)}
+      onClick={() => { if (!dragging) onClick?.(marker.id) }}
       title={`${marker.creator_name ?? 'Anonymous'}: ${marker.title ?? ''}`}
     >
       {/* Dot */}
       <div
-        className={`${sizeClass} rounded-full flex items-center justify-center font-black border-2 shadow-lg transition-transform ${isHovered ? 'scale-110' : ''}`}
+        className={`${sizeClass} rounded-full flex items-center justify-center font-black border-2 shadow-lg transition-transform ${dragging ? 'scale-125 ring-4 ring-purple-500/30' : (isHovered ? 'scale-110' : '')}`}
         style={{
           backgroundColor: colors.dot,
           borderColor: colors.border,
           color: '#fff',
-          boxShadow: `0 0 0 3px ${colors.dot}30`,
+          boxShadow: dragging ? `0 0 15px ${colors.dot}` : `0 0 0 3px ${colors.dot}30`,
         }}
       >
         {initials}

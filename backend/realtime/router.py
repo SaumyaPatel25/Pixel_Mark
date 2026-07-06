@@ -121,6 +121,7 @@ async def handle_websocket(
 
     # Broadcast updated presence
     if actor_id:
+        logger.info(f"PixelMark presence joined [{actor_id}]")
         await broadcast_presence(session_id, sessionmaker)
 
     try:
@@ -177,12 +178,14 @@ async def handle_websocket(
     except WebSocketDisconnect:
         realtime_manager.disconnect(session_id, websocket)
         if actor_id:
+            logger.info(f"PixelMark presence left [{actor_id}]")
             await broadcast_presence(session_id, sessionmaker)
     except Exception as e:
         logger.error(f"[WS] Connection error in session={session_id}: {e}")
         realtime_manager.disconnect(session_id, websocket)
         try:
             if actor_id:
+                logger.info(f"PixelMark presence left [{actor_id}]")
                 await broadcast_presence(session_id, sessionmaker)
         except Exception:
             pass

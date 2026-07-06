@@ -77,6 +77,24 @@ export default function DashboardPage() {
   const [dateFilter, setDateFilter] = useState<'all' | '24h' | '7d' | '30d'>('all')
   const [sortOrder, setSortOrder] = useState<'recent' | 'name'>('recent')
 
+  // Delete project state
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null)
+
+  const handleDeleteProject = async (projectId: string) => {
+    setDeletingProjectId(projectId)
+    try {
+      await api.projects.delete(projectId)
+      // Optimistically remove from local state
+      setProjectsData(prev => prev.filter(p => p.id !== projectId))
+      setStatsData(prev => ({ ...prev, totalProjects: Math.max(0, prev.totalProjects - 1) }))
+    } catch (err: any) {
+      console.error('[Dashboard] Failed to delete project:', err)
+      alert(`Failed to delete project: ${err.message || 'Unknown error'}`)
+    } finally {
+      setDeletingProjectId(null)
+    }
+  }
+
   // Load all telemetry from the unified parallel fetching flow
   const fetchDashboardData = async () => {
     setIsLoading(true)
@@ -434,6 +452,7 @@ export default function DashboardPage() {
                           alert('Please start a review session first before generating a client link.')
                         }
                       }}
+                      onDelete={async () => { await handleDeleteProject(p.id) }}
                     />
                   </motion.div>
                 ))}

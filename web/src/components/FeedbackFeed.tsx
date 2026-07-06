@@ -117,7 +117,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
               <div className="flex items-center gap-2 flex-wrap">
                 {participants.map(p => {
                   const colors = getMarkerColors(p.color_token)
-                  const initials = p.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || '?'
+                  const initials = (p.name || '?').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || '?'
                   return (
                     <div
                       key={p.id}

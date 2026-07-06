@@ -18,6 +18,11 @@ export function RegionSelectionOverlay({ onConfirm, onCancel }: Props) {
   useEffect(() => {
     if (screenshotMode !== 'region') return
 
+    // Auto-focus the overlay so it receives keyboard focus immediately
+    if (overlayRef.current) {
+      overlayRef.current.focus()
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
@@ -49,6 +54,7 @@ export function RegionSelectionOverlay({ onConfirm, onCancel }: Props) {
     setCurrentPos({ x: e.clientX, y: e.clientY })
     if (overlayRef.current) {
       overlayRef.current.setPointerCapture(e.pointerId)
+      overlayRef.current.focus()
     }
   }
 
@@ -73,7 +79,8 @@ export function RegionSelectionOverlay({ onConfirm, onCancel }: Props) {
   return (
     <div
       ref={overlayRef}
-      className={`fixed inset-0 cursor-crosshair touch-none overflow-hidden ${isDragging ? 'z-[2147483647]' : 'z-[9998]'}`}
+      tabIndex={0}
+      className={`fixed inset-0 cursor-crosshair touch-none overflow-hidden outline-none ${isDragging ? 'z-[2147483647]' : 'z-[9998]'}`}
       style={{ backgroundColor: 'transparent' }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

@@ -1,12 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { computeMarkerScreenPosition, buildDomMovePatch, resolveDomTarget } from '@/lib/markerPlacement'
-import { Marker } from '@/types/markers'
+import { resolveMarkerRenderPosition, buildDomMovePatch } from '@/lib/markerPlacement'
+import { CanonicalMarkerAnchor } from '@/types/markers'
 
 describe('markerPlacement', () => {
+  let mockWin: any
   let mockDoc: any
 
   beforeEach(() => {
-    // Create a very basic mock document
+    mockWin = {
+      scrollX: 10,
+      scrollY: 20
+    }
+    
     const mockBody = {
       tagName: 'BODY',
       nodeType: 1,
@@ -40,132 +45,88 @@ describe('markerPlacement', () => {
       evaluate: () => ({
         singleNodeValue: null
       }),
-      getElementById: (id: string) => {
-        if (id === 'my-canvas') {
-          return {
-            getBoundingClientRect: () => ({ left: 50, top: 50, width: 800, height: 600 }),
-            getAttribute: () => null,
-            classList: { length: 0 }
-          }
-        }
-        return null
+      querySelectorAll: (selector: string) => {
+        return []
       }
     }
   })
 
-  describe('resolveDomTarget', () => {
-    it('returns null if anchor_kind is not dom-relative', () => {
-      const marker = { anchor_kind: 'canvas-relative' } as Marker
-      expect(resolveDomTarget(marker, mockDoc).element).toBeNull()
-    })
-
+  describe('resolveMarkerRenderPosition', () => {
     it('resolves element via selector', () => {
-      const marker = { anchor_kind: 'dom-relative', target_selector: '#valid' } as Marker
-      const el = resolveDomTarget(marker, mockDoc)
-      expect(el.element).not.toBeNull()
-      expect(el.mode).toBe('dom')
-    })
+      const marker = {
+        anchorMode: 'dom',
+        elementSelector: '#valid',
+        offsetXRatio: 0.5,
+        offsetYRatio: 0.5
+      } as CanonicalMarkerAnchor
 
-    it('returns null for invalid selector', () => {
-      const marker = { anchor_kind: 'dom-relative', target_selector: '#invalid' } as Marker
-      expect(resolveDomTarget(marker, mockDoc).element).toBeNull()
+      const pos = resolveMarkerRenderPosition(marker, mockWin, mockDoc)
+      expect(pos).not.toBeNull()
+      expect(pos!.left).toBe(135) // rect.left(100) + scrollX(10) + rect.width(50)*0.5 = 135
+      expect(pos!.top).toBe(245)  // rect.top(200) + scrollY(20) + rect.height(50)*0.5 = 245
+      expect(pos!.source).toBe('dom')
+      expect(pos!.degraded).toBe(false)
     })
 
     it('falls back to fuzzy text matching if selector and xpath fail', () => {
       const marker = {
-        anchor_kind: 'dom-relative',
-        target_selector: '#missing',
-        dom_text_excerpt: 'Click Me',
-        element_rect_json: { tagName: 'BUTTON' }
-      } as Marker
+        anchorMode: 'dom',
+        elementSelector: '#missing',
+        textHint: 'Click Me'
+      } as CanonicalMarkerAnchor
 
       const mockDocWithFuzzy = {
         ...mockDoc,
         querySelector: () => null,
-        getElementsByTagName: (tagName: string) => {
-          if (tagName.toLowerCase() === 'button') {
-            return [
-              {
-                textContent: 'Cancel',
-                getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 })
-              },
-              {
-                textContent: 'Click Me Now',
-                getBoundingClientRect: () => ({ left: 150, top: 250, width: 60, height: 30 })
-              }
-            ]
-          }
-          return []
+        querySelectorAll: (selector: string) => {
+          return [
+            {
+              textContent: 'Cancel',
+              getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 })
+            },
+            {
+              textContent: 'Click Me Now',
+              getBoundingClientRect: () => ({ left: 150, top: 250, width: 60, height: 30 })
+            }
+          ]
         }
       } as any
 
-      const res = resolveDomTarget(marker, mockDocWithFuzzy)
-      expect(res.element).not.toBeNull()
-      expect(res.element!.textContent).toBe('Click Me Now')
-      expect(res.mode).toBe('fuzzy_dom')
-    })
-  })
-
-  describe('computeMarkerScreenPosition', () => {
-    it('computes exact-dom coordinates correctly', () => {
-      const marker = {
-        anchor_kind: 'dom-relative',
-        target_selector: '#valid',
-        offset_x_ratio: 0.5, // Center
-        offset_y_ratio: 0.5
-      } as Marker
-
-      // rect is left: 100, top: 200, w: 50, h: 50. Center is (125, 225)
-      // client + scroll = (125, 225) + (10, 20) = 135, 245
-      const pos = computeMarkerScreenPosition(marker, mockDoc, { x: 10, y: 20 })
-      
-      expect(pos.x).toBe(135)
-      expect(pos.y).toBe(245)
-      expect(pos.mode).toBe('dom')
-    })
-
-    it('computes exact-canvas coordinates correctly', () => {
-      const marker = {
-        anchor_kind: 'canvas-relative',
-        canvas_id: 'my-canvas',
-        canvas_x_ratio: 0.25,
-        canvas_y_ratio: 0.75
-      } as Marker
-
-      // rect is left: 50, top: 50, w: 800, h: 600. Point is (50 + 200, 50 + 450) = (250, 500)
-      const pos = computeMarkerScreenPosition(marker, mockDoc, { x: 0, y: 0 })
-      
-      expect(pos.x).toBe(250)
-      expect(pos.y).toBe(500)
-      expect(pos.mode).toBe('dom')
+      const pos = resolveMarkerRenderPosition(marker, mockWin, mockDocWithFuzzy)
+      expect(pos).not.toBeNull()
+      expect(pos!.left).toBe(190) // 150 + 10 + 60*0.5 = 190
+      expect(pos!.top).toBe(285)  // 250 + 20 + 30*0.5 = 285
+      expect(pos!.source).toBe('fuzzy_dom')
+      expect(pos!.degraded).toBe(true) // Fuzzy matching is degraded: true
     })
 
     it('falls back to viewport if target not found', () => {
       const marker = {
-        anchor_kind: 'dom-relative',
-        target_selector: '#missing',
-        page_x: 300,
-        page_y: 400
-      } as Marker
+        anchorMode: 'dom',
+        elementSelector: '#missing',
+        pageX: 300,
+        pageY: 400
+      } as CanonicalMarkerAnchor
 
-      const pos = computeMarkerScreenPosition(marker, mockDoc, { x: 0, y: 0 })
-      expect(pos.x).toBe(300)
-      expect(pos.y).toBe(400)
-      expect(pos.mode).toBe('viewport_fallback')
+      const pos = resolveMarkerRenderPosition(marker, mockWin, mockDoc)
+      expect(pos).not.toBeNull()
+      expect(pos!.left).toBe(300)
+      expect(pos!.top).toBe(400)
+      expect(pos!.source).toBe('page_xy')
+      expect(pos!.degraded).toBe(true)
     })
   })
 
   describe('buildDomMovePatch', () => {
     it('updates offset ratios relative to new client coordinates', () => {
       const marker = {
-        anchor_kind: 'dom-relative',
-        target_selector: '#valid',
+        anchorKind: 'dom-relative',
         version: 1
-      } as Marker
+      } as any
 
       // Element rect is { left: 100, top: 200, width: 50, height: 50 }
       // User drops it at clientX: 110, clientY: 225
-      const patch = buildDomMovePatch(marker, mockDoc, 110, 225, { x: 0, y: 0 })
+      const patch = buildDomMovePatch(marker, mockDoc, 110, 225, { x: 10, y: 20 })
 
       expect(patch).not.toBeNull()
       expect(patch!.offset_x_ratio).toBeCloseTo(0.2) // (110 - 100) / 50 = 0.2
@@ -177,14 +138,13 @@ describe('markerPlacement', () => {
 
     it('clamps offset ratios between 0 and 1', () => {
       const marker = {
-        anchor_kind: 'dom-relative',
-        target_selector: '#valid',
+        anchorKind: 'dom-relative',
         version: 1
-      } as Marker
+      } as any
 
       // Element rect is { left: 100, top: 200, width: 50, height: 50 }
       // User drops it way outside (clientX: 500, clientY: -100)
-      const patch = buildDomMovePatch(marker, mockDoc, 500, -100, { x: 0, y: 0 })
+      const patch = buildDomMovePatch(marker, mockDoc, 500, -100, { x: 10, y: 20 })
 
       expect(patch!.offset_x_ratio).toBe(1) // Max 1
       expect(patch!.offset_y_ratio).toBe(0) // Min 0

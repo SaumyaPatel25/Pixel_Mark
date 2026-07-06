@@ -1,19 +1,18 @@
 import asyncio
-import traceback
-from sqlalchemy import text
-from database import engine
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from database import engine, Base
 
-async def test_conn():
-    print("Testing connection to database...")
+async def run():
+    print("Testing DB connection...")
     try:
-        async with engine.connect() as conn:
-            result = await conn.execute(text("SELECT version();"))
-            row = result.fetchone()
-            print("Successfully connected!")
-            print("DB Version:", row[0])
+        async with engine.begin() as conn:
+            print("Connected! Running sync create_all...")
+            await conn.run_sync(Base.metadata.create_all)
+        print("Success!")
     except Exception as e:
-        print("Connection failed!")
-        traceback.print_exc()
+        print("Error:", e)
 
-if __name__ == "__main__":
-    asyncio.run(test_conn())
+if __name__ == '__main__':
+    asyncio.run(run())

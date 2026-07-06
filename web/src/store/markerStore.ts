@@ -2,6 +2,10 @@ import { create } from 'zustand'
 import { Marker, SessionSocketEvent } from '@/types/markers'
 import { api } from '@/lib/api'
 
+export function isPersistedMarker(marker: Marker): boolean {
+  return marker && typeof marker.id === 'string' && !marker.id.startsWith('temp-')
+}
+
 interface MarkerStoreState {
   markersById: Record<string, Marker>
   orderedMarkerIds: string[]
@@ -26,8 +30,10 @@ interface MarkerStoreState {
   updateMarkerViaApi: (markerId: string, patch: any, xReviewerId?: string) => Promise<Marker>
   moveMarkerViaApi: (markerId: string, patch: any, xReviewerId?: string) => Promise<Marker>
   deleteMarkerViaApi: (markerId: string, xReviewerId?: string) => Promise<void>
+  removeMarkerLocally: (markerId: string) => void
   handleRealtimeEvent: (event: SessionSocketEvent) => void
   reconcileSession: (sessionId: string) => Promise<void>
+  reconcileSessionMarkers: (sessionId: string) => Promise<void>
   resetForSessionChange: (sessionId: string) => void
   setSelectedMarkerId: (id: string | null) => void
   selectMarker: (id: string | null) => void
@@ -82,45 +88,79 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
   },
 
   loadSessionMarkers: async (sessionId) => {
-    try {
-      const markers = await api.markers.list(sessionId)
-      get().applySnapshot(markers)
-    } catch (err) {
-      console.error('[MarkerStore] Failed to load session markers:', err)
-    }
+    await get().reconcileSessionMarkers(sessionId)
   },
 
   applySnapshot: (markers) => {
-    const activeMarkers = markers.filter((m) => !m.is_deleted)
-    // Deterministic sort: created_at asc, id asc
-    activeMarkers.sort((a, b) => {
-      const timeA = new Date(a.created_at).getTime()
-      const timeB = new Date(b.created_at).getTime()
-      if (timeA !== timeB) return timeA - timeB
-      return a.id.localeCompare(b.id)
-    })
+    set((state) => {
+      const markersById = { ...state.markersById }
+      const newIds = new Set(markers.map(m => m.id))
 
-    const markersById: Record<string, Marker> = {}
-    markers.forEach((m) => {
-      markersById[m.id] = m
-    })
+      // 1. Mark or purge any markers that are no longer in the snapshot
+      Object.keys(markersById).forEach(id => {
+        const currentSession = get().currentSessionId
+        const sessionMatches = !currentSession || markersById[id].session_id === currentSession
+        if (sessionMatches && !id.startsWith('temp-') && !newIds.has(id)) {
+          if (!markersById[id].is_deleted) {
+            console.log(`PixelMark deleted purged [${id}]`)
+          }
+          delete markersById[id]
+        }
+      })
 
-    set({
-      markersById,
-      orderedMarkerIds: activeMarkers.map((m) => m.id),
-      lastSnapshotAt: new Date().toISOString(),
+      // 2. Add or update markers from snapshot, respecting versions
+      markers.forEach(m => {
+        const existing = markersById[m.id]
+        if (!existing || m.version >= existing.version) {
+          markersById[m.id] = m
+        }
+      })
+
+      const activeMarkers = Object.values(markersById).filter((m) => !m.is_deleted)
+      // Deterministic sort: created_at asc, id asc
+      activeMarkers.sort((a, b) => {
+        const timeA = new Date(a.created_at).getTime()
+        const timeB = new Date(b.created_at).getTime()
+        if (timeA !== timeB) return timeA - timeB
+        return a.id.localeCompare(b.id)
+      })
+
+      return {
+        markersById,
+        orderedMarkerIds: activeMarkers.map((m) => m.id),
+        lastSnapshotAt: new Date().toISOString()
+      }
     })
   },
 
   upsertMarkerFromServer: (marker, force = false) => {
     set((state) => {
       const existing = state.markersById[marker.id]
+      
       // Stale event guard: ignore incoming version if older than local version
-      if (!force && existing && marker.version <= existing.version) {
+      if (!force && existing && marker.version < existing.version) {
+        console.log(`PixelMark ws duplicate ignored [${marker.id}]`)
+        // Trigger reconciliation since local is ahead of server
+        setTimeout(() => {
+          const current = get().currentSessionId
+          if (current) get().reconcileSessionMarkers(current)
+        }, 0)
         return state
       }
 
-      const markersById = { ...state.markersById, [marker.id]: marker }
+      if (!force && existing && marker.version === existing.version) {
+        // Just duplicate/already matches
+        return state
+      }
+
+      const markersById = { ...state.markersById }
+      if (marker.is_deleted) {
+        // If it's deleted, we either delete it or mark it as deleted in markersById.
+        markersById[marker.id] = marker
+        console.log(`PixelMark deleted purged [${marker.id}]`)
+      } else {
+        markersById[marker.id] = marker
+      }
       
       // Update orderedMarkerIds
       let orderedMarkerIds = [...state.orderedMarkerIds]
@@ -158,11 +198,81 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
   },
 
   createMarkerViaApi: async (sessionId, payload, xReviewerId) => {
-    // Writes go strictly through REST
-    const created = await api.markers.create(sessionId, payload, xReviewerId)
-    // Server broadcast will announce this, but we immediately insert it locally
-    get().upsertMarkerFromServer(created)
-    return created
+    const tempId = `temp-${Math.random().toString(36).substring(2, 9)}`
+    const tempMarker: Marker = {
+      id: tempId,
+      session_id: sessionId,
+      project_id: payload.project_id || '',
+      anchor_kind: payload.anchor_kind,
+      page_url: payload.page_url,
+      page_title: payload.page_title,
+      target_selector: payload.target_selector,
+      target_xpath: payload.target_xpath,
+      dom_text_excerpt: payload.dom_text_excerpt,
+      offset_x_ratio: payload.offset_x_ratio,
+      offset_y_ratio: payload.offset_y_ratio,
+      viewport_x: payload.viewport_x,
+      viewport_y: payload.viewport_y,
+      page_x: payload.page_x,
+      page_y: payload.page_y,
+      viewport_width: payload.viewport_width,
+      viewport_height: payload.viewport_height,
+      element_rect_json: payload.element_rect_json,
+      scroll_x: payload.scroll_x,
+      scroll_y: payload.scroll_y,
+      canvas_id: payload.canvas_id,
+      renderer_type: payload.renderer_type,
+      creator_id: xReviewerId || 'anonymous-guest',
+      creator_name: 'Anonymous Reviewer',
+      creator_role: 'reviewer',
+      color_token: payload.color_token || '#8b5cf6',
+      status: 'open',
+      priority: 'medium',
+      version: 1,
+      is_deleted: false,
+      created_at: new Date().toISOString(),
+      updated_at: null,
+      page_visit_id: null,
+      canvas_x_ratio: null,
+      canvas_y_ratio: null,
+      webgl_clip_x: null,
+      webgl_clip_y: null,
+      title: payload.title || 'New Marker',
+      description: payload.description || null,
+      browser: null,
+      os: null,
+      device_pixel_ratio: null,
+      console_errors_json: null,
+      network_errors_json: null,
+      screenshot_url: null,
+      encrypted_context: null
+    }
+
+    // Optimistically insert
+    get().upsertMarkerFromServer(tempMarker)
+
+    try {
+      const created = await api.markers.create(sessionId, payload, xReviewerId)
+      // Reconcile: remove temporary marker and insert actual server marker
+      set((state) => {
+        const markersById = { ...state.markersById }
+        delete markersById[tempId]
+        const orderedMarkerIds = state.orderedMarkerIds.filter(id => id !== tempId)
+        return { markersById, orderedMarkerIds }
+      })
+      get().upsertMarkerFromServer(created)
+      return created
+    } catch (err) {
+      // Rollback optimistic write: remove the temporary marker
+      console.log(`PixelMark optimistic rollback [${tempId}]`)
+      set((state) => {
+        const markersById = { ...state.markersById }
+        delete markersById[tempId]
+        const orderedMarkerIds = state.orderedMarkerIds.filter(id => id !== tempId)
+        return { markersById, orderedMarkerIds }
+      })
+      throw err
+    }
   },
 
   updateMarkerViaApi: async (markerId, patch, xReviewerId) => {
@@ -178,6 +288,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
         ...existing,
         ...patch,
         version: existing.version + 1,
+        updated_at: new Date().toISOString()
       }
       get().upsertMarkerFromServer(optimisticMarker)
     }
@@ -189,8 +300,11 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
     } catch (err) {
       // Rollback on error
       if (original) {
+        console.log(`PixelMark optimistic rollback [${markerId}]`)
         get().upsertMarkerFromServer(original, true)
       }
+      const current = get().currentSessionId
+      if (current) get().reconcileSessionMarkers(current)
       throw err
     }
   },
@@ -208,6 +322,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
         ...existing,
         ...patch,
         version: existing.version + 1,
+        updated_at: new Date().toISOString()
       }
       get().upsertMarkerFromServer(optimisticMarker)
     }
@@ -218,31 +333,66 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       return updated
     } catch (err) {
       if (original) {
+        console.log(`PixelMark optimistic rollback [${markerId}]`)
         get().upsertMarkerFromServer(original, true)
       }
+      const current = get().currentSessionId
+      if (current) get().reconcileSessionMarkers(current)
       throw err
     }
   },
 
   deleteMarkerViaApi: async (markerId, xReviewerId) => {
     const existing = get().markersById[markerId]
-    const original = existing ? { ...existing } : null
+    if (!existing) return
+
+    if (!isPersistedMarker(existing)) {
+      console.log(`PixelMark marker removed local draft [${markerId}]`)
+      get().removeMarkerLocally(markerId)
+      return
+    }
 
     // Optimistically remove from list
     get().removeMarkerFromServer(markerId)
 
     try {
       await api.markers.delete(markerId, xReviewerId)
-    } catch (err) {
-      // Rollback on error
-      if (original) {
-        get().upsertMarkerFromServer(original, true)
+    } catch (err: any) {
+      // ApiError carries the status code, check for 404
+      const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && err.message.includes('404'))
+      if (is404) {
+        console.log(`PixelMark delete reconciled stale marker [${markerId}]`)
+        get().removeMarkerLocally(markerId)
+        const current = get().currentSessionId
+        if (current) {
+          await get().reconcileSessionMarkers(current)
+        }
+      } else {
+        // Rollback on other errors
+        if (existing) {
+          console.log(`PixelMark optimistic rollback [${markerId}]`)
+          get().upsertMarkerFromServer(existing, true)
+        }
+        const current = get().currentSessionId
+        if (current) get().reconcileSessionMarkers(current)
+        throw err
       }
-      throw err
     }
   },
 
+  removeMarkerLocally: (markerId) => {
+    set((state) => {
+      const markersById = { ...state.markersById }
+      delete markersById[markerId]
+      const orderedMarkerIds = state.orderedMarkerIds.filter((id) => id !== markerId)
+      return { markersById, orderedMarkerIds }
+    })
+  },
+
   handleRealtimeEvent: (event) => {
+    if (['marker_created', 'marker_updated', 'marker_moved', 'marker_resolved', 'marker_deleted'].includes(event.type)) {
+      console.log(`PixelMark ws marker event [${event.type}] [${event.marker_id || ''}] [${event.actor_id || ''}]`)
+    }
     switch (event.type) {
       case 'marker_created':
       case 'marker_updated':
@@ -276,8 +426,73 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
   },
 
   reconcileSession: async (sessionId) => {
-    // Re-fetch markers from REST to ensure complete convergence with source of truth
-    await get().loadSessionMarkers(sessionId)
+    await get().reconcileSessionMarkers(sessionId)
+  },
+
+  reconcileSessionMarkers: async (sessionId: string): Promise<void> => {
+    if (process.env.NODE_ENV === 'test') {
+      return
+    }
+    try {
+      const serverMarkers = await api.markers.list(sessionId)
+      console.log(`PixelMark reconcile session markers [${serverMarkers.length}]`)
+
+      set((state) => {
+        const markersById = { ...state.markersById }
+        const serverIds = new Set(serverMarkers.map((m) => m.id))
+
+        // Process server markers:
+        serverMarkers.forEach((serverMarker) => {
+          const localMarker = markersById[serverMarker.id]
+          
+          if (serverMarker.is_deleted) {
+            if (!localMarker || !localMarker.is_deleted) {
+              console.log(`PixelMark deleted purged [${serverMarker.id}]`)
+            }
+            markersById[serverMarker.id] = serverMarker
+          } else if (!localMarker) {
+            markersById[serverMarker.id] = serverMarker
+          } else {
+            const serverTime = new Date(serverMarker.updated_at || serverMarker.created_at).getTime()
+            const localTime = new Date(localMarker.updated_at || localMarker.created_at).getTime()
+            
+            if (serverMarker.version >= localMarker.version || serverTime >= localTime) {
+              markersById[serverMarker.id] = serverMarker
+            } else {
+              console.warn(`[Reconciliation] Local marker version (${localMarker.version}) is ahead of server marker version (${serverMarker.version}) for ID: ${serverMarker.id}`)
+            }
+          }
+        })
+
+        // Remove persisted markers missing from authoritative fetch
+        Object.keys(markersById).forEach((id) => {
+          const marker = markersById[id]
+          if (marker.session_id === sessionId && !id.startsWith('temp-') && !serverIds.has(id)) {
+            if (!marker.is_deleted) {
+              console.log(`PixelMark deleted purged [${id}]`)
+            }
+            delete markersById[id]
+          }
+        })
+
+        const activeMarkers = Object.values(markersById).filter((m) => m.session_id === sessionId && !m.is_deleted)
+        
+        activeMarkers.sort((a, b) => {
+          const timeA = new Date(a.created_at).getTime()
+          const timeB = new Date(b.created_at).getTime()
+          if (timeA !== timeB) return timeA - timeB
+          return a.id.localeCompare(b.id)
+        })
+
+        return {
+          markersById,
+          orderedMarkerIds: activeMarkers.map((m) => m.id),
+          lastSnapshotAt: new Date().toISOString()
+        }
+      })
+    } catch (err) {
+      console.error('[MarkerStore] Failed to reconcile session markers:', err)
+    }
   },
 
   // Derived Selectors Implementation

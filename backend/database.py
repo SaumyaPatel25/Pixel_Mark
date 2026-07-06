@@ -33,7 +33,11 @@ if "neon.tech" in DATABASE_URL:
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,
-        connect_args={"ssl": True},
+        connect_args={
+            "ssl": True,
+            "statement_cache_size": 0,
+            "prepared_statement_cache_size": 0
+        },
     )
 else:
     engine = create_async_engine(DATABASE_URL, echo=False)
