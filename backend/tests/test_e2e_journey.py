@@ -24,7 +24,7 @@ async def async_client():
 @pytest.fixture
 async def developer_token():
     async with AsyncSessionLocal() as db:
-        user = User(email="dev@example.com", name="Dev")
+        user = User(email="dev@example.com", name="Dev", hashed_password="hashed_password_dummy")
         db.add(user)
         await db.commit()
         await db.refresh(user)

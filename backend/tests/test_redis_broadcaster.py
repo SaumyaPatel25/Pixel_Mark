@@ -26,10 +26,11 @@ async def test_publish_event_success(broadcaster, mock_realtime_manager):
     broadcaster.get_redis = AsyncMock(return_value=mock_redis)
 
     event = {
-        "event_type": "marker_created",
+        "type": "marker_created",
         "session_id": "sess-1",
-        "timestamp": "2023-01-01T00:00:00Z",
-        "payload": {}
+        "event_id": "evt-1",
+        "occurred_at": "2023-01-01T00:00:00Z",
+        "data": {}
     }
     
     with patch("realtime.redis_broadcaster.realtime_manager", mock_realtime_manager):
@@ -40,7 +41,7 @@ async def test_publish_event_success(broadcaster, mock_realtime_manager):
         args, _ = mock_redis.publish.call_args
         assert args[0] == "session:sess-1"
         payload = json.loads(args[1])
-        assert payload["event_type"] == "marker_created"
+        assert payload["type"] == "marker_created"
 
         # Should NOT fall back to local broadcast since Redis succeeded
         assert mock_realtime_manager.broadcast_to_session_local.call_count == 0
@@ -53,10 +54,11 @@ async def test_publish_event_fallback_redis_unreachable(broadcaster, mock_realti
     broadcaster.get_redis = AsyncMock(return_value=mock_redis)
 
     event = {
-        "event_type": "marker_created",
+        "type": "marker_created",
         "session_id": "sess-1",
-        "timestamp": "2023-01-01T00:00:00Z",
-        "payload": {}
+        "event_id": "evt-1",
+        "occurred_at": "2023-01-01T00:00:00Z",
+        "data": {}
     }
     
     with patch("realtime.redis_broadcaster.realtime_manager", mock_realtime_manager):
@@ -87,6 +89,7 @@ async def test_subscribe_and_unsubscribe(broadcaster):
         broadcaster.unsubscribe_from_session("sess-1")
         assert "sess-1" not in broadcaster._active_sessions
         assert "sess-1" not in broadcaster._subscriptions
+        await asyncio.sleep(0)
         assert task.cancelled()
 
 @pytest.mark.asyncio
