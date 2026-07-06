@@ -6,7 +6,7 @@ from models import Session, PageVisit, AuditArtifact, ShareLink, CanvasFrame, Pr
 from schemas import (
     SessionCreate, SessionOut, PageVisitOut, SessionRendererUpdate
 )
-from dependencies import get_db, get_current_user
+from dependencies import get_db, get_current_user, get_current_user_optional
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional, List
@@ -227,13 +227,25 @@ async def list_sessions(
 @router.get("/{session_id}", response_model=SessionOut)
 async def get_session(
     session_id: str,
-    current_user: User = Depends(get_current_user),
+    request: Request,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     try:
         uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    if not current_user:
+        share_token = request.query_params.get("share_token")
+        if share_token:
+            share_query = select(ShareLink).where(ShareLink.token == share_token, ShareLink.is_active == True)
+            share_result = await db.execute(share_query)
+            share_link = share_result.scalar_one_or_none()
+            if not share_link or share_link.session_id != session_id:
+                raise HTTPException(status_code=403, detail="Invalid or insufficient share token")
+        else:
+            raise HTTPException(status_code=401, detail="Authentication required")
 
     result = await db.execute(select(Session).where(Session.id == session_id))
     session = result.scalar_one_or_none()

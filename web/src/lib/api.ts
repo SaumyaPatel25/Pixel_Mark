@@ -301,8 +301,9 @@ export const api = {
         body: JSON.stringify(data),
       }))
     },
-    async getSession(id: string) {
-      return apiQueue.enqueueRead('Loading session...', () => request(`/sessions/${id}`))
+    async getSession(id: string, shareToken?: string) {
+      const url = `/sessions/${id}${shareToken ? `?share_token=${shareToken}` : ''}`
+      return apiQueue.enqueueRead('Loading session...', () => request(url))
     },
     async sendHeartbeat(sessionId: string) {
       return request(`/sessions/${sessionId}/heartbeat`, {

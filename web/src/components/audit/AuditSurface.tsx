@@ -55,6 +55,7 @@ const CollapsibleList = ({ title, count, items, renderItem }: { title: string; c
 interface AuditSurfaceProps {
   sessionId: string
   projectId: string
+  initialUrl?: string
   shareToken?: string
   reviewerIdentity?: ReviewerIdentity | null
   isReviewerGateOpen?: boolean
@@ -295,6 +296,7 @@ function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): (..
 export function AuditSurface({
   sessionId,
   projectId,
+  initialUrl,
   shareToken,
   reviewerIdentity,
   isReviewerGateOpen,
@@ -839,8 +841,8 @@ export function AuditSurface({
 
     async function loadInitialUrl() {
       try {
-        // First try getting session details
-        const session = await api.sessions.getSession(sessionId)
+        // First try getting session details, passing shareToken to avoid 401 redirects
+        const session = await api.sessions.getSession(sessionId, shareToken)
         if (!active) return
 
         if (session && session.current_page_url) {
@@ -860,8 +862,11 @@ export function AuditSurface({
           return
         }
 
-        // Fallback: fetch project details
-        if (projectId) {
+        // Fallback: use initialUrl prop if provided (prevents auth 401/403 for public reviews), else fetch project
+        if (initialUrl) {
+          console.log('[AuditSurface Init] Initializing currentUrl from initialUrl prop:', initialUrl)
+          setCurrentUrl(initialUrl)
+        } else if (projectId) {
           const project = await api.projects.get(projectId)
           if (!active) return
           if (project && project.url) {

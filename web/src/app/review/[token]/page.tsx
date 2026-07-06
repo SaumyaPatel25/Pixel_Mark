@@ -217,6 +217,7 @@ export default function ReviewPage() {
           <AuditSurface 
             sessionId={sessionInfo.session_id}
             projectId={sessionInfo.project_id!} 
+            initialUrl={sessionInfo.target_url || undefined}
             shareToken={token}
             reviewerIdentity={reviewerIdentity}
             isReviewerGateOpen={showIdentityGate}

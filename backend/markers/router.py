@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from database import AsyncSessionLocal
-from dependencies import get_db, bearer_scheme
+from dependencies import get_db, bearer_scheme, get_current_user_optional
 from fastapi.security import HTTPAuthorizationCredentials
 from auth import decode_token
 from models import User, ApiKey
@@ -24,36 +24,6 @@ from realtime.events import build_marker_event, build_marker_deleted_event
 logger = logging.getLogger("pixelmark.markers")
 
 router = APIRouter(tags=["markers"])
-
-# Helper dependency to resolve optional user (to avoid throwing 401 directly)
-async def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    db: AsyncSession = Depends(get_db)
-) -> Optional[User]:
-    if not credentials or not credentials.credentials:
-        return None
-    token = credentials.credentials
-    try:
-        if token.startswith("pm_"):
-            from services.crypto import hash_token
-            hashed = hash_token(token)
-            result = await db.execute(
-                select(ApiKey)
-                .where(ApiKey.token_hash == hashed)
-                .where(ApiKey.revoked_at.is_(None))
-            )
-            api_key = result.scalar_one_or_none()
-            if not api_key:
-                return None
-            user_result = await db.execute(select(User).where(User.id == api_key.user_id))
-            return user_result.scalar_one_or_none()
-        else:
-            payload = decode_token(token)
-            user_id = payload.get("sub")
-            result = await db.execute(select(User).where(User.id == user_id))
-            return result.scalar_one_or_none()
-    except Exception:
-        return None
 
 # Helper function to resolve actor context
 async def resolve_actor_context(
