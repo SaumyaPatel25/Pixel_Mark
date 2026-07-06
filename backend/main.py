@@ -475,8 +475,12 @@ async def resolve_token(token: str, request: Request):
             return JSONResponse(status_code=410, content={"error": "link_revoked", "detail": "Share link has been revoked"})
             
         # Check expiry
-        if link.expires_at and link.expires_at < datetime.utcnow():
-            return JSONResponse(status_code=410, content={"error": "link_expired", "detail": "Share link has expired"})
+        if link.expires_at:
+            from datetime import timezone
+            tz = link.expires_at.tzinfo
+            now = datetime.now(tz) if tz else datetime.utcnow()
+            if link.expires_at < now:
+                return JSONResponse(status_code=410, content={"error": "link_expired", "detail": "Share link has expired"})
             
         # Check use limit
         if link.max_uses and (link.use_count or 0) >= link.max_uses:

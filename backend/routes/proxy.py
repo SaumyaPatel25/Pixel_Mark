@@ -151,8 +151,12 @@ async def validate_public_access(session_id: str, share_token: str, db: AsyncSes
         raise HTTPException(status_code=404, detail="Share link not found")
     if not link.is_active:
         raise HTTPException(status_code=403, detail="Share link has been deactivated")
-    if link.expires_at and link.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=410, detail="Share link has expired")
+    if link.expires_at:
+        from datetime import timezone
+        tz = link.expires_at.tzinfo
+        now = datetime.now(tz) if tz else datetime.utcnow()
+        if link.expires_at < now:
+            raise HTTPException(status_code=410, detail="Share link has expired")
         
     return link
 

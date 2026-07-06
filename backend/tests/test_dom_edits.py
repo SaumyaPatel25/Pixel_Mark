@@ -117,7 +117,7 @@ def get_auth_headers():
 @pytest.mark.anyio
 async def test_create_dom_edit_unauthenticated():
     resp = client.post(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits",
         json={
             "session_id": MOCK_SESSION_ID,
             "selector": ".button-submit",
@@ -135,7 +135,7 @@ async def test_create_dom_edit_unauthenticated():
 async def test_create_dom_edit_as_owner():
     headers = get_auth_headers()
     resp = client.post(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits",
         headers=headers,
         json={
             "session_id": MOCK_SESSION_ID,
@@ -160,7 +160,7 @@ async def test_create_dom_edit_as_owner():
 @pytest.mark.anyio
 async def test_create_dom_edit_with_active_share_token():
     resp = client.post(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits?share_token={MOCK_SHARE_TOKEN_ACTIVE}",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits?share_token={MOCK_SHARE_TOKEN_ACTIVE}",
         json={
             "session_id": MOCK_SESSION_ID,
             "selector": ".button-submit",
@@ -180,7 +180,7 @@ async def test_create_dom_edit_with_active_share_token():
 @pytest.mark.anyio
 async def test_create_dom_edit_with_no_comment_share_token():
     resp = client.post(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits?share_token={MOCK_SHARE_TOKEN_NO_COMMENT}",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits?share_token={MOCK_SHARE_TOKEN_NO_COMMENT}",
         json={
             "session_id": MOCK_SESSION_ID,
             "selector": ".button-submit",
@@ -197,7 +197,7 @@ async def test_create_dom_edit_with_no_comment_share_token():
 @pytest.mark.anyio
 async def test_create_dom_edit_with_inactive_share_token():
     resp = client.post(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits?share_token={MOCK_SHARE_TOKEN_INACTIVE}",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits?share_token={MOCK_SHARE_TOKEN_INACTIVE}",
         json={
             "session_id": MOCK_SESSION_ID,
             "selector": ".button-submit",
@@ -217,7 +217,7 @@ async def test_create_bulk_and_list_dom_edits():
     
     # 1. Bulk Create
     resp = client.post(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits/bulk",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits/bulk",
         headers=headers,
         json=[
             {
@@ -248,7 +248,7 @@ async def test_create_bulk_and_list_dom_edits():
 
     # 2. List Grouped by page_url
     resp_list = client.get(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits",
         headers=headers
     )
     assert resp_list.status_code == 200
@@ -265,7 +265,7 @@ async def test_delete_endpoints():
     
     # Create an edit
     resp_create = client.post(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits",
         headers=headers,
         json={
             "session_id": MOCK_SESSION_ID,
@@ -282,13 +282,13 @@ async def test_delete_endpoints():
 
     # Delete edit as share token (should be forbidden)
     resp_delete_share = client.delete(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits/{edit_id}?share_token={MOCK_SHARE_TOKEN_ACTIVE}"
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits/{edit_id}?share_token={MOCK_SHARE_TOKEN_ACTIVE}"
     )
     assert resp_delete_share.status_code == 403
 
     # Delete edit as owner
     resp_delete = client.delete(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits/{edit_id}",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits/{edit_id}",
         headers=headers
     )
     assert resp_delete.status_code == 200
@@ -296,7 +296,7 @@ async def test_delete_endpoints():
 
     # Verify deleted
     resp_list = client.get(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits",
         headers=headers
     )
     assert resp_list.status_code == 200
@@ -309,7 +309,7 @@ async def test_delete_all_dom_edits():
     
     # Create multiple edits
     client.post(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits/bulk",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits/bulk",
         headers=headers,
         json=[
             {
@@ -335,7 +335,7 @@ async def test_delete_all_dom_edits():
 
     # Delete all as owner
     resp_del_all = client.delete(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits",
         headers=headers
     )
     assert resp_del_all.status_code == 200
@@ -343,7 +343,7 @@ async def test_delete_all_dom_edits():
 
     # Verify deleted
     resp_list = client.get(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits",
         headers=headers
     )
     assert resp_list.status_code == 200
@@ -356,7 +356,7 @@ async def test_export_css():
     
     # Create edits
     client.post(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits/bulk",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits/bulk",
         headers=headers,
         json=[
             {
@@ -382,13 +382,13 @@ async def test_export_css():
 
     # Export CSS as share token (should be forbidden)
     resp_export_share = client.get(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits/export/css?share_token={MOCK_SHARE_TOKEN_ACTIVE}"
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits/export/css?share_token={MOCK_SHARE_TOKEN_ACTIVE}"
     )
     assert resp_export_share.status_code == 403
 
     # Export CSS as owner
     resp_export = client.get(
-        f"/api/sessions/{MOCK_SESSION_ID}/dom-edits/export/css",
+        f"/sessions/{MOCK_SESSION_ID}/dom-edits/export/css",
         headers=headers
     )
     assert resp_export.status_code == 200

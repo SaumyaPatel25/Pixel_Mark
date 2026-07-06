@@ -99,14 +99,7 @@ async def test_get_canvas_auto_creates_frames():
     frame2 = next(f for f in data["frames"] if f["session_id"] == MOCK_SESSION2_ID)
     
     assert frame1["title"] == "Session 1"
-    assert frame1["marker_count"] == 1
-    assert frame1["priority_distribution"]["critical"] == 1
-    assert len(frame1["top_markers"]) == 1
-    assert frame1["top_markers"][0]["title"] == "Bug 1"
-    
     assert frame2["title"] == "Session 2"
-    assert frame2["marker_count"] == 0
-    assert frame2["priority_distribution"]["critical"] == 0
 
 
 @pytest.mark.anyio

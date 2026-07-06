@@ -55,8 +55,8 @@ def test_phase_4_websocket_reconciliation():
     Since we cannot easily spin up a headless browser in Pytest without Playwright, 
     we assert the backend exposes the list endpoint correctly for the client to call.
     """
-    # Verify the GET /api/sessions/{session_id}/feedback endpoint exists and works (or returns 401/404 properly)
-    response = client.get("/api/sessions/fake-session/feedback")
+    # Verify the GET /sessions/{session_id}/feedback endpoint exists and works (or returns 401/404 properly)
+    response = client.get("/sessions/fake-session/feedback")
     assert response.status_code in [401, 404], "Endpoint exists for reconciliation fetch"
 
 def test_phase_5_export_serialization():
