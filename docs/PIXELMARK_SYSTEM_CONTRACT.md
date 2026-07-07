@@ -45,7 +45,7 @@ PixelMark is a collaborative QA review and visual feedback platform. It allows d
 ### Subsystem Maturity/Stability Notes
 * **Stable Core:** Authentication (JWT and GitHub OAuth), Projects CRUD, Sessions Lifecycle, and Markers CRUD.
 * **Fragile/Complex:** Proxy Fallback Middleware and URL Rewriting (susceptible to CORS/CSP rules, Next.js hydration mismatches, and SSRF restrictions).
-* **Partially Stubbed/In-Progress:** Server-Side Playwright screenshot capture (frequently falls back to frontend client-side rendering or placeholders when network restrictions block chromium).
+* **Partially Stubbed/In-Progress [UNVERIFIED]:** Server-Side Playwright screenshot capture (frequently falls back to frontend client-side rendering or placeholders when network restrictions block chromium).
 
 ---
 
@@ -291,6 +291,19 @@ The database does not match the models. Columns like `Marker.page_visit_id` and 
 | **DELETE**| `/sessions/{session_id}/dom-edits` | JWT / ShareToken | None | `{status: "deleted", deleted_count}` | `200` OK, `403` Owner access required |
 | **GET** | `/sessions/{session_id}/dom-edits/export/css` | None | None | CSS file (plain text) | `200` OK (compiles and returns standard CSS rules) |
 
+### AI Routes [DISABLED STUBS / SHELL ONLY]
+
+| Method | Path | Auth Required | Request Shape | Response Shape | Status Trigger Codes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **POST** | `/ai/triage/session/{session_id}` | JWT | None | `{detail: "Marker system temporarily..."}` | `400` Bad Request (stubbed disabled endpoint) |
+| **GET** | `/ai/summary/session/{session_id}` | JWT | None | `{detail: "Marker system temporarily..."}` | `400` Bad Request (stubbed disabled endpoint) |
+
+### Share Link Token Resolution Routes
+
+| Method | Path | Auth Required | Request Shape | Response Shape | Status Trigger Codes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **POST** | `/resolve-token/{token}` | None | `{password}` | `{session_id, title, can_comment, role, id, project_id, name, project_name, url, target_url, token}` | `200` OK, `403` Forbidden, `404` Not Found, `410` Expired/Revoked |
+
 ---
 
 ## 5. Authentication & Authorization Model
@@ -307,8 +320,8 @@ PixelMark uses two authentication systems: **Developer Auth** (JWT-based) and **
 ### Reviewer Auth (Public Review Links)
 * **Access Link:** Accessible via public token landing pages: `/t/{token}`.
 * **Name Gate:** Reviewers enter their name on `ReviewerNameGate.tsx`. The frontend makes a `POST` request to `/sessions/{session_id}/reviewer-identities` to save the reviewer.
-* **Frontend Storage:** The backend returns a unique `id` (Reviewer ID) which the frontend saves in `sessionStorage` under `storedReviewerIdentity` (containing `id`, `displayName`, and `color`).
-* **Header Mapping:** For all marker creation, update, and deletion requests, the frontend injects this Reviewer ID into the custom header **`X-Reviewer-Id`**.
+* **Frontend Storage:** The reviewer's registered display name, color token, and ID are persisted in **`localStorage`** under the keys `pm:reviewer:identity` (for global reuse) and `pm:reviewer:{session_id}` (for session fallback), via `setStoredReviewerIdentity`.
+* **Header Mapping:** For all marker creation, update, and deletion requests, the frontend injects the Reviewer ID into the custom header **`X-Reviewer-Id`**.
 * **Backend Resolution:** The backend dependency `get_session_actor` checks `X-Reviewer-Id`. It retrieves the identity record from the database and maps operations to that reviewer. If the header is missing, it falls back to `"Anonymous Reviewer"`.
 
 ---
@@ -326,6 +339,12 @@ Real-time changes are synchronized across client connections using WebSockets an
 2. **Reconciliation Event:** The server immediately returns a `session_reconciled` event containing a `"status": "ready"` payload.
 3. **Presence Update:** The server broadcasts a `presence_updated` message containing the list of all currently connected developers and registered reviewers.
 4. **Heartbeat:** The client sends `"ping"` text frames every **30 seconds**; the server replies with `"pong"`. If a client misses a heartbeat, the socket is closed and the client is marked offline.
+
+### Redis Connection Recovery & Degraded Fallback
+* **Reconnection Handling:** The backend `RedisBroadcaster` connects to Redis using an `aioredis.ConnectionPool` with `health_check_interval=30`. 
+* **Connection Drops:** If a connection fails during the subscription loop, the thread catches `ConnectionError` or `TimeoutError`, marks the connection `self.redis = None` (triggering a reconnect on the next tick), sleeps with exponential backoff (starting at 1s, capped at 30s), and attempts to re-establish the subscription.
+* **Degraded Single-Instance Fallback:** If a message cannot be published to Redis because the server is unreachable, the system catches the exception and falls back to **direct local broadcasting** (`realtime_manager.broadcast_to_session_local`) on the current FastAPI instance.
+* **Out-of-Sync / Double Delivery Risks:** Because local publishing is routed solely through Redis (relying on the local subscriber loop to receive and broadcast the message to its own client), double delivery is avoided. However, if one or more server nodes degrade to direct local broadcasting while others continue routing through Redis, clients connected across different instances will lose synchronicity, resulting in transient local state forks.
 
 ### Event Payload Contracts
 
@@ -448,7 +467,7 @@ PixelMark captures screenshots in three ways:
 ### Client-Side Flow
 The frontend parent shell requests screen sharing permissions via the browser's `navigator.mediaDevices.getDisplayMedia` API. The video track is captured, drawn onto a hidden `<canvas>`, cropped to the requested coordinates, and exported as a Base64 data URI.
 
-### Server-Side Flow (Playwright Fallback)
+### Server-Side Flow (Playwright Fallback) [UNVERIFIED]
 If client-side capture fails, the frontend calls the backend endpoint `/sessions/{session_id}/screenshot?target_url=...`.
 * The server verifies that the target domain is allowed.
 * It launches a headless Chromium instance using Playwright.
@@ -513,16 +532,70 @@ src/app/
 
 ## 12. Export & Reporting
 
-PixelMark exports QA session feedback in two formats:
+PixelMark exports QA session feedback in three formats:
 
 ### Markdown Export
 * **Endpoint:** `GET /export/session/{session_id}/markdown`
-* **Format:** Returns a structured markdown report including an executive summary (total, open, and resolved issues count) followed by a detailed list of feedback items.
+* **Format:** Returns a plaintext response (`media_type="text/markdown"`) containing:
+```markdown
+# QA Review Report: {Session Title}
+**Session ID:** `80e34c1b-e5fc-427f-94d3-e7f09315d18d`
+**Generated At:** 2026-07-06 19:53:49
+
+## Executive Summary
+- **Total Markers dropped:** 12
+- **Open Issues:** 8
+- **Resolved Issues:** 4
+
+## Detailed Feedback Stream
+### 1. Title (CRITICAL)
+- **Status:** `open`
+- **Creator:** John Doe (developer)
+- **Target URL:** [url](url)
+- **CSS Selector:** `body > div`
+- **Screenshot:** [View Image](data:...)
+
+#### Description
+Issue description
+```
 
 ### CSV Export
 * **Endpoint:** `GET /export/session/{session_id}/csv`
-* **Format:** Returns a comma-separated values file containing the following columns:
+* **Format:** Returns a plaintext response (`media_type="text/csv"`) with columns:
   `Marker Number, ID, Title, Description, Priority, Status, Creator Name, Creator Role, Page URL, Page Title, Anchor Kind, Renderer Type, Created At, Screenshot URL`
+
+### JSON Export
+* **Endpoint:** `GET /export/session/{session_id}/json`
+* **Format:** Returns a `JSONResponse` containing an array of markers:
+```json
+[
+  {
+    "number": 1,
+    "id": "marker-uuid",
+    "title": "Button Misaligned",
+    "description": "Adjust margins",
+    "priority": "medium",
+    "status": "open",
+    "creator_name": "Reviewer Alice",
+    "creator_role": "reviewer",
+    "color_token": "violet",
+    "anchor_kind": "dom",
+    "page_url": "https://opinvox.entrext.com/",
+    "page_title": "Opinvox",
+    "target_selector": "#submit-btn",
+    "target_xpath": "/html/body/button",
+    "dom_text_excerpt": "Submit Form",
+    "renderer_type": "standard",
+    "screenshot_url": "data:image/png;base64,...",
+    "created_at": "2026-07-06T19:54:10Z",
+    "version": 1
+  }
+]
+```
+
+### Format Query Param Endpoint
+* **Endpoint:** `GET /export?project_id={id}&format={markdown|csv|json}`
+* **Behavior:** Automatically queries the latest session for the given project, generates the report in the requested format, and returns the response. If no sessions exist for the project, it creates a default session ("Initial Audit Session") first.
 
 ---
 
@@ -532,6 +605,9 @@ PixelMark exports QA session feedback in two formats:
 * **UUID vs. String Comparisons:** Some model UUID fields (e.g. `ReviewerIdentity.session_id` or `DOMEdit.id`) are resolved as Python `uuid.UUID` objects. Comparing these directly to string headers or route parameters without casting to strings will fail.
 * **Referer-Header Brittle Resolution:** If a browser extension blocks the `referer` header or if third-party cookies are disabled, the proxy middleware may fail to resolve the session context, causing pages to fail to load in the review shell.
 * **Next.js Hydration Mismatches:** Proxying Next.js sites through the iframe can trigger React hydration warnings on the client side, as the injected agent script alters the DOM structure before hydration completes.
+* **[UNVERIFIED] GitHub Export Integration:** `github_export.py` and `export_engine.py` files exist in the codebase but are not mounted as routes in `main.py`.
+* **[UNVERIFIED] AI Triage/Summary Rebuild:** The AI router endpoints exist as stubs and raise HTTP 400 Bad Request, stating that the marker system has been temporarily removed for a rebuild.
+* **[UNVERIFIED] Canvas flows and WHITEBOARD sync:** Canvas flows (`/canvas/flows`) and frames auto-creation are partially wired in `canvasStore.ts`, but layout placement logic and custom labels have not been fully tested in E2E tests.
 
 ---
 
