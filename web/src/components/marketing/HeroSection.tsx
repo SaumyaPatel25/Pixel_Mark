@@ -45,6 +45,59 @@ interface HeroSectionProps {
 type DemoState = 'mockDemo' | 'sandboxReady' | 'sandboxActive';
 type DemoStep = 'chooseMode' | 'hoverTarget' | 'dropPin' | 'openDrawer' | 'submitFeedback';
 
+const modeColors = {
+  dom: {
+    accent: '#7c3aed',
+    bright: '#8b5cf6',
+    vivid: '#a78bfa',
+    glow: 'rgba(124, 58, 237, 0.35)',
+    subtle: 'rgba(124, 58, 237, 0.08)',
+    mid: 'rgba(124, 58, 237, 0.16)',
+    gradientEnd: '#06b6d4',
+    borderBright: 'rgba(140, 120, 255, 0.22)',
+  },
+  threejs: {
+    accent: '#06b6d4',
+    bright: '#0891b2',
+    vivid: '#22d3ee',
+    glow: 'rgba(6, 182, 212, 0.35)',
+    subtle: 'rgba(6, 182, 212, 0.08)',
+    mid: 'rgba(6, 182, 212, 0.16)',
+    gradientEnd: '#3b82f6',
+    borderBright: 'rgba(6, 182, 212, 0.22)',
+  },
+  webgl: {
+    accent: '#d97706',
+    bright: '#f59e0b',
+    vivid: '#fbbf24',
+    glow: 'rgba(245, 158, 11, 0.35)',
+    subtle: 'rgba(245, 158, 11, 0.08)',
+    mid: 'rgba(245, 158, 11, 0.16)',
+    gradientEnd: '#06b6d4',
+    borderBright: 'rgba(245, 158, 11, 0.22)',
+  },
+  spa: {
+    accent: '#059669',
+    bright: '#10b981',
+    vivid: '#34d399',
+    glow: 'rgba(16, 185, 129, 0.35)',
+    subtle: 'rgba(16, 185, 129, 0.08)',
+    mid: 'rgba(16, 185, 129, 0.16)',
+    gradientEnd: '#14b8a6',
+    borderBright: 'rgba(16, 185, 129, 0.22)',
+  },
+  'shadow-dom': {
+    accent: '#c026d3',
+    bright: '#d946ef',
+    vivid: '#e879f9',
+    glow: 'rgba(217, 70, 239, 0.35)',
+    subtle: 'rgba(217, 70, 239, 0.08)',
+    mid: 'rgba(217, 70, 239, 0.16)',
+    gradientEnd: '#6366f1',
+    borderBright: 'rgba(217, 70, 239, 0.22)',
+  },
+};
+
 const cursorTargets = {
   dom: { x: 60, y: 65, label: 'h2.heading-main', selector: 'html > body > main > h2.heading-main' },
   threejs: { x: 50, y: 45, label: 'Mesh#cube-01', selector: 'html > body > main > canvas#threejs-canvas' },
@@ -664,7 +717,18 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                 rotateX: previewRotateX,
                 rotateY: previewRotateY,
                 transformStyle: 'preserve-3d',
-              }}
+                '--color-pm-accent': modeColors[activeMode].accent,
+                '--color-pm-accent-bright': modeColors[activeMode].bright,
+                '--color-pm-accent-vivid': modeColors[activeMode].vivid,
+                '--pm-accent': modeColors[activeMode].accent,
+                '--pm-accent-bright': modeColors[activeMode].bright,
+                '--pm-accent-vivid': modeColors[activeMode].vivid,
+                '--pm-accent-glow': modeColors[activeMode].glow,
+                '--pm-accent-subtle': modeColors[activeMode].subtle,
+                '--pm-accent-mid': modeColors[activeMode].mid,
+                '--pm-cyan': modeColors[activeMode].gradientEnd,
+                '--pm-border-bright': modeColors[activeMode].borderBright,
+              } as any}
               onMouseMove={handlePreviewMouseMove}
               onMouseLeave={handlePreviewMouseLeave}
               onMouseEnter={handlePreviewMouseEnter}

@@ -108,24 +108,9 @@ export default function HomeClient() {
     };
   }, [mouseX, mouseY]);
 
-  const colors = modeColors[activeMode];
-
   return (
     <div
-      style={{
-        '--color-pm-accent': colors.accent,
-        '--color-pm-accent-bright': colors.bright,
-        '--color-pm-accent-vivid': colors.vivid,
-        '--pm-accent': colors.accent,
-        '--pm-accent-bright': colors.bright,
-        '--pm-accent-vivid': colors.vivid,
-        '--pm-accent-glow': colors.glow,
-        '--pm-accent-subtle': colors.subtle,
-        '--pm-accent-mid': colors.mid,
-        '--pm-cyan': colors.gradientEnd,
-        '--pm-border-bright': colors.borderBright,
-      } as React.CSSProperties}
-      className="homepage-root relative min-h-screen bg-transparent text-pm-text selection:bg-pm-accent/30 selection:text-white font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
+      className="homepage-root relative min-h-screen bg-transparent text-pm-text selection:bg-[#293681]/30 selection:text-[#1E2022] font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
     >
       
       {/* Spline 3D background */}
