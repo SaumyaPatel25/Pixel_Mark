@@ -255,8 +255,8 @@ body {
 
 /* Custom glow animations and background styles */
 .dot-grid {
-  background-size: 24px 24px;
-  background-image: radial-gradient(var(--pm-border-bright) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-image: radial-gradient(rgba(41, 54, 129, 0.03) 1.2px, transparent 1.2px);
 }
 
 .text-gradient-purple {

@@ -71,7 +71,7 @@ export default function MarketingNav() {
             <a
               key={link.name}
               href={link.href}
-              className="text-xs font-semibold text-pm-muted hover:text-pm-text transition-colors duration-200"
+              className="text-xs font-semibold text-pm-muted hover:text-[#293681] transition-colors duration-200"
             >
               {link.name}
             </a>
@@ -82,19 +82,19 @@ export default function MarketingNav() {
         <div className="hidden md:flex items-center gap-4">
           <Link
             href="/dashboard"
-            className="text-xs font-bold uppercase tracking-widest text-pm-muted hover:text-pm-text transition-colors px-4 py-2"
+            className="text-xs font-bold uppercase tracking-widest text-[#293681]/80 hover:text-[#293681] transition-colors px-4 py-2"
           >
             Dashboard
           </Link>
           <Link
             href="/login"
-            className="text-xs font-bold uppercase tracking-widest text-pm-muted hover:text-pm-text transition-colors px-4 py-2"
+            className="text-xs font-bold uppercase tracking-widest text-[#293681]/80 hover:text-[#293681] transition-colors px-4 py-2"
           >
             Sign In
           </Link>
           <Link
             href="/register"
-            className="text-xs font-bold uppercase tracking-widest bg-pm-accent hover:bg-pm-accent-bright text-white px-5 py-2.5 rounded-lg shadow-accent transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="text-xs font-bold uppercase tracking-widest bg-[#293681] hover:bg-[#112E81] text-white px-5 py-2.5 rounded-xl transition-all hover:-translate-y-0.5 active:translate-y-0 duration-300 shadow-sm hover:shadow-md"
           >
             Sign Up
           </Link>

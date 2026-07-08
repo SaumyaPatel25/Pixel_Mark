@@ -510,14 +510,14 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
           
           {/* Left Column: SaaS Pitching copy */}
           <div className="lg:col-span-5 flex flex-col justify-center text-left space-y-6">
-            <div className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full bg-pm-accent-subtle border border-pm-border-bright text-pm-accent-vivid text-[10px] font-bold uppercase tracking-widest transition-colors duration-500">
-              <Zap className="w-3.5 h-3.5 fill-pm-accent-vivid/20" />
-              <span>⚡ Interactive Visual Feedback Sandbox</span>
+            <div className="inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-lg bg-[#F0F5F9] border border-pm-border text-[#293681] text-[10px] font-bold uppercase tracking-widest">
+              <Zap className="w-3.5 h-3.5 fill-[#293681]/10 text-[#293681]" />
+              <span>Visual QA Sandbox</span>
             </div>
 
-            <h1 className="font-display text-4xl md:text-5xl lg:text-6.5xl font-bold tracking-tight text-white leading-[1.05] transition-all duration-500">
-              Visual Website Feedback Tool <br />
-              <span className="text-gradient-purple font-black">& Visual Bug Reporting.</span>
+            <h1 className="font-display text-4xl md:text-5xl lg:text-6.5xl font-bold tracking-tight text-[#1E2022] leading-[1.05] transition-all duration-500">
+              Visual Website Feedback <br />
+              <span className="text-[#293681] font-extrabold">& QA Bug Reporting.</span>
             </h1>
 
             <p className="text-xs md:text-sm text-pm-muted leading-relaxed max-w-lg font-sans">
@@ -527,10 +527,10 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
             {/* URL Interactive Input */}
             <form
               onSubmit={handleUrlSubmit}
-              className="flex items-center gap-2 max-w-md w-full bg-pm-surface/60 border border-pm-border p-1.5 rounded-xl focus-within:border-pm-accent/50 transition-all duration-300"
+              className="flex items-center gap-2 max-w-md w-full bg-white border border-pm-border p-1.5 rounded-xl focus-within:border-[#293681]/50 focus-within:ring-1 focus-within:ring-[#293681]/20 transition-all duration-300 shadow-sm"
             >
               <div className="flex items-center gap-2 flex-1 pl-2 text-pm-muted">
-                <Search className="w-4 h-4" />
+                <Search className="w-4 h-4 text-pm-muted/65" />
                 <input
                   type="text"
                   value={urlInput}
@@ -542,16 +542,16 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
               <button
                 type="submit"
                 disabled={isLoading}
-                className="px-4 py-2 bg-pm-accent hover:bg-pm-accent-bright disabled:bg-pm-surface-3 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 shadow-accent cursor-pointer"
+                className="px-4 py-2 bg-[#293681] hover:bg-[#112E81] disabled:bg-pm-surface-3 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 shadow-sm cursor-pointer"
               >
                 {isLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Load'}
               </button>
             </form>
 
             {/* Micro Onboarding Copy */}
-            <div className="space-y-2 max-w-md p-3.5 rounded-xl border border-pm-border bg-pm-surface/20">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-pm-accent-vivid flex items-center gap-1.5">
-                <HelpCircle className="w-3.5 h-3.5" />
+            <div className="space-y-1.5 max-w-md p-4 rounded-xl border border-pm-border bg-white shadow-sm">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#293681] flex items-center gap-1.5">
+                <HelpCircle className="w-3.5 h-3.5 text-[#293681]/80" />
                 <span>{isInteractive ? 'Active Sandbox Workspace' : 'Interactive Walkthrough'}</span>
               </div>
               <p className="text-[10px] text-pm-muted leading-normal font-sans">
@@ -562,7 +562,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
             <div className="flex gap-4 pt-1">
               <Link
                 href="/register"
-                className="px-6 py-3 bg-pm-accent hover:bg-pm-accent-bright text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-accent hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer"
+                className="px-6 py-3 bg-[#293681] hover:bg-[#112E81] text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all hover:-translate-y-0.5 active:translate-y-0 duration-300 flex items-center gap-2 shadow-sm hover:shadow-md cursor-pointer"
               >
                 Start a Free Review
                 <ArrowRight className="w-4 h-4" />
@@ -573,7 +573,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                   setIsInteractive(false);
                   setCinematicStep(0);
                 }}
-                className="px-6 py-3 bg-pm-surface-2 hover:bg-pm-surface-3 text-pm-text border border-pm-border rounded-lg text-xs font-bold uppercase tracking-widest transition-all cursor-pointer animate-pulse"
+                className="px-6 py-3 bg-[#F0F5F9] hover:bg-[#E2ECF5] text-[#293681] border border-pm-border rounded-xl text-xs font-bold uppercase tracking-widest transition-all cursor-pointer hover:-translate-y-0.5 active:translate-y-0 duration-300"
               >
                 See how it works →
               </button>
@@ -590,9 +590,9 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
             
             {/* Guide strip explaining current step during mockDemo */}
             {demoState === 'mockDemo' && (
-              <div className="w-full flex items-center justify-between gap-2 px-4 py-2 rounded-xl bg-pm-surface-2/40 border border-pm-border text-[9px] text-pm-muted font-sans animate-fade-in">
-                <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-pm-accent-vivid">
-                  <Info className="w-3.5 h-3.5 animate-pulse" />
+              <div className="w-full flex items-center justify-between gap-2 px-4 py-2 rounded-xl bg-white border border-pm-border text-[9px] text-pm-muted font-sans shadow-sm animate-fade-in">
+                <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[#293681]">
+                  <Info className="w-3.5 h-3.5 text-[#293681]" />
                   <span>Interactive Walkthrough Loop</span>
                 </div>
                 <div className="flex gap-1 overflow-x-auto scrollbar-none">
@@ -607,7 +607,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                     return (
                       <span
                         key={s.step}
-                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all duration-300 ${isActive ? 'bg-pm-accent text-white shadow-accent' : 'bg-pm-surface/50 text-pm-muted/50'}`}
+                        className={`px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-wider transition-all duration-300 ${isActive ? 'bg-[#293681] text-white shadow-sm' : 'bg-pm-surface-2 text-pm-muted/60 border border-pm-border'}`}
                       >
                         {s.label}
                       </span>
@@ -617,18 +617,18 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
               </div>
             )}
 
-            {/* Sandbox Ready Banner Card */}
+             {/* Sandbox Ready Banner Card */}
             {demoState === 'sandboxReady' && (
-              <div className="w-full flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-pm-accent/10 border border-pm-accent/35 text-[10px] text-white font-sans animate-fade-in">
+              <div className="w-full flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-[#F0F5F9] border border-pm-border text-[10px] text-[#1E2022] font-sans animate-fade-in shadow-sm">
                 <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-pm-accent-vivid animate-bounce" />
+                  <Zap className="w-4 h-4 text-[#293681] animate-bounce" />
                   <div>
                     <span className="font-bold">Walkthrough Complete!</span> Ready to test? Launch sandbox to drop custom pins.
                   </div>
                 </div>
                 <button
                   onClick={launchSandbox}
-                  className="px-3 py-1.5 bg-pm-accent hover:bg-pm-accent-bright rounded text-[9px] font-bold uppercase tracking-wider shadow-accent cursor-pointer flex items-center gap-1"
+                  className="px-3 py-1.5 bg-[#293681] hover:bg-[#112E81] rounded-lg text-[9px] font-bold uppercase tracking-wider text-white cursor-pointer flex items-center gap-1 transition-all shadow-sm hover:shadow-md"
                 >
                   <Play className="w-3 h-3 fill-white" />
                   <span>Launch Sandbox</span>
@@ -637,7 +637,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
             )}
 
             {/* Browser Mode Switcher above the preview */}
-            <div className="flex items-center gap-1 p-1 bg-pm-surface/40 border border-pm-border rounded-xl self-start max-w-full overflow-x-auto scrollbar-none">
+            <div className="flex items-center gap-1 p-1 bg-white border border-pm-border rounded-xl self-start max-w-full overflow-x-auto scrollbar-none shadow-sm">
               {(['dom', 'threejs', 'webgl', 'spa', 'shadow-dom'] as ModeType[]).map((mode) => {
                 const isSelected = activeMode === mode;
                 const label = mode === 'dom' ? 'Layout' : mode === 'threejs' ? 'Three.js' : mode === 'webgl' ? 'WebGL' : mode === 'spa' ? 'SPA' : 'Encapsulated';
@@ -650,7 +650,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                         setDemoState('mockDemo');
                       }
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${isSelected ? 'bg-pm-accent text-white shadow-accent font-black' : 'text-pm-muted hover:text-white hover:bg-pm-surface-2/50'}`}
+                    className={`px-3.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${isSelected ? 'bg-[#293681] text-white font-extrabold shadow-sm' : 'text-pm-muted hover:text-[#293681] hover:bg-[#F0F5F9]'}`}
                   >
                     {label}
                   </button>
@@ -668,7 +668,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
               onMouseMove={handlePreviewMouseMove}
               onMouseLeave={handlePreviewMouseLeave}
               onMouseEnter={handlePreviewMouseEnter}
-              className="mockup-browser relative w-full aspect-[4/3] rounded-2xl border border-pm-border bg-pm-surface/30 backdrop-blur-xl overflow-hidden shadow-2xl transition-colors duration-300 hover:border-pm-accent/40"
+              className="mockup-browser relative w-full aspect-[4/3] rounded-3xl border border-pm-border bg-white overflow-hidden shadow-[0_20px_50px_rgba(41,54,129,0.06)] hover:shadow-[0_20px_50px_rgba(41,54,129,0.1)] transition-all duration-500"
             >
               
               {/* Browser Header Bar */}
