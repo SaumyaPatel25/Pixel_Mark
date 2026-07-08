@@ -21,116 +21,212 @@
 }
 
 :root {
-  --pm-bg:           #0a0a0f;
-  --pm-surface:      #0f0f18;
-  --pm-surface-2:    #14141f;
-  --pm-surface-3:    #1a1a28;
-  --pm-border:       rgba(120,120,200,0.10);
-  --pm-border-bright:rgba(140,120,255,0.22);
-  --pm-accent:       #7c3aed;
-  --pm-accent-bright:#8b5cf6;
-  --pm-accent-vivid: #a78bfa;
-  --pm-accent-glow:  rgba(124,58,237,0.35);
-  --pm-accent-subtle:rgba(124,58,237,0.08);
-  --pm-accent-mid:   rgba(124,58,237,0.16);
-  --pm-cyan:         #06b6d4;
-  --pm-cyan-subtle:  rgba(6,182,212,0.08);
-  --pm-text:         #e8e8f0;
-  --pm-text-muted:   #8888a8;
-  --pm-text-faint:   #44445a;
+  /* Core Light Palette Values (Phase 1) */
+  --pm-bg:           #F5F8FB;
+  --pm-surface:      #FFFFFF;
+  --pm-surface-2:    #F0F5F9;
+  --pm-surface-3:    #DCE6F0;
+  --pm-border:       rgba(41, 54, 129, 0.08);
+  --pm-border-bright:rgba(66, 116, 217, 0.2);
+  --pm-accent:       #293681;
+  --pm-accent-bright:#112E81;
+  --pm-accent-vivid: #4274D9;
+  --pm-accent-glow:  rgba(41, 54, 129, 0.12);
+  --pm-accent-subtle:rgba(41, 54, 129, 0.04);
+  --pm-accent-mid:   rgba(41, 54, 129, 0.08);
+  --pm-cyan:         #4382DF;
+  --pm-cyan-subtle:  rgba(67, 130, 223, 0.06);
+  --pm-text:         #1E2022;
+  --pm-text-muted:   #52616B;
+  --pm-text-faint:   #9CA3AF;
+  --pm-text-title:   #293681;
+  --pm-nav-bg:       rgba(245, 248, 251, 0.85);
+  --pm-bg-trans-20:  rgba(245, 248, 251, 0.2);
+  --pm-bg-trans-50:  rgba(245, 248, 251, 0.5);
+  
+  --pm-border-hover: rgba(41, 54, 129, 0.22);
+  --pm-border-card:  rgba(41, 54, 129, 0.06);
+  
   --font-display:    'Space Grotesk', sans-serif;
   --font-mono:       'JetBrains Mono', monospace;
-
-  /* Custom helper variables for translucent fallback backgrounds */
-  --pm-bg-trans-20: rgba(10, 10, 15, 0.2);
-  --pm-bg-trans-50: rgba(10, 10, 15, 0.5);
-  --pm-border-hover: rgba(120, 120, 200, 0.18);
-  --pm-border-card: rgba(120, 120, 200, 0.06);
-  --pm-nav-bg: rgba(10, 10, 15, 0.85);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   HOMEPAGE DUAL-THEME OVERRIDES (Applied only when homepage is active)
+   COMPLETE LIGHT THEME UTILITY CLASS OVERRIDES
    ───────────────────────────────────────────────────────────────────────────── */
 
-body.homepage-active {
-  /* Cinematic Editorial Dark Theme values by default */
-  --pm-bg: #1E2022;
-  --pm-surface: #27374D;
-  --pm-surface-2: #344860;
-  --pm-surface-3: #526D82;
-  
-  --pm-border: rgba(157, 178, 191, 0.15);
-  --pm-border-bright: rgba(221, 230, 237, 0.25);
-  
-  --pm-accent: #9DB2BF;
-  --pm-accent-bright: #DDE6ED;
-  --pm-accent-vivid: #DDE6ED;
-  --pm-accent-glow: rgba(157, 178, 191, 0.18);
-  --pm-accent-subtle: rgba(157, 178, 191, 0.05);
-  --pm-accent-mid: rgba(157, 178, 191, 0.1);
-  --pm-cyan: #9DB2BF;
-  --pm-cyan-subtle: rgba(157, 178, 191, 0.04);
-  
-  --pm-text: #DDE6ED;
-  --pm-text-muted: #9DB2BF;
-  --pm-text-faint: #526D82;
-  --pm-text-title: #ffffff;
-  
-  --pm-nav-bg: rgba(30, 32, 34, 0.85);
-  
-  --pm-bg-trans-20: rgba(30, 32, 34, 0.2);
-  --pm-bg-trans-50: rgba(30, 32, 34, 0.5);
-
-  --pm-border-hover: rgba(221, 230, 237, 0.2);
-  --pm-border-card: rgba(221, 230, 237, 0.08);
-
-  background-color: var(--pm-bg);
-  color: var(--pm-text);
+/* Escaped selectors for hardcoded dark background utilities */
+.bg-\[\#070709\],
+.bg-\[\#09090e\],
+.bg-\[\#0a0a0f\],
+.bg-\[\#09090b\],
+.bg-\[\#0d0d12\],
+.bg-\[\#0d0d14\],
+.bg-\[\#111118\],
+.bg-\[\#111116\],
+.bg-\[\#1c1b19\],
+.bg-\[\#151413\],
+.bg-\[\#1a1a24\],
+.bg-\[\#1a1a26\],
+.bg-\[\#12121a\],
+.bg-\[\#14141f\],
+.bg-\[\#1a1a28\],
+.bg-\[\#0f0f15\],
+.bg-\[\#0f0f16\],
+.bg-\[\#0f0f16\]\/90,
+.bg-\[\#0f0f16\]\/95,
+.bg-\[\#0d0d14\]\/95,
+.bg-\[\#0d0d14\]\/80,
+.bg-\[\#0c0c0e\],
+.bg-\[\#0c0c0e\]\/80,
+.bg-\[\#0c0c0e\]\/60,
+.bg-\[\#0c0c0e\]\/30 {
+  background-color: var(--pm-surface) !important;
 }
 
-@media (prefers-color-scheme: light) {
-  body.homepage-active {
-    /* Premium airy light theme values */
-    --pm-bg: #F0F5F9;
-    --pm-surface: #ffffff;
-    --pm-surface-2: #E8EEF3;
-    --pm-surface-3: #D0E7E6;
-    
-    --pm-border: rgba(41, 54, 129, 0.08);
-    --pm-border-bright: rgba(66, 116, 217, 0.2);
-    
-    --pm-accent: #293681;
-    --pm-accent-bright: #112E81;
-    --pm-accent-vivid: #4274D9;
-    --pm-accent-glow: rgba(41, 54, 129, 0.12);
-    --pm-accent-subtle: rgba(41, 54, 129, 0.04);
-    --pm-accent-mid: rgba(41, 54, 129, 0.08);
-    --pm-cyan: #4382DF;
-    --pm-cyan-subtle: rgba(67, 130, 223, 0.06);
-    
-    --pm-text: #1A1D2D;
-    --pm-text-muted: #4B5563;
-    --pm-text-faint: #9CA3AF;
-    --pm-text-title: #112E81;
-    
-    --pm-nav-bg: rgba(240, 245, 249, 0.85);
-    
-    --pm-bg-trans-20: rgba(240, 245, 249, 0.2);
-    --pm-bg-trans-50: rgba(240, 245, 249, 0.5);
-
-    --pm-border-hover: rgba(41, 54, 129, 0.22);
-    --pm-border-card: rgba(41, 54, 129, 0.06);
-  }
+/* Specific main backdrops should use the main page background color */
+body,
+.bg-\[\#0a0a0f\],
+.bg-\[\#09090e\],
+.bg-\[\#070709\],
+.bg-\[\#171614\],
+.bg-\[\#171614\]\/80 {
+  background-color: var(--pm-bg) !important;
 }
 
-/* Page-level heading color overriding via specificity, preserving dark visual mockups */
-body.homepage-active h1:not(.mockup-browser *):not(.mockup-visual *),
-body.homepage-active h2:not(.mockup-browser *):not(.mockup-visual *),
-body.homepage-active h3:not(.mockup-browser *):not(.mockup-visual *),
-body.homepage-active h4:not(.mockup-browser *):not(.mockup-visual *),
-body.homepage-active span.text-white:not(.mockup-browser *):not(.mockup-visual *) {
+/* Off-white and surface-2 level background utility overrides */
+.bg-\[\#0d0d12\],
+.bg-\[\#0d0d14\],
+.bg-\[\#151413\],
+.bg-\[\#0f0f15\],
+.bg-\[\#111116\] {
+  background-color: var(--pm-surface-2) !important;
+}
+
+/* Input / Dropdown / Surface-3 utility overrides */
+.bg-\[\#12121a\],
+.bg-\[\#1a1a24\],
+.bg-\[\#1a1a26\],
+.bg-\[\#1a1a28\],
+.bg-\[\#14141f\] {
+  background-color: var(--pm-surface-3) !important;
+}
+
+/* Translucent layer overrides */
+.bg-white\/\[0\.02\],
+.bg-white\/\[0\.03\],
+.bg-white\/5,
+.bg-white\/10 {
+  background-color: var(--pm-surface-2) !important;
+}
+
+/* Border overrides */
+.border-white\/5,
+.border-white\/8,
+.border-white\/\[0\.05\],
+.border-white\/\[0\.08\],
+.border-white\/10,
+.border-white\/20 {
+  border-color: var(--pm-border) !important;
+}
+
+.hover\:border-white\/10:hover,
+.hover\:border-white\/20:hover {
+  border-color: var(--pm-border-bright) !important;
+}
+
+/* Text overrides */
+h1, h2, h3, h4, h5, h6 {
   color: var(--pm-text-title) !important;
+}
+
+.text-white,
+.text-white\/90,
+.text-slate-100,
+.text-slate-200,
+.text-slate-300,
+.text-gray-100,
+.text-gray-200,
+.text-gray-300,
+.text-zinc-100,
+.text-zinc-200,
+.text-zinc-300 {
+  color: var(--pm-text) !important;
+}
+
+.text-white\/80,
+.text-white\/60,
+.text-white\/50,
+.text-gray-400,
+.text-slate-400,
+.text-zinc-400 {
+  color: var(--pm-text-muted) !important;
+}
+
+.text-white\/40,
+.text-white\/30,
+.text-white\/20,
+.text-gray-500,
+.text-slate-500,
+.text-zinc-500,
+.text-pm-text-faint {
+  color: var(--pm-text-faint) !important;
+}
+
+/* Exceptions: Maintain white text inside primary buttons, badges, and labels */
+button .text-white,
+button.text-white,
+button span.text-white,
+a.text-white,
+a .text-white,
+a span.text-white,
+.bg-purple-600 *,
+.bg-purple-500 *,
+.bg-cyan-600 *,
+.bg-cyan-500 *,
+.bg-emerald-600 *,
+.bg-emerald-500 *,
+.bg-red-600 *,
+.bg-red-500 *,
+.bg-rose-500 *,
+.bg-pm-accent *,
+.bg-pm-accent-bright *,
+.badge *,
+.bg-purple-600,
+.bg-purple-500,
+.bg-cyan-600,
+.bg-cyan-500,
+.bg-emerald-600,
+.bg-emerald-500,
+.bg-red-500,
+.bg-pm-accent,
+.bg-pm-accent-bright {
+  color: #ffffff !important;
+}
+
+/* Maintain dark mode appearance for simulated demo components */
+.mockup-browser,
+.mockup-browser *,
+.mockup-visual,
+.mockup-visual * {
+  /* Prevent overrides inside visual mockups */
+  color: revert !important;
+  background-color: revert !important;
+  border-color: revert !important;
+}
+
+/* Reset specific styling elements to look standard in light theme */
+input,
+select,
+textarea {
+  background-color: var(--pm-surface) !important;
+  border-color: var(--pm-border) !important;
+  color: var(--pm-text) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--pm-text-faint) !important;
 }
 
 body.homepage-active footer a:hover,
@@ -138,13 +234,13 @@ body.homepage-active footer span.cursor-pointer:hover {
   color: var(--pm-text-title) !important;
 }
 
-body.homepage-active,
-body.homepage-active section,
-body.homepage-active nav,
-body.homepage-active footer,
-body.homepage-active .glass-panel,
-body.homepage-active div.rounded-xl,
-body.homepage-active div.rounded-2xl {
+body,
+section,
+nav,
+footer,
+.glass-panel,
+div.rounded-xl,
+div.rounded-2xl {
   transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -160,10 +256,6 @@ body {
 /* Custom glow animations and background styles */
 .dot-grid {
   background-size: 24px 24px;
-  background-image: radial-gradient(rgba(120, 120, 255, 0.06) 1px, transparent 1px);
-}
-
-body.homepage-active .dot-grid {
   background-image: radial-gradient(var(--pm-border-bright) 1px, transparent 1px);
 }
 
@@ -176,14 +268,6 @@ body.homepage-active .dot-grid {
 
 /* Glassmorphism helpers */
 .glass-panel {
-  background: rgba(15, 15, 24, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(120, 120, 200, 0.1);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-}
-
-body.homepage-active .glass-panel {
   background: var(--pm-surface-2);
   border-color: var(--pm-border);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
