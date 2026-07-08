@@ -40,7 +40,7 @@ const FreelancerVisual = () => {
   }, [step]);
 
   return (
-    <div className="relative h-44 rounded-xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[9px] text-pm-text select-none flex flex-col justify-between">
+    <div className="mockup-visual relative h-44 rounded-xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[9px] text-pm-text select-none flex flex-col justify-between">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
         <span className="text-white/60 font-bold uppercase tracking-wider">Freelancer Workspace</span>
@@ -124,7 +124,7 @@ const QAVisual = () => {
   }, []);
 
   return (
-    <div className="relative h-44 rounded-xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] text-pm-text select-none flex flex-col justify-between">
+    <div className="mockup-visual relative h-44 rounded-xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] text-pm-text select-none flex flex-col justify-between">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
         <span className="text-white/60 font-bold uppercase tracking-wider">QA Inspector Lens</span>
@@ -216,7 +216,7 @@ const AgencyVisual = () => {
   }, []);
 
   return (
-    <div className="relative h-44 rounded-xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] text-pm-text select-none flex flex-col justify-between">
+    <div className="mockup-visual relative h-44 rounded-xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] text-pm-text select-none flex flex-col justify-between">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
         <span className="text-white/60 font-bold uppercase tracking-wider">Multi-Client Portal</span>
@@ -403,13 +403,13 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
                 animate={{
                   opacity: cardOpacity,
                   scale: isHovered ? 1.015 : 0.99,
-                  borderColor: isHovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'
+                  borderColor: isHovered ? 'var(--pm-border-hover)' : 'var(--pm-border-card)'
                 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 style={{
                   '--glow-color': card.glowColor
                 } as React.CSSProperties}
-                className="relative flex flex-col justify-between p-6 rounded-2xl border border-white/5 bg-pm-surface/20 backdrop-blur-xl group hover:shadow-[0_0_30px_var(--glow-color)] transition-shadow duration-500 overflow-hidden min-h-[460px]"
+                className="relative flex flex-col justify-between p-6 rounded-2xl border border-pm-border bg-pm-surface/20 backdrop-blur-xl group hover:shadow-[0_0_30px_var(--glow-color)] transition-shadow duration-500 overflow-hidden min-h-[460px]"
               >
                 {/* Accent background lighting spot inside active card */}
                 <div 

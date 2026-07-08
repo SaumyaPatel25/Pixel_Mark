@@ -109,10 +109,10 @@ export const SplineBackground = ({ hoveredPosition }: SplineBackgroundProps) => 
     const shouldRenderFallback = isMobile || prefersReducedMotion || hasError
 
     return (
-        <div className="fixed inset-0 w-full h-full -z-10 bg-[#070709] pointer-events-none overflow-hidden">
+        <div className="fixed inset-0 w-full h-full -z-10 bg-[var(--pm-bg)] pointer-events-none overflow-hidden transition-colors duration-500">
             {/* Dark background vignette gradient to guarantee text readability */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,#070709_90%)] z-10 pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#070709]/20 via-[#070709]/50 to-[#070709] z-10 pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,var(--pm-bg)_90%)] z-10 pointer-events-none transition-colors duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[var(--pm-bg-trans-20)] via-[var(--pm-bg-trans-50)] to-[var(--pm-bg)] z-10 pointer-events-none transition-colors duration-500" />
 
             <AnimatePresence>
                 {shouldRenderFallback ? (
@@ -122,7 +122,7 @@ export const SplineBackground = ({ hoveredPosition }: SplineBackgroundProps) => 
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 1 }}
-                    className="absolute inset-0 w-full h-full bg-[#070709]"
+                    className="absolute inset-0 w-full h-full bg-[var(--pm-bg)] transition-colors duration-500"
                   >
                     {/* Subtle, abstract radial glowing points reacting to mouse */}
                     <motion.div
@@ -175,7 +175,7 @@ export const SplineBackground = ({ hoveredPosition }: SplineBackgroundProps) => 
                         initial={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 1 }}
-                        className="absolute inset-0 z-20 bg-[#070709] flex items-center justify-center"
+                        className="absolute inset-0 z-20 bg-[var(--pm-bg)] flex items-center justify-center transition-colors duration-500"
                     >
                         <div className="flex flex-col items-center gap-4">
                             <motion.div 

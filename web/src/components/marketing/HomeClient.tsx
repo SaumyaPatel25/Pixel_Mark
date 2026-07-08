@@ -89,6 +89,9 @@ export default function HomeClient() {
   const glowY = useSpring(mouseY, { stiffness: 50, damping: 25 });
 
   useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.body.classList.add('homepage-active');
+    }
     const handleMouseMove = (e: MouseEvent) => {
       // Offset the coordinate by half the size of the glow element (250px)
       // to keep it centered on the cursor
@@ -97,7 +100,12 @@ export default function HomeClient() {
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('homepage-active');
+      }
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
   }, [mouseX, mouseY]);
 
   const colors = modeColors[activeMode];
@@ -117,7 +125,7 @@ export default function HomeClient() {
         '--pm-cyan': colors.gradientEnd,
         '--pm-border-bright': colors.borderBright,
       } as React.CSSProperties}
-      className="relative min-h-screen bg-transparent text-pm-text selection:bg-pm-accent/30 selection:text-white font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
+      className="homepage-root relative min-h-screen bg-transparent text-pm-text selection:bg-pm-accent/30 selection:text-white font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
     >
       
       {/* Spline 3D background */}

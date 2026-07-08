@@ -35,8 +35,8 @@ export default function MarketingNav() {
     <>
       <motion.nav
         animate={{
-          backgroundColor: isScrolled ? 'rgba(10, 10, 15, 0.85)' : 'rgba(10, 10, 15, 0)',
-          borderBottomColor: isScrolled ? 'rgba(120, 120, 200, 0.15)' : 'rgba(120, 120, 200, 0)',
+          backgroundColor: isScrolled ? 'var(--pm-nav-bg)' : 'rgba(0, 0, 0, 0)',
+          borderBottomColor: isScrolled ? 'var(--pm-border)' : 'rgba(0, 0, 0, 0)',
           backdropFilter: isScrolled ? 'blur(16px)' : 'blur(0px)'
         }}
         transition={{ duration: 0.3 }}

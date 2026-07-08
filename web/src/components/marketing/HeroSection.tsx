@@ -668,7 +668,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
               onMouseMove={handlePreviewMouseMove}
               onMouseLeave={handlePreviewMouseLeave}
               onMouseEnter={handlePreviewMouseEnter}
-              className="relative w-full aspect-[4/3] rounded-2xl border border-white/10 bg-pm-surface/30 backdrop-blur-xl overflow-hidden shadow-2xl transition-colors duration-300 hover:border-pm-accent/40"
+              className="mockup-browser relative w-full aspect-[4/3] rounded-2xl border border-pm-border bg-pm-surface/30 backdrop-blur-xl overflow-hidden shadow-2xl transition-colors duration-300 hover:border-pm-accent/40"
             >
               
               {/* Browser Header Bar */}

@@ -123,10 +123,10 @@ export const CustomCursor = () => {
                 <div 
                     className={`w-7 h-7 rounded-[9999px] border transition-all duration-300 pointer-events-none ${
                         isClicking 
-                          ? 'border-purple-400 bg-purple-500/10 shadow-[0_0_10px_rgba(168,85,247,0.4)]' 
+                          ? 'border-pm-accent bg-pm-accent/10 shadow-[0_0_10px_var(--pm-accent-glow)]' 
                           : isPointer 
-                          ? 'border-purple-400 bg-transparent shadow-[0_0_8px_rgba(168,85,247,0.2)]' 
-                          : 'border-white/20 bg-transparent shadow-none'
+                          ? 'border-pm-accent bg-transparent shadow-[0_0_8px_var(--pm-accent-glow)]' 
+                          : 'border-pm-text/20 bg-transparent shadow-none'
                     }`}
                 />
 
@@ -134,10 +134,10 @@ export const CustomCursor = () => {
                 <div 
                     className={`absolute w-1.5 h-1.5 rounded-full transition-all duration-300 pointer-events-none ${
                         isClicking 
-                          ? 'bg-purple-400 scale-[0.6] shadow-[0_0_6px_rgba(168,85,247,0.6)]' 
+                          ? 'bg-pm-accent scale-[0.6] shadow-[0_0_6px_var(--pm-accent-glow)]' 
                           : isPointer 
-                          ? 'bg-purple-400 scale-125 shadow-[0_0_6px_rgba(168,85,247,0.4)]' 
-                          : 'bg-white shadow-[0_0_4px_rgba(255,255,255,0.4)]'
+                          ? 'bg-pm-accent scale-125 shadow-[0_0_6px_var(--pm-accent-glow)]' 
+                          : 'bg-pm-text shadow-[0_0_4px_var(--pm-text-faint)]'
                     }`}
                 />
             </motion.div>

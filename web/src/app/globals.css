@@ -2,16 +2,16 @@
 @import "tailwindcss";
 
 @theme {
-  --color-pm-bg: #0a0a0f;
-  --color-pm-surface: #0f0f18;
-  --color-pm-surface-2: #14141f;
-  --color-pm-surface-3: #1a1a28;
-  --color-pm-accent: #7c3aed;
-  --color-pm-accent-bright: #8b5cf6;
-  --color-pm-accent-vivid: #a78bfa;
-  --color-pm-cyan: #06b6d4;
-  --color-pm-text: #e8e8f0;
-  --color-pm-muted: #8888a8;
+  --color-pm-bg: var(--pm-bg);
+  --color-pm-surface: var(--pm-surface);
+  --color-pm-surface-2: var(--pm-surface-2);
+  --color-pm-surface-3: var(--pm-surface-3);
+  --color-pm-accent: var(--pm-accent);
+  --color-pm-accent-bright: var(--pm-accent-bright);
+  --color-pm-accent-vivid: var(--pm-accent-vivid);
+  --color-pm-cyan: var(--pm-cyan);
+  --color-pm-text: var(--pm-text);
+  --color-pm-muted: var(--pm-text-muted);
   
   --font-display: 'Space Grotesk', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -40,6 +40,112 @@
   --pm-text-faint:   #44445a;
   --font-display:    'Space Grotesk', sans-serif;
   --font-mono:       'JetBrains Mono', monospace;
+
+  /* Custom helper variables for translucent fallback backgrounds */
+  --pm-bg-trans-20: rgba(10, 10, 15, 0.2);
+  --pm-bg-trans-50: rgba(10, 10, 15, 0.5);
+  --pm-border-hover: rgba(120, 120, 200, 0.18);
+  --pm-border-card: rgba(120, 120, 200, 0.06);
+  --pm-nav-bg: rgba(10, 10, 15, 0.85);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HOMEPAGE DUAL-THEME OVERRIDES (Applied only when homepage is active)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+body.homepage-active {
+  /* Cinematic Editorial Dark Theme values by default */
+  --pm-bg: #1E2022;
+  --pm-surface: #27374D;
+  --pm-surface-2: #344860;
+  --pm-surface-3: #526D82;
+  
+  --pm-border: rgba(157, 178, 191, 0.15);
+  --pm-border-bright: rgba(221, 230, 237, 0.25);
+  
+  --pm-accent: #9DB2BF;
+  --pm-accent-bright: #DDE6ED;
+  --pm-accent-vivid: #DDE6ED;
+  --pm-accent-glow: rgba(157, 178, 191, 0.18);
+  --pm-accent-subtle: rgba(157, 178, 191, 0.05);
+  --pm-accent-mid: rgba(157, 178, 191, 0.1);
+  --pm-cyan: #9DB2BF;
+  --pm-cyan-subtle: rgba(157, 178, 191, 0.04);
+  
+  --pm-text: #DDE6ED;
+  --pm-text-muted: #9DB2BF;
+  --pm-text-faint: #526D82;
+  --pm-text-title: #ffffff;
+  
+  --pm-nav-bg: rgba(30, 32, 34, 0.85);
+  
+  --pm-bg-trans-20: rgba(30, 32, 34, 0.2);
+  --pm-bg-trans-50: rgba(30, 32, 34, 0.5);
+
+  --pm-border-hover: rgba(221, 230, 237, 0.2);
+  --pm-border-card: rgba(221, 230, 237, 0.08);
+
+  background-color: var(--pm-bg);
+  color: var(--pm-text);
+}
+
+@media (prefers-color-scheme: light) {
+  body.homepage-active {
+    /* Premium airy light theme values */
+    --pm-bg: #F0F5F9;
+    --pm-surface: #ffffff;
+    --pm-surface-2: #E8EEF3;
+    --pm-surface-3: #D0E7E6;
+    
+    --pm-border: rgba(41, 54, 129, 0.08);
+    --pm-border-bright: rgba(66, 116, 217, 0.2);
+    
+    --pm-accent: #293681;
+    --pm-accent-bright: #112E81;
+    --pm-accent-vivid: #4274D9;
+    --pm-accent-glow: rgba(41, 54, 129, 0.12);
+    --pm-accent-subtle: rgba(41, 54, 129, 0.04);
+    --pm-accent-mid: rgba(41, 54, 129, 0.08);
+    --pm-cyan: #4382DF;
+    --pm-cyan-subtle: rgba(67, 130, 223, 0.06);
+    
+    --pm-text: #1A1D2D;
+    --pm-text-muted: #4B5563;
+    --pm-text-faint: #9CA3AF;
+    --pm-text-title: #112E81;
+    
+    --pm-nav-bg: rgba(240, 245, 249, 0.85);
+    
+    --pm-bg-trans-20: rgba(240, 245, 249, 0.2);
+    --pm-bg-trans-50: rgba(240, 245, 249, 0.5);
+
+    --pm-border-hover: rgba(41, 54, 129, 0.22);
+    --pm-border-card: rgba(41, 54, 129, 0.06);
+  }
+}
+
+/* Page-level heading color overriding via specificity, preserving dark visual mockups */
+body.homepage-active h1:not(.mockup-browser *):not(.mockup-visual *),
+body.homepage-active h2:not(.mockup-browser *):not(.mockup-visual *),
+body.homepage-active h3:not(.mockup-browser *):not(.mockup-visual *),
+body.homepage-active h4:not(.mockup-browser *):not(.mockup-visual *),
+body.homepage-active span.text-white:not(.mockup-browser *):not(.mockup-visual *) {
+  color: var(--pm-text-title) !important;
+}
+
+body.homepage-active footer a:hover,
+body.homepage-active footer span.cursor-pointer:hover {
+  color: var(--pm-text-title) !important;
+}
+
+body.homepage-active,
+body.homepage-active section,
+body.homepage-active nav,
+body.homepage-active footer,
+body.homepage-active .glass-panel,
+body.homepage-active div.rounded-xl,
+body.homepage-active div.rounded-2xl {
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 body {
@@ -55,6 +161,10 @@ body {
 .dot-grid {
   background-size: 24px 24px;
   background-image: radial-gradient(rgba(120, 120, 255, 0.06) 1px, transparent 1px);
+}
+
+body.homepage-active .dot-grid {
+  background-image: radial-gradient(var(--pm-border-bright) 1px, transparent 1px);
 }
 
 .text-gradient-purple {
@@ -73,6 +183,12 @@ body {
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
+body.homepage-active .glass-panel {
+  background: var(--pm-surface-2);
+  border-color: var(--pm-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+}
+
 .glass-panel-hover {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -85,4 +201,3 @@ body {
 * {
   cursor: none !important;
 }
-

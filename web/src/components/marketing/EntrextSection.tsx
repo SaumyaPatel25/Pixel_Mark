@@ -102,7 +102,7 @@ export default function EntrextSection() {
               rel="noopener noreferrer"
               className={`px-6 py-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-500 flex items-center gap-2 group cursor-pointer ${
                 isHovered 
-                  ? 'bg-white text-pm-bg shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-[1.02]' 
+                  ? 'bg-pm-accent-bright text-white shadow-accent scale-[1.02]' 
                   : 'bg-pm-accent text-white shadow-accent'
               }`}
             >

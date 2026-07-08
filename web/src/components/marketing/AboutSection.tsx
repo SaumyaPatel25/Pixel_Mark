@@ -121,7 +121,7 @@ export default function AboutSection() {
                   className={`relative p-5 rounded-xl border transition-all duration-500 cursor-pointer text-left select-none overflow-hidden ${
                     isActive
                       ? `${stage.borderColor} bg-pm-surface-2/45 shadow-[0_0_25px_${stage.glowColor}]`
-                      : 'border-white/5 bg-pm-surface/20 opacity-60 hover:opacity-90 hover:border-white/10'
+                      : 'border-pm-border bg-pm-surface/20 opacity-60 hover:opacity-90 hover:border-pm-border-bright/20'
                   }`}
                 >
                   <div className="flex gap-4 items-start">
@@ -183,7 +183,7 @@ export default function AboutSection() {
 
           {/* Right Column: Visual Stage Panel */}
           <div className="lg:col-span-7 flex flex-col justify-center">
-            <div className="w-full aspect-[16/10] min-h-[360px] rounded-2xl border border-white/10 bg-pm-surface/30 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden flex flex-col justify-between select-none hover:border-pm-accent/30 transition-all duration-500">
+            <div className="mockup-visual w-full aspect-[16/10] min-h-[360px] rounded-2xl border border-pm-border bg-pm-surface/30 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden flex flex-col justify-between select-none hover:border-pm-accent/30 transition-all duration-500">
               <AnimatePresence mode="wait">
                 {currentStage === 0 && <ProblemVisual key="problem" />}
                 {currentStage === 1 && <ActionVisual key="action" />}
