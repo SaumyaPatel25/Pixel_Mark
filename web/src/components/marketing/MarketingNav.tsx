@@ -26,11 +26,12 @@ export default function MarketingNav() {
   const isUserLoggedIn = mounted && !!user;
 
   const navLinks = [
+    { name: 'Home', href: '/' },
     { name: 'Features', href: '/#features' },
     { name: 'Workflow', href: '/#use-cases' },
     { name: 'Pricing', href: '/pricing' },
     { name: 'FAQ', href: '/#faq' },
-    { name: 'About', href: '/#about' }
+    { name: 'About', href: '/company#story' }
   ];
 
   return (

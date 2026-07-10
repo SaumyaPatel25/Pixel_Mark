@@ -64,10 +64,10 @@ export default function MarketingFooter() {
           <div className="lg:col-span-2 space-y-4 text-left">
             <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80]">Company</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
-              <a href="#about" className="hover:text-[#253B80] transition-colors">About Story</a>
-              <a href="#entrext" className="hover:text-[#253B80] transition-colors">Entrext Labs</a>
+              <Link href="/company#story" className="hover:text-[#253B80] transition-colors">About Story</Link>
+              <Link href="/company#company" className="hover:text-[#253B80] transition-colors">Entrext Labs</Link>
               <a href="https://entrextlabs.substack.com/subscribe" target="_blank" rel="noopener noreferrer" className="hover:text-[#253B80] transition-colors">Blog Substack</a>
-              <span className="text-pm-muted/40 cursor-default">Careers</span>
+              <Link href="/company#opportunities" className="hover:text-[#253B80] transition-colors">Careers</Link>
             </div>
           </div>
 
@@ -75,10 +75,10 @@ export default function MarketingFooter() {
           <div className="lg:col-span-4 space-y-4 text-left">
             <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80]">Legal</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
-              <span className="hover:text-[#253B80] cursor-pointer transition-colors">Privacy Policy</span>
-              <span className="hover:text-[#253B80] cursor-pointer transition-colors">Terms of Service</span>
-              <span className="hover:text-[#253B80] cursor-pointer transition-colors">CORS Scoping Agreement</span>
-              <span className="hover:text-[#253B80] cursor-pointer transition-colors">Security Disclosures</span>
+              <Link href="/company#legal" className="hover:text-[#253B80] transition-colors">Privacy Policy</Link>
+              <Link href="/company#legal" className="hover:text-[#253B80] transition-colors">Terms of Service</Link>
+              <Link href="/company#legal" className="hover:text-[#253B80] transition-colors">CORS Scoping Agreement</Link>
+              <Link href="/company#legal" className="hover:text-[#253B80] transition-colors">Security Disclosures</Link>
             </div>
           </div>
         </div>
