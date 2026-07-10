@@ -85,21 +85,23 @@ export function AIProviderForm({ initialConfig, onSuccess, onCancel }: AIProvide
     }
   }
 
+  const inputClass = "w-full bg-[#F8F7F4] border border-[#253B80]/8 hover:border-[#253B80]/15 rounded-xl px-4 py-2.5 text-sm font-medium text-[#1E2022] focus:outline-none focus:border-[#253B80] focus:ring-1 focus:ring-[#253B80]/20 shadow-inner transition-all placeholder:text-[#1E2022]/30"
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {localError && (
-        <div className="p-3 text-sm text-red-500 bg-red-500/10 rounded-md border border-red-500/20">
+        <div className="p-3 text-sm font-bold text-red-600 bg-red-50 rounded-xl border border-red-200">
           {localError}
         </div>
       )}
       
       {!isEditing && (
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Provider</label>
+          <label className="block text-xs font-bold text-[#1E2022] mb-1.5 ml-1">Provider</label>
           <select 
             value={provider} 
             onChange={e => setProvider(e.target.value as ProviderName)}
-            className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white focus:ring-1 focus:ring-blue-500"
+            className={inputClass}
           >
             {Object.keys(PROVIDER_DEFAULTS).map(p => (
               <option key={p} value={p}>{p}</option>
@@ -109,82 +111,82 @@ export function AIProviderForm({ initialConfig, onSuccess, onCancel }: AIProvide
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">Display Name</label>
+        <label className="block text-xs font-bold text-[#1E2022] mb-1.5 ml-1">Display Name</label>
         <input 
           type="text" 
           value={displayName} 
           onChange={e => setDisplayName(e.target.value)}
-          className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white"
+          className={inputClass}
           placeholder="My API Key"
         />
       </div>
 
       {provider === 'openai_compatible' && (
-        <div className="p-3 text-xs bg-blue-500/10 rounded-md border border-blue-500/20 text-blue-455">
+        <div className="p-3 text-xs font-bold bg-blue-50 rounded-xl border border-blue-100 text-[#253B80]">
           Enter the provider’s OpenAI-compatible base URL and model name.
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">
-          API Key {isEditing && <span className="text-gray-500 font-normal">(Leave blank to keep existing)</span>}
-          {!isEditing && provider === 'ollama' && <span className="text-gray-500 font-normal">(Optional)</span>}
+        <label className="block text-xs font-bold text-[#1E2022] mb-1.5 ml-1">
+          API Key {isEditing && <span className="text-[#1E2022]/40 font-semibold">(Leave blank to keep existing)</span>}
+          {!isEditing && provider === 'ollama' && <span className="text-[#1E2022]/40 font-semibold">(Optional)</span>}
         </label>
         <input 
           type="password" 
           value={apiKey} 
           onChange={e => setApiKey(e.target.value)}
-          className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white"
+          className={inputClass}
           placeholder={isEditing ? '••••••••••••••••' : 'sk-...'}
         />
-        <p className="text-xs text-gray-500 mt-1">Stored securely and never shown again after save.</p>
+        <p className="text-[11px] font-semibold text-[#1E2022]/40 mt-1 ml-1">Stored securely and never shown again after save.</p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">Base URL</label>
+        <label className="block text-xs font-bold text-[#1E2022] mb-1.5 ml-1">Base URL</label>
         <input 
           type="url" 
           value={baseUrl} 
           onChange={e => setBaseUrl(e.target.value)}
-          className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white"
+          className={inputClass}
           placeholder="https://api.openai.com/v1"
         />
-        <p className="text-xs text-gray-500 mt-1">Required for custom or OpenAI-compatible endpoints.</p>
+        <p className="text-[11px] font-semibold text-[#1E2022]/40 mt-1 ml-1">Required for custom or OpenAI-compatible endpoints.</p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">Model Name</label>
+        <label className="block text-xs font-bold text-[#1E2022] mb-1.5 ml-1">Model Name</label>
         <input 
           type="text" 
           value={modelName} 
           onChange={e => setModelName(e.target.value)}
-          className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-white"
+          className={inputClass}
           placeholder="gpt-4o-mini"
         />
-        <p className="text-xs text-gray-500 mt-1">Used for AI triage and session summaries.</p>
+        <p className="text-[11px] font-semibold text-[#1E2022]/40 mt-1 ml-1">Used for AI triage and session summaries.</p>
       </div>
 
       {isEditing && (
-        <div className="flex items-center space-x-2 pt-2">
+        <div className="flex items-center space-x-2 pt-2 ml-1">
           <input 
             type="checkbox" 
             id="is_active"
             checked={isActive}
             onChange={e => setIsActive(e.target.checked)}
-            className="rounded border-slate-700 bg-slate-800 text-blue-500"
+            className="rounded border-[#253B80]/20 bg-white text-[#253B80] focus:ring-[#253B80]/20"
           />
-          <label htmlFor="is_active" className="text-sm font-medium text-gray-300">
+          <label htmlFor="is_active" className="text-sm font-bold text-[#1E2022]">
             Active
           </label>
         </div>
       )}
 
-      <div className="flex justify-end space-x-3 pt-4 border-t border-slate-700">
+      <div className="flex justify-end space-x-3 pt-6 border-t border-[#253B80]/8">
         {onCancel && (
           <button 
             type="button" 
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+            className="px-5 py-2.5 text-xs font-bold text-[#1E2022]/60 hover:text-[#1E2022] hover:bg-slate-50 rounded-xl transition-colors"
           >
             Cancel
           </button>
@@ -192,7 +194,7 @@ export function AIProviderForm({ initialConfig, onSuccess, onCancel }: AIProvide
         <button 
           type="submit" 
           disabled={store.isSaving}
-          className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md disabled:opacity-50 transition-colors"
+          className="px-5 py-2.5 text-xs font-bold bg-[#253B80] hover:bg-[#1E2E66] text-white rounded-xl shadow-md shadow-[#253B80]/20 disabled:opacity-50 transition-colors active:scale-95"
         >
           {store.isSaving ? 'Saving...' : 'Save Configuration'}
         </button>

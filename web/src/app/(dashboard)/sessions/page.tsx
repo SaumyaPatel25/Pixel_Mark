@@ -15,6 +15,7 @@ import {
   Compass, 
   ExternalLink 
 } from 'lucide-react'
+import SessionFeedbackSummary from '@/components/session/SessionFeedbackSummary'
 
 function SessionsList() {
   const router = useRouter()
@@ -25,6 +26,9 @@ function SessionsList() {
   const [sessions, setSessions] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  const [selectedSessionTitle, setSelectedSessionTitle] = useState<string>('')
 
   // New Session Creation Form State
   const [showCreate, setShowCreate] = useState(false)
@@ -58,6 +62,13 @@ function SessionsList() {
     fetchData()
   }, [projectId])
 
+  useEffect(() => {
+    if (sessions.length > 0 && !selectedSessionId) {
+      setSelectedSessionId(sessions[0].id)
+      setSelectedSessionTitle(sessions[0].title || '')
+    }
+  }, [sessions, selectedSessionId])
+
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!projectId || !newSessionTitle.trim() || isCreating) return
@@ -84,22 +95,22 @@ function SessionsList() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col items-center justify-center space-y-4 opacity-50">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-        <span className="text-[10px] font-mono tracking-widest text-white/40 uppercase">Loading Sessions...</span>
+      <div className="min-h-screen bg-[#F8F7F4] text-[#1E2022] flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-[#253B80]" />
+        <span className="text-[10px] font-mono tracking-widest text-[#1E2022]/40 uppercase">Loading Sessions...</span>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] text-white p-10 flex flex-col items-center justify-center space-y-4">
-        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-6 rounded-2xl max-w-md text-center text-xs font-mono">
+      <div className="min-h-screen bg-[#F8F7F4] text-[#1E2022] p-10 flex flex-col items-center justify-center space-y-4">
+        <div className="bg-red-50 border border-red-200 text-red-600 p-6 rounded-2xl max-w-md text-center text-xs font-mono shadow-sm">
           {error}
         </div>
         <button 
           onClick={fetchData}
-          className="px-5 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-xs font-bold transition-all"
+          className="px-5 py-2.5 bg-white border border-[#253B80]/15 hover:bg-slate-50 rounded-xl text-[#253B80] text-xs font-bold transition-all shadow-sm"
         >
           Retry Load
         </button>
@@ -108,32 +119,32 @@ function SessionsList() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white p-6 md:p-10 font-sans relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#F8F7F4] text-[#1E2022] p-6 md:p-10 font-sans relative overflow-x-hidden">
       {/* Background Dots */}
       <div 
         className="absolute inset-0 z-0 pointer-events-none opacity-20"
         style={{
-          backgroundImage: 'radial-gradient(circle, #312e81 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, #253B80 1px, transparent 1px)',
           backgroundSize: '24px 24px'
         }}
       />
 
-      <div className="max-w-4xl mx-auto space-y-8 relative z-10">
+      <div className="max-w-6xl mx-auto space-y-8 relative z-10">
         {/* Header bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.03] pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#253B80]/8 pb-6">
           <div className="space-y-2">
             <Link 
               href="/dashboard"
-              className="inline-flex items-center gap-2 text-xs text-white/40 hover:text-white transition-colors uppercase font-bold tracking-wider"
+              className="inline-flex items-center gap-2 text-xs text-[#1E2022]/40 hover:text-[#1E2022] transition-colors uppercase font-bold tracking-wider"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Back to dashboard
             </Link>
-            <h1 className="text-3xl font-black tracking-tight text-white leading-tight flex items-center gap-3">
-              <Folder className="w-8 h-8 text-purple-400" />
+            <h1 className="text-3xl font-black tracking-tight text-[#1E2022] leading-tight flex items-center gap-3">
+              <Folder className="w-8 h-8 text-[#253B80]" />
               {project?.name || 'Review Project'}
             </h1>
-            <p className="text-white/40 text-xs truncate max-w-md">
+            <p className="text-[#1E2022]/40 text-xs truncate max-w-md">
               {project?.url || 'No default environment URL configured'}
             </p>
           </div>
@@ -144,63 +155,85 @@ function SessionsList() {
               setNewSessionUrl(project?.url || '')
               setShowCreate(true)
             }}
-            className="rounded-xl h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs px-6 shadow-lg shadow-purple-950/40 transition-all flex items-center gap-2 active:scale-95 flex-shrink-0 self-start sm:self-auto"
+            className="rounded-xl h-11 bg-[#253B80] hover:bg-[#1E2E66] text-white font-black text-xs px-6 shadow-md shadow-[#253B80]/20 transition-all flex items-center gap-2 active:scale-95 flex-shrink-0 self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             New Session
           </button>
         </div>
 
-        {/* Sessions list */}
+        {/* Sessions list layout grid */}
         {sessions.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4">
-            {sessions.map((s) => (
-              <div 
-                key={s.id}
-                className="bg-[#0c0c0e]/80 border border-white/5 rounded-2xl p-5 hover:border-purple-500/25 hover:bg-white/[0.01] transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
-              >
-                <div className="space-y-2">
-                  <h3 className="text-sm font-bold text-white leading-snug">{s.title}</h3>
-                  <div className="flex items-center gap-4 text-[10px] text-white/30 font-bold uppercase tracking-wider">
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" />
-                      Started {new Date(s.created_at).toLocaleDateString()}
-                    </span>
-                    {s.current_page_url && (
-                      <span className="truncate max-w-[240px]">
-                        Last page: {s.current_page_url}
-                      </span>
-                    )}
-                  </div>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left side: Sessions List */}
+            <div className="lg:col-span-7 space-y-4">
+              {sessions.map((s) => {
+                const isSelected = selectedSessionId === s.id
+                return (
+                  <div 
+                    key={s.id}
+                    onClick={() => {
+                      setSelectedSessionId(s.id)
+                      setSelectedSessionTitle(s.title || '')
+                    }}
+                    className={`bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 ${
+                      isSelected 
+                        ? 'border-[#253B80] ring-2 ring-[#253B80]/15' 
+                        : 'border-[#253B80]/8'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-bold text-[#1E2022] leading-snug">{s.title}</h3>
+                      <div className="flex items-center gap-4 text-[10px] text-[#1E2022]/40 font-bold uppercase tracking-wider">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          Started {new Date(s.created_at).toLocaleDateString()}
+                        </span>
+                        {s.current_page_url && (
+                          <span className="truncate max-w-[240px]">
+                            Last page: {s.current_page_url}
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/project/${projectId}`}
-                    className="h-10 px-4 rounded-xl bg-purple-600/10 hover:bg-purple-600 border border-purple-500/20 text-purple-300 hover:text-white text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    Audit Canvas
-                  </Link>
-                  <Link
-                    href={`/sessions/${s.id}`}
-                    className="h-10 px-4 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] text-white/70 hover:text-white text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all"
-                  >
-                    <Compass className="w-3.5 h-3.5 text-cyan-400" />
-                    Observation Details
-                  </Link>
-                </div>
-              </div>
-            ))}
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Link
+                        href={`/project/${projectId}`}
+                        className="h-10 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 border border-[#253B80]/15 text-[#253B80] text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        Audit Canvas
+                      </Link>
+                      <Link
+                        href={`/sessions/${s.id}`}
+                        className="h-10 px-4 rounded-xl bg-white border border-[#253B80]/15 hover:bg-slate-50 text-[#1E2022]/70 hover:text-[#1E2022] text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
+                      >
+                        <Compass className="w-3.5 h-3.5 text-[#253B80]/70" />
+                        Observation Details
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Right side: Detailed Live Session Analytics Card */}
+            <div className="lg:col-span-5 sticky top-6">
+              <SessionFeedbackSummary 
+                sessionId={selectedSessionId}
+                sessionTitle={selectedSessionTitle}
+              />
+            </div>
           </div>
         ) : (
-          <div className="border border-dashed border-white/10 bg-[#0c0c0e]/30 rounded-3xl p-16 flex flex-col items-center justify-center text-center gap-6">
-            <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center">
-              <Play className="w-8 h-8 text-white/20" />
+          <div className="border border-dashed border-[#253B80]/15 bg-white/50 rounded-3xl p-16 flex flex-col items-center justify-center text-center gap-6">
+            <div className="w-16 h-16 rounded-2xl bg-[#253B80]/5 border border-[#253B80]/10 flex items-center justify-center">
+              <Play className="w-8 h-8 text-[#253B80]/40" />
             </div>
             <div className="space-y-2 max-w-sm">
-              <h3 className="text-xl font-black tracking-tight text-white">Launch Review Session</h3>
-              <p className="text-xs text-white/40 leading-relaxed uppercase tracking-wider font-bold">
+              <h3 className="text-xl font-black tracking-tight text-[#1E2022]">Launch Review Session</h3>
+              <p className="text-xs text-[#1E2022]/50 leading-relaxed uppercase tracking-wider font-bold">
                 No active audit or observation sessions configured yet. Launch a session to start visual auditing.
               </p>
             </div>
@@ -210,7 +243,7 @@ function SessionsList() {
                 setNewSessionUrl(project?.url || '')
                 setShowCreate(true)
               }}
-              className="h-10 rounded-xl bg-purple-600/10 border border-purple-500/20 hover:bg-purple-600 hover:border-purple-500 text-purple-300 hover:text-white px-6 font-bold text-xs transition-all flex items-center gap-2"
+              className="h-10 rounded-xl bg-[#253B80]/10 border border-[#253B80]/20 hover:bg-[#253B80] text-[#253B80] hover:text-white px-6 font-bold text-xs transition-all flex items-center gap-2 shadow-sm"
             >
               Start First Session
               <Plus className="w-3.5 h-3.5" />
@@ -223,19 +256,19 @@ function SessionsList() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div 
               onClick={() => setShowCreate(false)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              className="absolute inset-0 bg-[#1E2022]/30 backdrop-blur-md"
             />
             
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl relative z-10 space-y-6"
+              className="bg-white border border-[#253B80]/8 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl relative z-10 space-y-6"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black uppercase tracking-widest text-purple-400">New Review Session</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest text-[#253B80]">New Review Session</h3>
                 <button 
                   onClick={() => setShowCreate(false)}
-                  className="text-white/40 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest"
+                  className="text-[#1E2022]/40 hover:text-[#1E2022] transition-colors text-xs font-bold uppercase tracking-widest"
                 >
                   Close
                 </button>
@@ -243,7 +276,7 @@ function SessionsList() {
 
               <form onSubmit={handleCreateSession} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-white/30 text-[9px] font-black uppercase tracking-widest block font-bold">Session Title</label>
+                  <label className="text-[#1E2022]/60 text-[9px] font-black uppercase tracking-widest block font-bold">Session Title</label>
                   <input
                     autoFocus
                     required
@@ -252,38 +285,38 @@ function SessionsList() {
                     placeholder="E.g. Homepage Audit"
                     value={newSessionTitle}
                     onChange={(e) => setNewSessionTitle(e.target.value)}
-                    className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/20 focus:border-purple-500 outline-none transition-all"
+                    className="w-full bg-[#F8F7F4] border border-[#253B80]/8 hover:border-[#253B80]/15 rounded-xl px-4 py-3 text-xs text-[#1E2022] placeholder:text-[#1E2022]/30 focus:border-[#253B80] focus:ring-1 focus:ring-[#253B80]/20 outline-none transition-all shadow-inner"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-white/30 text-[9px] font-black uppercase tracking-widest block font-bold">Starting URL (Optional)</label>
+                  <label className="text-[#1E2022]/60 text-[9px] font-black uppercase tracking-widest block font-bold">Starting URL (Optional)</label>
                   <div className="relative">
-                    <ExternalLink className="w-4 h-4 text-white/20 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <ExternalLink className="w-4 h-4 text-[#1E2022]/30 absolute left-4 top-1/2 -translate-y-1/2" />
                     <input
                       disabled={isCreating}
                       type="url"
                       placeholder="https://staging.acme.com"
                       value={newSessionUrl}
                       onChange={(e) => setNewSessionUrl(e.target.value)}
-                      className="w-full bg-white/[0.02] border border-white/5 rounded-xl pl-11 pr-4 py-3 text-xs text-white placeholder:text-white/20 focus:border-purple-500 outline-none transition-all"
+                      className="w-full bg-[#F8F7F4] border border-[#253B80]/8 hover:border-[#253B80]/15 rounded-xl pl-11 pr-4 py-3 text-xs text-[#1E2022] placeholder:text-[#1E2022]/30 focus:border-[#253B80] focus:ring-1 focus:ring-[#253B80]/20 outline-none transition-all shadow-inner"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 justify-end pt-4">
+                <div className="flex gap-2.5 justify-end pt-4 border-t border-[#253B80]/8">
                   <button
                     type="button"
                     disabled={isCreating}
                     onClick={() => setShowCreate(false)}
-                    className="px-5 py-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] text-xs font-bold transition-all"
+                    className="px-5 py-3 rounded-xl border border-[#253B80]/15 bg-white hover:bg-slate-50 text-[#1E2022] text-xs font-bold transition-all shadow-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isCreating || !newSessionTitle.trim()}
-                    className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs shadow-lg shadow-purple-900/20 transition-all flex items-center gap-2"
+                    className="px-6 py-3 rounded-xl bg-[#253B80] hover:bg-[#1E2E66] text-white font-black text-xs shadow-md shadow-[#253B80]/20 transition-all flex items-center gap-2"
                   >
                     {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                     {isCreating ? 'Launching...' : 'Launch Session'}
@@ -301,9 +334,9 @@ function SessionsList() {
 export default function SessionsListPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col items-center justify-center space-y-4 opacity-50">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-        <span className="text-[10px] font-mono tracking-widest text-white/40 uppercase">Initialising sessions list...</span>
+      <div className="min-h-screen bg-[#F8F7F4] text-[#1E2022] flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-[#253B80]" />
+        <span className="text-[10px] font-mono tracking-widest text-[#1E2022]/40 uppercase">Initialising sessions list...</span>
       </div>
     }>
       <SessionsList />

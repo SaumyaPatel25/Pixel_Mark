@@ -94,6 +94,8 @@ export default function RootLayout({
     "@type": "WebSite",
     "name": "PixelMark",
     "url": seoConfig.siteUrl,
+    "description": seoConfig.description,
+    "keywords": "visual website feedback tool, bug reporting software, QA annotation tool, website review link generator",
     "potentialAction": {
       "@type": "SearchAction",
       "target": `${seoConfig.siteUrl}/?q={search_term_string}`,

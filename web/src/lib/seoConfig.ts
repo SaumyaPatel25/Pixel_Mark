@@ -2,8 +2,8 @@
  * Shared SEO Constants & Defaults for PixelMark
  */
 export const seoConfig = {
-  title: "PixelMark | Visual Website Feedback & Bug Reporting Tool",
-  description: "Get client review links instantly. Pin visual feedback, annotations, and QA comments directly on live websites without screenshots or extensions. Engineered by Entrext Labs.",
+  title: "PixelMark | Visual Website Feedback & QA Bug Reporting Tool",
+  description: "Instantly generate secure review links to pin visual feedback, annotations, and QA bug reports directly on live websites. The #1 visual feedback tool for product teams.",
   siteUrl: "https://web-zeta-sable-82.vercel.app",
   company: "Entrext Labs",
   owner: "Saumya Patel",

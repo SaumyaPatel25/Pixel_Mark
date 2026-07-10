@@ -8,20 +8,27 @@ export function useViewportHeight() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
+    let rAFId: number | null = null
     const updateHeight = () => {
-      // Use the VisualViewport API if available, which accounts for virtual keyboards and browser chrome
-      const vv = window.visualViewport
-      const vh = vv ? vv.height : window.innerHeight
-      setHeight(vh)
+      if (rAFId) return
+      rAFId = requestAnimationFrame(() => {
+        // Use the VisualViewport API if available, which accounts for virtual keyboards and browser chrome
+        const vv = window.visualViewport
+        const vh = vv ? vv.height : window.innerHeight
+        setHeight(vh)
+        rAFId = null
+      })
     }
 
-    updateHeight()
+    // Run first measurement synchronously to avoid initial render delay
+    const vv = window.visualViewport
+    setHeight(vv ? vv.height : window.innerHeight)
 
-    window.addEventListener('resize', updateHeight)
-    window.addEventListener('orientationchange', updateHeight)
+    window.addEventListener('resize', updateHeight, { passive: true })
+    window.addEventListener('orientationchange', updateHeight, { passive: true })
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateHeight)
-      window.visualViewport.addEventListener('scroll', updateHeight)
+      window.visualViewport.addEventListener('resize', updateHeight, { passive: true })
+      window.visualViewport.addEventListener('scroll', updateHeight, { passive: true })
     }
 
     return () => {
@@ -31,6 +38,7 @@ export function useViewportHeight() {
         window.visualViewport.removeEventListener('resize', updateHeight)
         window.visualViewport.removeEventListener('scroll', updateHeight)
       }
+      if (rAFId) cancelAnimationFrame(rAFId)
     }
   }, [])
 

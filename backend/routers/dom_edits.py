@@ -42,7 +42,7 @@ async def verify_dom_edit_access(session_id: str, request: Request, db: AsyncSes
                     OrgMember.user_id == user_id
                 )
             )
-            if member_result.scalar_one_or_none():
+            if member_result.scalars().first():
                 return sess, user_id # Owner access granted
 
     if require_owner:

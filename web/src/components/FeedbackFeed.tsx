@@ -1,13 +1,14 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useMarkerStore } from '@/store/markerStore'
 import { useUIStore } from '@/store/uiStore'
 import { useDOMEditStore } from '@/store/domEditStore'
 import { StyleEditsTab } from '@/components/command-center/StyleEditsTab'
-import { Layers, Pin, X } from 'lucide-react'
+import { Layers, Pin, X, Users, Search, Filter, AlertCircle, Compass, ShieldAlert, CheckCircle, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getMarkerColors } from '@/lib/markerColors'
+import { AnimatePresence, motion } from 'framer-motion'
 
 interface FeedbackFeedProps {
   sessionId: string | null
@@ -26,11 +27,13 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
 
   const activeMarkers = getVisibleMarkers()
 
-  // Tabs state
-  const [activeFeedTab, setActiveFeedTab] = React.useState<'feedback' | 'styles'>('feedback')
+  // Tabs & dropdown states
+  const [activeFeedTab, setActiveFeedTab] = useState<'feedback' | 'styles'>('feedback')
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const { edits, fetchEdits } = useDOMEditStore()
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (sessionId) {
       fetchEdits(sessionId)
     }
@@ -38,8 +41,6 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
 
   const handleCardClick = (item: any) => {
     const pageUrl = item.page_url ?? item.pageUrl ?? undefined
-    console.log(`[FeedbackFeed] Clicked card id=${item.id} pageUrl=${pageUrl}`)
-    
     // Select marker
     useMarkerStore.getState().setSelectedMarkerId(item.id)
     
@@ -51,177 +52,214 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
     }, '*')
   }
 
+  // Filter logic including search term
+  const filteredMarkers = activeMarkers
+    .filter(m => {
+      if (!searchTerm.trim()) return true
+      const term = searchTerm.toLowerCase()
+      const title = (m.title || '').toLowerCase()
+      const desc = (m.description || '').toLowerCase()
+      const creator = (m.creator_name || '').toLowerCase()
+      return title.includes(term) || desc.includes(term) || creator.includes(term)
+    })
+
+  const hasActiveFilters = filters.creatorId !== 'all' || filters.status !== 'all' || filters.priority !== 'all' || searchTerm.trim() !== ''
+
+  // Reset filters helper
+  const handleResetFilters = () => {
+    setFilters({ creatorId: 'all', status: 'all', priority: 'all' })
+    setSearchTerm('')
+  }
+
   return (
-    <div className="w-full h-full bg-[#0a0a0f] flex flex-col z-40 select-none">
+    <div className="w-full h-full bg-[#fcfbfa] flex flex-col z-40 select-none border-l border-slate-200/60">
       {/* Sidebar Header */}
-      <div className="p-5 border-b border-white/5 flex items-center justify-between bg-[#0d0d14]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
-            <Layers className="w-4 h-4 text-purple-400" />
+      <div className="p-4 border-b border-slate-200/60 flex items-center justify-between bg-white shadow-sm shadow-slate-100/10">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-[#D0E7E6]/40 border border-[#293681]/8 flex items-center justify-center flex-shrink-0">
+            <Layers className="w-3.5 h-3.5 text-[#293681]" />
           </div>
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-widest text-white">Feedback Feed</h3>
-            <p className="text-[8.5px] text-white/30 font-bold uppercase tracking-widest mt-0.5">Review Session Stream</p>
+          <div className="min-w-0">
+            <h3 className="text-xs font-extrabold text-[#293681] truncate">Open Feedback</h3>
+            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Live session stream</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-[9px] font-black text-purple-400 font-mono">
-            {activeMarkers.length}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="px-2 py-0.5 rounded-full bg-[#D0E7E6]/50 border border-[#293681]/10 text-[9px] font-black text-[#293681] font-mono">
+            {filteredMarkers.length} Pins
           </span>
           <button
             id="close-command-center-btn"
             onClick={() => toggleCommandCenter(false)}
             aria-label="Close Feedback Feed Drawer"
-            className="p-2 rounded-xl bg-white/5 border border-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all lg:hidden focus:ring-2 focus:ring-purple-500 outline-none flex items-center justify-center"
+            className="w-7 h-7 rounded-lg border border-slate-200 text-slate-400 hover:text-[#293681] hover:bg-slate-50 transition-colors duration-200 lg:hidden flex items-center justify-center cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Command Center Tabs */}
-      <div className="flex border-b border-white/5 bg-[#09090e] select-none flex-shrink-0">
+      {/* Command Center Tabs - Minimal Segmented tabs */}
+      <div className="flex border-b border-slate-200/60 bg-slate-50/50 p-1 gap-1 flex-shrink-0">
         <button
           type="button"
           onClick={() => setActiveFeedTab('feedback')}
           className={cn(
-            "flex-1 py-3 text-[10px] font-black uppercase tracking-wider transition-all border-b-2 text-center cursor-pointer",
+            "flex-1 py-1.5 px-3 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-colors duration-200 text-center cursor-pointer flex items-center justify-center gap-1.5 focus:outline-none",
             activeFeedTab === 'feedback'
-              ? "border-purple-500 text-white"
-              : "border-transparent text-white/40 hover:text-white/60"
+              ? "bg-white text-[#293681] border border-slate-200 shadow-sm"
+              : "text-slate-500 hover:text-slate-800"
           )}
         >
-          Feedback ({activeMarkers.length})
+          Feedback
+          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[8.5px] font-bold text-slate-600">{filteredMarkers.length}</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveFeedTab('styles')}
           className={cn(
-            "flex-1 py-3 text-[10px] font-black uppercase tracking-wider transition-all border-b-2 text-center flex items-center justify-center gap-1.5 cursor-pointer",
+            "flex-1 py-1.5 px-3 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-colors duration-200 text-center flex items-center justify-center gap-1.5 cursor-pointer focus:outline-none",
             activeFeedTab === 'styles'
-              ? "border-teal-500 text-white"
-              : "border-transparent text-white/40 hover:text-white/60"
+              ? "bg-white text-[#293681] border border-slate-200 shadow-sm"
+              : "text-slate-500 hover:text-slate-800"
           )}
         >
           Style Edits
-          <span className="px-1.5 py-0.5 rounded-full bg-white/5 text-[9px] font-bold text-teal-400">{edits.length}</span>
+          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[8.5px] font-bold text-teal-600">{edits.length}</span>
         </button>
       </div>
 
       {activeFeedTab === 'feedback' && (
-        <div className="px-5 py-4 border-b border-white/5 bg-[#09090d] flex flex-col gap-3.5 select-none flex-shrink-0">
-          {/* Presence Bar */}
-          {participants.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Active Reviewers</span>
-              <div className="flex items-center gap-2 flex-wrap">
-                {participants.map(p => {
-                  const colors = getMarkerColors(p.color_token)
-                  const initials = (p.name || '?').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || '?'
-                  return (
-                    <div
-                      key={p.id}
-                      title={`${p.name} (${p.role}) - ${p.is_online ? 'Online' : 'Offline'}`}
-                      className={cn(
-                        "w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black border transition-all relative",
-                        p.is_online ? "ring-2 ring-green-500/40" : "opacity-45"
+        <div className="px-4 py-3 border-b border-slate-200/60 bg-white flex items-center gap-2 flex-shrink-0 shadow-inner">
+          {/* Compact Search */}
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Filter pins..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[10.5px] font-bold text-[#1e2022] placeholder:text-slate-400 focus:bg-white outline-none transition-colors duration-200"
+            />
+          </div>
+
+          {/* Single Collapsed Filters Trigger */}
+          <div className="relative">
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={cn(
+                "w-8 h-8 rounded-lg border flex items-center justify-center transition-colors duration-200 cursor-pointer shadow-sm relative",
+                hasActiveFilters
+                  ? "bg-[#D0E7E6]/40 border-[#293681]/30 text-[#293681]"
+                  : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+              )}
+              title="Filter Options"
+            >
+              <Filter className="w-3.5 h-3.5" />
+              {hasActiveFilters && (
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#293681] ring-1 ring-white" />
+              )}
+            </button>
+
+            <AnimatePresence>
+              {isFilterOpen && (
+                <>
+                  <div className="fixed inset-0 z-50" onClick={() => setIsFilterOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                    transition={{ duration: 0.1, ease: "easeOut" }}
+                    className="absolute right-0 mt-2 w-56 rounded-xl bg-white border border-slate-200 shadow-xl z-55 p-3.5 flex flex-col gap-3 text-slate-700 select-none"
+                  >
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-[#293681]">Filter List</span>
+                      {hasActiveFilters && (
+                        <button 
+                          onClick={handleResetFilters}
+                          className="text-[8px] font-black text-rose-500 uppercase hover:underline cursor-pointer"
+                        >
+                          Reset
+                        </button>
                       )}
-                      style={{
-                        backgroundColor: colors.bg,
-                        borderColor: colors.border,
-                        color: colors.text
-                      }}
-                    >
-                      {initials}
-                      <span className={cn(
-                        "absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#0a0a0f]",
-                        p.is_online ? "bg-green-500" : "bg-neutral-500"
-                      )} />
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
 
-          {/* Filter Dropdowns */}
-          <div className="grid grid-cols-3 gap-2">
-            {/* Reviewer Filter */}
-            <div className="flex flex-col gap-1 min-w-0">
-              <label htmlFor="reviewer-filter" className="text-[8px] font-black uppercase tracking-widest text-white/30 truncate">Reviewer</label>
-              <select
-                id="reviewer-filter"
-                value={filters.creatorId}
-                onChange={(e) => setFilters({ creatorId: e.target.value })}
-                className="bg-[#12121a] border border-white/10 text-white/80 rounded-xl px-2 py-1.5 text-[9px] font-bold focus:outline-none focus:border-purple-500 cursor-pointer"
-              >
-                <option value="all">All</option>
-                {Array.from(new Set(Object.values(markersById)
-                  .filter(m => !m.is_deleted)
-                  .map(m => m.creator_name || m.creator_id || 'Anonymous')
-                  .filter(Boolean)
-                )).map(creator => (
-                  <option key={creator} value={creator}>{creator}</option>
-                ))}
-              </select>
-            </div>
+                    {/* Reviewer Filter */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">Author</label>
+                      <select
+                        value={filters.creatorId}
+                        onChange={(e) => setFilters({ creatorId: e.target.value })}
+                        className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[10.5px] font-bold outline-none cursor-pointer"
+                      >
+                        <option value="all">Everyone</option>
+                        {Array.from(new Set(Object.values(markersById)
+                          .filter(m => !m.is_deleted)
+                          .map(m => m.creator_name || m.creator_id || 'Anonymous')
+                          .filter(Boolean)
+                        )).map(creator => (
+                          <option key={creator} value={creator}>{creator}</option>
+                        ))}
+                      </select>
+                    </div>
 
-            {/* Status Filter */}
-            <div className="flex flex-col gap-1 min-w-0">
-              <label htmlFor="status-filter" className="text-[8px] font-black uppercase tracking-widest text-white/30 truncate">Status</label>
-              <select
-                id="status-filter"
-                value={filters.status}
-                onChange={(e) => setFilters({ status: e.target.value as any })}
-                className="bg-[#12121a] border border-white/10 text-white/80 rounded-xl px-2 py-1.5 text-[9px] font-bold focus:outline-none focus:border-purple-500 cursor-pointer"
-              >
-                <option value="all">All</option>
-                <option value="open">Open</option>
-                <option value="resolved">Resolved</option>
-              </select>
-            </div>
+                    {/* Status Filter */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">State</label>
+                      <select
+                        value={filters.status}
+                        onChange={(e) => setFilters({ status: e.target.value as any })}
+                        className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[10.5px] font-bold outline-none cursor-pointer"
+                      >
+                        <option value="all">All States</option>
+                        <option value="open">Unresolved</option>
+                        <option value="resolved">Resolved</option>
+                      </select>
+                    </div>
 
-            {/* Priority Filter */}
-            <div className="flex flex-col gap-1 min-w-0">
-              <label htmlFor="priority-filter" className="text-[8px] font-black uppercase tracking-widest text-white/30 truncate">Priority</label>
-              <select
-                id="priority-filter"
-                value={filters.priority}
-                onChange={(e) => setFilters({ priority: e.target.value as any })}
-                className="bg-[#12121a] border border-white/10 text-white/80 rounded-xl px-2 py-1.5 text-[9px] font-bold focus:outline-none focus:border-purple-500 cursor-pointer"
-              >
-                <option value="all">All</option>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
+                    {/* Priority Filter */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">Urgency</label>
+                      <select
+                        value={filters.priority}
+                        onChange={(e) => setFilters({ priority: e.target.value as any })}
+                        className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[10.5px] font-bold outline-none cursor-pointer"
+                      >
+                        <option value="all">All Priorities</option>
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                      </select>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       )}
 
       {activeFeedTab === 'feedback' ? (
         /* Sidebar Feed List */
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-          {activeMarkers.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center">
-                <Pin className="w-6 h-6 text-white/10" />
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/50">
+          {filteredMarkers.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-4 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                <Pin className="w-5 h-5 text-slate-300" />
               </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/30">No feedback pins dropped yet</p>
-              <p className="text-[9.5px] text-white/20 max-w-[200px] leading-relaxed">Click anywhere on the page to drop a feedback pin.</p>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#293681]">No feedback pins</p>
+                <p className="text-[9px] text-slate-400 max-w-[200px] leading-relaxed mx-auto font-medium">Click anywhere on the website preview canvas to place a feedback pin.</p>
+              </div>
             </div>
           ) : (
-            activeMarkers
+            filteredMarkers
               .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
               .map((item, idx) => {
                 const isSelected = selectedMarkerId === item.id
-                const isResolved = item.status === 'resolved'
-                
                 const markerNumber = orderedMarkerIds.indexOf(item.id) + 1
                 
-                // Extract path from pageUrl safely
                 let pathname = '/'
                 const pageUrl = item.page_url ?? undefined
                 if (pageUrl && pageUrl.trim()) {
@@ -235,82 +273,66 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
 
                 const screenshotUrl = item.screenshot_url
 
-                const getStatusColorClass = (status: string) => {
-                  const s = (status || '').toLowerCase()
-                  if (s === 'resolved') return 'bg-green-500'
-                  if (s === 'dismissed') return 'bg-slate-500'
-                  if (s === 'in_progress') return 'bg-orange-500'
-                  if (s === 'triaged') return 'bg-purple-500'
-                  if (s === 'new' || s === 'submitted' || s === 'open') return 'bg-teal-500'
-                  return 'bg-purple-600'
-                }
-
                 return (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => handleCardClick(item)}
                     className={cn(
-                      "w-full text-left p-4 rounded-2xl border transition-all flex flex-col gap-3 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer",
+                      "w-full text-left p-3.5 rounded-xl border transition-colors duration-200 flex flex-col gap-2 focus:outline-none cursor-pointer shadow-sm relative overflow-hidden bg-white hover:bg-slate-50",
                       isSelected
-                        ? "bg-purple-950/20 border-purple-500/40 shadow-lg shadow-purple-950/20"
-                        : "bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.08]"
+                        ? "border-[#293681] bg-indigo-50/20"
+                        : "border-slate-200/70"
                     )}
                   >
-                    {/* Top metadata row */}
-                    <div className="flex items-start justify-between gap-2 w-full">
+                    <div className="flex items-start justify-between gap-2.5 w-full">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={cn(
-                          "w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0",
-                          getStatusColorClass(item.status)
+                          "w-5 h-5 rounded-md flex items-center justify-center text-[9.5px] font-black text-white flex-shrink-0 shadow-sm",
+                          item.status === 'resolved' ? 'bg-emerald-500' :
+                          item.status === 'in_progress' ? 'bg-[#4382DF]' : 'bg-[#FFD5CD] text-[#293681]'
                         )}>
                           {markerNumber || idx + 1}
                         </span>
-                        <span className="text-[10.5px] font-black uppercase tracking-wider text-white truncate max-w-[130px]">
-                          {item.title || 'Untitled Feedback'}
+                        <span className="text-[11px] font-black text-[#293681] truncate max-w-[150px]">
+                          {item.title || item.description || 'Pinned observation'}
                         </span>
                       </div>
-                      <span className="text-[8px] font-bold text-white/40 truncate">
+                      <span className="text-[8.5px] font-bold text-slate-400 truncate">
                         {item.creator_name || 'Anonymous'}
                       </span>
                     </div>
 
-                    {/* Comment description */}
-                    {item.description && (
-                      <p className="text-[10px] text-white/50 line-clamp-2 leading-relaxed pl-0.5">
+                    {item.description && item.title && (
+                      <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed pl-0.5 font-medium">
                         {item.description}
                       </p>
                     )}
 
-                    {/* Bottom row: screenshot indicator, route, priority */}
-                    <div className="flex items-center justify-between gap-2 text-[8px] font-bold uppercase tracking-widest text-white/30 mt-1 pl-0.5">
+                    <div className="flex items-center justify-between gap-2 text-[8px] font-bold uppercase tracking-wider text-slate-400 mt-1 pl-0.5 font-mono">
                       <div className="flex items-center gap-1.5 truncate">
                         {screenshotUrl ? (
-                          <svg className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                          <svg className="w-3.5 h-3.5 text-[#4382DF] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         ) : (
-                          <svg className="w-3.5 h-3.5 text-white/10 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                          <svg className="w-3.5 h-3.5 text-slate-200 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
                         )}
-                        <span className="truncate max-w-[100px] font-mono text-purple-400" title={pageUrl}>
+                        <span className="truncate max-w-[120px] text-[#4382DF] font-bold" title={pageUrl}>
                           {pathname}
                         </span>
                       </div>
                       
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <span className={cn(
-                          "px-1.5 py-0.5 rounded text-[6.5px] font-black uppercase tracking-wider",
-                          item.status === 'resolved' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                          'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                          "px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider border",
+                          item.status === 'resolved' 
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                            : item.status === 'in_progress'
+                              ? 'bg-indigo-50 text-indigo-500 border-indigo-100'
+                              : 'bg-rose-50 text-rose-500 border-rose-100'
                         )}>
                           {item.status || 'open'}
                         </span>
-                        <span className={cn(
-                          "w-1.5 h-1.5 rounded-full",
-                          item.priority === 'critical' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]' :
-                          item.priority === 'high' ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]' :
-                          item.priority === 'medium' ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]' :
-                          'bg-blue-500'
-                        )} />
-                        <span>{item.priority || 'medium'}</span>
+                        <span className="font-mono text-[7px] text-slate-400 font-black">{item.priority || 'medium'}</span>
                       </div>
                     </div>
                   </button>
@@ -319,7 +341,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
           )}
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar min-h-0 flex flex-col">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar min-h-0 flex flex-col bg-slate-50/50">
           <StyleEditsTab sessionId={sessionId || ''} />
         </div>
       )}

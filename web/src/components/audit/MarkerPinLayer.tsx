@@ -82,14 +82,22 @@ export function MarkerPinLayer({
   useEffect(() => {
     if (!iframeNode) return
 
+    let rAFId: number | null = null
     const updateRect = () => {
-      setIframeRect(iframeNode.getBoundingClientRect())
-      setIframeLoadedCount(c => c + 1)
+      if (rAFId) return
+      rAFId = requestAnimationFrame(() => {
+        setIframeRect(iframeNode.getBoundingClientRect())
+        setIframeLoadedCount(c => c + 1)
+        rAFId = null
+      })
     }
 
-    updateRect()
-    window.addEventListener('resize', updateRect)
-    window.addEventListener('scroll', updateRect)
+    // Run first measurement synchronously to avoid initial render delay
+    setIframeRect(iframeNode.getBoundingClientRect())
+    setIframeLoadedCount(c => c + 1)
+
+    window.addEventListener('resize', updateRect, { passive: true })
+    window.addEventListener('scroll', updateRect, { passive: true })
 
     let observer: MutationObserver | null = null
     if (typeof MutationObserver !== 'undefined') {
@@ -101,6 +109,7 @@ export function MarkerPinLayer({
       window.removeEventListener('resize', updateRect)
       window.removeEventListener('scroll', updateRect)
       if (observer) observer.disconnect()
+      if (rAFId) cancelAnimationFrame(rAFId)
     }
   }, [iframeNode])
 
@@ -402,9 +411,9 @@ export function MarkerPinLayer({
               key={marker.id}
               style={{
                 position: 'fixed',
-                left: parentX,
-                top: parentY,
-                transform: 'translate(-50%, -50%)',
+                left: 0,
+                top: 0,
+                transform: `translate3d(${parentX}px, ${parentY}px, 0) translate(-50%, -50%)`,
                 pointerEvents: isDragging ? 'none' : 'auto',
                 zIndex: isDragging ? 70 : (isActive ? 60 : 50),
                 overflow: 'visible'

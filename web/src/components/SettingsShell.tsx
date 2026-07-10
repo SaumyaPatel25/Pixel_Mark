@@ -40,28 +40,28 @@ export default function SettingsShell({
   ]
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white font-sans selection:bg-purple-500/30 relative">
+    <div className="min-h-screen bg-[#F8F7F4] text-[#1E2022] font-sans selection:bg-[#253B80]/10 relative overflow-x-hidden">
       {/* Background Dots */}
       <div 
-        className="absolute inset-0 z-0 pointer-events-none opacity-[0.15]"
+        className="absolute inset-0 z-0 pointer-events-none opacity-25"
         style={{
-          backgroundImage: 'radial-gradient(circle, #7c3aed 1px, transparent 1px)',
-          backgroundSize: '24px 24px'
+          backgroundImage: 'radial-gradient(circle, #253B80 1px, transparent 1px)',
+          backgroundSize: '32px 32px'
         }}
       />
 
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-8 relative z-10">
         {/* Top bar back link */}
-        <div className="flex items-center justify-between border-b border-white/[0.03] pb-6">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-black tracking-tight text-white leading-tight">
+        <div className="flex items-center justify-between border-b border-[#253B80]/8 pb-6">
+          <div className="space-y-1.5">
+            <h1 className="text-3xl font-extrabold tracking-tight text-[#1E2022] leading-tight">
               {title}
             </h1>
-            <p className="text-white/45 text-xs font-semibold uppercase tracking-wider">{description}</p>
+            <p className="text-[#1E2022]/60 text-xs font-bold uppercase tracking-wider">{description}</p>
           </div>
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] text-white/60 hover:text-white text-xs font-bold transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#253B80]/12 hover:bg-[#F8F7F4] text-[#1E2022]/70 hover:text-[#1E2022] text-xs font-bold transition-all active:scale-95 shadow-sm"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
@@ -79,16 +79,18 @@ export default function SettingsShell({
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all text-left ${
+                  className={`flex items-start gap-3 p-4 rounded-2xl border transition-all text-left group shadow-sm ${
                     isActive
-                      ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 font-bold'
-                      : 'bg-[#0c0c0e]/40 border-white/5 text-white/50 hover:text-white hover:bg-white/[0.02]'
+                      ? 'bg-white border-[#253B80]/15 ring-1 ring-[#253B80]/5'
+                      : 'bg-white/50 border-[#253B80]/8 hover:bg-white hover:border-[#253B80]/15'
                   }`}
                 >
-                  <Icon className={`w-5 h-5 mt-0.5 ${isActive ? 'text-purple-400' : 'text-white/35'}`} />
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold">{tab.name}</p>
-                    <p className="text-[10px] text-white/30 font-medium leading-normal">{tab.desc}</p>
+                  <div className={`p-2 rounded-xl border ${isActive ? 'bg-[#253B80]/[0.06] border-[#253B80]/10' : 'bg-white border-[#253B80]/5 group-hover:bg-[#253B80]/[0.02]'}`}>
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-[#253B80]' : 'text-[#1E2022]/40 group-hover:text-[#253B80]/70'}`} />
+                  </div>
+                  <div className="space-y-0.5 mt-0.5">
+                    <p className={`text-xs font-extrabold ${isActive ? 'text-[#253B80]' : 'text-[#1E2022]/70 group-hover:text-[#1E2022]'}`}>{tab.name}</p>
+                    <p className="text-[10px] text-[#1E2022]/50 font-semibold leading-normal">{tab.desc}</p>
                   </div>
                 </Link>
               )

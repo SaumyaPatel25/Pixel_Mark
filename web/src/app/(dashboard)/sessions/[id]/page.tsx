@@ -23,7 +23,7 @@ export default function SessionPage() {
             setProjectId(res.project_id)
             // Auto-redirect to project page where the full audit surface lives
             if (res.project_id) {
-              router.replace(`/project/${res.project_id}?session=${sessionId}`)
+              router.replace(`/project/${res.project_id}?session=${sessionId}&view=details`)
             }
           }
         })
@@ -38,7 +38,7 @@ export default function SessionPage() {
       <p className="text-white/30 text-xs font-mono uppercase tracking-widest">Opening session…</p>
       {!isLoading && projectId && (
         <button
-          onClick={() => router.push(`/project/${projectId}?session=${sessionId}`)}
+          onClick={() => router.push(`/project/${projectId}?session=${sessionId}&view=details`)}
           className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 text-sm hover:bg-purple-600/30 transition-all"
         >
           <ExternalLink className="w-4 h-4" />

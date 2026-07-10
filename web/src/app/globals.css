@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Figtree:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -13,7 +13,17 @@
   --color-pm-text: var(--pm-text);
   --color-pm-muted: var(--pm-text-muted);
   
-  --font-display: 'Space Grotesk', sans-serif;
+  --color-pm-warm: var(--pm-accent-warm);
+  --color-pm-warm-ink: var(--pm-accent-warm-ink);
+  --color-pm-pink: var(--pm-accent-pink);
+  --color-pm-pink-ink: var(--pm-accent-pink-ink);
+  --color-pm-depth: var(--pm-accent-depth);
+  --color-pm-depth-dark: var(--pm-accent-depth-dark);
+  --color-pm-calm: var(--pm-accent-calm);
+  --color-pm-calm-ink: var(--pm-accent-calm-ink);
+  
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-sans: 'Figtree', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   
   --shadow-accent: 0 0 24px var(--pm-accent-glow), 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -22,32 +32,43 @@
 
 :root {
   /* Core Light Palette Values (Phase 1) */
-  --pm-bg:           #F5F8FB;
+  --pm-bg:           #FAF2F2;
   --pm-surface:      #FFFFFF;
-  --pm-surface-2:    #F0F5F9;
-  --pm-surface-3:    #DCE6F0;
-  --pm-border:       rgba(41, 54, 129, 0.08);
-  --pm-border-bright:rgba(66, 116, 217, 0.2);
-  --pm-accent:       #293681;
-  --pm-accent-bright:#112E81;
-  --pm-accent-vivid: #4274D9;
-  --pm-accent-glow:  rgba(41, 54, 129, 0.12);
-  --pm-accent-subtle:rgba(41, 54, 129, 0.04);
-  --pm-accent-mid:   rgba(41, 54, 129, 0.08);
-  --pm-cyan:         #4382DF;
-  --pm-cyan-subtle:  rgba(67, 130, 223, 0.06);
-  --pm-text:         #1E2022;
-  --pm-text-muted:   #52616B;
+  --pm-surface-2:    #FCF5F5;
+  --pm-surface-3:    #FCE2E1;
+  --pm-border:       rgba(37, 59, 128, 0.08);
+  --pm-border-bright:rgba(59, 130, 246, 0.2);
+  --pm-accent:       #253B80;
+  --pm-accent-bright:#1B2C60;
+  --pm-accent-vivid: #3B82F6;
+  --pm-accent-glow:  rgba(37, 59, 128, 0.12);
+  --pm-accent-subtle:rgba(37, 59, 128, 0.04);
+  --pm-accent-mid:   rgba(37, 59, 128, 0.08);
+  --pm-cyan:         #427CE6;
+  --pm-cyan-subtle:  rgba(66, 124, 230, 0.06);
+  --pm-text:         #1D264F;
+  --pm-text-muted:   #5B6794;
   --pm-text-faint:   #9CA3AF;
-  --pm-text-title:   #293681;
-  --pm-nav-bg:       rgba(245, 248, 251, 0.85);
-  --pm-bg-trans-20:  rgba(245, 248, 251, 0.2);
-  --pm-bg-trans-50:  rgba(245, 248, 251, 0.5);
+  --pm-text-title:   #253B80;
+  --pm-nav-bg:       rgba(250, 242, 242, 0.85);
+  --pm-bg-trans-20:  rgba(250, 242, 242, 0.2);
+  --pm-bg-trans-50:  rgba(250, 242, 242, 0.5);
   
-  --pm-border-hover: rgba(41, 54, 129, 0.22);
-  --pm-border-card:  rgba(41, 54, 129, 0.06);
+  /* Expanded Accent Colors */
+  --pm-accent-warm:      #FCE2E1;
+  --pm-accent-warm-ink:  #6E2522;
+  --pm-accent-pink:      #F3C6C4;
+  --pm-accent-pink-ink:  #5E1E1C;
+  --pm-accent-depth:     #C7B4D6;
+  --pm-accent-depth-dark:#8A75A4;
+  --pm-accent-calm:      #E2F3F5;
+  --pm-accent-calm-ink:  #164448;
   
-  --font-display:    'Space Grotesk', sans-serif;
+  --pm-border-hover: rgba(37, 59, 128, 0.22);
+  --pm-border-card:  rgba(37, 59, 128, 0.06);
+  
+  --font-display:    'Bricolage Grotesque', sans-serif;
+  --font-sans:       'Figtree', sans-serif;
   --font-mono:       'JetBrains Mono', monospace;
 }
 
@@ -206,13 +227,22 @@ a span.text-white,
 
 /* Maintain dark mode appearance for simulated demo components */
 .mockup-browser,
-.mockup-browser *,
-.mockup-visual,
-.mockup-visual * {
-  /* Prevent overrides inside visual mockups */
-  color: revert !important;
-  background-color: revert !important;
-  border-color: revert !important;
+.mockup-visual {
+  --pm-bg: #070709 !important;
+  --pm-surface: #09090b !important;
+  --pm-surface-2: #0f0f12 !important;
+  --pm-surface-3: #18181b !important;
+  --pm-border: rgba(255, 255, 255, 0.08) !important;
+  --pm-border-bright: rgba(255, 255, 255, 0.15) !important;
+  --pm-text: #e4e4e7 !important;
+  --pm-muted: #a1a1aa !important;
+  --pm-text-title: #f4f4f5 !important;
+  --pm-text-faint: #71717a !important;
+  --pm-accent: #3b82f6 !important;
+  --pm-accent-vivid: #60a5fa !important;
+  --pm-accent-bright: #3b82f6 !important;
+  --pm-cyan: #38bdf8 !important;
+  --pm-cyan-subtle: rgba(56, 189, 248, 0.1) !important;
 }
 
 /* Reset specific styling elements to look standard in light theme */
@@ -247,7 +277,7 @@ div.rounded-2xl {
 body {
   background-color: var(--pm-bg);
   color: var(--pm-text);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Figtree', sans-serif;
   overflow-x: hidden;
   margin: 0;
   padding: 0;
@@ -256,11 +286,26 @@ body {
 /* Custom glow animations and background styles */
 .dot-grid {
   background-size: 32px 32px;
-  background-image: radial-gradient(rgba(41, 54, 129, 0.03) 1.2px, transparent 1.2px);
+  background-image: radial-gradient(rgba(37, 59, 128, 0.03) 1.2px, transparent 1.2px);
+}
+
+.atmospheric-glow-hero {
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 1400px;
+  height: 90%;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 0%, rgba(41, 54, 129, 0.08) 0%, rgba(245, 248, 251, 0) 70%),
+              radial-gradient(circle at 15% 35%, rgba(255, 213, 205, 0.09) 0%, rgba(245, 248, 251, 0) 55%),
+              radial-gradient(circle at 85% 65%, rgba(195, 174, 214, 0.1) 0%, rgba(245, 248, 251, 0) 60%);
+  z-index: 0;
 }
 
 .text-gradient-purple {
-  background: linear-gradient(to right, var(--pm-accent-vivid), var(--pm-accent-bright), var(--pm-cyan));
+  background: linear-gradient(to right, var(--pm-accent-bright), var(--pm-accent), var(--pm-accent-vivid));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -268,20 +313,197 @@ body {
 
 /* Glassmorphism helpers */
 .glass-panel {
-  background: var(--pm-surface-2);
+  background: var(--pm-surface);
   border-color: var(--pm-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 40px -10px rgba(41, 54, 129, 0.05);
 }
 
 .glass-panel-hover {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .glass-panel-hover:hover {
   border-color: var(--pm-border-bright);
-  box-shadow: 0 8px 32px 0 var(--pm-accent-subtle), 0 0 24px var(--pm-accent-subtle);
+  box-shadow: 0 16px 48px -8px rgba(41, 54, 129, 0.08);
   transform: translateY(-2px);
+}
+
+.dark-section {
+  --pm-bg: #0B122F;
+  --pm-text: #FFFFFF;
+  --pm-text-muted: rgba(255, 255, 255, 0.7);
+  --pm-text-faint: rgba(255, 255, 255, 0.4);
+  --pm-text-title: #FFFFFF;
+  --pm-border: rgba(255, 255, 255, 0.12);
+  --pm-surface: rgba(255, 255, 255, 0.05);
+  --pm-surface-2: rgba(255, 255, 255, 0.08);
+  --pm-border-bright: rgba(255, 255, 255, 0.25);
+  background-color: var(--pm-bg) !important;
+  color: var(--pm-text) !important;
+}
+
+/* Auth Page Dark Panel — fully isolated from light theme overrides */
+.auth-dark-panel {
+  background-color: #0B0F19 !important;
+  color: #ffffff !important;
+}
+
+.auth-dark-panel h1,
+.auth-dark-panel h2,
+.auth-dark-panel h3,
+.auth-dark-panel h4,
+.auth-dark-panel h5,
+.auth-dark-panel h6 {
+  color: #ffffff !important;
+}
+
+.auth-dark-panel div {
+  background-color: unset;
+}
+
+/* Auth form inputs — protected from global light theme input override */
+.auth-form-input {
+  background-color: #ffffff !important;
+  border-color: rgba(37, 59, 128, 0.18) !important;
+  color: #1D264F !important;
+  font-size: 0.9375rem !important;
+  line-height: 1.5 !important;
+}
+
+.auth-form-input::placeholder {
+  color: rgba(91, 103, 148, 0.45) !important;
+}
+
+.auth-form-input:focus {
+  border-color: #253B80 !important;
+  box-shadow: 0 0 0 3px rgba(37, 59, 128, 0.08) !important;
 }
 
 * {
   cursor: none !important;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   3D BUTTON UTILITY CLASSES
+   Premium tactile button interactions — lift, depth shadow, press feedback.
+   Applied via className alongside existing Tailwind classes.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* PRIMARY — Navy/Royal Blue CTA. Strongest 3D pop with glow. */
+.btn-primary-3d {
+  position: relative !important;
+  transform: translateY(0) translateZ(0) !important;
+  box-shadow:
+    0 1px 2px rgba(37, 59, 128, 0.18),
+    0 4px 10px rgba(37, 59, 128, 0.15),
+    0 8px 20px -4px rgba(59, 130, 246, 0.22) !important;
+  transition:
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 200ms ease !important;
+  will-change: transform, box-shadow !important;
+}
+
+.btn-primary-3d:hover {
+  transform: translateY(-3px) translateZ(0) !important;
+  box-shadow:
+    0 2px 4px rgba(37, 59, 128, 0.22),
+    0 8px 20px rgba(37, 59, 128, 0.2),
+    0 16px 32px -6px rgba(59, 130, 246, 0.32),
+    0 0 0 0 transparent !important;
+}
+
+.btn-primary-3d:active {
+  transform: translateY(-1px) translateZ(0) !important;
+  box-shadow:
+    0 1px 2px rgba(37, 59, 128, 0.2),
+    0 4px 10px rgba(37, 59, 128, 0.18),
+    0 8px 16px -4px rgba(59, 130, 246, 0.25) !important;
+  transition-duration: 100ms !important;
+}
+
+.btn-primary-3d:focus-visible {
+  outline: 2px solid #427CE6 !important;
+  outline-offset: 3px !important;
+}
+
+/* SECONDARY — White/Surface. Quieter lift, no glow. */
+.btn-secondary-3d {
+  position: relative !important;
+  transform: translateY(0) translateZ(0) !important;
+  box-shadow:
+    0 1px 2px rgba(37, 59, 128, 0.06),
+    0 3px 8px rgba(37, 59, 128, 0.08) !important;
+  transition:
+    transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 200ms ease,
+    border-color 200ms ease !important;
+  will-change: transform, box-shadow !important;
+}
+
+.btn-secondary-3d:hover {
+  transform: translateY(-2px) translateZ(0) !important;
+  box-shadow:
+    0 2px 4px rgba(37, 59, 128, 0.1),
+    0 6px 16px -2px rgba(37, 59, 128, 0.12) !important;
+}
+
+.btn-secondary-3d:active {
+  transform: translateY(-1px) translateZ(0) !important;
+  box-shadow:
+    0 1px 2px rgba(37, 59, 128, 0.08),
+    0 3px 8px rgba(37, 59, 128, 0.1) !important;
+  transition-duration: 100ms !important;
+}
+
+.btn-secondary-3d:focus-visible {
+  outline: 2px solid #253B80 !important;
+  outline-offset: 3px !important;
+}
+
+/* GHOST — Text/border-only. Minimal depth, mostly colour shift. */
+.btn-ghost-3d {
+  position: relative !important;
+  transform: translateY(0) translateZ(0) !important;
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 200ms ease,
+    border-color 200ms ease !important;
+  will-change: transform !important;
+}
+
+.btn-ghost-3d:hover {
+  transform: translateY(-1px) translateZ(0) !important;
+}
+
+.btn-ghost-3d:active {
+  transform: translateY(0) translateZ(0) !important;
+  transition-duration: 80ms !important;
+}
+
+.btn-ghost-3d:focus-visible {
+  outline: 2px solid #253B80 !important;
+  outline-offset: 3px !important;
+}
+
+/* Disable all 3D effects for reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary-3d,
+  .btn-secondary-3d,
+  .btn-ghost-3d {
+    transform: none !important;
+    transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease !important;
+    will-change: auto !important;
+  }
+
+  .btn-primary-3d:hover,
+  .btn-secondary-3d:hover,
+  .btn-ghost-3d:hover,
+  .btn-primary-3d:active,
+  .btn-secondary-3d:active,
+  .btn-ghost-3d:active {
+    transform: none !important;
+  }
+}
+
+

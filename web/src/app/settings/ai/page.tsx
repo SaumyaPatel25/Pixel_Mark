@@ -28,48 +28,48 @@ export default function AISettingsPage() {
     <div className="max-w-4xl mx-auto p-6 space-y-8">
       <div>
         <div className="flex justify-between items-center mb-2">
-          <h1 className="text-2xl font-semibold text-white">AI Providers</h1>
-          <Link href="/settings" className="text-sm text-gray-400 hover:text-white transition-colors">
+          <h1 className="text-2xl font-extrabold text-[#1E2022]">AI Providers</h1>
+          <Link href="/settings" className="text-sm font-bold text-[#1E2022]/40 hover:text-[#253B80] transition-colors">
             ← Back to Settings
           </Link>
         </div>
-        <p className="text-gray-400 text-sm mb-2">
+        <p className="text-[#1E2022]/60 font-medium text-sm mb-2">
           Connect your own AI provider to use AI triage and session summaries in PixelMark.
         </p>
-        <p className="text-gray-500 text-xs leading-relaxed">
+        <p className="text-[#1E2022]/40 text-xs font-semibold leading-relaxed">
           PixelMark uses your provider key server-side for AI requests. Your usage is billed by your provider, not by PixelMark.
         </p>
       </div>
 
       {/* Supported Providers Block */}
-      <div className="p-5 rounded-xl border border-slate-800 bg-slate-800/20 space-y-3">
-        <h3 className="text-sm font-semibold text-white">Supported Providers</h3>
+      <div className="p-5 rounded-2xl border border-[#253B80]/8 bg-white shadow-sm space-y-3">
+        <h3 className="text-sm font-bold text-[#1E2022]">Supported Providers</h3>
         <div className="flex flex-wrap gap-2 text-xs">
           {["OpenAI", "OpenRouter", "Groq", "Together", "Mistral", "Fireworks", "xAI", "Ollama", "OpenAI-compatible"].map((p) => (
-            <span key={p} className="px-2 py-1 rounded bg-slate-850 border border-slate-800 text-gray-300 font-medium">{p}</span>
+            <span key={p} className="px-2.5 py-1 rounded-md bg-[#F8F7F4] border border-[#253B80]/10 text-[#1E2022]/70 font-bold shadow-sm">{p}</span>
           ))}
           {["Anthropic", "Google Gemini"].map((p) => (
-            <span key={p} className="px-2 py-1 rounded bg-slate-850/50 border border-slate-800/60 text-gray-500 font-medium" title="Live triage support may be limited.">{p} *</span>
+            <span key={p} className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-slate-500 font-bold" title="Live triage support may be limited.">{p} *</span>
           ))}
         </div>
-        <p className="text-xs text-gray-400 leading-relaxed pt-1">
+        <p className="text-xs font-medium text-[#1E2022]/50 leading-relaxed pt-1">
           Most OpenAI-compatible providers work with a base URL and model name. Some providers can be saved now even if live triage support is still limited.
         </p>
       </div>
 
       {store.error && (
-        <div className="p-4 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 font-bold text-sm shadow-sm">
           {store.error}
         </div>
       )}
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-medium text-white">Configured Providers</h2>
+          <h2 className="text-lg font-bold text-[#1E2022]">Configured Providers</h2>
           {!showAddForm && !editingConfig && (
             <button
               onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-[#253B80] hover:bg-[#1E2E66] rounded-xl transition-all shadow-md shadow-[#253B80]/20 active:scale-95"
             >
               <Plus size={16} /> Add Provider
             </button>
@@ -77,7 +77,7 @@ export default function AISettingsPage() {
         </div>
 
         {store.isLoading ? (
-          <div className="text-gray-400 animate-pulse text-sm">Loading configurations...</div>
+          <div className="text-[#1E2022]/40 animate-pulse font-bold text-sm">Loading configurations...</div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             <AnimatePresence>
@@ -100,11 +100,11 @@ export default function AISettingsPage() {
             </AnimatePresence>
 
             {store.configs.length === 0 && !store.isLoading && !showAddForm && !editingConfig && (
-              <div className="col-span-full py-12 text-center border border-dashed border-slate-700 rounded-lg bg-slate-800/30">
-                <p className="text-gray-400 text-sm mb-4">No AI providers configured yet.</p>
+              <div className="col-span-full py-12 text-center border-2 border-dashed border-[#253B80]/15 rounded-2xl bg-white/50">
+                <p className="text-[#1E2022]/50 font-bold text-sm mb-4">No AI providers configured yet.</p>
                 <button
                   onClick={() => setShowAddForm(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-[#253B80] bg-[#F8F7F4] border border-[#253B80]/10 hover:bg-white hover:border-[#253B80]/20 rounded-xl transition-all shadow-sm active:scale-95"
                 >
                   <Plus size={16} /> Setup First Provider
                 </button>
@@ -122,17 +122,17 @@ export default function AISettingsPage() {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="p-6 rounded-lg border border-slate-700 bg-slate-800/50 relative">
+            <div className="p-6 rounded-3xl border border-[#253B80]/15 bg-white shadow-xl relative mt-4">
               <button
                 onClick={() => {
                   setShowAddForm(false)
                   setEditingConfig(null)
                 }}
-                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                className="absolute top-5 right-5 text-[#1E2022]/30 hover:text-[#1E2022] transition-colors p-1.5 rounded-lg hover:bg-slate-50"
               >
                 <X size={20} />
               </button>
-              <h3 className="text-lg font-medium text-white mb-4">
+              <h3 className="text-lg font-bold text-[#1E2022] mb-6 border-b border-[#253B80]/5 pb-4">
                 {editingConfig ? 'Edit AI Provider' : 'Add AI Provider'}
               </h3>
               <AIProviderForm
@@ -152,18 +152,18 @@ export default function AISettingsPage() {
       </AnimatePresence>
 
       {/* FAQ Strip */}
-      <div className="pt-8 border-t border-slate-800 grid gap-6 md:grid-cols-3 text-sm">
-        <div>
-          <h4 className="font-semibold text-white mb-2">Does PixelMark provide the model?</h4>
-          <p className="text-gray-400 leading-relaxed">No. You connect your own provider.</p>
+      <div className="pt-8 border-t border-[#253B80]/8 grid gap-6 md:grid-cols-3 text-sm">
+        <div className="space-y-1">
+          <h4 className="font-extrabold text-[#1E2022]">Does PixelMark provide the model?</h4>
+          <p className="text-[#1E2022]/60 font-medium leading-relaxed text-xs">No. You connect your own provider.</p>
         </div>
-        <div>
-          <h4 className="font-semibold text-white mb-2">Where is my key used?</h4>
-          <p className="text-gray-400 leading-relaxed">PixelMark uses it server-side for triage and summary requests.</p>
+        <div className="space-y-1">
+          <h4 className="font-extrabold text-[#1E2022]">Where is my key used?</h4>
+          <p className="text-[#1E2022]/60 font-medium leading-relaxed text-xs">PixelMark uses it server-side for triage and summary requests.</p>
         </div>
-        <div>
-          <h4 className="font-semibold text-white mb-2">Why did my test fail?</h4>
-          <p className="text-gray-400 leading-relaxed">The most common causes are an invalid key, wrong base URL, or unsupported provider adapter.</p>
+        <div className="space-y-1">
+          <h4 className="font-extrabold text-[#1E2022]">Why did my test fail?</h4>
+          <p className="text-[#1E2022]/60 font-medium leading-relaxed text-xs">The most common causes are an invalid key, wrong base URL, or unsupported provider adapter.</p>
         </div>
       </div>
     </div>

@@ -1,28 +1,26 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Layout, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import PixelSentinel from '@/components/auth/PixelSentinel';
 import { useMascotFormState } from '@/hooks/useMascotFormState';
 import { event as trackEvent } from '@/lib/analytics';
 import { api } from '@/lib/api';
 
-type ScenePhase = 'intro' | 'sidePosition' | 'projecting' | 'submitting' | 'success' | 'error' | 'returnCenter';
+type ScenePhase = 'projecting' | 'submitting' | 'success' | 'error';
 
 export default function LoginClient() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { login, user, logout } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-
   const [showPassword, setShowPassword] = useState(false);
-  const [phase, setPhase] = useState<ScenePhase>('intro');
+  const [phase, setPhase] = useState<ScenePhase>('projecting');
   const [showResend, setShowResend] = useState(false);
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [devVerificationLink, setDevVerificationLink] = useState<string | null>(null);
@@ -35,40 +33,16 @@ export default function LoginClient() {
     passwordStrength: 'none',
   });
 
-  // Map mascotState dynamically based on phase
-  const mascotState = (phase === 'projecting') ? hookMascotState : (
-    phase === 'success' ? 'success' : (
-      phase === 'submitting' ? 'submitting' : (
-        phase === 'error' ? 'error' : 'idle'
-      )
-    )
-  );
+  const mascotState = phase === 'projecting' ? hookMascotState :
+    phase === 'success' ? 'success' :
+    phase === 'submitting' ? 'submitting' :
+    phase === 'error' ? 'error' : 'idle';
 
   useEffect(() => {
-    // Only auto-redirect if they are already logged in when landing on the page
-    // and no redirect parameter is present
-    if (user && !searchParams.get('redirect') && (phase === 'intro' || phase === 'sidePosition' || phase === 'projecting')) {
+    if (user && !searchParams.get('redirect') && phase === 'projecting') {
       window.location.href = '/dashboard';
     }
   }, [user, phase, searchParams, logout]);
-
-  // Intro -> Side Position Transition
-  useEffect(() => {
-    const t1 = setTimeout(() => {
-      setPhase('sidePosition');
-    }, 1400);
-    return () => clearTimeout(t1);
-  }, []);
-
-  // Side Position -> Projecting (Reveal Hologram)
-  useEffect(() => {
-    if (phase === 'sidePosition') {
-      const t2 = setTimeout(() => {
-        setPhase('projecting');
-      }, 800);
-      return () => clearTimeout(t2);
-    }
-  }, [phase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,27 +54,15 @@ export default function LoginClient() {
       await login(email, password);
       trackEvent({ action: 'login', category: 'auth' });
       setPhase('success');
-      
-      // Delay to play victory animation
       setTimeout(() => {
-        setPhase('returnCenter');
-        // Delay for center-glide return
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 800);
-      }, 1400);
+        window.location.href = '/dashboard';
+      }, 1200);
     } catch (err: any) {
-      const isUnverified = err.message && err.message.toLowerCase().includes('verify your email');
+      const isUnverified = err.message?.toLowerCase().includes('verify your email');
       setError(err.message || 'Authentication failed');
       setPhase('error');
-      if (isUnverified) {
-        setShowResend(true);
-      }
-      
-      // Revert to projection mode after showing error warning pose
-      setTimeout(() => {
-        setPhase('projecting');
-      }, 1500);
+      if (isUnverified) setShowResend(true);
+      setTimeout(() => setPhase('projecting'), 1500);
     }
   };
 
@@ -109,59 +71,61 @@ export default function LoginClient() {
     try {
       const res = await api.auth.resendVerification(email);
       setResendStatus('success');
-      if (res && res.dev_link) {
-        setDevVerificationLink(res.dev_link);
-      }
-      setTimeout(() => {
-        setResendStatus('idle');
-      }, 5000);
-    } catch (err: any) {
+      if (res?.dev_link) setDevVerificationLink(res.dev_link);
+      setTimeout(() => setResendStatus('idle'), 5000);
+    } catch {
       setResendStatus('error');
     }
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-[#09090e] p-4 text-white font-sans overflow-hidden">
-      
-      {/* Back to Home Button */}
-      <Link 
-        href="/"
-        className="absolute top-6 left-6 z-50 flex items-center gap-2 px-3 py-2 text-white/50 hover:text-white hover:bg-white/5 rounded-xl transition-all text-xs font-bold uppercase tracking-widest group"
+    <div className="min-h-screen flex bg-white font-sans overflow-hidden">
+
+      {/* ─── LEFT PANEL: Security Sandbox ─────────────────────────────────── */}
+      <div
+        className="auth-dark-panel hidden lg:flex lg:w-[44%] relative flex-col justify-between p-12 select-none"
+        style={{ backgroundColor: '#0B0F19' }}
       >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-        Back to Home
-      </Link>
+        {/* Ambient glow blobs */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-none">
+          <div className="absolute top-[15%] left-[10%] w-[280px] h-[280px] rounded-full"
+               style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.14) 0%, transparent 70%)' }} />
+          <div className="absolute bottom-[18%] right-[8%] w-[320px] h-[320px] rounded-full"
+               style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)' }} />
+        </div>
 
-      {/* Ambient background decoration blobs */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        <motion.div 
-          animate={{
-            scale: [1, 1.2, 1],
-            x: [0, 30, 0],
-            y: [0, -20, 0]
-          }}
-          transition={{ repeat: Infinity, duration: 15, ease: "easeInOut" }}
-          className="absolute top-[15%] left-[15%] w-[350px] h-[350px] bg-purple-600/10 rounded-full blur-[100px]" 
-        />
-        <motion.div 
-          animate={{
-            scale: [1, 1.15, 1],
-            x: [0, -30, 0],
-            y: [0, 30, 0]
-          }}
-          transition={{ repeat: Infinity, duration: 18, ease: "easeInOut" }}
-          className="absolute bottom-[15%] right-[15%] w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px]" 
-        />
-      </div>
-
-      <div className="w-full max-w-4xl min-h-[520px] flex items-center justify-center z-10 relative">
-        {phase === 'intro' || phase === 'returnCenter' ? (
-          <motion.div
-            layout
-            layoutId="robot-wrapper"
-            className="flex items-center justify-center"
-            transition={{ type: 'spring', stiffness: 80, damping: 15 }}
+        {/* Top: Back link */}
+        <div className="relative z-10">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 transition-all duration-200 group"
+            style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}
           >
+            <ArrowLeft
+              className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform"
+              style={{ color: 'rgba(255,255,255,0.5)' }}
+            />
+            <span className="group-hover:text-white transition-colors">Back to Home</span>
+          </Link>
+        </div>
+
+        {/* Middle: Sentinel mascot */}
+        <div className="relative z-10 flex flex-col items-center justify-center flex-1 gap-8">
+          {/* Card */}
+          <div
+            className="relative w-full max-w-[248px] rounded-[28px] flex flex-col items-center justify-center p-6"
+            style={{
+              background: 'rgba(255,255,255,0.028)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 32px 64px rgba(0,0,0,0.35), 0 0 0 1px rgba(99,102,241,0.08) inset',
+            }}
+          >
+            {/* Corner accents */}
+            <span className="absolute top-0 left-0 w-4 h-4 border-t border-l border-white/15 rounded-tl-[10px]" />
+            <span className="absolute top-0 right-0 w-4 h-4 border-t border-r border-white/15 rounded-tr-[10px]" />
+            <span className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-white/15 rounded-bl-[10px]" />
+            <span className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-white/15 rounded-br-[10px]" />
+
             <PixelSentinel
               state={mascotState}
               showPassword={showPassword}
@@ -169,212 +133,277 @@ export default function LoginClient() {
               emailLength={email.length}
               passwordLength={password.length}
             />
-          </motion.div>
-        ) : (
-          <div className="w-full flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
-            <motion.div
-              layout
-              layoutId="robot-wrapper"
-              className="flex justify-center items-center relative"
-              transition={{ type: 'spring', stiffness: 80, damping: 15 }}
-            >
-              <PixelSentinel
-                state={mascotState}
-                showPassword={showPassword}
-                focusedField={focusedField}
-                emailLength={email.length}
-                passwordLength={password.length}
-              />
+          </div>
 
-              {/* Holographic Projection Beam overlay */}
-              <AnimatePresence>
-                {(phase === 'projecting' || phase === 'submitting' || phase === 'error') && (
+          {/* Caption */}
+          <div className="text-center space-y-3 max-w-[300px]">
+
+
+            <h2
+              className="font-display font-extrabold"
+              style={{ color: '#ffffff', fontSize: '1.25rem', letterSpacing: '-0.02em', lineHeight: 1.3 }}
+            >
+              Your workspace awaits
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.52)', fontSize: '0.8125rem', lineHeight: 1.65 }}>
+              Verify your identity to access visual feedback, QA sessions, and live collaboration tools.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── RIGHT PANEL: Login Form ───────────────────────────────────────── */}
+      <div
+        className="flex-1 flex flex-col min-h-screen overflow-y-auto"
+        style={{ background: '#F8F7F4' }}
+      >
+        {/* Mobile top bar */}
+        <div className="flex items-center justify-between px-6 py-5 lg:hidden border-b" style={{ borderColor: 'rgba(37,59,128,0.07)' }}>
+          <Link href="/" className="inline-flex items-center gap-1.5 text-pm-muted hover:text-[#253B80] transition-colors group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+            <span style={{ fontSize: '13px', fontWeight: 600 }}>Home</span>
+          </Link>
+          <Link href="/" className="flex items-center gap-1.5">
+            <div className="text-[#253B80]">
+              <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+                <rect x="1.5" y="1.5" width="23" height="23" rx="6" stroke="currentColor" strokeWidth="2.5" fill="none"/>
+                <circle cx="13" cy="13" r="4.5" stroke="currentColor" strokeWidth="2.5" fill="none"/>
+                <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <span className="font-display font-extrabold tracking-tight" style={{ color: '#1E2022', fontSize: '15px' }}>PixelMark</span>
+          </Link>
+        </div>
+
+        {/* Form centred vertically */}
+        <div className="flex-1 flex items-center justify-center px-6 md:px-12 py-14">
+          <div className="w-full max-w-[420px] space-y-7">
+
+            {/* Logo + Headline */}
+            <div className="space-y-4">
+              <Link href="/" className="hidden lg:inline-flex items-center gap-2 group">
+                <div className="text-[#253B80] group-hover:scale-105 transition-transform duration-300">
+                  <svg width="22" height="22" viewBox="0 0 26 26" fill="none">
+                    <rect x="1.5" y="1.5" width="23" height="23" rx="6" stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.9"/>
+                    <circle cx="13" cy="13" r="4.5" stroke="currentColor" strokeWidth="2.5" fill="none"/>
+                    <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
+                  </svg>
+                </div>
+                <span className="font-display font-extrabold tracking-tight" style={{ color: '#1E2022', fontSize: '15px' }}>PixelMark</span>
+              </Link>
+
+              <div className="space-y-2 pt-1">
+                <h1
+                  className="font-display font-extrabold tracking-tight"
+                  style={{ color: '#0F172A', fontSize: '2rem', lineHeight: 1.15, letterSpacing: '-0.025em' }}
+                >
+                  Welcome back
+                </h1>
+                <p style={{ color: '#64748B', fontSize: '0.9375rem', lineHeight: 1.6, fontWeight: 400 }}>
+                  Sign in to your workspace to continue your QA sessions and visual reviews.
+                </p>
+              </div>
+            </div>
+
+            {/* GitHub SSO */}
+            <a
+              href={`${process.env.NEXT_PUBLIC_API_URL || ''}/auth/oauth/github/start`}
+              className="btn-secondary-3d flex items-center justify-center gap-2.5 w-full rounded-xl transition-all duration-200"
+              style={{
+                background: '#ffffff',
+                border: '1px solid rgba(37,59,128,0.14)',
+                color: '#1E2022',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                letterSpacing: '0.01em',
+                padding: '11px 16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#1E2022' }}>
+                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+              </svg>
+              Continue with GitHub
+            </a>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px" style={{ background: 'rgba(37,59,128,0.1)' }} />
+              <span style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                or sign in with email
+              </span>
+              <div className="flex-1 h-px" style={{ background: 'rgba(37,59,128,0.1)' }} />
+            </div>
+
+            {/* Error banner */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl px-4 py-3 text-sm text-center font-medium"
+                style={{
+                  background: 'rgba(254,226,226,0.9)',
+                  border: '1px solid rgba(239,68,68,0.25)',
+                  color: '#B91C1C',
+                }}
+              >
+                {error}
+                {showResend && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={resendStatus === 'sending'}
+                      className="underline font-semibold disabled:opacity-50"
+                      style={{ color: '#1E40AF', fontSize: '12px' }}
+                    >
+                      {resendStatus === 'sending' ? 'Sending…' :
+                       resendStatus === 'success' ? '✓ Resent!' :
+                       resendStatus === 'error' ? 'Failed. Try again.' :
+                       'Resend verification email'}
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {devVerificationLink && (
+              <a
+                href={devVerificationLink}
+                className="block text-xs rounded-xl p-3 text-center break-all transition-colors"
+                style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.3)', color: '#92400E' }}
+              >
+                [Dev] Click to auto-verify →
+              </a>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Email */}
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="email"
+                  style={{ color: '#334155', fontSize: '13px', fontWeight: 600, display: 'block' }}
+                >
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  disabled={phase === 'submitting'}
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (error) setError(null);
+                    emailProps.onChange();
+                  }}
+                  onFocus={emailProps.onFocus}
+                  onBlur={emailProps.onBlur}
+                  placeholder="name@company.com"
+                  autoComplete="email"
+                  className="auth-form-input w-full rounded-xl px-4 outline-none transition-all duration-200 disabled:opacity-50"
+                  style={{ padding: '11px 16px' }}
+                />
+              </div>
+
+              {/* Password */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="password"
+                    style={{ color: '#334155', fontSize: '13px', fontWeight: 600 }}
+                  >
+                    Password
+                  </label>
+                  <Link
+                    href="/forgot-password"
+                    style={{ color: '#253B80', fontSize: '12.5px', fontWeight: 600 }}
+                    className="hover:text-[#1B2C60] hover:underline transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    disabled={phase === 'submitting'}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (error) setError(null);
+                      passwordProps.onChange();
+                    }}
+                    onFocus={passwordProps.onFocus}
+                    onBlur={passwordProps.onBlur}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    className="auth-form-input w-full rounded-xl outline-none transition-all duration-200 disabled:opacity-50"
+                    style={{ padding: '11px 44px 11px 16px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={phase === 'submitting'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors p-1 rounded-lg"
+                    style={{ color: '#94A3B8' }}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={phase === 'submitting'}
+                className="btn-primary-3d w-full flex items-center justify-center gap-2 group rounded-xl transition-all duration-200 font-display font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: '#253B80',
+                  color: '#ffffff',
+                  fontSize: '0.9375rem',
+                  letterSpacing: '0.01em',
+                  padding: '12px 20px',
+                }}
+              >
+                {phase === 'submitting' ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Signing in…
+                  </span>
+                ) : (
                   <>
-                    {/* Desktop Cone (Horizontal projection) */}
-                    <motion.div
-                      initial={{ opacity: 0, scaleX: 0 }}
-                      animate={{ opacity: 0.12, scaleX: 1 }}
-                      exit={{ opacity: 0, scaleX: 0 }}
-                      transition={{ duration: 0.4 }}
-                      style={{
-                        originX: 1,
-                        clipPath: 'polygon(0 40%, 100% 0, 100% 100%, 0 60%)',
-                        background: 'linear-gradient(to right, rgba(6, 182, 212, 0.8) 0%, rgba(6, 182, 212, 0.05) 100%)',
-                      }}
-                      className="hidden md:block absolute left-full top-[10px] w-[64px] md:w-[90px] h-[260px] pointer-events-none"
-                    />
-                    {/* Mobile Cone (Vertical projection downward) */}
-                    <motion.div
-                      initial={{ opacity: 0, scaleY: 0 }}
-                      animate={{ opacity: 0.1, scaleY: 1 }}
-                      exit={{ opacity: 0, scaleY: 0 }}
-                      transition={{ duration: 0.4 }}
-                      style={{
-                        originY: 0,
-                        clipPath: 'polygon(45% 0, 55% 0, 100% 100%, 0 100%)',
-                        background: 'linear-gradient(to bottom, rgba(6, 182, 212, 0.8) 0%, rgba(6, 182, 212, 0.05) 100%)',
-                      }}
-                      className="block md:hidden absolute top-[135px] left-1/2 -translate-x-1/2 w-[180px] h-[36px] pointer-events-none"
-                    />
+                    Sign In
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                   </>
                 )}
-              </AnimatePresence>
-            </motion.div>
+              </button>
+            </form>
 
-            <AnimatePresence>
-              {(phase === 'projecting' || phase === 'submitting' || phase === 'error') && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8, x: -30 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.85, x: -15, filter: 'blur(4px)' }}
-                  transition={{ duration: 0.4, ease: 'easeOut' }}
-                  style={{
-                    originX: 0,
-                    backgroundImage: 'linear-gradient(rgba(6, 182, 212, 0.02) 1px, transparent 1px)',
-                    backgroundSize: '100% 4px',
-                  }}
-                  className="w-full max-w-md bg-indigo-950/5 backdrop-blur-2xl border border-cyan-500/20 rounded-[32px] p-8 space-y-6 shadow-[0_0_50px_rgba(6,182,212,0.1)] hover:border-cyan-500/30 transition-colors duration-500 relative"
-                >
-                  {/* Glowing holographic corners */}
-                  <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400 rounded-tl-lg" />
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400 rounded-tr-lg" />
-                  <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 rounded-bl-lg" />
-                  <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 rounded-br-lg" />
-
-                  <div className="text-center space-y-4">
-                    <Link href="/" className="inline-flex flex-col items-center gap-1 group/logo">
-                      <div className="inline-flex w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 items-center justify-center text-white shadow-xl shadow-cyan-500/20 mb-2 group-hover/logo:scale-105 transition-transform duration-300">
-                        <Layout className="w-6 h-6" />
-                      </div>
-                      <div className="space-y-1">
-                        <h1 className="text-3xl font-black tracking-tight text-white flex items-center justify-center gap-2 group-hover/logo:text-cyan-400 transition-colors duration-300">
-                          Pixel<span className="text-cyan-400">Mark</span>
-                        </h1>
-                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Sign in to your QA auditing dashboard</p>
-                      </div>
-                    </Link>
-                  </div>
-
-                  {error && (
-                    <div className="space-y-2">
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-xl leading-relaxed text-center"
-                      >
-                        {error}
-                      </motion.div>
-                      {showResend && (
-                        <div className="space-y-2 text-center pt-1">
-                          <button
-                            type="button"
-                            onClick={handleResend}
-                            disabled={resendStatus === 'sending'}
-                            className="text-xs font-bold text-cyan-400 hover:text-cyan-300 underline uppercase tracking-widest cursor-pointer mt-1 disabled:opacity-50"
-                          >
-                            {resendStatus === 'sending' ? 'Sending link...' : 
-                             resendStatus === 'success' ? 'Verification email resent!' : 
-                             resendStatus === 'error' ? 'Failed to send. Try again.' : 
-                             'Resend verification email'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Social Logins */}
-                  <div className="flex justify-center">
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_API_URL || ''}/auth/oauth/github/start`}
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-white/[0.02] hover:bg-white/[0.05] border border-white/10 rounded-xl transition-all duration-300 group cursor-pointer text-xs font-bold text-white"
-                    >
-                      <svg className="w-4 h-4 text-white/60 group-hover:text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
-                      </svg>
-                      Sign in with GitHub
-                    </a>
-                  </div>
-                  
-                  <div className="relative flex py-1 items-center">
-                    <div className="flex-grow border-t border-white/5"></div>
-                    <span className="flex-shrink mx-4 text-[9px] font-bold text-white/20 uppercase tracking-widest">or email & password</span>
-                    <div className="flex-grow border-t border-white/5"></div>
-                  </div>
-
-                  <form onSubmit={handleSubmit} className="space-y-5">
-                    <div className="space-y-2">
-                      <label className="text-white/40 text-[10px] font-black uppercase tracking-widest block">Email Address</label>
-                      <input
-                        type="email"
-                        required
-                        disabled={phase === 'submitting'}
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          if (error) setError(null);
-                          emailProps.onChange();
-                        }}
-                        onFocus={emailProps.onFocus}
-                        onBlur={emailProps.onBlur}
-                        placeholder="name@company.com"
-                        className="w-full bg-white/[0.03] border border-white/[0.08] text-white rounded-xl px-4 py-3 text-xs placeholder:text-white/20 focus:border-cyan-500 outline-none transition-all focus:ring-1 focus:ring-cyan-500/50"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center pl-1">
-                        <label className="text-white/40 text-[10px] font-black uppercase tracking-widest block">Password</label>
-                        <Link href="/forgot-password" className="text-cyan-400/70 hover:text-cyan-400 text-[10px] font-bold uppercase tracking-widest transition-all">
-                          Forgot?
-                        </Link>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          disabled={phase === 'submitting'}
-                          value={password}
-                          onChange={(e) => {
-                            setPassword(e.target.value);
-                            if (error) setError(null);
-                            passwordProps.onChange();
-                          }}
-                          onFocus={passwordProps.onFocus}
-                          onBlur={passwordProps.onBlur}
-                          placeholder="••••••••"
-                          className="w-full bg-white/[0.03] border border-white/[0.08] text-white rounded-xl pl-4 pr-11 py-3 text-xs placeholder:text-white/20 focus:border-cyan-500 outline-none transition-all focus:ring-1 focus:ring-cyan-500/50"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors p-1"
-                          disabled={phase === 'submitting'}
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={phase === 'submitting'}
-                      className="w-full py-3.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:hover:bg-cyan-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-cyan-900/20 active:scale-[0.98] text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 group"
-                    >
-                      {phase === 'submitting' ? 'Signing in...' : 'Sign In'}
-                      {phase !== 'submitting' && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-                    </button>
-                  </form>
-
-                  <div className="text-center pt-2">
-                    <Link href="/register" className="text-cyan-400 hover:text-cyan-300 text-xs transition-colors font-bold uppercase tracking-widest text-[10px]">
-                      No account? Create one
-                    </Link>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Footer link */}
+            <p className="text-center" style={{ fontSize: '14px', color: '#64748B' }}>
+              Don't have an account?{' '}
+              <Link
+                href="/register"
+                style={{ color: '#253B80', fontWeight: 600 }}
+                className="hover:text-[#1B2C60] hover:underline transition-colors"
+              >
+                Create one for free
+              </Link>
+            </p>
           </div>
-        )}
+        </div>
+
+        {/* Footer */}
+        <div
+          className="text-center py-5 border-t"
+          style={{ borderColor: 'rgba(37,59,128,0.07)', color: '#94A3B8', fontSize: '12px' }}
+        >
+          © {new Date().getFullYear()} PixelMark · Secure Workspace · All rights reserved
+        </div>
       </div>
     </div>
   );

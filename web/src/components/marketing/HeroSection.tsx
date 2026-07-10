@@ -6,6 +6,7 @@ import { ArrowRight, Zap, MousePointer2, Search, RefreshCw, Globe, Box, Grid, Co
 import Link from 'next/link';
 import { ModeType } from './HomeClient';
 import { useAuthStore } from '@/store/authStore';
+import AmbientParallaxBackground from './AmbientParallaxBackground';
 
 interface MockPin {
   id: number;
@@ -40,9 +41,11 @@ interface HeroSectionProps {
   activeMode: ModeType;
   setActiveMode: (mode: ModeType) => void;
   onHoverChange: (pos: { x: number; y: number } | null) => void;
+  onHeroTextComplete?: () => void;
+  isHeroTextComplete?: boolean;
 }
 
-type DemoState = 'mockDemo' | 'sandboxReady' | 'sandboxActive';
+type DemoState = 'awaitingUrl' | 'mockDemo' | 'sandboxReady' | 'sandboxActive';
 type DemoStep = 'chooseMode' | 'hoverTarget' | 'dropPin' | 'openDrawer' | 'submitFeedback';
 
 const modeColors = {
@@ -172,12 +175,219 @@ const getMockPinForMode = (mode: ModeType, x: number, y: number): MockPin => {
   }
 };
 
-export default function HeroSection({ activeMode, setActiveMode, onHoverChange }: HeroSectionProps) {
+export default function HeroSection({ activeMode, setActiveMode, onHoverChange, onHeroTextComplete, isHeroTextComplete = false }: HeroSectionProps) {
   const isFirstRender = useRef(true);
 
   // Demo State Machine: mockDemo -> sandboxReady -> sandboxActive
-  const [demoState, setDemoState] = useState<DemoState>('mockDemo');
+  const [demoState, setDemoState] = useState<DemoState>('awaitingUrl');
   const [demoStep, setDemoStep] = useState<DemoStep>('chooseMode');
+
+  const [headline1, setHeadline1] = useState('');
+  const [headline2, setHeadline2] = useState('');
+  const [descText, setDescText] = useState('');
+
+  // Keep a stable ref to the callback to prevent the typewriter effect from re-running on parent updates
+  const onHeroTextCompleteRef = useRef(onHeroTextComplete);
+  useEffect(() => {
+    onHeroTextCompleteRef.current = onHeroTextComplete;
+  }, [onHeroTextComplete]);
+
+  // Cinematic Word-by-Word Reveal for Headlines
+  useEffect(() => {
+    let active = true;
+    const txt1Words = ["The", "visual", "website", "feedback", "tool"];
+    const txt2Words = ["built", "for", "product", "teams."];
+
+    let w1 = 0;
+    let w2 = 0;
+
+    const showWord1 = () => {
+      if (!active) return;
+      if (w1 < txt1Words.length) {
+        setHeadline1(txt1Words.slice(0, w1 + 1).join(' '));
+        w1++;
+        setTimeout(showWord1, 500); // Decreased speed (500ms per word)
+      } else {
+        setTimeout(showWord2, 400);
+      }
+    };
+
+    const showWord2 = () => {
+      if (!active) return;
+      if (w2 < txt2Words.length) {
+        setHeadline2(txt2Words.slice(0, w2 + 1).join(' '));
+        w2++;
+        setTimeout(showWord2, 550); // Decreased speed (550ms per word)
+      } else {
+        // Pause for exactly 2 seconds before triggering the burst animation
+        setTimeout(() => {
+          if (active && onHeroTextCompleteRef.current) {
+            onHeroTextCompleteRef.current();
+          }
+        }, 2000);
+      }
+    };
+
+    // Wait exactly 2 seconds (2000ms) after page load before starting typing
+    const delayStartTimer = setTimeout(() => {
+      if (active) {
+        showWord1();
+      }
+    }, 2000);
+
+    return () => {
+      active = false;
+      clearTimeout(delayStartTimer);
+    };
+  }, []);
+
+  // Typewriter effect for Description (txt3) after burst transition settles
+  useEffect(() => {
+    if (!isHeroTextComplete) return;
+
+    let active = true;
+    const txt3 = "Instantly share secure, interactive review links to collect visual feedback, annotations, and QA bug reports directly on live web pages. The fastest way to sign off website changes.";
+
+    // Natural human typing delays per character
+    const getDelay = (char: string, nextChar: string): number => {
+      // Long pause after sentence-ending punctuation
+      if (char === '.' || char === '!') return 220;
+      // Medium pause after commas
+      if (char === ',') return 80;
+      // Short pause after other punctuation
+      if (char === ';' || char === ':') return 60;
+      // Pause before capital letter following a space (new phrase burst)
+      if (char === ' ' && nextChar && /[A-Z]/.test(nextChar)) return 45;
+      // Natural spacing between words
+      if (char === ' ') return 25;
+      // Occasional micro-hesitations to feel human
+      if (Math.random() < 0.03) return 35 + Math.random() * 20;
+      return 12 + Math.random() * 8; // Cruising speed: 12-20ms
+    };
+
+    let k = 0;
+    const typeTxt3 = () => {
+      if (!active) return;
+      if (k < txt3.length) {
+        setDescText(txt3.slice(0, k + 1));
+        const currentChar = txt3[k];
+        const nextChar = txt3[k + 1] ?? '';
+        const delay = getDelay(currentChar, nextChar);
+        k++;
+        setTimeout(typeTxt3, delay);
+      }
+    };
+
+    // Wait 1500ms for the fly-up burst spring to settle before starting description typing
+    const delayTimer = setTimeout(() => {
+      if (active) {
+        typeTxt3();
+      }
+    }, 1500);
+
+    return () => {
+      active = false;
+      clearTimeout(delayTimer);
+    };
+  }, [isHeroTextComplete]);
+
+
+  // Smooth scroll window to top when burst animation completes, but only if the user hasn't scrolled past the hero section
+  useEffect(() => {
+    if (isHeroTextComplete) {
+      // If the scroll position is less than 300px, they are still in the Hero Section area
+      if (window.scrollY < 300) {
+        const scrollTimer = setTimeout(() => {
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          });
+        }, 350); // Scroll as the slide-up settles
+        return () => clearTimeout(scrollTimer);
+      }
+    }
+  }, [isHeroTextComplete]);
+
+  const textContainerVariants = {
+    collapsed: {
+      y: '210px',
+      scale: 0.82,
+      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }
+    },
+    burst: {
+      y: '0px',
+      scale: 1,
+      transition: {
+        type: 'spring' as const,
+        stiffness: 65,
+        damping: 15,
+        mass: 0.85
+      }
+    }
+  };
+
+  const headlineColorVariants = {
+    collapsed: { color: '#f8fafc' },
+    burst: { color: '#1D264F', transition: { duration: 0.6 } }
+  };
+
+  const descColorVariants = {
+    collapsed: { color: '#cbd5e1' },
+    burst: { color: '#4B5563', transition: { duration: 0.6 } }
+  };
+
+  const badgeVariants = {
+    collapsed: {
+      borderColor: 'rgba(255, 255, 255, 0.15)',
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      color: '#f1f5f9'
+    },
+    burst: {
+      borderColor: '#E2F3F5',
+      backgroundColor: 'rgba(226, 243, 245, 0.6)',
+      color: '#253B80',
+      transition: { duration: 0.5 }
+    }
+  };
+
+  const ctasVariants = {
+    collapsed: {
+      opacity: 0,
+      y: 20,
+      scale: 0.95,
+      pointerEvents: 'none' as const
+    },
+    burst: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      pointerEvents: 'auto' as const,
+      transition: {
+        type: 'spring' as const,
+        stiffness: 65,
+        damping: 16,
+        delay: 0.18
+      }
+    }
+  };
+
+  const sandboxVariants = {
+    collapsed: {
+      y: '-390px',
+      scale: 1.03,
+      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }
+    },
+    burst: {
+      y: '0px',
+      scale: 1,
+      transition: {
+        type: 'spring' as const,
+        stiffness: 65,
+        damping: 15,
+        mass: 0.85
+      }
+    }
+  };
 
   const [urlInput, setUrlInput] = useState('https://entrext.com');
   const [currentUrl, setCurrentUrl] = useState('https://entrext.com');
@@ -237,7 +447,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
 
   // Cinematic Auto-playing Sequence
   useEffect(() => {
-    if (isInteractive) return;
+    if (isInteractive || demoState === 'awaitingUrl') return;
 
     if (cinematicStep === 0) {
       setTypedComment('');
@@ -548,170 +758,345 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
     return { x: target.x, y: target.y };
   };
 
+  // Framer Motion variants for stagger entry
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15,
+        delayChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 24 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: 'spring' as const,
+        stiffness: 70,
+        damping: 15
+      }
+    }
+  };
+
   return (
-    <section className="relative min-h-screen pt-[88px] pb-16 flex flex-col justify-center overflow-hidden bg-transparent dot-grid">
-      {/* Background gradients */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute bottom-0 left-0 w-[50%] h-[50%] bg-[radial-gradient(circle_at_bottom_left,var(--pm-accent-subtle),transparent_65%)] transition-all duration-500" />
-        <div className="absolute top-0 right-0 w-[45%] h-[45%] bg-[radial-gradient(circle_at_top_right,var(--pm-accent-subtle),transparent_55%)] transition-all duration-500" />
-      </div>
+    <section id="hero-section" className="relative min-h-screen pt-36 pb-28 flex flex-col justify-start overflow-hidden bg-transparent dot-grid">
+      {/* Ambient 3D Parallax Background — z-0, pointer-events-none */}
+      <AmbientParallaxBackground variant="full" />
 
-      <div className="max-w-7xl mx-auto px-6 md:px-12 w-full flex-1 flex flex-col justify-center gap-10 relative z-10">
+
+      <div className="max-w-7xl mx-auto px-6 md:px-12 w-full flex-1 flex flex-col justify-start gap-12 relative z-10">
         
-        {/* Upper Layout: Hero Copy + Interactive Sandbox Stage */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
-          
-          {/* Left Column: SaaS Pitching copy */}
-          <div className="lg:col-span-5 flex flex-col justify-center text-left space-y-6">
-            <div className="inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-lg bg-[#F0F5F9] border border-pm-border text-[#293681] text-[10px] font-bold uppercase tracking-widest">
-              <Zap className="w-3.5 h-3.5 fill-[#293681]/10 text-[#293681]" />
-              <span>Visual QA Sandbox</span>
-            </div>
+        {/* Rebuilt Centered Hero Stack with Spring Stagger */}
+        {/* Rebuilt Centered Hero Stack with Spring Stagger */}
+        {isHeroTextComplete ? (
+          <motion.div 
+            layoutId="hero-text-stack"
+            transition={{
+              type: 'spring',
+              stiffness: 45,
+              damping: 12,
+              mass: 0.9
+            }}
+            className="flex flex-col items-center text-center space-y-7 max-w-4xl mx-auto pt-8 md:pt-12 relative z-30"
+          >
 
-            <h1 className="font-display text-4xl md:text-5xl lg:text-6.5xl font-bold tracking-tight text-[#1E2022] leading-[1.05] transition-all duration-500">
-              Visual Website Feedback <br />
-              <span className="text-[#293681] font-extrabold">& QA Bug Reporting.</span>
-            </h1>
-
-            <p className="text-xs md:text-sm text-pm-muted leading-relaxed max-w-lg font-sans">
-              Share secure client review links to pin visual feedback, annotations, and QA comments directly on live pages. The visual UI feedback tool and design review software built for teams who want to sign off website changes faster.
-            </p>
-
-            {/* URL Interactive Input */}
-            <form
-              onSubmit={handleUrlSubmit}
-              className="flex items-center gap-2 max-w-md w-full bg-white border border-pm-border p-1.5 rounded-xl focus-within:border-[#293681]/50 focus-within:ring-1 focus-within:ring-[#293681]/20 transition-all duration-300 shadow-sm"
+            {/* Headline */}
+            <motion.h1 
+              layoutId="hero-headline"
+              className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-[#1D264F] leading-[0.98] transition-all duration-500 min-h-[2.1em]"
             >
-              <div className="flex items-center gap-2 flex-1 pl-2 text-pm-muted">
-                <Search className="w-4 h-4 text-pm-muted/65" />
-                <input
-                  type="text"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="Paste URL to load Sandbox..."
-                  className="bg-transparent border-none outline-none text-xs text-pm-text w-full font-mono placeholder:text-pm-text-faint"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="px-4 py-2 bg-[#293681] hover:bg-[#112E81] disabled:bg-pm-surface-3 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 shadow-sm cursor-pointer"
-              >
-                {isLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Load'}
-              </button>
-            </form>
+              {headline1}
+              {headline1.length > 0 && headline1.length < 25 && (
+                <span className="inline-block w-[6px] h-[0.85em] bg-[#1D264F] ml-1.5 align-middle animate-pulse" />
+              )}
+              {headline2.length > 0 && (
+                <>
+                  <br />
+                  {headline2.startsWith("built for ") ? (
+                    <>
+                      built for <span className="text-[#253B80] underline decoration-3 decoration-[#FCE2E1] underline-offset-6">{headline2.slice(10)}</span>
+                    </>
+                  ) : (
+                    headline2
+                  )}
+                  {headline2.length < 24 && (
+                    <span className="inline-block w-[6px] h-[0.85em] bg-[#253B80] ml-1.5 align-middle animate-pulse" />
+                  )}
+                </>
+              )}
+            </motion.h1>
 
-            {/* Micro Onboarding Copy */}
-            <div className="space-y-1.5 max-w-md p-4 rounded-xl border border-pm-border bg-white shadow-sm">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#293681] flex items-center gap-1.5">
-                <HelpCircle className="w-3.5 h-3.5 text-[#293681]/80" />
-                <span>{isInteractive ? 'Active Sandbox Workspace' : 'Interactive Walkthrough'}</span>
-              </div>
-              <p className="text-[10px] text-pm-muted leading-normal font-sans">
-                {modeExplainer[activeMode].hint}
-              </p>
-            </div>
+            {/* Supporting Copy */}
+            <motion.p 
+              className="text-sm md:text-base text-pm-muted leading-relaxed max-w-2xl font-sans min-h-[3.2em]"
+            >
+              {descText}
+              {descText.length > 0 && descText.length < 188 && (
+                <span className="inline-block w-[3px] h-[0.95em] bg-pm-muted ml-1 align-middle animate-pulse" />
+              )}
+            </motion.p>
 
-            <div className="flex gap-4 pt-1">
-              <Link
-                href="/register"
-                className="px-6 py-3 bg-[#293681] hover:bg-[#112E81] text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all hover:-translate-y-0.5 active:translate-y-0 duration-300 flex items-center gap-2 shadow-sm hover:shadow-md cursor-pointer"
-              >
-                Start a Free Review
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <button
-                onClick={() => {
-                  setDemoState('mockDemo');
-                  setIsInteractive(false);
-                  setCinematicStep(0);
-                }}
-                className="px-6 py-3 bg-[#F0F5F9] hover:bg-[#E2ECF5] text-[#293681] border border-pm-border rounded-xl text-xs font-bold uppercase tracking-widest transition-all cursor-pointer hover:-translate-y-0.5 active:translate-y-0 duration-300"
-              >
-                See how it works →
-              </button>
-            </div>
-
-            {/* Social proof / Trust tagline */}
-            <p className="text-[10px] text-pm-text-faint font-sans tracking-wide leading-relaxed pt-2 max-w-sm">
-              Built for web agencies, freelancers, and dev teams who are tired of reviewing websites over email.
-            </p>
-          </div>
-
-          {/* Right Column: Dynamic Mockup Browser & Mode Switcher */}
-          <div className="lg:col-span-7 flex flex-col space-y-3 w-full">
-            
-            {/* Guide strip explaining current step during mockDemo */}
-            {demoState === 'mockDemo' && (
-              <div className="w-full flex items-center justify-between gap-2 px-4 py-2 rounded-xl bg-white border border-pm-border text-[9px] text-pm-muted font-sans shadow-sm animate-fade-in">
-                <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[#293681]">
-                  <Info className="w-3.5 h-3.5 text-[#293681]" />
-                  <span>Interactive Walkthrough Loop</span>
+            {/* CTAs, Input, and Explainer Wrapper */}
+            <motion.div
+              variants={ctasVariants}
+              initial="collapsed"
+              animate={isHeroTextComplete ? "burst" : "collapsed"}
+              className="flex flex-col items-center space-y-7 w-full"
+            >
+              {/* CTAs & Trust Cue */}
+              <div className="flex flex-col items-center gap-3 w-full">
+                <div className="flex flex-wrap gap-4 justify-center items-center">
+                  <Link
+                    href="/register"
+                    className="btn-primary-3d px-8 py-4 bg-[#253B80] hover:bg-[#1B2C60] text-white rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 flex items-center gap-2 cursor-pointer"
+                  >
+                    Start Free Project
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setDemoState('mockDemo');
+                      setIsInteractive(false);
+                      setCinematicStep(0);
+                    }}
+                    className="btn-secondary-3d px-8 py-4 bg-white hover:bg-[#FAF2F2] text-[#253B80] border border-pm-border rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer"
+                  >
+                    Watch Sandbox Demo
+                  </button>
                 </div>
-                <div className="flex gap-1 overflow-x-auto scrollbar-none">
-                  {([
-                    { step: 'chooseMode', label: '1. Choose Stack', activeForSteps: [0] },
-                    { step: 'hoverTarget', label: '2. Hover', activeForSteps: [1, 2] },
-                    { step: 'dropPin', label: '3. Drop Pin', activeForSteps: [3] },
-                    { step: 'openDrawer', label: '4. View Specs', activeForSteps: [4, 5] },
-                    { step: 'submitFeedback', label: '5. Submit', activeForSteps: [6, 7] }
-                  ] as { step: DemoStep, label: string, activeForSteps: number[] }[]).map((s) => {
-                    const isActive = isInteractive ? (demoStep === s.step) : s.activeForSteps.includes(cinematicStep);
-                    return (
-                      <span
-                        key={s.step}
-                        className={`px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-wider transition-all duration-300 ${isActive ? 'bg-[#293681] text-white shadow-sm' : 'bg-pm-surface-2 text-pm-muted/60 border border-pm-border'}`}
-                      >
-                        {s.label}
-                      </span>
-                    );
-                  })}
-                </div>
+                
+                <p className="text-[10px] font-mono text-pm-text-faint/90 uppercase tracking-widest mt-1">
+                  NO EXTENSION REQUIRED · FREE UNLIMITED CLIENT SESSIONS
+                </p>
               </div>
-            )}
 
-             {/* Sandbox Ready Banner Card */}
-            {demoState === 'sandboxReady' && (
-              <div className="w-full flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-[#F0F5F9] border border-pm-border text-[10px] text-[#1E2022] font-sans animate-fade-in shadow-sm">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-[#293681] animate-bounce" />
-                  <div>
-                    <span className="font-bold">Walkthrough Complete!</span> Ready to test? Launch sandbox to drop custom pins.
-                  </div>
+              {/* Sleek URL Input */}
+              <form
+                onSubmit={handleUrlSubmit}
+                className="flex items-center gap-2 max-w-lg w-full bg-white border border-pm-border p-2 rounded-full focus-within:border-[#253B80]/40 focus-within:ring-2 focus-within:ring-[#253B80]/5 transition-all duration-300 shadow-sm focus-within:shadow-md"
+              >
+                <div className="flex items-center gap-2.5 flex-1 pl-3.5 text-pm-muted">
+                  <Search className="w-4 h-4 text-[#253B80]/60" />
+                  <input
+                    type="text"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="Paste URL (e.g. yoursite.com) to load live Sandbox..."
+                    className="bg-transparent border-none outline-none text-xs text-pm-text w-full font-mono placeholder:text-pm-text-faint"
+                  />
                 </div>
                 <button
-                  onClick={launchSandbox}
-                  className="px-3 py-1.5 bg-[#293681] hover:bg-[#112E81] rounded-lg text-[9px] font-bold uppercase tracking-wider text-white cursor-pointer flex items-center gap-1 transition-all shadow-sm hover:shadow-md"
+                  type="submit"
+                  disabled={isLoading}
+                  className="btn-secondary-3d px-6 py-2.5 bg-[#253B80] hover:bg-[#1B2C60] disabled:bg-pm-surface-3 text-white text-[10px] font-mono font-bold uppercase tracking-wider rounded-full transition-colors duration-200 flex items-center gap-2 cursor-pointer"
                 >
-                  <Play className="w-3 h-3 fill-white" />
-                  <span>Launch Sandbox</span>
+                  {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Load Sandbox'}
                 </button>
+              </form>
+
+              {/* Micro Onboarding Explainer Box */}
+              <div className="text-[10.5px] text-pm-muted leading-normal max-w-lg font-sans bg-white border border-pm-border p-4 rounded-2xl flex items-start gap-3 shadow-sm text-left">
+                <div className="w-5 h-5 rounded-full bg-[#C7B4D6]/25 flex items-center justify-center text-[#253B80] flex-shrink-0">
+                  <HelpCircle className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="font-bold text-[#253B80] block mb-0.5 text-[11px] uppercase tracking-wider font-mono">
+                    {isInteractive ? 'Active Sandbox Workspace' : 'Interactive Walkthrough'}
+                  </span>
+                  <p className="leading-relaxed text-[10.5px]">{modeExplainer[activeMode].hint}</p>
+                </div>
               </div>
-            )}
+              {/* Trust Logos Row */}
+              <div className="flex flex-col items-center gap-4 pt-6 w-full max-w-lg border-t border-pm-border/30">
+                <span className="text-[9px] font-mono text-pm-text-muted/80 uppercase tracking-widest">
+                  Trusted by designers & developers using
+                </span>
+                <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 opacity-50 grayscale contrast-125">
+                  {/* Acme Logo */}
+                  <div className="flex items-center gap-1 font-display text-[9.5px] font-black tracking-tight text-pm-text">
+                    <div className="w-3.5 h-3.5 rounded-sm bg-[#1D264F] flex items-center justify-center text-white text-[7.5px]">A</div>
+                    <span>ACME</span>
+                  </div>
+                  {/* Bolt */}
+                  <div className="flex items-center gap-0.5 font-display text-[9.5px] font-bold tracking-tight text-pm-text">
+                    <span className="text-yellow-600 font-extrabold text-[10px]">⚡</span>
+                    <span>BOLT</span>
+                  </div>
+                  {/* Linear Style */}
+                  <div className="flex items-center gap-1 font-display text-[9.5px] font-semibold tracking-wide text-pm-text">
+                    <div className="w-3 h-3 rounded-full border border-pm-text flex items-center justify-center text-[5.5px] font-black">L</div>
+                    <span>LINEAR</span>
+                  </div>
+                  {/* Vercel Style */}
+                  <div className="flex items-center gap-1 font-display text-[9px] font-bold tracking-widest text-pm-text">
+                    <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 75 65"><polygon points="37.5,0 75,65 0,65"/></svg>
+                    <span>VERCEL</span>
+                  </div>
+                  {/* Stripe Style */}
+                  <div className="flex items-center font-display text-[9.5px] font-extrabold tracking-tight text-pm-text">
+                    <span>STRIPE</span>
+                  </div>
+                  {/* Figma Style */}
+                  <div className="flex items-center gap-1 font-display text-[9.5px] font-semibold tracking-tight text-pm-text">
+                    <svg className="w-2.5 h-3 fill-current" viewBox="0 0 24 36"><path d="M12 0c-3.3 0-6 2.7-6 6v6c0 3.3 2.7 6 6 6s6-2.7 6-6V6c0-3.3-2.7-6-6-6zm0 18c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6zm-6-6c0-3.3 2.7-6 6-6s6 2.7 6 6v6H6v-6z"/></svg>
+                    <span>FIGMA</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : (
+          <div className="max-w-4xl mx-auto pt-8 md:pt-12 h-[340px] md:h-[400px] pointer-events-none" />
+        )}
 
-            {/* Browser Mode Switcher above the preview */}
-            <div className="flex items-center gap-1 p-1 bg-white border border-pm-border rounded-xl self-start max-w-full overflow-x-auto scrollbar-none shadow-sm">
-              {(['dom', 'threejs', 'webgl', 'spa', 'shadow-dom'] as ModeType[]).map((mode) => {
-                const isSelected = activeMode === mode;
-                const label = mode === 'dom' ? 'Layout' : mode === 'threejs' ? 'Three.js' : mode === 'webgl' ? 'WebGL' : mode === 'spa' ? 'SPA' : 'Encapsulated';
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => {
-                      setActiveMode(mode);
-                      if (demoState === 'sandboxReady') {
-                        setDemoState('mockDemo');
-                      }
-                    }}
-                    className={`px-3.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${isSelected ? 'bg-[#293681] text-white font-extrabold shadow-sm' : 'text-pm-muted hover:text-[#293681] hover:bg-[#F0F5F9]'}`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+        {/* Sandbox Mockup Section with Dramatic Spacing and Spotlight framing */}
+        <motion.div 
+          initial="collapsed"
+          animate={isHeroTextComplete ? "burst" : "collapsed"}
+          variants={sandboxVariants}
+          className="w-full max-w-5xl mx-auto mt-16 flex flex-col items-center space-y-6 relative z-10"
+        >
+          {/* Cinematic Theatrical Spotlight glow */}
+          <div className="absolute -inset-16 bg-gradient-to-b from-[#253B80]/8 via-transparent to-transparent rounded-[48px] blur-3xl pointer-events-none z-0" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[#FAF2F2] opacity-0 rounded-[32px] pointer-events-none z-0 shadow-[0_48px_96px_-24px_rgba(37,59,128,0.18)]" />
+          
+          <div className="absolute -top-20 -left-20 w-96 h-96 bg-[#FCE2E1]/20 rounded-full blur-[90px] pointer-events-none z-0 animate-pulse duration-[7000ms]" />
+          <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-[#C7B4D6]/20 rounded-full blur-[90px] pointer-events-none z-0 animate-pulse duration-[9000ms]" />
+          
+          {/* Guide strip explaining current step during mockDemo */}
+          {demoState === 'mockDemo' && (
+            <div className="w-full max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-3 rounded-full bg-white border border-[#C7B4D6]/20 text-[9.5px] text-pm-muted font-sans shadow-sm animate-fade-in relative z-10">
+              <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-[#253B80]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FCE2E1]" />
+                <Info className="w-3.5 h-3.5 text-[#253B80]" />
+                <span>Interactive Walkthrough Loop</span>
+              </div>
+              <div className="flex gap-1 overflow-x-auto scrollbar-none max-w-full">
+                {([
+                  { step: 'chooseMode', label: '1. Choose Stack', activeForSteps: [0] },
+                  { step: 'hoverTarget', label: '2. Hover', activeForSteps: [1, 2] },
+                  { step: 'dropPin', label: '3. Drop Pin', activeForSteps: [3] },
+                  { step: 'openDrawer', label: '4. View Specs', activeForSteps: [4, 5] },
+                  { step: 'submitFeedback', label: '5. Submit', activeForSteps: [6, 7] }
+                ] as { step: DemoStep, label: string, activeForSteps: number[] }[]).map((s) => {
+                  const isActive = isInteractive ? (demoStep === s.step) : s.activeForSteps.includes(cinematicStep);
+                  return (
+                    <span
+                      key={s.step}
+                      className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider transition-all duration-300 ${isActive ? 'bg-[#253B80] text-white shadow-sm' : 'bg-pm-surface-2 text-pm-muted/60 border border-pm-border'}`}
+                    >
+                      {s.label}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
+          )}
 
-            {/* Mockup Browser Container */}
+          {/* Sandbox Ready Banner Card */}
+          {demoState === 'sandboxReady' && (
+            <div className="w-full max-w-3xl flex items-center justify-between gap-4 px-6 py-3.5 rounded-2xl bg-[#E2F3F5]/40 border border-[#E2F3F5] text-[10.5px] text-[#253B80] font-sans animate-fade-in shadow-sm relative z-10">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-[#253B80] animate-ping" />
+                <div>
+                  <span className="font-bold">Walkthrough Complete!</span> Ready to test? Launch sandbox to drop custom pins.
+                </div>
+              </div>
+              <button
+                onClick={launchSandbox}
+                className="px-5 py-2.5 bg-[#253B80] hover:bg-[#1B2C60] rounded-full text-[9px] font-bold uppercase tracking-wider text-white cursor-pointer flex items-center gap-1.5 transition-all shadow-md"
+              >
+                <Play className="w-3 h-3 fill-white" />
+                <span>Launch Sandbox</span>
+              </button>
+            </div>
+          )}
+
+          {/* Browser Mode Switcher above the preview */}
+          <div className="flex items-center gap-1 p-1 bg-white border border-pm-border rounded-full shadow-sm">
+            {(['dom', 'threejs', 'webgl', 'spa', 'shadow-dom'] as ModeType[]).map((mode) => {
+              const isSelected = activeMode === mode;
+              const label = mode === 'dom' ? 'Layout' : mode === 'threejs' ? 'Three.js' : mode === 'webgl' ? 'WebGL' : mode === 'spa' ? 'SPA' : 'Encapsulated';
+              return (
+                <button
+                  key={mode}
+                  onClick={() => {
+                    setActiveMode(mode);
+                    if (demoState === 'sandboxReady') {
+                      setDemoState('mockDemo');
+                    }
+                  }}
+                  className={`px-4.5 py-2 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${isSelected ? 'bg-[#253B80] text-white font-extrabold shadow-sm' : 'text-pm-muted hover:text-[#253B80] hover:bg-[#FAF2F2]'}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Floating artistic feedback widgets framing the mockup */}
+          <motion.div
+            initial={{ opacity: 0, x: -20, y: 10 }}
+            animate={{ opacity: 1, x: 0, y: [0, -10, 0] }}
+            transition={{
+              opacity: { duration: 0.8, delay: 0.2 },
+              x: { duration: 0.8, delay: 0.2 },
+              y: { duration: 5, repeat: Infinity, ease: 'easeInOut' }
+            }}
+            className="hidden lg:flex absolute -left-12 top-[20%] z-20 items-center gap-2 px-3 py-2 bg-white border border-[#E2F3F5] rounded-xl shadow-lg pointer-events-none select-none font-sans"
+          >
+            <div className="w-4 h-4 rounded bg-[#E2F3F5] flex items-center justify-center text-[#253B80]">
+              <MousePointer2 className="w-2.5 h-2.5 animate-pulse" />
+            </div>
+            <div className="text-[9.5px]">
+              <span className="font-mono font-bold text-[#1D264F] block leading-none">button.btn-cta</span>
+              <span className="text-[#253B80] text-[8px] font-semibold">Selector matched</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20, y: -10 }}
+            animate={{ opacity: 1, x: 0, y: [0, 10, 0] }}
+            transition={{
+              opacity: { duration: 0.8, delay: 0.3 },
+              x: { duration: 0.8, delay: 0.3 },
+              y: { duration: 6, repeat: Infinity, ease: 'easeInOut' }
+            }}
+            className="hidden lg:flex absolute -right-16 top-[35%] z-20 items-center gap-2.5 px-3.5 py-2.5 bg-white border border-[#FCE2E1]/80 rounded-xl shadow-lg pointer-events-none select-none font-sans"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#253B80] animate-pulse" />
+            <div className="text-[9.5px]">
+              <span className="font-bold text-[#253B80] block leading-none">"Visual alignment issue"</span>
+              <span className="text-pm-muted text-[8px]">Client pin added</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: -20, y: -20 }}
+            animate={{ opacity: 1, x: 0, y: [0, -8, 0] }}
+            transition={{
+              opacity: { duration: 0.8, delay: 0.4 },
+              x: { duration: 0.8, delay: 0.4 },
+              y: { duration: 4.5, repeat: Infinity, ease: 'easeInOut' }
+            }}
+            className="hidden lg:flex absolute -left-16 bottom-[25%] z-20 items-center gap-2 px-3 py-2 bg-white border border-[#C7B4D6]/75 rounded-xl shadow-lg pointer-events-none select-none font-sans"
+          >
+            <div className="w-4 h-4 rounded bg-[#C7B4D6]/20 flex items-center justify-center text-[#253B80]">
+              <Layers className="w-2.5 h-2.5" />
+            </div>
+            <div className="text-[9.5px]">
+              <span className="font-mono font-bold text-[#1D264F] block leading-none">Safari v17.4</span>
+              <span className="font-mono text-[#253B80] text-[8px] font-semibold">macOS Sonoma</span>
+            </div>
+          </motion.div>
+
+          {/* Mockup Browser Container */}
+          <div className="relative w-full rounded-[32px] border border-[#253B80]/8 bg-[#FCF5F5]/65 p-3 md:p-4 backdrop-blur-md shadow-[0_30px_80px_-20px_rgba(37,59,128,0.08)]">
             <motion.div 
               style={{
                 rotateX: previewRotateX,
@@ -732,25 +1117,27 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
               onMouseMove={handlePreviewMouseMove}
               onMouseLeave={handlePreviewMouseLeave}
               onMouseEnter={handlePreviewMouseEnter}
-              className="mockup-browser relative w-full aspect-[4/3] rounded-3xl border border-pm-border bg-white overflow-hidden shadow-[0_20px_50px_rgba(41,54,129,0.06)] hover:shadow-[0_20px_50px_rgba(41,54,129,0.1)] transition-all duration-500"
+              className="mockup-browser relative w-full aspect-[16/10] rounded-[24px] border border-white/10 bg-[#09090b] overflow-hidden shadow-[0_32px_80px_-20px_rgba(37,59,128,0.45)] transition-all duration-500"
             >
-              
+              {/* Animated glass glow outline */}
+              <div className="absolute -inset-[1px] bg-gradient-to-r from-[#253B80]/40 via-[#3B82F6]/30 to-[#C7B4D6]/40 rounded-[24px] opacity-70 pointer-events-none z-30" />
+            
               {/* Browser Header Bar */}
-              <div className="absolute top-0 left-0 right-0 h-10 border-b border-pm-border bg-pm-surface-2 flex items-center px-4 justify-between z-20">
+              <div className="absolute top-0 left-0 right-0 h-10 border-b border-white/5 bg-[#09090d] flex items-center px-4 justify-between z-20">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/30" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/30" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-500/30" />
+                  <div className="w-2 h-2 rounded-full bg-red-500/40" />
+                  <div className="w-2 h-2 rounded-full bg-yellow-500/40" />
+                  <div className="w-2 h-2 rounded-full bg-green-500/40" />
                 </div>
                 
-                <div className="px-4 py-1 bg-pm-bg border border-pm-border rounded-md text-[10px] font-mono text-pm-muted w-1/2 text-center select-none truncate">
+                <div className="px-4 py-1 bg-black/45 border border-white/5 rounded-md text-[10px] font-mono text-slate-400 w-1/2 text-center select-none truncate">
                   {isLoading ? 'Connecting Sandbox...' : activeMode === 'spa' ? `${currentUrl}${spaTab === 'explore' ? '/explore' : spaTab === 'settings' ? '/settings' : ''}` : currentUrl}
                 </div>
                 
                 <div className="w-24 flex items-center justify-end gap-2">
                   <button
                     onClick={() => { setActivePin(null); setDrawerOpen(false); }}
-                    className="p-1 hover:bg-pm-surface-3 rounded text-pm-muted hover:text-red-400 transition-colors cursor-pointer"
+                    className="p-1 hover:bg-white/5 rounded text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
                     title="Clear Pin"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -769,10 +1156,10 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                     handleGeneralPreviewClick(e);
                   }
                 }}
-                className="absolute inset-0 pt-10 bg-pm-bg font-sans z-0 select-none overflow-hidden cursor-pointer"
+                className="absolute inset-0 pt-10 bg-[#070709] font-sans z-0 select-none overflow-hidden cursor-pointer"
               >
                 {/* Scanlines / CRT filter effect */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.012)_50%,rgba(0,0,0,0.12)_50%)] bg-[size:100%_4px] pointer-events-none" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.005)_50%,rgba(0,0,0,0.15)_50%)] bg-[size:100%_4px] pointer-events-none" />
 
 
 
@@ -788,6 +1175,98 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                     >
                       <RefreshCw className="w-8 h-8 text-pm-accent-bright animate-spin" />
                       <span className="font-mono text-xs text-pm-muted">{loadingText}</span>
+                    </motion.div>
+                  ) : demoState === 'awaitingUrl' ? (
+                    // Dormant State before loading
+                    <motion.div
+                      key="awaiting-url"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="w-full h-full flex flex-col items-center justify-center space-y-6 bg-[#070709] p-8 text-center relative"
+                    >
+                      {!isHeroTextComplete ? (
+                        // Render Stack 2 (Inside mockup browser viewport)
+                        <motion.div 
+                          layoutId="hero-text-stack"
+                          transition={{
+                            type: 'spring',
+                            stiffness: 45,
+                            damping: 12,
+                            mass: 0.9
+                          }}
+                          className="absolute inset-0 pt-12 sm:pt-20 px-6 sm:px-8 flex flex-col items-center justify-start text-center bg-[#070709] z-20 space-y-5 sm:space-y-6 select-none pointer-events-none"
+                        >
+
+                          {/* Headline */}
+                          <motion.h1 
+                            layoutId="hero-headline"
+                            className="font-display text-2xl sm:text-3xl lg:text-[2.6rem] font-black tracking-[-0.03em] text-white leading-tight text-center min-h-[2.5em]"
+                          >
+                            {headline1}
+                            {headline1.length > 0 && headline1.length < 25 && (
+                              <span className="inline-block w-[4px] h-[0.85em] bg-white ml-1 align-middle animate-pulse" />
+                            )}
+                            {headline2.length > 0 && (
+                              <>
+                                <br />
+                                {headline2.startsWith("built for ") ? (
+                                  <>
+                                    built for <span className="text-[#3B82F6] underline decoration-3 decoration-amber-400 underline-offset-4">{headline2.slice(10)}</span>
+                                  </>
+                                ) : (
+                                  headline2
+                                )}
+                                {headline2.length < 24 && (
+                                  <span className="inline-block w-[4px] h-[0.85em] bg-[#3B82F6] ml-1 align-middle animate-pulse" />
+                                )}
+                              </>
+                            )}
+                          </motion.h1>
+
+                          {/* Supporting Copy */}
+                          <motion.p 
+                            className="text-[10px] sm:text-xs text-slate-300 leading-relaxed max-w-lg font-sans text-center"
+                          >
+                            {descText}
+                            {descText.length > 0 && descText.length < 188 && (
+                              <span className="inline-block w-[2px] h-[0.95em] bg-slate-300 ml-1 align-middle animate-pulse" />
+                            )}
+                          </motion.p>
+                        </motion.div>
+                      ) : (
+                        // Normal awaiting URL card details
+                        <>
+                          <div className="w-16 h-16 rounded-3xl bg-[#253B80]/15 border border-[#253B80]/35 flex items-center justify-center text-white relative shadow-[0_0_20px_rgba(37,59,128,0.2)]">
+                            <Globe className="w-7 h-7" />
+                            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border border-[#070709] animate-pulse" />
+                          </div>
+                          
+                          <div className="space-y-2 max-w-sm">
+                            <h3 className="font-display text-lg font-bold text-white tracking-tight leading-snug">
+                              Visual QA Sandbox
+                            </h3>
+                            <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                              Enter a live website URL above and click <span className="font-bold text-white font-mono">Load Sandbox</span> to start dropping precision feedback pins.
+                            </p>
+                          </div>
+
+                          <div className="pt-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDemoState('mockDemo');
+                                setIsInteractive(false);
+                                setCinematicStep(0);
+                              }}
+                              className="px-6 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Play className="w-3 h-3 fill-slate-300" />
+                              <span>Watch Walkthrough Demo</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </motion.div>
                   ) : (
                     // Webpage mock content based on active Mode
@@ -815,7 +1294,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                                   });
                                 }
                               }}
-                              className="font-display text-xs font-bold text-pm-text hover:outline hover:outline-pm-accent-bright/50 hover:outline-1 hover:outline-offset-2"
+                              className="font-sans text-xs font-bold text-pm-text hover:outline hover:outline-pm-accent-bright/50 hover:outline-1 hover:outline-offset-2"
                             >
                               Entrext
                             </span>
@@ -837,7 +1316,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                                 });
                               }
                             }}
-                            className={`text-xl md:text-2xl font-display font-bold text-white tracking-tight leading-tight hover:outline hover:outline-pm-accent-bright/50 hover:outline-1 hover:outline-offset-2 transition-all ${hoveredElement === 'heading' ? 'outline outline-pm-accent-bright/50 outline-1 outline-offset-2 bg-pm-accent/5' : ''}`}
+                            className={`text-xl md:text-2xl font-sans font-bold text-white tracking-tight leading-tight hover:outline hover:outline-pm-accent-bright/50 hover:outline-1 hover:outline-offset-2 transition-all ${hoveredElement === 'heading' ? 'outline outline-pm-accent-bright/50 outline-1 outline-offset-2 bg-pm-accent/5' : ''}`}
                           >
                             Engineering the <br />Next-Gen Web.
                           </h2>
@@ -1022,7 +1501,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                                     }
                                   }}
                                 >
-                                  <h4 className="text-[9px] text-white font-bold font-display">Dashboard Home</h4>
+                                  <h4 className="text-[9px] text-white font-bold font-sans">Dashboard Home</h4>
                                   <div className="grid grid-cols-2 gap-2">
                                     <div className="p-2 bg-pm-surface-2 rounded border border-pm-border">
                                       <div className="text-[7px] text-pm-muted">Traffic</div>
@@ -1053,7 +1532,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                                     }
                                   }}
                                 >
-                                  <h4 className="text-[9px] text-white font-bold font-display">Explore Content Feed</h4>
+                                  <h4 className="text-[9px] text-white font-bold font-sans">Explore Content Feed</h4>
                                   <div className={`p-2.5 rounded-lg bg-pm-surface-2 border border-pm-border space-y-1.5 transition-all ${hoveredElement === 'spa-card' ? 'border-pm-accent shadow-[0_0_15px_var(--pm-accent-glow)] bg-pm-accent/5' : ''}`}>
                                     <div className="h-2 w-1/3 bg-pm-surface-3 rounded" />
                                     <div className="h-2 w-full bg-pm-surface-3 rounded" />
@@ -1079,7 +1558,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                                     }
                                   }}
                                 >
-                                  <h4 className="text-[9px] text-white font-bold font-display">Settings Pane</h4>
+                                  <h4 className="text-[9px] text-white font-bold font-sans">Settings Pane</h4>
                                   <div className="flex gap-2 items-center">
                                     <div className="h-6 flex-1 bg-pm-surface-2 rounded border border-pm-border" />
                                     <button className="h-6 px-3 bg-pm-accent rounded text-[8px] font-bold text-white cursor-pointer">SAVE</button>
@@ -1215,7 +1694,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                   >
                     <div className="space-y-4 overflow-y-auto pr-1 select-text scrollbar-thin">
                       <div className="flex items-center justify-between border-b border-pm-border pb-2 animate-fade-in">
-                        <span className="font-display font-bold text-[10px] text-white">LEAVE FEEDBACK</span>
+                        <span className="font-sans font-bold text-[10px] text-white">LEAVE FEEDBACK</span>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${((isInteractive && demoStep === 'submitFeedback') || (!isInteractive && cinematicStep >= 6)) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-pm-accent/20 text-pm-accent-vivid'}`}>
                           {((isInteractive && demoStep === 'submitFeedback') || (!isInteractive && cinematicStep >= 6)) ? 'SUBMITTED' : 'DRAFT'}
                         </span>
@@ -1445,7 +1924,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                     </div>
                     
                     <div className="space-y-2 max-w-sm">
-                      <h3 className="font-display text-xl font-bold text-white tracking-tight leading-tight">
+                      <h3 className="font-sans text-xl font-bold text-white tracking-tight leading-tight">
                         Why don't you try it yourself?
                       </h3>
                       <p className="text-xs text-pm-muted leading-relaxed font-sans">
@@ -1521,25 +2000,25 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
               </div>
             </motion.div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Horizontal Walkthrough Workflow Strip */}
-        <div className="py-6 border-t border-b border-pm-border/30 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+        <div className="py-8 border-t border-b border-pm-border/30 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-left mt-6">
           {onboardingSteps.map((step) => (
-            <div key={step.num} className="flex gap-3 items-start p-2">
-              <span className="w-5 h-5 rounded bg-pm-accent/20 border border-pm-accent/30 flex items-center justify-center font-display text-[10px] font-bold text-pm-accent-vivid flex-shrink-0 mt-0.5 transition-colors duration-500">
+            <div key={step.num} className="flex gap-4 items-start p-1">
+              <span className="w-6 h-6 rounded-full bg-white border border-[#253B80]/15 flex items-center justify-center font-sans text-[10.5px] font-bold text-[#253B80] flex-shrink-0 shadow-sm transition-colors duration-500">
                 {step.num}
               </span>
-              <div className="space-y-0.5">
-                <h4 className="text-[11px] font-bold text-white uppercase tracking-wider">{step.title}</h4>
-                <p className="text-[9px] text-pm-muted leading-normal font-sans">{step.desc}</p>
+              <div className="space-y-1">
+                <h4 className="text-[11px] font-bold text-pm-text uppercase tracking-wider">{step.title}</h4>
+                <p className="text-[9.5px] text-pm-muted leading-normal font-sans">{step.desc}</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* Lower Layout: 5 Capability Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mt-4">
           {systems.map((sys) => {
             const isActive = activeMode === sys.id;
             return (
@@ -1550,22 +2029,22 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange }
                     setActiveMode(sys.id);
                   }
                 }}
-                whileHover={{ y: -3, scale: 1.01 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                className={`p-5 rounded-2xl border border-pm-border bg-pm-surface/30 text-left transition-all duration-500 cursor-pointer ${sys.border} ${isActive ? `${sys.glow} border-pm-accent/50 bg-pm-surface-2/40` : ''}`}
+                whileHover={{ y: -3 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className={`p-5 rounded-2xl border border-pm-border/60 bg-white/70 text-left transition-all duration-300 cursor-pointer shadow-sm ${sys.border} ${isActive ? 'border-[#253B80]/40 bg-white shadow-[0_16px_40px_-12px_rgba(37,59,128,0.08)]' : 'hover:bg-white hover:shadow-md'}`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-8 h-8 rounded-lg ${sys.accentBg} flex items-center justify-center ${sys.color} transition-colors duration-500`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-8 h-8 rounded-full ${sys.accentBg} flex items-center justify-center ${sys.color} transition-colors duration-500`}>
                     <sys.icon className="w-4 h-4" />
                   </div>
                   {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-pm-accent animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-[#253B80] animate-pulse" />
                   )}
                 </div>
-                <h4 className="font-display text-xs font-bold text-white mb-1.5 uppercase tracking-wide">
+                <h4 className="font-sans text-[11px] font-bold text-pm-text mb-1.5 uppercase tracking-wide">
                   {sys.name}
                 </h4>
-                <p className="text-[10px] text-pm-muted leading-relaxed font-sans">
+                <p className="text-[9.5px] text-pm-muted leading-relaxed font-sans">
                   {sys.description}
                 </p>
               </motion.div>

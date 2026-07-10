@@ -41,7 +41,7 @@ async def get_canvas(
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -122,7 +122,7 @@ async def create_frame(
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -172,7 +172,7 @@ async def update_frame(
         raise HTTPException(status_code=404, detail="Frame not found")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -206,7 +206,7 @@ async def delete_frame(
         raise HTTPException(status_code=404, detail="Frame not found")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -233,7 +233,7 @@ async def create_flow(
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -292,7 +292,7 @@ async def delete_flow(
         raise HTTPException(status_code=404, detail="Flow not found")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 

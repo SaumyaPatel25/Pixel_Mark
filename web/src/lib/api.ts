@@ -335,7 +335,7 @@ export const api = {
       return apiQueue.enqueueRead('Loading session analytics...', () => request(`/sessions/${sessionId}/analytics`))
     },
     async getFeedbackHistory(sessionId: string, feedbackId: string) {
-      return apiQueue.enqueueRead('Loading feedback history...', () => request(`/sessions/${sessionId}/feedback/${feedbackId}/history`))
+      return Promise.resolve([])
     },
     async getReport(sessionId: string) {
       return apiQueue.enqueueRead('Loading report...', () => request(`/sessions/${sessionId}/report`))

@@ -97,7 +97,7 @@ def require_role(minimum_role: RoleEnum):
                 OrgMember.user_id == current_user.id
             )
         )
-        membership = result.scalar_one_or_none()
+        membership = result.scalars().first()
         role_order = [RoleEnum.guest, RoleEnum.member, RoleEnum.admin, RoleEnum.owner]
         if not membership or role_order.index(membership.role) < role_order.index(minimum_role):
             raise HTTPException(status_code=403, detail="Insufficient permissions")

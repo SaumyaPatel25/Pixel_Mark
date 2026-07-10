@@ -116,8 +116,12 @@ export function DrawingCanvas({ baseImageUrl, onSave, initialShapes = [] }: Draw
   // Track responsive canvas layout size
   const updateCanvasLayoutSize = () => {
     if (imageRef.current) {
-      const { clientWidth, clientHeight } = imageRef.current
-      setCanvasSize({ width: clientWidth, height: clientHeight })
+      requestAnimationFrame(() => {
+        if (imageRef.current) {
+          const { clientWidth, clientHeight } = imageRef.current
+          setCanvasSize({ width: clientWidth, height: clientHeight })
+        }
+      })
     }
   }
 
@@ -128,7 +132,7 @@ export function DrawingCanvas({ baseImageUrl, onSave, initialShapes = [] }: Draw
 
   // Handle window resizing
   useEffect(() => {
-    window.addEventListener('resize', updateCanvasLayoutSize)
+    window.addEventListener('resize', updateCanvasLayoutSize, { passive: true })
     return () => window.removeEventListener('resize', updateCanvasLayoutSize)
   }, [imageLoaded])
 

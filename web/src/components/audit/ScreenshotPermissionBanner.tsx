@@ -37,19 +37,19 @@ export function ScreenshotPermissionBanner() {
   }
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-900 border border-purple-500 rounded-lg shadow-xl p-4 flex items-center space-x-4 max-w-xl w-full">
-      <div className="flex-1 text-sm text-white">
-        <strong>PixelMark Screen Capture</strong>
-        <p className="text-slate-300 mt-1 text-xs">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-white border border-[#293681]/20 rounded-2xl shadow-2xl p-5 flex items-center space-x-4 max-w-xl w-full">
+      <div className="flex-1 text-sm text-slate-800">
+        <strong className="text-[#293681] font-black uppercase tracking-wider text-xs">Screen Capture Request</strong>
+        <p className="text-slate-500 mt-1.5 text-xs font-bold leading-normal">
           PixelMark can capture screenshots for this session to make your feedback easier to understand.
         </p>
       </div>
-      <div className="flex flex-col gap-2">
-        <Button onClick={handleAllow} className="bg-purple-600 hover:bg-purple-700 text-xs py-1 h-auto">
+      <div className="flex flex-col gap-2 flex-shrink-0">
+        <Button onClick={handleAllow} className="bg-[#293681] hover:bg-[#112E81] text-white text-xs py-2 px-4 rounded-xl h-auto font-black uppercase tracking-wider">
           Allow
         </Button>
-        <Button variant="outline" onClick={handleSkip} className="text-xs py-1 h-auto border-slate-700 text-slate-300 hover:bg-slate-800">
-          Skip for now
+        <Button variant="outline" onClick={handleSkip} className="text-xs py-2 px-4 rounded-xl h-auto border-slate-200 text-slate-600 hover:bg-slate-50 font-bold uppercase tracking-wider">
+          Skip
         </Button>
       </div>
     </div>

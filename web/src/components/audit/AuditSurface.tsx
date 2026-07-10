@@ -5,11 +5,13 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useDOMEditStore } from '@/store/domEditStore'
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Loader2, ArrowLeft, Monitor, Pin, Plus, X, Check,
   AlertTriangle, ChevronDown, MousePointer2, Layers,
-  Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil
+  Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil, Share2, Minimize2
 } from 'lucide-react'
+import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import PageTabBar from '@/components/session/PageTabBar'
@@ -61,6 +63,7 @@ interface AuditSurfaceProps {
   isReviewerGateOpen?: boolean
   onMarkerCreated?: (marker: any) => void
   onPageChanged?: (url: string, title: string) => void
+  shouldConnectSocket?: boolean
 }
 
 type IssueType = 'layout' | 'copy' | 'interaction' | 'navigation' | 'rendering' | 'canvas_webgl' | 'other'
@@ -301,10 +304,13 @@ export function AuditSurface({
   reviewerIdentity,
   isReviewerGateOpen,
   onMarkerCreated,
-  onPageChanged
+  onPageChanged,
+  shouldConnectSocket = true
 }: AuditSurfaceProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const containerRectRef = useRef<DOMRect | null>(null)
   const [iframeReady, setIframeReady] = useState(false)
 
   const screenshotMode = useScreenshotStore(state => state.screenshotMode)
@@ -319,6 +325,28 @@ export function AuditSurface({
       useScreenshotStore.getState().teardown()
     }
   }, [])
+
+  // Page state
+  const [currentUrl, setCurrentUrl] = useState('')
+  const [currentTitle, setCurrentTitle] = useState('')
+  const [rendererType, setRendererType] = useState('dom')
+  const [pageHistory, setPageHistory] = useState<{ url: string; title: string; rendererType: string }[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [failedAssets, setFailedAssets] = useState<{ url: string; critical: boolean }[]>([])
+  const [degradedAssets, setDegradedAssets] = useState<{ url: string; tagName: string }[]>([])
+  const [bootTimeout, setBootTimeout] = useState(false)
+  const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+
+  useEffect(() => {
+    const handleGlobalMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'PIXELMARK_TRIGGER_FRAME_CAPTURE_GLOBAL') {
+        handleCaptureFrame()
+      }
+    }
+    window.addEventListener('message', handleGlobalMessage)
+    return () => window.removeEventListener('message', handleGlobalMessage)
+  }, [rendererType])
 
   // Send active heartbeat to the proxy/review session every 25 seconds to avoid idle auto-closure
   useEffect(() => {
@@ -337,18 +365,8 @@ export function AuditSurface({
     return () => clearInterval(interval)
   }, [sessionId])
 
-  // Page state
-  const [currentUrl, setCurrentUrl] = useState('')
-  const [currentTitle, setCurrentTitle] = useState('')
-  const [rendererType, setRendererType] = useState('dom')
-  const [pageHistory, setPageHistory] = useState<{ url: string; title: string; rendererType: string }[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [failedAssets, setFailedAssets] = useState<{ url: string; critical: boolean }[]>([])
-  const [degradedAssets, setDegradedAssets] = useState<{ url: string; tagName: string }[]>([])
-  const [bootTimeout, setBootTimeout] = useState(false)
-  const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isFrameAlertCollapsed, setIsFrameAlertCollapsed] = useState(false)
   const [scrollPos, setScrollPos] = useState({ x: 0, y: 0 })
   const [resolvedPositions, setResolvedPositions] = useState<Record<string, { clientX: number; clientY: number; pageX?: number; pageY?: number; source: string }>>({})
   // Feedback mode state
@@ -356,7 +374,6 @@ export function AuditSurface({
   const { fetchEdits, createEdit } = useDOMEditStore()
   const edits = useDOMEditStore(state => state.edits)
   const [manualPlacementMode, setManualPlacementMode] = useState(false)
-  const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 })
   const [isHoveringOverlay, setIsHoveringOverlay] = useState(false)
   
   // Phase 4: Canonical Marker Store Integration
@@ -368,7 +385,7 @@ export function AuditSurface({
     ? (reviewerIdentity ? { id: reviewerIdentity.id, role: 'reviewer' } : { id: 'anon', role: 'reviewer' })
     : { id: 'developer-user', role: 'developer' }
 
-  const socketStatus = useSessionSocket(sessionId, actor)
+  const socketStatus = useSessionSocket(shouldConnectSocket ? sessionId : '', actor)
 
   useEffect(() => {
     if (actor && actor.id !== 'anon' && actor.id !== 'anon_dev') {
@@ -378,6 +395,8 @@ export function AuditSurface({
 
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [isSharePanelOpen, setIsSharePanelOpen] = useState(false)
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [captureCtx, setCaptureCtx] = useState<CaptureContext | null>(null)
   const [manualCoords, setManualCoords] = useState({ x: 50, y: 50, px: 0, py: 0 })
   const [noteText, setNoteText] = useState('')
@@ -1594,10 +1613,16 @@ export function AuditSurface({
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return
-    const rect = containerRef.current.getBoundingClientRect()
+    if (!containerRectRef.current) {
+      containerRectRef.current = containerRef.current.getBoundingClientRect()
+    }
+    const rect = containerRectRef.current
     const localX = e.clientX - rect.left
     const localY = e.clientY - rect.top
-    setHoverPos({ x: localX, y: localY })
+
+    if (tooltipRef.current) {
+      tooltipRef.current.style.transform = `translate3d(${localX + 14}px, ${localY + 14}px, 0)`
+    }
 
     // Relay cursor position to iframe so cursor-reactive effects (spotlight,
     // WebGL mouse-follow, canvas trails) keep working while the overlay is
@@ -1915,45 +1940,16 @@ export function AuditSurface({
           {/* Right: controls */}
           <div className="flex items-center gap-3 flex-shrink-0">
 
-            {/* ── Capture Frame (WebGL/Canvas Mode only) ─────────────────── */}
-            {(rendererType === 'webgl' || rendererType === 'threejs' || rendererType === 'canvas' || rendererType === 'mixed') && (
-              <button
-                id="capture-frame-btn"
-                onClick={handleCaptureFrame}
-                className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 active:scale-95 shadow-lg shadow-amber-950/20 focus:ring-2 focus:ring-amber-400 focus:outline-none"
-              >
-                <Eye className="w-3.5 h-3.5 animate-pulse" />
-                Capture Frame
-              </button>
-            )}
-
-            {/* ── Take Screenshot CTA ────────────────────────────── */}
+            {/* ── Share Review CTA ────────────────────────────── */}
             <button
-              id="take-screenshot-btn"
-              aria-label="Take a manual screenshot"
-              onClick={() => {
-                useScreenshotStore.getState().setMode('region');
-              }}
-              className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-4 flex items-center gap-1.5 transition-all border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
+              onClick={() => setIsSharePanelOpen(true)}
+              className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all border border-[#293681]/20 bg-white/5 text-slate-300 hover:bg-white/10 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
-              Take Screenshot
+              <Share2 className="w-3.5 h-3.5" />
+              Share Review
             </button>
 
-            {/* ── Enable Screen Capture (recovery CTA when permission not granted) ── */}
-            {screenshotPermission !== 'granted' && (
-              <button
-                id="enable-screen-capture-btn"
-                aria-label="Enable screen capture"
-                onClick={() => {
-                  useScreenshotStore.getState().setPermission('pending');
-                }}
-                className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-4 flex items-center gap-1.5 transition-all border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 active:scale-95 focus:ring-2 focus:ring-amber-400 focus:outline-none"
-              >
-                <Zap className="w-3.5 h-3.5 animate-pulse text-amber-400" />
-                Enable Captures
-              </button>
-            )}
+
 
             {/* ── PRIMARY CTA: Leave Feedback ────────────────────────────── */}
             <button
@@ -1977,8 +1973,6 @@ export function AuditSurface({
                 : <><Plus className="w-3.5 h-3.5" /> Leave Feedback</>
               }
             </button>
-
-
 
             {/* ── SECONDARY: Advanced Marker Mode toggle (hidden on mobile) ── */}
             <div className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 select-none border bg-white/[0.03] border-white/5 max-md:hidden">
@@ -2012,57 +2006,6 @@ export function AuditSurface({
               </button>
             </div>
 
-            <div className="h-4 w-px bg-white/10 max-md:hidden" />
-
-            {/* ── FPS/Performance indicator (hidden on mobile) ─────────────── */}
-            {fps !== null && (
-              <div className={cn(
-                "flex items-center gap-1.5 rounded-xl px-2.5 py-1 select-none border transition-all text-[9px] font-black uppercase tracking-widest max-md:hidden",
-                fps >= 45 ? "bg-emerald-950/20 border-emerald-500/20 text-emerald-400" :
-                fps >= 25 ? "bg-amber-950/20 border-amber-500/20 text-amber-400" :
-                "bg-rose-950/20 border-rose-500/20 text-rose-400 animate-pulse"
-              )}>
-                <span className="w-1 h-1 rounded-full bg-current animate-ping" />
-                {fps} FPS {fps < 30 ? "(Lagging)" : "(Fluid)"}
-              </div>
-            )}
-
-            {/* Sleek Performance Safe Indicator when frame rate is low */}
-            {fps !== null && fps < 20 && (
-              <div 
-                title="Performance Safe Mode: Frame rate is low. You can capture a static frame or switch to Static Snapshot."
-                className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 select-none border bg-cyan-950/25 border-cyan-500/40 text-cyan-400 text-[9px] font-black uppercase tracking-widest animate-pulse max-md:hidden"
-              >
-                <Cpu className="w-3.5 h-3.5 text-cyan-400 animate-spin-slow" />
-                Performance Safe Active
-              </div>
-            )}
-
-            {/* Renderer badge (hidden on mobile) */}
-            <div 
-              title={rendererType !== 'dom' ? "This site uses WebGL or canvas rendering. Feedback captures visual coordinates." : undefined}
-              className={cn(
-                "flex items-center gap-1.5 rounded-xl px-2.5 py-1 select-none border transition-all duration-300 relative group cursor-help max-md:hidden",
-                rendererType !== 'dom'
-                  ? "bg-cyan-950/20 border-cyan-500/30 text-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.15)]"
-                  : "bg-white/[0.03] border-white/5 text-white/70"
-              )}
-            >
-              {rendererType !== 'dom' ? (
-                <>
-                  <span className="text-[10px] text-cyan-400 font-bold">⬡</span>
-                  <span className="text-[9px] font-black uppercase tracking-widest">WebGL / Canvas Mode</span>
-                  <div className="absolute top-full mt-2 right-0 hidden group-hover:block bg-[#09090b] border border-cyan-500/20 text-white text-[10px] font-medium p-3 rounded-xl shadow-2xl w-56 z-50 normal-case tracking-normal leading-relaxed text-center">
-                    This site uses WebGL or canvas rendering. Feedback captures visual coordinates.
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Monitor className="w-3.5 h-3.5 text-white/40" />
-                  <span className="text-[9px] font-black uppercase tracking-widest">{rendererLabel} Mode</span>
-                </>
-              )}
-            </div>
           </div>
         </div>
 
@@ -2201,8 +2144,16 @@ export function AuditSurface({
             <div
               onClick={handleOverlayClick}
               onMouseMove={handleMouseMove}
-              onMouseEnter={() => setIsHoveringOverlay(true)}
-              onMouseLeave={() => setIsHoveringOverlay(false)}
+              onMouseEnter={() => {
+                if (containerRef.current) {
+                  containerRectRef.current = containerRef.current.getBoundingClientRect()
+                }
+                setIsHoveringOverlay(true)
+              }}
+              onMouseLeave={() => {
+                containerRectRef.current = null
+                setIsHoveringOverlay(false)
+              }}
               style={{ pointerEvents: 'auto' }}
               className="absolute inset-0 z-40 bg-black/20 backdrop-blur-[1px] cursor-crosshair select-none"
               aria-label="Click anywhere to place a feedback pin"
@@ -2210,8 +2161,9 @@ export function AuditSurface({
               {/* Floating tooltip following cursor */}
               {isHoveringOverlay && (
                 <div
-                  className="absolute pointer-events-none z-50 flex items-center gap-2 bg-purple-600 border border-purple-400/50 text-white px-3 py-1.5 rounded-full shadow-2xl"
-                  style={{ left: hoverPos.x + 14, top: hoverPos.y + 14 }}
+                  ref={tooltipRef}
+                  className="absolute pointer-events-none z-50 flex items-center gap-2 bg-purple-600 border border-purple-400/50 text-white px-3 py-1.5 rounded-full shadow-2xl top-0 left-0 will-change-transform"
+                  style={{ transform: 'translate3d(14px, 14px, 0)' }}
                 >
                   <Pin className="w-3 h-3" />
                   <span className="text-[10px] font-extrabold uppercase tracking-wider">Click to pin feedback</span>
@@ -2360,36 +2312,61 @@ export function AuditSurface({
 
           {/* Unstable Frame Rate Detected floating alert */}
           {fps !== null && fps < 20 && rendererType !== 'dom' && (
-            <div className="absolute bottom-20 left-5 right-5 sm:left-auto sm:right-5 sm:w-[360px] z-45 bg-[#0f0f16]/95 border border-cyan-500/30 text-cyan-400 px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <div className="flex items-center gap-2">
-                <Cpu className="w-4 h-4 animate-spin-slow text-cyan-400 flex-shrink-0" />
-                <div className="text-left">
-                  <span className="text-[10px] font-black uppercase tracking-wider block">Low frame rate warning</span>
-                  <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest leading-none">Recommend Capture Frame or Snapshot</span>
+            isFrameAlertCollapsed ? (
+              <motion.button
+                drag
+                dragConstraints={containerRef}
+                dragMomentum={false}
+                onClick={() => setIsFrameAlertCollapsed(false)}
+                className="absolute bottom-20 right-5 z-45 h-10 w-10 rounded-full bg-white border border-[#293681]/20 shadow-2xl flex items-center justify-center text-amber-500 hover:bg-slate-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#293681]"
+                title="Low Frame Rate detected. Click to expand."
+              >
+                <Cpu className="w-5 h-5 animate-spin-slow" />
+              </motion.button>
+            ) : (
+              <motion.div
+                drag
+                dragConstraints={containerRef}
+                dragMomentum={false}
+                className="absolute bottom-20 left-5 right-5 sm:left-auto sm:right-5 sm:w-[380px] z-45 bg-white border border-[#293681]/20 text-slate-800 px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 cursor-grab active:cursor-grabbing select-none"
+              >
+                <div className="flex items-center gap-2 pointer-events-none">
+                  <Cpu className="w-4 h-4 animate-spin-slow text-amber-500 flex-shrink-0" />
+                  <div className="text-left">
+                    <span className="text-[10px] font-black uppercase tracking-wider block text-[#293681]">Low frame rate warning</span>
+                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none">Recommend Capture Frame or Snapshot</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button
-                  onClick={handleCaptureFrame}
-                  className="h-7 px-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/40 hover:bg-cyan-500/20 text-cyan-400 font-extrabold text-[9px] uppercase tracking-widest transition-all active:scale-95 focus:ring-2 focus:ring-cyan-400 focus:outline-none"
-                >
-                  Capture
-                </button>
-                <button
-                  onClick={() => {
-                    setIsLoading(true)
-                    if (iframeRef.current) {
-                      const currentSrc = new URL(iframeRef.current.src)
-                      currentSrc.searchParams.set("snapshot_mode", "true")
-                      iframeRef.current.src = currentSrc.toString()
-                    }
-                  }}
-                  className="h-7 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-extrabold text-[9px] uppercase tracking-widest transition-all active:scale-95 focus:ring-2 focus:ring-cyan-400 focus:outline-none"
-                >
-                  Snapshot
-                </button>
-              </div>
-            </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={handleCaptureFrame}
+                    className="h-7 px-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 font-extrabold text-[9px] uppercase tracking-widest transition-all active:scale-95 focus:ring-2 focus:ring-[#293681] focus:outline-none"
+                  >
+                    Capture
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsLoading(true)
+                      if (iframeRef.current) {
+                        const currentSrc = new URL(iframeRef.current.src)
+                        currentSrc.searchParams.set("snapshot_mode", "true")
+                        iframeRef.current.src = currentSrc.toString()
+                      }
+                    }}
+                    className="h-7 px-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 font-extrabold text-[9px] uppercase tracking-widest transition-all active:scale-95 focus:ring-2 focus:ring-[#293681] focus:outline-none"
+                  >
+                    Snapshot
+                  </button>
+                  <button
+                    onClick={() => setIsFrameAlertCollapsed(true)}
+                    className="h-7 w-7 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all active:scale-95 focus:ring-2 focus:ring-[#293681] focus:outline-none"
+                    title="Minimize"
+                  >
+                    <Minimize2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </motion.div>
+            )
           )}
         </div>
       </div>
@@ -3088,6 +3065,17 @@ export function AuditSurface({
           message: submitSuccess ? 'Marker successfully placed.' : ''
         }}
       />
+
+      {isSharePanelOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2147483647] flex items-center justify-center p-4">
+          <div className="relative w-full max-w-lg bg-[#0d0d14] rounded-3xl border border-white/10 shadow-2xl overflow-hidden">
+            <ShareLinkPanel
+              sessionId={sessionId}
+              onClose={() => setIsSharePanelOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

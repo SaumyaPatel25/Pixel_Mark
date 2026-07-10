@@ -20,7 +20,7 @@ async def create_project(data: ProjectCreate, current_user: User = Depends(get_c
 
     # Get user's org
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=400, detail="User does not belong to any organization")
     
@@ -47,7 +47,7 @@ async def get_dashboard_summary(
         return cached
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         return {
             "total_projects": 0,
@@ -90,7 +90,7 @@ async def list_projects(current_user: User = Depends(get_current_user), db: Asyn
         return cached
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         return []
         
@@ -111,7 +111,7 @@ async def get_project(project_id: str, current_user: User = Depends(get_current_
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -129,7 +129,7 @@ async def get_project_analytics(project_id: str, current_user: User = Depends(ge
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -165,7 +165,7 @@ async def update_project(project_id: str, data: ProjectUpdate, current_user: Use
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -193,7 +193,7 @@ async def delete_project(project_id: str, current_user: User = Depends(get_curre
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -220,7 +220,7 @@ async def create_environment(project_id: str, data: EnvironmentCreate, current_u
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -243,7 +243,7 @@ async def list_environments(project_id: str, current_user: User = Depends(get_cu
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 

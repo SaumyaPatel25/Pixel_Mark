@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Briefcase, Users, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { User, Briefcase, CheckCircle2, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 
@@ -40,7 +40,7 @@ const FreelancerVisual = () => {
   }, [step]);
 
   return (
-    <div className="mockup-visual relative h-44 rounded-xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[9px] text-pm-text select-none flex flex-col justify-between">
+    <div className="mockup-visual relative h-44 rounded-2xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[9px] select-none flex flex-col justify-between">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
         <span className="text-white/60 font-bold uppercase tracking-wider">Freelancer Workspace</span>
@@ -50,7 +50,7 @@ const FreelancerVisual = () => {
       {/* Center Simulated Webpage Mockup */}
       <div className="flex-1 flex flex-col items-center justify-center relative my-1">
         {/* Mock Element to hover/pin */}
-        <div className="relative px-6 py-2.5 bg-purple-500/10 border border-purple-500/20 rounded-md text-[9px] text-purple-300 font-sans">
+        <div className="relative px-6 py-2 bg-purple-500/10 border border-purple-500/20 rounded-md text-[9px] text-purple-300 font-sans">
           CTA BUTTON
           
           {/* Bounding Box on Hover/Pin */}
@@ -84,9 +84,9 @@ const FreelancerVisual = () => {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute bottom-1 left-2 right-2 p-2 rounded bg-pm-surface border border-purple-500/20 shadow-xl space-y-1 z-20"
+              className="absolute bottom-1 left-2 right-2 p-2 rounded bg-slate-900 border border-purple-500/20 shadow-xl space-y-1 z-20 text-left"
             >
-              <div className="flex justify-between items-center text-[7px] text-pm-muted border-b border-white/5 pb-1">
+              <div className="flex justify-between items-center text-[7px] text-slate-400 border-b border-white/5 pb-1">
                 <span>COMMENT FROM CLIENT</span>
                 <span className={step === 3 ? "text-emerald-400 font-bold" : "text-amber-400 animate-pulse"}>
                   {step === 3 ? "RESOLVED" : "DRAFT"}
@@ -102,7 +102,7 @@ const FreelancerVisual = () => {
       </div>
 
       {/* Footer bar */}
-      <div className="flex justify-between items-center text-[7px] text-pm-muted">
+      <div className="flex justify-between items-center text-[7px] text-slate-400">
         <span>STATUS: {step === 3 ? "READY FOR DEV" : "COLLECTING"}</span>
         <span className={step === 3 ? "text-emerald-400 font-bold" : "text-amber-400"}>
           {step === 3 ? "APPROVED" : "AWAITING RESOLUTION"}
@@ -124,7 +124,7 @@ const QAVisual = () => {
   }, []);
 
   return (
-    <div className="mockup-visual relative h-44 rounded-xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] text-pm-text select-none flex flex-col justify-between">
+    <div className="mockup-visual relative h-44 rounded-2xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] select-none flex flex-col justify-between">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
         <span className="text-white/60 font-bold uppercase tracking-wider">QA Inspector Lens</span>
@@ -156,9 +156,9 @@ const QAVisual = () => {
         </div>
 
         {/* Sidebar Diagnostics Panel (Col-Span 5) */}
-        <div className="col-span-5 h-full border border-white/5 rounded bg-pm-surface p-1.5 flex flex-col justify-between">
+        <div className="col-span-5 h-full border border-white/5 rounded bg-slate-900 p-1.5 flex flex-col justify-between text-left">
           <div className="space-y-1">
-            <span className="text-[7px] text-cyan-400 font-bold uppercase tracking-wider border-b border-white/5 block pb-0.5">METADATA</span>
+            <span className="text-[7px] text-cyan-400 font-bold uppercase tracking-wider border-b border-white/5 block pb-0.5 font-mono">METADATA</span>
             
             {step >= 1 && (
               <motion.div 
@@ -174,7 +174,7 @@ const QAVisual = () => {
               <motion.div 
                 initial={{ opacity: 0 }} 
                 animate={{ opacity: 1 }} 
-                className="space-y-0.5 text-[6.5px] text-pm-muted leading-tight"
+                className="space-y-0.5 text-[6.5px] text-slate-400 leading-tight font-mono"
               >
                 <div>Display: flex</div>
                 <div>Width: 96px</div>
@@ -196,7 +196,7 @@ const QAVisual = () => {
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center text-[7px] text-pm-muted">
+      <div className="flex justify-between items-center text-[7px] text-slate-400">
         <span>COLLECTED ASSETS: {step >= 2 ? "3/3 SUCCESS" : "PENDING"}</span>
         <span className="text-cyan-400 font-bold">LENS READY</span>
       </div>
@@ -216,7 +216,7 @@ const AgencyVisual = () => {
   }, []);
 
   return (
-    <div className="mockup-visual relative h-44 rounded-xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] text-pm-text select-none flex flex-col justify-between">
+    <div className="mockup-visual relative h-44 rounded-2xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] select-none flex flex-col justify-between">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
         <span className="text-white/60 font-bold uppercase tracking-wider">Multi-Client Portal</span>
@@ -224,7 +224,7 @@ const AgencyVisual = () => {
       </div>
 
       {/* Center collaborative workspace */}
-      <div className="flex-1 relative my-1 overflow-hidden bg-[#0b0b0f]/60 border border-white/5 rounded p-2 flex flex-col justify-start gap-1">
+      <div className="flex-1 relative my-1 overflow-hidden bg-[#0b0b0f]/60 border border-white/5 rounded p-2 flex flex-col justify-start gap-1 text-left">
         
         {/* WebSocket cursors overlay */}
         {step === 0 && (
@@ -235,7 +235,7 @@ const AgencyVisual = () => {
               className="absolute z-20 flex items-center gap-1 text-[6.5px] pointer-events-none"
             >
               <svg className="w-2.5 h-2.5 text-pink-500 fill-pink-500" viewBox="0 0 24 24"><path d="M4.5 3v15.25l3.96-3.96 2.37 5.71 2.37-.98-2.37-5.71h5.67L4.5 3z"/></svg>
-              <span className="bg-pink-500 text-white px-1 rounded shadow">Sarah (Client)</span>
+              <span className="bg-pink-500 text-white px-1 rounded shadow font-sans">Sarah (Client)</span>
             </motion.div>
             <motion.div 
               animate={{ x: [100, 20, 75], y: [45, 15, 35] }} 
@@ -243,18 +243,18 @@ const AgencyVisual = () => {
               className="absolute z-20 flex items-center gap-1 text-[6.5px] pointer-events-none"
             >
               <svg className="w-2.5 h-2.5 text-blue-500 fill-blue-500" viewBox="0 0 24 24"><path d="M4.5 3v15.25l3.96-3.96 2.37 5.71 2.37-.98-2.37-5.71h5.67L4.5 3z"/></svg>
-              <span className="bg-blue-500 text-white px-1 rounded shadow">Alex (Dev)</span>
+              <span className="bg-blue-500 text-white px-1 rounded shadow font-sans">Alex (Dev)</span>
             </motion.div>
           </>
         )}
 
         {/* Thread 1 (Always open) */}
-        <div className="p-1 rounded bg-pm-surface/50 border border-white/5 flex justify-between items-center">
+        <div className="p-1 rounded bg-slate-900 border border-white/5 flex justify-between items-center">
           <div className="space-y-0.5">
-            <span className="text-[6px] text-pm-muted font-bold block">THREAD #12</span>
+            <span className="text-[6px] text-slate-400 font-bold block">THREAD #12</span>
             <span className="text-white text-[7.5px]">"Logo alignment is off on Safari."</span>
           </div>
-          <span className="text-[6px] px-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold">OPEN</span>
+          <span className="text-[6px] px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold">OPEN</span>
         </div>
 
         {/* Thread 2 (Resolves in steps) */}
@@ -262,14 +262,14 @@ const AgencyVisual = () => {
           <motion.div 
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`p-1 rounded border transition-colors duration-500 ${step === 3 ? "bg-emerald-950/10 border-emerald-500/20" : "bg-pm-surface/50 border-white/5"}`}
+            className={`p-1 rounded border transition-colors duration-500 ${step === 3 ? "bg-emerald-950/10 border-emerald-500/20" : "bg-slate-900 border-white/5"}`}
           >
             <div className="flex justify-between items-start">
               <div className="space-y-0.5">
-                <span className="text-[6px] text-pm-muted font-bold block">THREAD #13 • Sarah</span>
+                <span className="text-[6px] text-slate-400 font-bold block">THREAD #13 • Sarah</span>
                 <span className="text-white text-[7.5px]">"Increase hero heading font size."</span>
               </div>
-              <span className={`text-[6px] px-1 rounded font-bold transition-all duration-300 ${step === 3 ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-pink-500/10 border border-pink-500/20 text-pink-400"}`}>
+              <span className={`text-[6px] px-1.5 py-0.2 rounded font-bold transition-all duration-300 ${step === 3 ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-pink-500/10 border border-pink-500/20 text-pink-400"}`}>
                 {step === 3 ? "RESOLVED" : "PENDING"}
               </span>
             </div>
@@ -282,7 +282,7 @@ const AgencyVisual = () => {
                 className="mt-1 pt-1 border-t border-white/5 flex items-start gap-1 text-[7px] leading-tight"
               >
                 <span className="text-blue-400 font-bold">Alex:</span>
-                <span className="text-pm-muted">"Updated heading styles. Approved."</span>
+                <span className="text-slate-400">"Updated heading styles. Approved."</span>
               </motion.div>
             )}
           </motion.div>
@@ -290,7 +290,7 @@ const AgencyVisual = () => {
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center text-[7px] text-pm-muted">
+      <div className="flex justify-between items-center text-[7px] text-slate-400">
         <span>CLIENT PORTALS: 4 WORKSPACES ACT.</span>
         <span className="text-pink-400 font-bold">12 COLLABORATORS</span>
       </div>
@@ -326,65 +326,75 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
     {
       id: 'freelancers' as const,
       icon: User,
-      subtitle: 'For Freelancers & Web Developers',
-      title: 'Get client approval in minutes, not weeks',
-      description: 'Stop deciphering vague client emails and messages. Send them a secure link to pin feedback directly on elements, speeding up your revision loops.',
+      subtitle: 'Freelancers & Developers',
+      title: 'Get client sign-off in minutes, not weeks.',
+      description: 'Stop decoding vague screenshot comments and emails. Share a secure session link so clients drop pins directly on live elements.',
       bullets: [
-        '0 client onboarding walls—they click and annotate',
-        'Pins map to exact element selectors automatically',
-        'Transition from draft requests to resolved state instantly'
+        '0 Client Onboarding Walls: Stakeholders click & pin',
+        'Automatic Layout Specs: Pin logs viewport properties',
+        'Frictionless Sign-Offs: Sync edits in real-time'
       ],
-      cta: 'Speed Up Client Sign-offs',
+      cta: 'Accelerate Hand-offs',
       visual: <FreelancerVisual />,
-      glowColor: 'rgba(124, 58, 237, 0.15)',
-      accentClass: 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+      glowColor: 'rgba(124, 58, 237, 0.25)',
+      accentClass: 'text-[#C7B4D6] bg-purple-500/10 border-purple-500/20'
     },
     {
       id: 'qa' as const,
       icon: CheckCircle2,
-      subtitle: 'For Product Managers & QA Teams',
-      title: 'Zero-loss bug reports, straight to the dev',
-      description: 'Streamline internal QA cycles. Non-technical testers and PMs drop pins to log bugs, and the engine packages computed CSS styles, console logs, and errors.',
+      subtitle: 'Product Managers & QA Leads',
+      title: 'Zero-loss bug reports straight to developers.',
+      description: 'Collect QA feedback without missing console traces. Testers drop pins to compile layout selectors, viewport coordinates, and console errors.',
       bullets: [
-        'Auto-captures JavaScript errors & console exceptions',
-        'Computes CSS properties (width, height, display, z-index)',
-        'Export structured Markdown bugs directly to GitHub'
+        'Automatic Console Logging: Logs JavaScript runtime errors',
+        'CSS Layout Spectrograph: Logs z-index, width, display',
+        'Actionable Export: Streamline to Markdown tasks'
       ],
-      cta: 'Scale Your QA Loop',
+      cta: 'Supercharge QA Cycles',
       visual: <QAVisual />,
-      glowColor: 'rgba(6, 182, 212, 0.15)',
+      glowColor: 'rgba(6, 182, 212, 0.25)',
       accentClass: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
     },
     {
       id: 'agencies' as const,
       icon: Briefcase,
-      subtitle: 'For Creative & Development Agencies',
-      title: 'Collaborative client reviews in one workspace',
-      description: 'Present a polished, high-tech feedback portal to your clients. Group comments by target URL paths, resolve threads, and sync live cursor positions.',
+      subtitle: 'Creative Agencies & Studios',
+      title: 'Polished review portals for high-value clients.',
+      description: 'Present website changes in collaborative portals. Coordinate feedback by target routes, resolve threads, and view presence cursors.',
       bullets: [
-        'White-labeled dashboards matching client branding',
-        'WebSocket live cursors track client reviews in real-time',
-        'Resolve threads in place—clear open items sequentially'
+        'High-End Client Portals: Elevate layout review sessions',
+        'Live Presence Synchronization: Track viewer mouse movements',
+        'Thread Resolution Workspace: Close open items sequentially'
       ],
       cta: 'Upgrade Client Hand-offs',
       visual: <AgencyVisual />,
-      glowColor: 'rgba(236, 72, 153, 0.15)',
-      accentClass: 'text-pink-400 bg-pink-500/10 border-pink-500/20'
+      glowColor: 'rgba(37, 59, 128, 0.25)',
+      accentClass: 'text-[#FCE2E1] bg-pink-500/10 border-pink-500/20'
     }
   ];
 
   return (
-    <section id="use-cases" className="relative py-24 bg-transparent overflow-hidden border-t border-pm-border/30">
-      <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+    <section id="use-cases" className="relative py-36 dark-section overflow-hidden border-t border-white/5">
+      {/* Dynamic atmospheric color washes */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#C7B4D6]/5 rounded-full blur-[120px] pointer-events-none z-0" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-[#253B80]/15 rounded-full blur-[120px] pointer-events-none z-0" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-100px' }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-7xl mx-auto px-6 md:px-12 relative z-10"
+      >
         
         {/* Section Header */}
-        <div className="max-w-3xl mb-16 space-y-3">
-          <span className="text-xs font-bold uppercase tracking-widest text-pm-accent-vivid">
-            Use Cases
+        <div className="max-w-4xl mb-20 space-y-4 text-left">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#C7B4D6] bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+            WORKFLOW ORCHESTRATION
           </span>
-          <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-white leading-tight">
-            Tailored for your review workflow. <br />
-            <span className="text-gradient-purple">A premium outcome-focused sandbox for every role.</span>
+          <h2 className="font-display text-4xl md:text-5xl lg:text-[4rem] font-extrabold tracking-[-0.03em] text-white leading-[1.02]">
+            Tailored to your development workflow. <br />
+            Built for <span className="text-[#C7B4D6] underline decoration-3 decoration-[#C7B4D6]/40 underline-offset-6">every review role</span>.
           </h2>
         </div>
 
@@ -403,68 +413,67 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
                 animate={{
                   opacity: cardOpacity,
                   scale: isHovered ? 1.015 : 0.99,
-                  borderColor: isHovered ? 'var(--pm-border-hover)' : 'var(--pm-border-card)'
                 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 style={{
                   '--glow-color': card.glowColor
                 } as React.CSSProperties}
-                className="relative flex flex-col justify-between p-6 rounded-2xl border border-pm-border bg-pm-surface/20 backdrop-blur-xl group hover:shadow-[0_0_30px_var(--glow-color)] transition-shadow duration-500 overflow-hidden min-h-[460px]"
+                className="relative flex flex-col justify-between p-7 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl group hover:shadow-[0_0_40px_var(--glow-color)] transition-shadow duration-500 overflow-hidden min-h-[500px]"
               >
-                {/* Accent background lighting spot inside active card */}
+                {/* Accent glow on hover */}
                 <div 
                   className="absolute inset-0 pointer-events-none transition-opacity duration-500"
                   style={{
                     background: `radial-gradient(circle at 50% -10%, ${card.glowColor}, transparent 55%)`,
-                    opacity: isHovered ? 1 : 0.3
+                    opacity: isHovered ? 1 : 0.25
                   }}
                 />
 
-                <div className="space-y-5 relative z-10">
-                  {/* Icon + Subtitle */}
+                <div className="space-y-6 relative z-10">
+                  {/* Icon & Subtitle */}
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.accentClass}`}>
                       <card.icon className="w-4 h-4" />
                     </div>
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-pm-muted">
+                    <span className="text-[9px] font-mono uppercase font-bold tracking-wider text-slate-400">
                       {card.subtitle}
                     </span>
                   </div>
 
                   {/* Title & Description */}
                   <div className="space-y-2 text-left">
-                    <h3 className="font-display text-base font-bold text-white group-hover:text-white transition-colors leading-tight">
+                    <h3 className="font-display text-xl font-bold tracking-tight text-white group-hover:text-white transition-colors leading-snug">
                       {card.title}
                     </h3>
-                    <p className="text-xs text-pm-muted leading-relaxed font-sans min-h-[48px]">
+                    <p className="text-[11.5px] text-slate-300 leading-relaxed font-sans min-h-[48px]">
                       {card.description}
                     </p>
                   </div>
 
-                  {/* Visual Live Demonstration */}
+                  {/* Visual Loop Widget */}
                   <div className="w-full">
                     {card.visual}
                   </div>
 
-                  {/* Bullets List */}
-                  <div className="space-y-2.5 pt-1">
+                  {/* Bullet specs */}
+                  <div className="space-y-2 pt-2">
                     {card.bullets.map((bullet, idx) => (
-                      <div key={idx} className="flex items-start gap-2.5 text-left">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-pm-cyan flex-shrink-0 mt-0.5" />
-                        <span className="text-[10px] text-pm-text leading-tight font-sans">{bullet}</span>
+                      <div key={idx} className="flex items-start gap-2 text-left">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <span className="text-[10.5px] text-slate-200 leading-tight font-sans font-medium">{bullet}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Call To Action */}
+                {/* Card CTA redirect */}
                 <div className="pt-6 relative z-10">
                   <Link
                     href={isUserLoggedIn ? "/dashboard" : "/register"}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-pm-surface-2 hover:bg-pm-surface-3 border border-pm-border hover:border-pm-accent/40 rounded-lg text-[10px] font-bold uppercase tracking-widest text-pm-text hover:text-white transition-all cursor-pointer"
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-3 bg-white/[0.04] hover:bg-[#253B80] border border-white/10 hover:border-white/20 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider text-white transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
                   >
                     <span>{isUserLoggedIn ? "Open Dashboard" : card.cta}</span>
-                    <ArrowUpRight className="w-3 h-3 text-pm-accent-vivid" />
+                    <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
                   </Link>
                 </div>
               </motion.div>
@@ -472,7 +481,7 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
           })}
         </div>
 
-      </div>
+      </motion.div>
     </section>
   );
 }

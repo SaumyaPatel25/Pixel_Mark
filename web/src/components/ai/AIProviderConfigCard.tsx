@@ -29,30 +29,30 @@ export function AIProviderConfigCard({ config, onEdit }: CardProps) {
   }
 
   return (
-    <div className={`p-4 rounded-lg border ${config.is_default ? 'border-blue-500/50 bg-blue-500/5' : 'border-slate-800 bg-slate-800/50'} relative transition-colors`}>
+    <div className={`p-4 rounded-xl border ${config.is_default ? 'border-[#253B80]/30 bg-blue-50/50' : 'border-[#253B80]/15 bg-white shadow-sm'} relative transition-colors`}>
       <div className="flex justify-between items-start mb-3">
         <div>
-          <h3 className="font-semibold text-white flex items-center gap-2">
+          <h3 className="font-bold text-[#1E2022] flex items-center gap-2">
             {config.display_name || config.provider}
             {config.is_default && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-extrabold bg-[#253B80]/10 text-[#253B80]">
                 <Star size={12} className="fill-current" /> Default
               </span>
             )}
             {!config.is_active && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-500/20 text-gray-400">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-extrabold bg-slate-100 text-slate-500">
                 Inactive
               </span>
             )}
           </h3>
-          <p className="text-sm text-gray-400 mt-1 capitalize">{config.provider}</p>
+          <p className="text-xs font-semibold text-[#1E2022]/50 mt-1 capitalize">{config.provider}</p>
         </div>
         
         <div className="flex items-center gap-2">
           <button
             onClick={onEdit}
             disabled={isSaving}
-            className="p-1.5 text-gray-400 hover:text-white rounded-md hover:bg-slate-700 transition-colors"
+            className="p-1.5 text-slate-400 hover:text-[#253B80] rounded-md hover:bg-[#F8F7F4] transition-colors"
             title="Edit"
           >
             <Edit2 size={16} />
@@ -60,7 +60,7 @@ export function AIProviderConfigCard({ config, onEdit }: CardProps) {
           <button
             onClick={handleDelete}
             disabled={isSaving}
-            className="p-1.5 text-red-400 hover:text-red-300 rounded-md hover:bg-red-500/10 transition-colors"
+            className="p-1.5 text-red-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
             title="Delete"
           >
             <Trash2 size={16} />
@@ -69,36 +69,36 @@ export function AIProviderConfigCard({ config, onEdit }: CardProps) {
       </div>
 
       <div className="space-y-2 mb-4">
-        <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className="flex items-center gap-2 text-xs font-medium text-[#1E2022]/60">
           <Shield size={14} />
           {config.has_api_key ? (
-            <span className="text-green-400 flex items-center gap-1">
+            <span className="text-emerald-600 flex items-center gap-1 font-bold">
               <CheckCircle2 size={12} /> API Key saved securely
             </span>
           ) : (
-            <span className="text-yellow-500">No API Key</span>
+            <span className="text-amber-500 font-bold">No API Key</span>
           )}
         </div>
         {config.model_name && (
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <span className="font-mono text-xs bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 text-gray-300">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-mono font-medium text-[10px] bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 text-[#253B80]">
               {config.model_name}
             </span>
           </div>
         )}
         {config.base_url && (
-          <div className="text-xs text-gray-500 truncate" title={config.base_url}>
+          <div className="text-[11px] font-medium text-[#1E2022]/40 truncate" title={config.base_url}>
             {config.base_url}
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-3 pt-3 border-t border-slate-700/50">
+      <div className="flex items-center gap-3 pt-3 border-t border-[#253B80]/8">
         {!config.is_default && config.is_active && (
           <button
             onClick={() => store.setDefaultConfig(config.id)}
             disabled={isSaving}
-            className="text-sm font-medium text-blue-400 hover:text-blue-300 disabled:opacity-50 transition-colors"
+            className="text-xs font-bold text-[#253B80] hover:text-[#1E2E66] disabled:opacity-50 transition-colors"
           >
             Set as Default
           </button>
@@ -106,15 +106,15 @@ export function AIProviderConfigCard({ config, onEdit }: CardProps) {
         <button
           onClick={handleTest}
           disabled={isTesting || isSaving}
-          className="text-sm font-medium flex items-center gap-1 text-gray-300 hover:text-white disabled:opacity-50 transition-colors"
+          className="text-xs font-bold flex items-center gap-1.5 text-[#1E2022]/50 hover:text-[#1E2022] disabled:opacity-50 transition-colors ml-auto"
         >
-          {isTesting ? <RefreshCw size={14} className="animate-spin" /> : <Activity size={14} />}
+          {isTesting ? <RefreshCw size={12} className="animate-spin" /> : <Activity size={12} />}
           Test Connection
         </button>
       </div>
 
       {testResult && (
-        <div className={`mt-3 p-2 rounded text-xs border ${testResult.success ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+        <div className={`mt-3 p-2.5 rounded-lg text-xs font-bold border ${testResult.success ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
           {testResult.message}
         </div>
       )}

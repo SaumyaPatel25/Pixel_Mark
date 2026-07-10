@@ -22,7 +22,12 @@ import {
   X,
   Compass,
   ArrowRight,
-  Settings
+  Settings,
+  Calendar,
+  Layers,
+  ChevronRight,
+  TrendingUp,
+  Inbox
 } from 'lucide-react'
 
 // Relative time helper
@@ -122,7 +127,7 @@ export default function DashboardPage() {
         }
       })
 
-      // Construct detailed projects object mapping local sessions (analytics is loaded inside card)
+      // Construct detailed projects object mapping local sessions
       const detailed = projectsList.map((p: any) => {
         const pSessions = sessionsByProject[p.id] || []
         
@@ -135,14 +140,14 @@ export default function DashboardPage() {
 
       setProjectsData(detailed)
 
-      // Calculate stats values using the lightweight backend summary (Task 8 & 9)
+      // Calculate stats values using the lightweight backend summary
       setStatsData({
         totalProjects: summary.total_projects,
         totalSessions: summary.total_sessions,
         openIssues: summary.open_issues
       })
 
-      // Aggregate recent activities using sessions (no heavy markers fetch needed)
+      // Aggregate recent activities using sessions
       const activities: any[] = []
       sessionsList.forEach((s: any) => {
         const pName = projectMap[s.project_id]?.name || 'Unknown Project'
@@ -264,53 +269,58 @@ export default function DashboardPage() {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.06 }
+      transition: { staggerChildren: 0.05 }
     }
   }
 
   const staggerItem = {
-    hidden: { opacity: 0, y: 16 },
+    hidden: { opacity: 0, y: 10 },
     show: { 
       opacity: 1, 
       y: 0, 
-      transition: { type: 'spring' as const, stiffness: 120, damping: 18 } 
+      transition: { type: 'spring' as const, stiffness: 150, damping: 20 } 
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white p-6 md:p-10 font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
+    <div className="min-h-screen bg-[#F8F7F4] text-[#1E2022] p-6 md:p-10 font-sans selection:bg-[#253B80]/10 overflow-x-hidden relative">
       
-      {/* Background Tech Dot Grid */}
+      {/* Faint dot grid backdrop */}
       <div 
-        className="absolute inset-0 z-0 pointer-events-none opacity-20"
+        className="absolute inset-0 z-0 pointer-events-none opacity-25"
         style={{
-          backgroundImage: 'radial-gradient(circle, #312e81 1px, transparent 1px)',
-          backgroundSize: '24px 24px'
+          backgroundImage: 'radial-gradient(circle, #253B80 1px, transparent 1px)',
+          backgroundSize: '32px 32px'
         }}
       />
 
       <div className="max-w-7xl mx-auto space-y-8 relative z-10">
         
-        {/* ================= ZONE 1: TOP BAR ================= */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border-b border-white/[0.03] pb-6">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-black tracking-tight text-white leading-tight">
-              Welcome back, <span className="text-purple-400">{user?.name || 'Pro Reviewer'}</span>
+        {/* ================= ZONE 1: HEADER ZONE (F-Pattern) ================= */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border-b border-[#253B80]/8 pb-6">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#253B80]/60 uppercase tracking-widest">
+              <span>Developer Workspace</span>
+              <span className="w-1 h-1 rounded-full bg-[#253B80]/30" />
+              <span>Standard Plan</span>
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-[#1E2022] leading-tight">
+              Welcome back, {user?.name || 'Pro Reviewer'}
             </h1>
-            <p className="text-white/40 text-xs font-medium">Visual feedback and review platform</p>
+            <p className="text-[#1E2022]/60 text-xs font-semibold">Visual feedback and live collaboration dashboard</p>
           </div>
           
           <div className="flex items-center gap-3">
             <Link
               href="/settings"
-              className="rounded-xl h-11 bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 text-white/70 hover:text-white font-bold text-xs px-4 transition-all flex items-center gap-2 active:scale-95 flex-shrink-0"
+              className="rounded-xl h-11 bg-white hover:bg-[#253B80]/[0.02] border border-[#253B80]/12 text-[#1E2022]/70 hover:text-[#1E2022] font-bold text-xs px-4 transition-all flex items-center gap-2 active:scale-95 flex-shrink-0 shadow-sm"
             >
-              <Settings className="w-4 h-4 text-white/50" />
+              <Settings className="w-4 h-4 text-[#253B80]/50" />
               Settings
             </Link>
             <button
               onClick={() => setShowCreateProject(true)}
-              className="rounded-xl h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs px-6 shadow-lg shadow-purple-950/40 hover:shadow-purple-500/20 transition-all flex items-center gap-2 active:scale-95 flex-shrink-0"
+              className="rounded-xl h-11 bg-[#253B80] hover:bg-[#1B2C60] text-white font-extrabold text-xs px-6 shadow-sm transition-all flex items-center gap-2 active:scale-95 flex-shrink-0"
             >
               <Plus className="w-4 h-4" />
               New Project
@@ -318,31 +328,47 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ================= STATS STRIP ================= */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* ================= KPI CARDS ROWS ================= */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { label: 'Active Projects', val: statsData.totalProjects, icon: Folder, color: 'text-indigo-400', bg: 'from-indigo-500/5 to-indigo-500/0' },
-            { label: 'Review Sessions', val: statsData.totalSessions, icon: Play, color: 'text-emerald-400', bg: 'from-emerald-500/5 to-emerald-500/0' },
-
-            { label: 'Waiting Issues', val: statsData.openIssues, icon: AlertCircle, color: 'text-rose-500', bg: 'from-rose-500/5 to-rose-500/0' }
+            { 
+              label: 'Active Projects', 
+              val: statsData.totalProjects, 
+              icon: Folder, 
+              color: 'text-[#253B80] bg-[#253B80]/[0.05] border-[#253B80]/10' 
+            },
+            { 
+              label: 'Review Sessions', 
+              val: statsData.totalSessions, 
+              icon: Play, 
+              color: 'text-emerald-700 bg-emerald-500/[0.05] border-emerald-500/10' 
+            },
+            { 
+              label: 'Waiting Issues', 
+              val: statsData.openIssues, 
+              icon: AlertCircle, 
+              color: statsData.openIssues > 0 
+                ? 'text-rose-700 bg-rose-500/[0.05] border-rose-500/10' 
+                : 'text-slate-500 bg-slate-500/[0.05] border-slate-500/10'
+            }
           ].map((stat, i) => (
             <div 
               key={i} 
-              className={`p-4 md:p-5 rounded-2xl bg-[#0c0c0e]/80 border border-white/5 bg-gradient-to-br ${stat.bg} flex items-center justify-between shadow-xl`}
+              className="p-5 rounded-2xl bg-white border border-[#253B80]/8 flex items-center justify-between shadow-sm"
             >
               <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/20">{stat.label}</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#1E2022]/40 block">{stat.label}</span>
                 {isLoading ? (
-                  <div className="h-8 w-12 bg-white/5 animate-pulse rounded-lg mt-1" />
+                  <div className="h-8 w-12 bg-[#253B80]/5 animate-pulse rounded-lg mt-1" />
                 ) : error ? (
-                  <p className="text-xs text-rose-500 font-semibold mt-1">Error</p>
+                  <p className="text-xs text-rose-600 font-semibold mt-1">Error</p>
                 ) : (
-                  <p className="text-2xl md:text-3xl font-mono font-black tracking-tight text-white">
+                  <p className="text-3xl font-mono font-extrabold tracking-tight text-[#1E2022]">
                     {stat.val}
                   </p>
                 )}
               </div>
-              <div className={`p-3 rounded-xl bg-white/[0.02] border border-white/5 ${stat.color}`}>
+              <div className={`p-3 rounded-xl border ${stat.color}`}>
                 <stat.icon className="w-5 h-5" />
               </div>
             </div>
@@ -355,43 +381,42 @@ export default function DashboardPage() {
           {/* ================= LEFT MAIN AREA (Projects) ================= */}
           <div className="lg:col-span-3 space-y-6">
             
-            {/* Search & Filter Header */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-[#0c0c0e]/60 border border-white/5 rounded-2xl p-3">
+            {/* Search & Filter Header (Unified Control Bar) */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-[#253B80]/8 rounded-2xl p-3 shadow-sm">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-white/20 absolute left-4 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-[#253B80]/40 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Filter environments or names..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white/[0.02] border border-white/5 rounded-xl pl-11 pr-4 py-2.5 text-xs text-white placeholder:text-white/20 focus:border-purple-500 focus:bg-white/[0.04] outline-none transition-all"
+                  className="w-full bg-[#F8F7F4]/50 border border-[#253B80]/8 rounded-xl pl-11 pr-4 py-2.5 text-xs text-[#1E2022] placeholder:text-[#1E2022]/35 focus:border-[#253B80] focus:bg-white outline-none transition-all"
                 />
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="flex items-center bg-white/[0.02] border border-white/5 rounded-xl px-2 py-1">
-                  <Filter className="w-3.5 h-3.5 text-white/20 mr-1.5" />
+                <div className="flex items-center bg-[#F8F7F4]/50 border border-[#253B80]/8 rounded-xl px-3 py-2">
+                  <Filter className="w-3.5 h-3.5 text-[#253B80]/40 mr-2" />
                   <select
                     value={dateFilter}
                     onChange={(e: any) => setDateFilter(e.target.value)}
-                    className="bg-transparent text-[11px] font-bold text-white/60 focus:text-white outline-none cursor-pointer pr-1"
+                    className="bg-transparent text-[11px] font-bold text-[#1E2022]/60 focus:text-[#1E2022] outline-none cursor-pointer pr-1"
                   >
-                    <option value="all" className="bg-[#0c0c0e]">All Active</option>
-                    <option value="24h" className="bg-[#0c0c0e]">Last 24 Hours</option>
-                    <option value="7d" className="bg-[#0c0c0e]">Last 7 Days</option>
-                    <option value="30d" className="bg-[#0c0c0e]">Last 30 Days</option>
+                    <option value="all">All Active</option>
+                    <option value="24h">Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
                   </select>
                 </div>
 
-                <div className="flex items-center bg-white/[0.02] border border-white/5 rounded-xl px-2 py-1">
+                <div className="flex items-center bg-[#F8F7F4]/50 border border-[#253B80]/8 rounded-xl px-3 py-2">
                   <select
                     value={sortOrder}
                     onChange={(e: any) => setSortOrder(e.target.value)}
-                    className="bg-transparent text-[11px] font-bold text-white/60 focus:text-white outline-none cursor-pointer pr-1"
+                    className="bg-transparent text-[11px] font-bold text-[#1E2022]/60 focus:text-[#1E2022] outline-none cursor-pointer pr-1"
                   >
-                    <option value="recent" className="bg-[#0c0c0e]">Sort: Recent</option>
-
-                    <option value="name" className="bg-[#0c0c0e]">Sort: Name</option>
+                    <option value="recent">Sort: Recent</option>
+                    <option value="name">Sort: Name</option>
                   </select>
                 </div>
               </div>
@@ -401,19 +426,26 @@ export default function DashboardPage() {
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[1, 2, 3, 4].map((n) => (
-                  <div key={n} className="h-44 bg-[#0c0c0e]/80 border border-white/5 rounded-2xl animate-pulse p-5 space-y-4">
-                    <div className="h-6 w-32 bg-white/5 rounded" />
-                    <div className="h-4 w-48 bg-white/5 rounded" />
-                    <div className="h-10 w-full bg-white/5 rounded mt-4" />
+                  <div key={n} className="h-44 bg-white border border-[#253B80]/8 rounded-2xl animate-pulse p-5 space-y-4 shadow-sm">
+                    <div className="h-6 w-32 bg-[#253B80]/5 rounded" />
+                    <div className="h-4 w-48 bg-[#253B80]/5 rounded" />
+                    <div className="h-10 w-full bg-[#253B80]/5 rounded mt-4" />
                   </div>
                 ))}
               </div>
             ) : error ? (
-              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-8 rounded-2xl text-center space-y-4 shadow-lg">
-                <p className="text-xs font-mono">Failed to load projects: {error}</p>
+              /* Error State */
+              <div className="bg-rose-50 border border-rose-200 text-rose-900 p-8 rounded-2xl text-center space-y-4 shadow-sm">
+                <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto text-rose-600">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-rose-900">Failed to load projects</h3>
+                  <p className="text-xs text-rose-700/80">{error}</p>
+                </div>
                 <button 
                   onClick={fetchDashboardData}
-                  className="px-5 py-2 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white text-xs font-bold uppercase rounded-xl transition-all"
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 active:scale-95 shadow-sm"
                 >
                   Retry Fetch
                 </button>
@@ -432,7 +464,6 @@ export default function DashboardPage() {
                       onClick={() => router.push(`/sessions?project=${p.id}`)}
                       sessionsCount={p.sessions.length}
                       activeSessionsCount={p.sessions.filter((s: any) => new Date(s.updated_at || s.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000).length}
-
                       lastActivity={p.sessions.length ? formatRelativeTime(new Date(Math.max(...p.sessions.map((s: any) => new Date(s.updated_at || s.created_at).getTime())))) : null}
                       analytics={p.analytics}
                       onOpenCanvas={() => {
@@ -460,21 +491,21 @@ export default function DashboardPage() {
             ) : (
               /* Empty state */
               <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="border border-dashed border-white/10 bg-[#0c0c0e]/30 rounded-3xl p-16 flex flex-col items-center justify-center text-center gap-6 hover:border-purple-500/20 hover:bg-purple-500/[0.01] transition-all cursor-pointer group"
+                className="border-2 border-dashed border-[#253B80]/15 bg-white rounded-3xl p-16 flex flex-col items-center justify-center text-center gap-6 hover:border-[#253B80]/30 hover:bg-[#253B80]/[0.005] transition-all cursor-pointer group shadow-sm"
                 onClick={() => setShowCreateProject(true)}
               >
-                <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center group-hover:scale-105 group-hover:border-purple-500/30 group-hover:shadow-[0_0_20px_rgba(139,92,246,0.15)] transition-all">
-                  <Plus className="w-8 h-8 text-white/30 group-hover:text-purple-400 transition-colors" />
+                <div className="w-16 h-16 rounded-2xl bg-[#253B80]/[0.03] border border-[#253B80]/10 flex items-center justify-center group-hover:scale-105 group-hover:border-[#253B80]/20 group-hover:shadow-sm transition-all text-[#253B80]/60">
+                  <Inbox className="w-8 h-8" />
                 </div>
-                <div className="space-y-2 max-w-sm">
-                  <h3 className="text-xl font-black tracking-tight text-white">No projects yet</h3>
-                  <p className="text-xs text-white/40 leading-relaxed uppercase tracking-wider font-bold">
-                    Create your first review project to start.
+                <div className="space-y-1.5 max-w-sm">
+                  <h3 className="text-xl font-bold tracking-tight text-[#1E2022]">No projects yet</h3>
+                  <p className="text-xs text-[#1E2022]/50 leading-relaxed font-semibold">
+                    Create your first review project to initiate visual QA processes.
                   </p>
                 </div>
-                <button className="h-10 rounded-xl bg-purple-600/10 border border-purple-500/20 hover:bg-purple-600 hover:border-purple-500 text-purple-300 hover:text-white px-6 font-bold text-xs transition-all flex items-center gap-2">
+                <button className="h-10 rounded-xl bg-[#253B80] hover:bg-[#1B2C60] text-white px-6 font-bold text-xs transition-all flex items-center gap-2 active:scale-95 shadow-sm">
                   Create First Project
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -487,43 +518,52 @@ export default function DashboardPage() {
           <div className="space-y-6">
             
             {/* Recent Activity Panel */}
-            <div className="bg-[#0c0c0e]/80 border border-white/5 rounded-2xl p-5 shadow-xl space-y-4">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-white/30 flex items-center gap-2">
-                <Compass className="w-4 h-4 text-purple-400" />
+            <div className="bg-white border border-[#253B80]/8 rounded-2xl p-5 shadow-sm space-y-5">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#1E2022]/40 flex items-center gap-2 pb-2 border-b border-[#253B80]/5">
+                <Compass className="w-4 h-4 text-[#253B80]" />
                 Recent Activity
               </h3>
               
               {isLoading ? (
-                <div className="space-y-4 py-4 animate-pulse">
+                <div className="space-y-4 py-2 animate-pulse">
                   {[1, 2, 3].map((n) => (
                     <div key={n} className="space-y-2">
-                      <div className="h-3 w-16 bg-white/5 rounded" />
-                      <div className="h-3 w-40 bg-white/5 rounded" />
+                      <div className="h-3 w-16 bg-[#253B80]/5 rounded" />
+                      <div className="h-3 w-40 bg-[#253B80]/5 rounded" />
                     </div>
                   ))}
                 </div>
               ) : recentActivityData.length > 0 ? (
-                <div className="space-y-3.5">
-                  {recentActivityData.map((activity) => (
-                    <div key={activity.id} className="space-y-1 text-xs">
+                <div className="relative pl-4 border-l-2 border-[#253B80]/8 space-y-6">
+                  {recentActivityData.map((activity, idx) => (
+                    <div key={activity.id} className="relative space-y-1 text-xs">
+                      {/* Timeline dot */}
+                      <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white bg-[#253B80] shadow-sm" />
+                      
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[9px] text-purple-400 font-bold uppercase truncate max-w-[120px]">
+                        <span className="font-mono text-[9px] text-[#253B80] font-bold uppercase truncate max-w-[120px]">
                           {activity.projectName}
                         </span>
-                        <span className="text-[9px] text-white/20 font-bold">
+                        <span className="text-[9px] text-[#1E2022]/40 font-bold">
                           {formatRelativeTime(activity.date)}
                         </span>
                       </div>
-                      <p className="text-white/60 text-xs truncate leading-snug">
+                      <p className="text-[#1E2022]/70 text-xs leading-snug">
                         {activity.description}
                       </p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-[10px] uppercase font-bold tracking-wider text-white/10 py-6 text-center">
-                  No activity yet.
-                </p>
+                /* Empty Activity State */
+                <div className="text-center py-8 space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-[#253B80]/[0.03] flex items-center justify-center mx-auto text-[#253B80]/40">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-[#1E2022]/30">
+                    No activity yet.
+                  </p>
+                </div>
               )}
             </div>
 
@@ -533,7 +573,7 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* ================= MODALS OVERLAYS ================= */}
+      {/* ================= MODALS OVERLAYS (Light Themed) ================= */}
       <AnimatePresence>
         
         {/* NEW PROJECT MODAL */}
@@ -541,28 +581,28 @@ export default function DashboardPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
+              animate={{ opacity: 0.4 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowCreateProject(false)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              className="absolute inset-0 bg-[#0B0F19]/60 backdrop-blur-sm"
             />
             
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl relative z-10 space-y-6"
+              exit={{ opacity: 0, scale: 0.98, y: 10 }}
+              className="bg-white border border-[#253B80]/15 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-xl relative z-10 space-y-6 text-[#1E2022]"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black uppercase tracking-widest text-purple-400">New Review Project</h3>
-                <button onClick={() => setShowCreateProject(false)} className="text-white/40 hover:text-white transition-colors">
-                  <X className="w-5 h-5" />
+                <h3 className="text-sm font-bold uppercase tracking-widest text-[#253B80]">New Review Project</h3>
+                <button onClick={() => setShowCreateProject(false)} className="text-[#1E2022]/40 hover:text-[#1E2022] transition-colors p-1 hover:bg-[#253B80]/5 rounded-lg">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               <form onSubmit={handleCreateProject} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-white/30 text-[9px] font-black uppercase tracking-widest block">Project Name</label>
+                <div className="space-y-1.5">
+                  <label className="text-[#1E2022]/60 text-[10px] font-bold uppercase tracking-widest block">Project Name</label>
                   <input
                     autoFocus
                     required
@@ -571,40 +611,40 @@ export default function DashboardPage() {
                     placeholder="Acme Workspace / Landing Portal"
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
-                    className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/20 focus:border-purple-500 outline-none transition-all"
+                    className="w-full bg-[#F8F7F4]/50 border border-[#253B80]/12 rounded-xl px-4 py-3 text-xs text-[#1E2022] placeholder:text-[#1E2022]/30 focus:border-[#253B80] focus:bg-white outline-none transition-all"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-white/30 text-[9px] font-black uppercase tracking-widest block">Target Environment URL</label>
+                <div className="space-y-1.5">
+                  <label className="text-[#1E2022]/60 text-[10px] font-bold uppercase tracking-widest block">Target Environment URL</label>
                   <div className="relative">
-                    <Globe className="w-4 h-4 text-white/20 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <Globe className="w-4 h-4 text-[#253B80]/30 absolute left-4 top-1/2 -translate-y-1/2" />
                     <input
                       disabled={isCreatingProject}
                       type="url"
                       placeholder="https://staging.acme.com"
                       value={newProjectUrl}
                       onChange={(e) => setNewProjectUrl(e.target.value)}
-                      className="w-full bg-white/[0.02] border border-white/5 rounded-xl pl-11 pr-4 py-3 text-xs text-white placeholder:text-white/20 focus:border-purple-500 outline-none transition-all"
+                      className="w-full bg-[#F8F7F4]/50 border border-[#253B80]/12 rounded-xl pl-11 pr-4 py-3 text-xs text-[#1E2022] placeholder:text-[#1E2022]/30 focus:border-[#253B80] focus:bg-white outline-none transition-all"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 justify-end pt-4">
+                <div className="flex gap-2.5 justify-end pt-4 border-t border-[#253B80]/5">
                   <button
                     type="button"
                     disabled={isCreatingProject}
                     onClick={() => setShowCreateProject(false)}
-                    className="px-5 py-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] text-xs font-bold transition-all"
+                    className="px-5 py-3 rounded-xl border border-[#253B80]/12 bg-white hover:bg-[#F8F7F4] text-xs font-bold text-[#1E2022]/70 transition-all active:scale-95"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isCreatingProject || !newProjectName.trim()}
-                    className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs shadow-lg shadow-purple-900/20 transition-all flex items-center gap-2"
+                    className="px-6 py-3 rounded-xl bg-[#253B80] hover:bg-[#1B2C60] text-white font-bold text-xs transition-all flex items-center gap-2 active:scale-95 shadow-sm"
                   >
-                    {isCreatingProject ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    {isCreatingProject ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                     {isCreatingProject ? 'Creating...' : 'Initialize Project'}
                   </button>
                 </div>
@@ -618,34 +658,34 @@ export default function DashboardPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
+              animate={{ opacity: 0.4 }}
               exit={{ opacity: 0 }}
               onClick={() => setNewSessionProject(null)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              className="absolute inset-0 bg-[#0B0F19]/60 backdrop-blur-sm"
             />
             
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl relative z-10 space-y-6"
+              exit={{ opacity: 0, scale: 0.98, y: 10 }}
+              className="bg-white border border-[#253B80]/15 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-xl relative z-10 space-y-6 text-[#1E2022]"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black uppercase tracking-widest text-emerald-400">Launch Review Session</h3>
-                <button onClick={() => setNewSessionProject(null)} className="text-white/40 hover:text-white transition-colors">
-                  <X className="w-5 h-5" />
+                <h3 className="text-sm font-bold uppercase tracking-widest text-[#253B80]">Launch Review Session</h3>
+                <button onClick={() => setNewSessionProject(null)} className="text-[#1E2022]/40 hover:text-[#1E2022] transition-colors p-1 hover:bg-[#253B80]/5 rounded-lg">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl text-xs space-y-1">
-                <span className="text-[9px] font-black uppercase tracking-wider text-white/20">Target Project</span>
-                <p className="font-bold text-white text-sm">{newSessionProject.name}</p>
-                <p className="text-[10px] text-white/40 truncate mt-1">{newSessionProject.url || 'No environment configured'}</p>
+              <div className="p-4 bg-[#F8F7F4]/80 border border-[#253B80]/5 rounded-xl text-xs space-y-1">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-[#1E2022]/40">Target Project</span>
+                <p className="font-bold text-[#1E2022] text-sm">{newSessionProject.name}</p>
+                <p className="text-[10px] text-[#1E2022]/50 truncate mt-1">{newSessionProject.url || 'No environment configured'}</p>
               </div>
 
               <form onSubmit={handleCreateSession} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-white/30 text-[9px] font-black uppercase tracking-widest block">Review Session Title</label>
+                <div className="space-y-1.5">
+                  <label className="text-[#1E2022]/60 text-[10px] font-bold uppercase tracking-widest block">Review Session Title</label>
                   <input
                     autoFocus
                     required
@@ -654,41 +694,41 @@ export default function DashboardPage() {
                     placeholder="Review Session - Mobile Responsiveness Review"
                     value={newSessionTitle}
                     onChange={(e) => setNewSessionTitle(e.target.value)}
-                    className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/20 focus:border-emerald-500 outline-none transition-all"
+                    className="w-full bg-[#F8F7F4]/50 border border-[#253B80]/12 rounded-xl px-4 py-3 text-xs text-[#1E2022] placeholder:text-[#1E2022]/30 focus:border-[#253B80] focus:bg-white outline-none transition-all"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-white/30 text-[9px] font-black uppercase tracking-widest block">Custom Starting URL (Optional)</label>
+                <div className="space-y-1.5">
+                  <label className="text-[#1E2022]/60 text-[10px] font-bold uppercase tracking-widest block">Custom Starting URL (Optional)</label>
                   <div className="relative">
-                    <Globe className="w-4 h-4 text-white/20 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <Globe className="w-4 h-4 text-[#253B80]/30 absolute left-4 top-1/2 -translate-y-1/2" />
                     <input
                       disabled={isCreatingSession}
                       type="url"
                       placeholder={newSessionProject.url || "https://example.com/login"}
                       value={newSessionUrl}
                       onChange={(e) => setNewSessionUrl(e.target.value)}
-                      className="w-full bg-white/[0.02] border border-white/5 rounded-xl pl-11 pr-4 py-3 text-xs text-white placeholder:text-white/20 focus:border-emerald-500 outline-none transition-all"
+                      className="w-full bg-[#F8F7F4]/50 border border-[#253B80]/12 rounded-xl pl-11 pr-4 py-3 text-xs text-[#1E2022] placeholder:text-[#1E2022]/30 focus:border-[#253B80] focus:bg-white outline-none transition-all"
                     />
                   </div>
-                  <span className="text-[9px] text-white/20 block leading-normal pt-1 font-medium">Leave empty to fall back to the default project url.</span>
+                  <span className="text-[9px] text-[#1E2022]/40 block leading-normal pt-1 font-medium">Leave empty to fall back to the default project url.</span>
                 </div>
 
-                <div className="flex gap-2.5 justify-end pt-4">
+                <div className="flex gap-2.5 justify-end pt-4 border-t border-[#253B80]/5">
                   <button
                     type="button"
                     disabled={isCreatingSession}
                     onClick={() => setNewSessionProject(null)}
-                    className="px-5 py-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] text-xs font-bold transition-all"
+                    className="px-5 py-3 rounded-xl border border-[#253B80]/12 bg-white hover:bg-[#F8F7F4] text-xs font-bold text-[#1E2022]/70 transition-all active:scale-95"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isCreatingSession || !newSessionTitle.trim()}
-                    className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+                    className="px-6 py-3 rounded-xl bg-[#253B80] hover:bg-[#1B2C60] text-white font-bold text-xs transition-all flex items-center gap-2 active:scale-95 shadow-sm"
                   >
-                    {isCreatingSession ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    {isCreatingSession ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                     {isCreatingSession ? 'Launching...' : 'Launch Review Session'}
                   </button>
                 </div>

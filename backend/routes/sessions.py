@@ -51,7 +51,7 @@ async def list_all_sessions(current_user: User = Depends(get_current_user), db: 
         return cached
 
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if not member:
         return []
     
@@ -119,7 +119,7 @@ async def create_session(
 
     # 2. Enforce concurrency limits: max 3 active sessions per organization
     org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
-    member = org_member.scalar_one_or_none()
+    member = org_member.scalars().first()
     if member:
         active_count_res = await db.execute(
             select(func.count(Session.id))

@@ -38,10 +38,18 @@ export default function Home() {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "PixelMark",
-    "operatingSystem": "All",
+    "operatingSystem": "Web, Windows, macOS, Linux",
     "applicationCategory": "BusinessApplication",
-    "description": "Visual website feedback tool and bug reporting platform that generates secure client review links to pin visual feedback directly on live websites.",
+    "applicationSubCategory": "Bug Tracking Software",
+    "description": "Visual website feedback tool and QA bug reporting platform. Generate secure client review links to pin visual feedback directly on live websites.",
     "url": seoConfig.siteUrl,
+    "featureList": [
+      "Visual Website Feedback",
+      "Bug Reporting",
+      "QA Annotations",
+      "No-Code Integration",
+      "Client Review Links"
+    ],
     "offers": {
       "@type": "AggregateOffer",
       "priceCurrency": "USD",

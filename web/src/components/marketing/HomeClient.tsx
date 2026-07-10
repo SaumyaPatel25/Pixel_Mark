@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
 import HowItWorksSection from '@/components/marketing/HowItWorksSection';
+import WhyPixelMarkSection from '@/components/marketing/WhyPixelMarkSection';
 import FeaturesSection from '@/components/marketing/FeaturesSection';
 import UseCasesSection from '@/components/marketing/UseCasesSection';
 import FAQSection from '@/components/marketing/FAQSection';
@@ -81,6 +82,7 @@ const modeColors = {
 export default function HomeClient() {
   const [activeMode, setActiveMode] = useState<ModeType>('dom');
   const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHeroTextComplete, setIsHeroTextComplete] = useState(false);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
@@ -110,18 +112,25 @@ export default function HomeClient() {
 
   return (
     <div
-      className="homepage-root relative min-h-screen bg-transparent text-pm-text selection:bg-[#293681]/30 selection:text-[#1E2022] font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
+      className="homepage-root relative min-h-screen bg-transparent text-pm-text selection:bg-[#253B80]/30 selection:text-[#1D264F] font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
     >
       
       {/* Spline 3D background */}
-      <SplineBackground hoveredPosition={hoveredPosition} />
+      <SplineBackground hoveredPosition={hoveredPosition} isHeroTextComplete={isHeroTextComplete} />
 
       {/* Main Container */}
       <div className="relative z-10 flex flex-col min-h-screen">
         <MarketingNav />
         <main className="flex-1 flex flex-col">
-          <HeroSection activeMode={activeMode} setActiveMode={setActiveMode} onHoverChange={setHoveredPosition} />
+          <HeroSection 
+            activeMode={activeMode} 
+            setActiveMode={setActiveMode} 
+            onHoverChange={setHoveredPosition} 
+            isHeroTextComplete={isHeroTextComplete}
+            onHeroTextComplete={() => setIsHeroTextComplete(true)}
+          />
           <HowItWorksSection />
+          <WhyPixelMarkSection />
           <FeaturesSection onHoverChange={setHoveredPosition} />
           <UseCasesSection onHoverChange={setHoveredPosition} />
           <FAQSection />

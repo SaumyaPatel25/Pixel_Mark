@@ -6,14 +6,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${seoConfig.siteUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: 'daily' as const,
-    priority: route === '' ? 1.0 : 0.8,
+    priority: route === '' ? 1.0 : 0.9,
   }))
 
   const contentPages = ['/docs/api', '/support/diagnostics', '/chrome-extension'].map((route) => ({
     url: `${seoConfig.siteUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
-    priority: 0.7,
+    priority: 0.8,
   }))
 
   return [...highPriority, ...contentPages]

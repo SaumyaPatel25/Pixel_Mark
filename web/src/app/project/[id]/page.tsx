@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircle, BarChart3, Sparkles } from 'lucide-react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircle, BarChart3, Sparkles, ChevronDown, ExternalLink, MapPin, Eye, Zap } from 'lucide-react'
+import { useScreenshotStore } from '@/store/screenshotStore'
 import { Button } from '@/components/ui/button'
 import { ExportPanel } from '@/components/ExportPanel'
 import { ReportEmailModal } from '@/components/ReportEmailModal'
@@ -14,8 +15,11 @@ import FeedbackAnalyticsPanel from '@/components/FeedbackAnalyticsPanel'
 import { Palette } from 'lucide-react'
 import { AuditSurface } from '@/components/audit/AuditSurface'
 import { api } from '@/lib/api'
+import { Suspense } from 'react'
+import { ObservationDetails } from '@/components/audit/ObservationDetails'
 
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
+import { useSessionSocket } from '@/lib/useSessionSocket'
 
 import { useScreenCapture } from '@/hooks/useScreenCapture'
 import { useViewportHeight } from '@/hooks/useViewportHeight'
@@ -39,7 +43,7 @@ const drawerVariants = {
   })
 }
 
-export default function ProjectPage() {
+function ProjectPageContent() {
   const [hasMounted, setHasMounted] = useState(false)
   useEffect(() => {
     setHasMounted(true)
@@ -50,6 +54,9 @@ export default function ProjectPage() {
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : ''
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const querySessionId = searchParams.get('session')
+  const view = searchParams.get('view') || 'canvas'
 
   // Granular Stores
   const { 
@@ -87,6 +94,7 @@ export default function ProjectPage() {
   const screenCapture = useScreenCapture()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [showReportEmailModal, setShowReportEmailModal] = useState(false)
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const addToast = useUIStore(s => s.addToast)
   const viewportHeight = useViewportHeight()
 
@@ -103,11 +111,22 @@ export default function ProjectPage() {
     setShowReportEmailModal(true)
   }, [sessionId, addToast])
 
+  const handleJumpToCanvas = useCallback((markerId: string) => {
+    useMarkerStore.getState().selectMarker(markerId)
+    const url = new URL(window.location.href)
+    url.searchParams.set('view', 'canvas')
+    router.push(url.pathname + url.search)
+  }, [router])
+
   // Retrieve or create active audit session on mount
   useEffect(() => {
     if (!id) return
     async function initSession() {
       try {
+        if (querySessionId) {
+          setSessionId(querySessionId)
+          return
+        }
         const list = await api.sessions.getSessions(id)
         if (list && list.length > 0) {
           // Use most recent session
@@ -126,7 +145,7 @@ export default function ProjectPage() {
       }
     }
     initSession()
-  }, [id])
+  }, [id, querySessionId])
 
   // Below tablet breakpoint or in heavy mode, collapse the command center by default on mount
   useEffect(() => {
@@ -234,6 +253,12 @@ export default function ProjectPage() {
     enabled: !!id
   })
 
+  const actor = useMemo(() => {
+    return { id: 'developer-user', role: 'developer' as const }
+  }, [])
+
+  useSessionSocket(sessionId || '', actor)
+
 
   // Initial Sync
   useEffect(() => {
@@ -301,200 +326,380 @@ export default function ProjectPage() {
   return (
     <div 
       style={pageStyle}
-      className="h-screen bg-[#0a0a0b] flex flex-col overflow-hidden font-sans selection:bg-purple-500/30"
+      className="h-screen flex flex-col overflow-hidden font-sans bg-[#fcfbfa] text-[#1e2022] selection:bg-[#D0E7E6]"
     >
-      {/* Premium Navigation Header */}
-      <header className={cn(
-        "min-h-16 h-auto md:h-20 py-3 md:py-0 border-b border-white/[0.03] flex flex-col md:flex-row items-center justify-between px-4 md:px-8 bg-[#0a0a0b]/80 backdrop-blur-3xl z-45 relative gap-3",
-        heavy_mode && "max-md:absolute max-md:top-4 max-md:left-4 max-md:right-4 max-md:rounded-2xl max-md:border max-md:border-white/15 max-md:bg-[#0a0a0b]/90 max-md:shadow-2xl max-md:h-12 max-md:min-h-0 max-md:py-0 max-md:flex-row max-md:px-3 max-md:gap-1 max-md:w-auto"
-      )}>
-        <div className="flex items-center justify-between w-full md:w-auto gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <button 
-              onClick={() => router.push('/dashboard')}
-              className="w-10 h-10 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all shadow-xl flex-shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            
-            <div className="h-10 w-[1px] bg-white/5 hidden sm:block flex-shrink-0" />
-            
-            <div className={cn("min-w-0", heavy_mode && "max-md:hidden")}>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base md:text-lg font-black tracking-tighter text-white uppercase truncate max-w-[140px] sm:max-w-none">{currentProject?.name}</h1>
-                <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] font-black text-cyan-400 uppercase tracking-widest flex-shrink-0">Active Review</span>
+      {/* Premium Navigation Header - Slim Light Theme */}
+      <header className="h-14 border-b border-slate-200/60 bg-white flex items-center justify-between px-4 md:px-6 z-45 relative gap-4 flex-shrink-0 shadow-sm shadow-slate-100/10">
+        <div className="flex items-center gap-4 min-w-0">
+          <button 
+            onClick={() => router.push('/dashboard')}
+            className="w-9 h-9 rounded-xl flex items-center justify-center border border-slate-200/80 bg-white text-[#293681]/60 hover:text-[#293681] hover:bg-slate-50 transition-all flex-shrink-0 cursor-pointer shadow-sm"
+            title="Return to Dashboard"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          
+          <div className="h-8 w-[1px] bg-slate-200 hidden sm:block flex-shrink-0" />
+          
+          <div className="min-w-0 flex items-center gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-extrabold tracking-tight text-[#293681] truncate max-w-[150px] sm:max-w-xs">
+                  {currentProject?.name}
+                </h1>
+                <span className="px-2 py-0.5 rounded-full border border-[#293681]/10 bg-[#D0E7E6]/50 text-[#293681] text-[8px] font-black uppercase tracking-widest flex-shrink-0">
+                  Active Review
+                </span>
+                
+                {/* Live Sync connection indicator */}
+                <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                  <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-500 animate-pulse" : "bg-rose-500")} />
+                  <span className="text-[8.5px] font-mono font-black uppercase tracking-widest text-slate-400">
+                    {connected ? 'Live Sync' : 'Offline'}
+                  </span>
+                </div>
               </div>
-              <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5 font-mono truncate max-w-[180px] sm:max-w-xs">{currentProject?.url}</p>
+              <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 font-mono text-slate-400 truncate max-w-[150px] sm:max-w-xs">
+                {currentProject?.url}
+              </p>
+            </div>
+
+            {/* In-Session View Switcher Tabs - Minimal Segmented Control */}
+            <div className="hidden md:flex p-0.5 rounded-xl border border-slate-200 bg-slate-50 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('view', 'canvas')
+                  router.push(url.pathname + url.search)
+                }}
+                className={cn(
+                  "px-3.5 h-7.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 focus:outline-none cursor-pointer",
+                  view !== 'details'
+                    ? "bg-white text-[#293681] shadow-sm border border-slate-200/30"
+                    : "text-slate-500 hover:text-[#293681]"
+                )}
+              >
+                Audit Canvas
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('view', 'details')
+                  router.push(url.pathname + url.search)
+                }}
+                className={cn(
+                  "px-3.5 h-7.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 focus:outline-none cursor-pointer",
+                  view === 'details'
+                    ? "bg-white text-[#293681] shadow-sm border border-slate-200/30"
+                    : "text-slate-500 hover:text-[#293681]"
+                )}
+              >
+                Observation Details
+              </button>
             </div>
           </div>
         </div>
 
-        <div className={cn("flex items-center gap-2 md:gap-3 flex-wrap md:flex-nowrap justify-end w-full md:w-auto", heavy_mode && "max-md:w-auto max-md:flex-nowrap max-md:justify-end")}>
-          {/* Design System Button */}
-          <Button 
-             onClick={() => toggleDesignSystem()}
-             variant="outline"
-             className={cn(
-               "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
-               isDesignSystemOpen ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/40" : "hover:bg-white/10",
-               heavy_mode && "max-md:hidden"
-             )}
-          >
-             <Palette className="w-4 h-4" />
-             <span className="hidden md:inline ml-2">Aesthetics Controller</span>
-          </Button>
+        <div className="flex items-center gap-3 justify-end flex-shrink-0">
+          {/* Drop Pin Guide Label for Non-Technical Clients */}
+          {view !== 'details' && (
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#D0E7E6]/25 border border-[#293681]/8 text-[#293681] text-[9.5px] font-black uppercase tracking-widest font-mono">
+              <MapPin className="w-3.5 h-3.5 text-[#293681]/70" />
+              Click Canvas to Pin Feedback
+            </div>
+          )}
 
-          {/* Analytics Button */}
-          <Button 
-             onClick={() => toggleAnalytics()}
-             variant="outline"
-             className={cn(
-               "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
-               isAnalyticsOpen ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/40" : "hover:bg-white/10",
-               heavy_mode && "max-md:hidden"
-             )}
-          >
-             <BarChart3 className="w-4 h-4" />
-             <span className="hidden md:inline ml-2">Analytics</span>
-          </Button>
+          {/* More Actions Dropdown Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+              className="h-9 px-3 rounded-xl border border-slate-200/80 bg-white text-slate-600 font-bold text-xs uppercase tracking-wider hover:bg-slate-50 flex items-center gap-1.5 focus:outline-none cursor-pointer transition-colors shadow-sm"
+            >
+              <span>Actions</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+            
+            <AnimatePresence>
+              {isMoreMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-50" onClick={() => setIsMoreMenuOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    transition={{ duration: 0.12, ease: "easeOut" }}
+                    className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200/80 shadow-xl z-55 py-2 flex flex-col select-none text-slate-700"
+                  >
+                    {view !== 'details' && (
+                      <>
+                        {/* Aesthetics Panel Toggle */}
+                        <button
+                          onClick={() => {
+                            toggleDesignSystem()
+                            setIsMoreMenuOpen(false)
+                          }}
+                          className={cn(
+                            "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50",
+                            isDesignSystemOpen ? "text-[#293681] bg-[#D0E7E6]/25" : "text-slate-600"
+                          )}
+                        >
+                          <Palette className="w-4 h-4 text-[#293681]/60" />
+                          Aesthetics Controller
+                        </button>
+                        
+                        {/* Analytics Panel Toggle */}
+                        <button
+                          onClick={() => {
+                            toggleAnalytics()
+                            setIsMoreMenuOpen(false)
+                          }}
+                          className={cn(
+                            "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50",
+                            isAnalyticsOpen ? "text-[#293681] bg-[#D0E7E6]/25" : "text-slate-600"
+                          )}
+                        >
+                          <BarChart3 className="w-4 h-4 text-[#293681]/60" />
+                          Session Analytics
+                        </button>
+                        
+                        <div className="h-[1px] bg-slate-100 my-1" />
+                      </>
+                    )}
 
-          <Button 
-            onClick={() => toggleExportPanel()}
-            variant="outline"
-            className={cn(
-               "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0",
-               isExportPanelOpen ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/40" : "hover:bg-white/10",
-               heavy_mode && "max-md:hidden"
-            )}
-          >
-            <Share2 className="w-4 h-4" />
-            <span className="hidden md:inline ml-2">Download Report</span>
-          </Button>
+                    {/* Download Report Toggle */}
+                    <button
+                      onClick={() => {
+                        toggleExportPanel()
+                        setIsMoreMenuOpen(false)
+                      }}
+                      className={cn(
+                        "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50",
+                        isExportPanelOpen ? "text-[#293681] bg-[#D0E7E6]/25" : "text-slate-600"
+                      )}
+                    >
+                      <Share2 className="w-4 h-4 text-[#293681]/60" />
+                      Download Report
+                    </button>
 
-          <Button 
-            onClick={handleGenerateReport}
-            variant="outline"
-            className={cn(
-               "rounded-2xl h-10 md:h-11 px-3 md:px-6 bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0 hover:bg-white/10 text-purple-400 hover:text-purple-300 hover:border-purple-500/20",
-               heavy_mode && "max-md:hidden"
-            )}
-          >
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <span className="hidden md:inline ml-2">Report ✨</span>
-          </Button>
+                    {/* AI report generation */}
+                    <button
+                      onClick={() => {
+                        handleGenerateReport()
+                        setIsMoreMenuOpen(false)
+                      }}
+                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50 text-indigo-600"
+                    >
+                      <Sparkles className="w-4 h-4 text-indigo-500" />
+                      AI Review Report ✨
+                    </button>
 
-          <div className={cn("flex-shrink-0", heavy_mode && "max-md:hidden")}>
-            <ShareLinkButton 
-              onClick={() => toggleSharePanel()}
-              active={isSharePanelOpen}
-            />
+                    {/* Share Link Toggle */}
+                    <button
+                      onClick={() => {
+                        toggleSharePanel()
+                        setIsMoreMenuOpen(false)
+                      }}
+                      className={cn(
+                        "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50",
+                        isSharePanelOpen ? "text-[#293681] bg-[#D0E7E6]/25" : "text-slate-600"
+                      )}
+                    >
+                      <ExternalLink className="w-4 h-4 text-[#293681]/60" />
+                      Share Session Link
+                    </button>
+
+                    <div className="h-[1px] bg-slate-100 my-1" />
+
+                    {/* Take Screenshot */}
+                    <button
+                      onClick={() => {
+                        setIsMoreMenuOpen(false)
+                        useScreenshotStore.getState().setMode('region')
+                      }}
+                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50 text-slate-600"
+                    >
+                      <svg className="w-4 h-4 text-[#293681]/60" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                      Take Screenshot
+                    </button>
+
+                    {/* Capture Frame */}
+                    <button
+                      onClick={() => {
+                        setIsMoreMenuOpen(false)
+                        window.postMessage({ type: 'PIXELMARK_TRIGGER_FRAME_CAPTURE_GLOBAL' }, '*')
+                      }}
+                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50 text-slate-600"
+                    >
+                      <Eye className="w-4 h-4 text-[#293681]/60" />
+                      Capture Frame
+                    </button>
+
+                    {/* Enable Captures */}
+                    <button
+                      onClick={() => {
+                        setIsMoreMenuOpen(false)
+                        useScreenshotStore.getState().setPermission('pending')
+                      }}
+                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50 text-amber-600"
+                    >
+                      <Zap className="w-4 h-4 text-amber-500" />
+                      Enable Captures
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div className="h-10 w-[1px] bg-white/5 mx-1 md:mx-2 hidden sm:block flex-shrink-0" />
-                    <Button 
-            id="command-center-trigger"
-            aria-label="Toggle Feedback Feed"
-            aria-controls="command-center-drawer"
-            aria-expanded={isCommandCenterOpen}
-            onClick={() => toggleCommandCenter()}
-            variant={isCommandCenterOpen ? 'default' : 'secondary'}
-            className={cn(
-                "rounded-2xl h-10 md:h-11 px-3 md:px-6 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center flex-shrink-0 focus:ring-2 focus:ring-purple-500 outline-none",
-                isCommandCenterOpen 
-                    ? "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/40" 
-                    : "bg-white/5 border border-white/5 text-white/60 hover:text-white",
-                heavy_mode && "max-md:h-8 max-md:w-8 max-md:px-0 max-md:rounded-xl"
-            )}
-          >
-            {isCommandCenterOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
-            <span className={cn("hidden md:inline ml-2", heavy_mode && "max-md:hidden")}>
-              {isCommandCenterOpen ? 'Close Feed' : 'Feedback Feed'}
-            </span>
-          </Button>
+          {/* Feedback Feed Drawer Toggle Button */}
+          {view !== 'details' && (
+            <>
+              <div className="h-6 w-[1px] bg-slate-200" />
+              <button 
+                id="command-center-trigger"
+                aria-label="Toggle Feedback Feed"
+                aria-controls="command-center-drawer"
+                aria-expanded={isCommandCenterOpen}
+                onClick={() => toggleCommandCenter()}
+                className={cn(
+                  "h-9 px-4 rounded-xl border text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm focus:outline-none",
+                  isCommandCenterOpen 
+                    ? "bg-[#D0E7E6] border-[#293681]/25 text-[#293681]" 
+                    : "bg-white border-slate-200 text-[#293681]/70 hover:text-[#293681] hover:bg-slate-50"
+                )}
+              >
+                {isCommandCenterOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+                <span className="hidden sm:inline">Open Feedback</span>
+                {markerCount > 0 && (
+                  <span className="bg-[#293681] text-white text-[8.5px] font-mono font-black px-1.5 py-0.5 rounded-md ml-1">
+                    {markerCount}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
         </div>
       </header>
       
       {/* Main Viewport Substrate */}
       <main className="flex-1 flex overflow-hidden relative" onMouseMove={handleMouseMove}>
-        <div className="flex-1 relative bg-black h-full overflow-hidden">
-          {/* Status Indicator */}
-          <div className={cn(
-            "absolute bottom-6 left-6 z-30 px-4 py-2 rounded-2xl backdrop-blur-2xl border transition-all flex items-center gap-3",
-            connected ? "bg-green-500/10 border-green-500/20" : "bg-rose-500/10 border-rose-500/20"
-          )}>
-            <div className={cn("w-2 h-2 rounded-full", connected ? "bg-green-500 animate-pulse" : "bg-rose-500")} />
-            <span className={cn("text-[8px] font-black uppercase tracking-widest", connected ? "text-green-400" : "text-rose-400")}>
-              {connected ? 'Substrate Synced' : 'Sync Severed'}
-            </span>
-          </div>
-
-          <AnimatePresence>
-            {isDesignSystemOpen && (
-               <motion.div 
-                 initial={{ x: -400, opacity: 0 }}
-                 animate={{ x: 0, opacity: 1 }}
-                 exit={{ x: -400, opacity: 0 }}
-                 className="absolute left-0 top-0 bottom-0 w-full sm:w-[400px] z-50 pointer-events-none"
-               >
-                 <div className="p-6 h-full pointer-events-auto">
-                    <DesignSystemPanel projectId={id} />
-                 </div>
-               </motion.div>
-            )}
-            {isAnalyticsOpen && (
-               <motion.div 
-                 initial={{ x: -400, opacity: 0 }}
-                 animate={{ x: 0, opacity: 1 }}
-                 exit={{ x: -400, opacity: 0 }}
-                 className="absolute left-0 top-0 bottom-0 w-full sm:w-[400px] z-50 pointer-events-none"
-               >
-                 <div className="p-6 h-full pointer-events-auto">
-                    <FeedbackAnalyticsPanel 
-                      sessionId={sessionId} 
-                      onClose={() => toggleAnalytics(false)} 
-                    />
-                 </div>
-               </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Interactive Proxy Board */}
-          {proxyStatus === 'failed' ? (
-                <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#0a0a0b]">
-                   <AlertCircle className="w-12 h-12 text-rose-500 mb-4 opacity-40" />
-                   <h3 className="text-white/60 font-black uppercase tracking-widest text-sm mb-2">Proxy Negotiation Failed</h3>
-                   <p className="text-[10px] text-white/20 font-bold uppercase tracking-[0.2em] max-w-sm text-center">Cloudflare or site security is blocking the viewport. Switch to Advanced Mode or contact support.</p>
-                   <Button 
-                    onClick={() => setProxyStatus('ok')}
-                    className="mt-6 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase"
-                   >
-                     Retry Connection
-                   </Button>
-                </div>
+        <div className={cn("flex-1 relative h-full overflow-hidden", view === 'details' ? "bg-[#F8F7F4]" : "bg-black")}>
+          {view === 'details' ? (
+            sessionId ? (
+              <ObservationDetails 
+                sessionId={sessionId}
+                projectId={id}
+                onJumpToCanvas={handleJumpToCanvas}
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#F8F7F4]">
+                 <Loader2 className="w-8 h-8 animate-spin text-[#253B80] mb-3" />
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1E2022]/40">Negotiating Review Session</p>
+              </div>
+            )
           ) : (
-                <div className="w-full h-full relative group">
-                    {sessionId ? (
-                      <AuditSurface
-                        sessionId={sessionId}
-                        projectId={id}
-                        onMarkerCreated={(marker) => {
-                          // Refresh markers from server after creation to stay in sync
-                          useMarkerStore.getState().loadSessionMarkers(id)
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#0a0a0b]">
-                         <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
-                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Negotiating Review Session</p>
+            <>
+              {/* Status Indicator */}
+              <div className={cn(
+                "absolute bottom-6 left-6 z-30 px-4 py-2 rounded-2xl backdrop-blur-2xl border transition-all flex items-center gap-3",
+                connected ? "bg-green-500/10 border-green-500/20" : "bg-rose-500/10 border-rose-500/20"
+              )}>
+                <div className={cn("w-2 h-2 rounded-full", connected ? "bg-green-500 animate-pulse" : "bg-rose-500")} />
+                <span className={cn("text-[8px] font-black uppercase tracking-widest", connected ? "text-green-400" : "text-rose-400")}>
+                  {connected ? 'Substrate Synced' : 'Sync Severed'}
+                </span>
+              </div>
+
+              <AnimatePresence>
+                {isDesignSystemOpen && (
+                   <motion.div 
+                     initial={{ x: -400, opacity: 0 }}
+                     animate={{ x: 0, opacity: 1 }}
+                     exit={{ x: -400, opacity: 0 }}
+                     className="absolute left-0 top-0 bottom-0 w-full sm:w-[400px] z-50 pointer-events-none"
+                   >
+                     <div className="p-6 h-full pointer-events-auto">
+                        <DesignSystemPanel projectId={id} />
+                     </div>
+                   </motion.div>
+                )}
+                {isAnalyticsOpen && (
+                   <motion.div 
+                     initial={{ x: -400, opacity: 0 }}
+                     animate={{ x: 0, opacity: 1 }}
+                     exit={{ x: -400, opacity: 0 }}
+                     className="absolute left-0 top-0 bottom-0 w-full sm:w-[400px] z-50 pointer-events-none"
+                   >
+                     <div className="p-6 h-full pointer-events-auto">
+                        <FeedbackAnalyticsPanel 
+                          sessionId={sessionId} 
+                          onClose={() => toggleAnalytics(false)} 
+                        />
+                     </div>
+                   </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Interactive Proxy Board - Lightweight Light Theme Frame */}
+              {proxyStatus === 'failed' ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#fcfbfa]">
+                       <AlertCircle className="w-12 h-12 text-rose-500 mb-4 opacity-40" />
+                       <h3 className="text-[#293681] font-black uppercase tracking-widest text-xs mb-2">Proxy Negotiation Failed</h3>
+                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] max-w-sm text-center">Security policies are blocking the iframe. Try switching pages or contact admin.</p>
+                       <Button 
+                        onClick={() => setProxyStatus('ok')}
+                        className="mt-6 rounded-full bg-slate-100 border border-slate-200 text-[#293681] text-[9px] font-black uppercase hover:bg-slate-200"
+                       >
+                         Retry Connection
+                       </Button>
+                    </div>
+              ) : (
+                    <div className="w-full h-full p-2 bg-[#fcfbfa] flex flex-col overflow-hidden">
+                      {/* Premium Device Frame Mockup Header */}
+                      <div className="h-7.5 rounded-t-xl bg-slate-50 border-t border-x border-slate-200/80 flex items-center justify-between px-4 flex-shrink-0 relative shadow-sm shadow-slate-100/10">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-slate-300" />
+                          <div className="w-2 h-2 rounded-full bg-slate-300" />
+                          <div className="w-2 h-2 rounded-full bg-slate-300" />
+                        </div>
+                        <div className="absolute left-1/2 -translate-x-1/2 text-[9px] font-mono text-slate-400 uppercase tracking-widest bg-white px-4 py-0.5 rounded-md border border-slate-200/60 max-w-[200px] sm:max-w-xs md:max-w-md truncate text-center">
+                          {currentProject?.url || "Audit Canvas Substrate"}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-wider text-[#293681]/70 font-mono">
+                          <span className="w-1 h-1 rounded-full bg-[#293681]" />
+                          Review Active
+                        </div>
                       </div>
-                    )}
-                </div>
+                      
+                      <div className="flex-1 relative border-b border-x border-slate-200/80 rounded-b-xl overflow-hidden bg-[#fbfbfc] shadow-md shadow-slate-100/20">
+                        {sessionId ? (
+                          <AuditSurface
+                            sessionId={sessionId}
+                            projectId={id}
+                            shouldConnectSocket={false}
+                            onMarkerCreated={(marker) => {
+                              // Refresh markers from server after creation to stay in sync
+                              useMarkerStore.getState().loadSessionMarkers(id)
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#fcfbfa]">
+                             <Loader2 className="w-6 h-6 animate-spin text-[#293681] mb-3" />
+                             <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Negotiating Review Session</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+              )}
+            </>
           )}
         </div>
 
         {/* Tap-dismiss backdrop overlay for mobile/tablet drawer */}
         <AnimatePresence>
-            {isCommandCenterOpen && (
+            {view !== 'details' && isCommandCenterOpen && (
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 0.6 }}
@@ -507,7 +712,7 @@ export default function ProjectPage() {
 
         {/* Command Center Slider (Fully Responsive Layout Wrapper) */}
         <AnimatePresence>
-            {isCommandCenterOpen && (
+            {view !== 'details' && isCommandCenterOpen && (
                 <motion.div
                     id="command-center-drawer"
                     role="dialog"
@@ -563,5 +768,18 @@ export default function ProjectPage() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+export default function ProjectPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen bg-[#0a0a0b] flex flex-col items-center justify-center overflow-hidden font-sans">
+        <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-3">Hydrating Project Surface</p>
+      </div>
+    }>
+      <ProjectPageContent />
+    </Suspense>
   )
 }
