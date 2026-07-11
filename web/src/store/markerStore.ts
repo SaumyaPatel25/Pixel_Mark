@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { Marker, SessionSocketEvent } from '@/types/markers'
 import { api } from '@/lib/api'
+import { useOnboardingStore } from './onboardingStore'
 
 export function isPersistedMarker(marker: Marker): boolean {
   return marker && typeof marker.id === 'string' && !marker.id.startsWith('temp-')
@@ -66,7 +67,12 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
   participants: [],
 
   setSelectedMarkerId: (id) => set({ selectedMarkerId: id }),
-  selectMarker: (id) => set({ selectedMarkerId: id }),
+  selectMarker: (id) => {
+    set({ selectedMarkerId: id })
+    if (id) {
+      useOnboardingStore.getState().completeTask('view_details')
+    }
+  },
   setFilters: (filters) => set((state) => ({ filters: { ...state.filters, ...filters } })),
   setConnectionStatus: (status) => set({ connectionStatus: status }),
 
@@ -261,6 +267,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
         return { markersById, orderedMarkerIds }
       })
       get().upsertMarkerFromServer(created)
+      useOnboardingStore.getState().completeTask('drop_pin')
       return created
     } catch (err) {
       // Rollback optimistic write: remove the temporary marker

@@ -45,10 +45,10 @@ export function ScreenshotPermissionBanner() {
         </p>
       </div>
       <div className="flex flex-col gap-2 flex-shrink-0">
-        <Button onClick={handleAllow} className="bg-[#293681] hover:bg-[#112E81] text-white text-xs py-2 px-4 rounded-xl h-auto font-black uppercase tracking-wider">
+        <Button id="onboarding-allow-capture-btn" onClick={handleAllow} className="bg-[#293681] hover:bg-[#112E81] text-white text-xs py-2 px-4 rounded-xl h-auto font-black uppercase tracking-wider">
           Allow
         </Button>
-        <Button variant="outline" onClick={handleSkip} className="text-xs py-2 px-4 rounded-xl h-auto border-slate-200 text-slate-600 hover:bg-slate-50 font-bold uppercase tracking-wider">
+        <Button onClick={handleSkip} className="text-xs py-2 px-4 rounded-xl h-auto border-slate-200 text-slate-600 hover:bg-slate-50 font-bold uppercase tracking-wider">
           Skip
         </Button>
       </div>

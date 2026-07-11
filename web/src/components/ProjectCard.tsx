@@ -475,7 +475,7 @@ export function ProjectCard({
           {/* Quick Action Button Group */}
           <div className="flex items-center gap-1.5">
             {/* Primary Workspace CTA Button */}
-            <span className="text-[10px] font-extrabold uppercase bg-pm-accent-subtle border border-pm-border text-pm-accent group-hover:bg-pm-accent group-hover:text-white px-4 py-1.5 rounded-xl transition-all select-none">
+            <span id="onboarding-open-workspace-btn" className="text-[10px] font-extrabold uppercase bg-pm-accent-subtle border border-pm-border text-pm-accent group-hover:bg-pm-accent group-hover:text-white px-4 py-1.5 rounded-xl transition-all select-none">
               Open Workspace →
             </span>
 

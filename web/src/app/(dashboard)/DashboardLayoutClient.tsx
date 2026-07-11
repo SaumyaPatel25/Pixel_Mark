@@ -5,7 +5,10 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
-import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download, Home } from 'lucide-react'
+import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play } from 'lucide-react'
+import { useOnboardingStore } from '@/store/onboardingStore'
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
+import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist'
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -15,6 +18,18 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   const logout = useAuthStore(s => s.logout)
   const fetchMe = useAuthStore(s => s.fetchMe)
   const isLoading = useAuthStore(s => s.isLoading)
+  const { startOnboarding, hydrateFromLocalStorage } = useOnboardingStore()
+
+  useEffect(() => {
+    // Restore saved onboarding state on mount
+    hydrateFromLocalStorage()
+    
+    // Auto start onboarding for new users who haven't started yet
+    const saved = localStorage.getItem('pm_onboarding_state')
+    if (!saved) {
+      startOnboarding('developer')
+    }
+  }, [hydrateFromLocalStorage, startOnboarding])
 
   useEffect(() => {
     const activeToken = token || (typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null)
@@ -70,6 +85,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               <Home className="w-4 h-4" />
               Back to Home
             </Link>
+
             <Link 
               href="/dashboard" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
@@ -114,6 +130,16 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               <HelpCircle className="w-4 h-4" />
               Diagnostic Support
             </Link>
+            <button 
+              onClick={() => {
+                startOnboarding('developer');
+                router.push('/dashboard');
+              }}
+              className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all w-full text-left cursor-pointer"
+            >
+              <Play className="w-4 h-4 text-purple-400" />
+              Restart Product Tour
+            </button>
             <div 
               className="flex items-center justify-between px-3 py-2 rounded-xl text-sm text-pm-muted/60 cursor-not-allowed select-none"
             >
@@ -148,6 +174,10 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       <main className="flex-1 ml-56 min-h-screen relative overflow-y-auto">
         {children}
       </main>
+
+      {/* Onboarding overlays — rendered at layout level so they persist across all pages */}
+      <OnboardingTour />
+      <OnboardingChecklist />
     </div>
   )
 }

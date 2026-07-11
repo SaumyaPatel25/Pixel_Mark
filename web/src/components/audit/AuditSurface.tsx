@@ -14,6 +14,9 @@ import {
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
+import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist'
+import { useOnboardingStore } from '@/store/onboardingStore'
 import PageTabBar from '@/components/session/PageTabBar'
 import { useSessionStore } from '@/store/sessionStore'
 import { SupportDiagnosticsPanel } from '@/components/audit/SupportDiagnosticsPanel'
@@ -428,6 +431,7 @@ export function AuditSurface({
   const [pendingRegionCaptureId, setPendingRegionCaptureId] = useState<string | null>(null)
 
   const [isDrawingModeActive, setIsDrawingModeActive] = useState(false)
+  const { startOnboarding } = useOnboardingStore()
   const [annotatedScreenshotUrl, setAnnotatedScreenshotUrl] = useState<string | null>(null)
   const [annotationShapes, setAnnotationShapes] = useState<any[]>([])
 
@@ -1726,9 +1730,8 @@ export function AuditSurface({
         onCancel={handleRegionCancel} 
       />
 
-      {/* ── Left Sidebar: Collapsible Session Feedback List ── */}
-      {!!shareToken && isListSidebarOpen && (
-        <div className="w-80 h-full border-r border-white/5 bg-[#0d0d14] flex flex-col flex-shrink-0 z-30 select-none animate-in slide-in-from-left duration-300">
+      {isListSidebarOpen && (
+        <div id="onboarding-feedback-sidebar-reviewer" className="w-80 h-full border-r border-white/5 bg-[#0d0d14] flex flex-col flex-shrink-0 z-30 select-none animate-in slide-in-from-left duration-300">
           {/* Sidebar Header */}
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1879,19 +1882,20 @@ export function AuditSurface({
           {/* Left: back + URL */}
           <div className="flex items-center gap-3 min-w-0">
             {!!shareToken && (
-              <button
-                type="button"
-                onClick={() => setIsListSidebarOpen(p => !p)}
-                title="Toggle Feedback Feed"
-                className={cn(
-                  "p-1.5 rounded-xl border transition-all flex-shrink-0 focus:ring-2 focus:ring-purple-500 focus:outline-none",
-                  isListSidebarOpen 
-                    ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
-                    : "bg-white/[0.03] border-white/5 text-white/60 hover:bg-white/5 hover:text-white"
-                )}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-              </button>
+            <button
+              id="onboarding-feedback-feed-btn"
+              type="button"
+              onClick={() => setIsListSidebarOpen(p => !p)}
+              title="Toggle Feedback Feed"
+              className={cn(
+                "p-1.5 rounded-xl border transition-all flex-shrink-0 focus:ring-2 focus:ring-purple-500 focus:outline-none",
+                isListSidebarOpen 
+                  ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
+                  : "bg-white/[0.03] border-white/5 text-white/60 hover:bg-white/5 hover:text-white"
+              )}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+            </button>
             )}
             <button
               onClick={handleGoBack}
@@ -1958,9 +1962,23 @@ export function AuditSurface({
               Focus Mode
             </button>
 
+            {/* ── Tutorial Button ────────────────────────────── */}
+            <button
+              onClick={() => startOnboarding(reviewerIdentity ? 'reviewer' : 'developer')}
+              title="Start Interactive Tutorial"
+              className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all border border-purple-500/20 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
+              Tutorial
+            </button>
+
             {/* ── Share Review CTA ────────────────────────────── */}
             <button
-              onClick={() => setIsSharePanelOpen(true)}
+              id="onboarding-share-review-btn"
+              onClick={() => {
+                setIsSharePanelOpen(true)
+                useOnboardingStore.getState().completeTask('share_session')
+              }}
               className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all border border-[#293681]/20 bg-white/5 text-slate-300 hover:bg-white/10 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
             >
               <Share2 className="w-3.5 h-3.5" />
@@ -2042,6 +2060,7 @@ export function AuditSurface({
 
         {/* ── Viewport frame ───────────────────────────────────────────── */}
         <div
+          id="audit-iframe-container"
           ref={containerRef}
           onMouseMove={handleMouseMove}
           className={cn(
@@ -3115,6 +3134,8 @@ export function AuditSurface({
           <span className="text-[10px] font-bold uppercase tracking-wider pointer-events-none">Exit Focus Mode</span>
         </motion.button>
       )}
+      <OnboardingTour />
+      <OnboardingChecklist />
     </div>
   )
 }

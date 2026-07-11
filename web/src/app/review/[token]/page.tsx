@@ -13,6 +13,9 @@ import { getStoredReviewerIdentity, clearStoredReviewerIdentity } from '@/lib/re
 import { getMarkerColors } from '@/lib/markerColors'
 import { ReviewerIdentity } from '@/types/markers'
 import { cn } from '@/lib/utils'
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
+import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist'
+import { useOnboardingStore } from '@/store/onboardingStore'
 
 export default function ReviewPage() {
   const params = useParams()
@@ -88,6 +91,8 @@ export default function ReviewPage() {
   const handleIdentityReady = (identity: ReviewerIdentity) => {
     setReviewerIdentity(identity)
     setShowIdentityGate(false)
+    // Auto-trigger reviewer tutorial
+    useOnboardingStore.getState().startOnboarding('reviewer')
   }
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -230,6 +235,8 @@ export default function ReviewPage() {
             onHeaderCollapsedChange={setIsHeaderCollapsed}
           />
         </main>
+        <OnboardingTour />
+        <OnboardingChecklist />
       </div>
     )
   }

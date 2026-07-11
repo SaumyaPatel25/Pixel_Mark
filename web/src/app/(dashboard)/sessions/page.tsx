@@ -17,6 +17,7 @@ import {
   ExternalLink 
 } from 'lucide-react'
 import SessionFeedbackSummary from '@/components/session/SessionFeedbackSummary'
+import { useOnboardingStore } from '@/store/onboardingStore'
 
 function SessionsList() {
   const router = useRouter()
@@ -86,6 +87,9 @@ function SessionsList() {
       setNewSessionTitle('')
       setNewSessionUrl('')
       setShowCreate(false)
+      // Complete onboarding tasks
+      useOnboardingStore.getState().completeTask('click_new_session')
+      useOnboardingStore.getState().completeTask('launch_session')
       await fetchData()
     } catch (err: any) {
       alert(err.message || 'Failed to launch session.')
@@ -150,6 +154,7 @@ function SessionsList() {
           </div>
 
           <button
+            id="onboarding-new-session-btn"
             onClick={() => {
               setNewSessionTitle(`Review Session - ${new Date().toLocaleDateString()}`)
               setNewSessionUrl(project?.url || '')
@@ -199,6 +204,7 @@ function SessionsList() {
 
                     <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <Link
+                        id="onboarding-audit-canvas-btn"
                         href={`/project/${projectId}`}
                         title="Audit Canvas"
                         className="group h-10 px-4 rounded-xl bg-pm-accent-subtle hover:bg-pm-accent/20 border border-pm-border text-pm-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm whitespace-nowrap overflow-hidden"
@@ -240,6 +246,7 @@ function SessionsList() {
               </p>
             </div>
             <button 
+              id="onboarding-new-session-btn"
               onClick={() => {
                 setNewSessionTitle(`Review Session - ${new Date().toLocaleDateString()}`)
                 setNewSessionUrl(project?.url || '')
@@ -316,6 +323,7 @@ function SessionsList() {
                     Cancel
                   </button>
                   <button
+                    id="onboarding-launch-session-btn"
                     type="submit"
                     disabled={isCreating || !newSessionTitle.trim()}
                     className="px-6 py-3 rounded-xl bg-pm-accent hover:bg-pm-accent-bright text-white font-black text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"

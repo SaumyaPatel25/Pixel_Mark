@@ -10,6 +10,7 @@ import { ProjectCard } from '@/components/ProjectCard'
 import { event as trackEvent } from '@/lib/analytics'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { useOnboardingStore } from '@/store/onboardingStore'
 import { 
   Plus, 
   Folder, 
@@ -174,8 +175,11 @@ export default function DashboardPage() {
     }
   }
 
+  const { completeTask, nextStep, isOnboardingActive } = useOnboardingStore()
+
   useEffect(() => {
     fetchDashboardData()
+    completeTask('dashboard_visit')
   }, [])
 
   // Create Project handler
@@ -190,6 +194,9 @@ export default function DashboardPage() {
         url: newProjectUrl.trim(),
       })
       trackEvent({ action: 'create_project', category: 'project' })
+      completeTask('click_new_project')
+      completeTask('fill_project_details')
+      if (isOnboardingActive) nextStep()
       await fetchDashboardData()
       setNewProjectName('')
       setNewProjectUrl('')
@@ -213,6 +220,8 @@ export default function DashboardPage() {
         title: newSessionTitle.trim() || `Review Session - ${new Date().toLocaleDateString()}`
       })
       trackEvent({ action: 'create_session', category: 'session' })
+      completeTask('click_new_session')
+      completeTask('launch_session')
 
       if (newSessionUrl.trim()) {
         try {
@@ -321,6 +330,7 @@ export default function DashboardPage() {
               Settings
             </Link>
             <button
+              id="onboarding-new-project-btn"
               onClick={() => setShowCreateProject(true)}
               className="rounded-xl h-11 bg-pm-accent hover:bg-pm-accent-bright text-white font-extrabold text-xs px-6 shadow-sm transition-all flex items-center gap-2 active:scale-95 flex-shrink-0 cursor-pointer"
             >
@@ -507,7 +517,10 @@ export default function DashboardPage() {
                     Create your first review project to initiate visual QA processes.
                   </p>
                 </div>
-                <button className="h-10 rounded-xl bg-pm-accent hover:bg-pm-accent-bright text-white px-6 font-bold text-xs transition-all flex items-center gap-2 active:scale-95 shadow-sm cursor-pointer">
+                <button 
+                  id="onboarding-new-project-btn"
+                  className="h-10 rounded-xl bg-pm-accent hover:bg-pm-accent-bright text-white px-6 font-bold text-xs transition-all flex items-center gap-2 active:scale-95 shadow-sm cursor-pointer"
+                >
                   Create First Project
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -593,6 +606,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.98, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98, y: 10 }}
+              id="onboarding-create-project-modal"
               className="bg-pm-surface border border-pm-border rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-xl relative z-10 space-y-6 text-pm-text"
             >
               <div className="flex items-center justify-between">
@@ -748,7 +762,6 @@ export default function DashboardPage() {
         )}
 
       </AnimatePresence>
-
     </div>
   )
 }

@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Layout, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import PixelSentinel from '@/components/auth/PixelSentinel';
 import { useMascotFormState } from '@/hooks/useMascotFormState';
 import { event as trackEvent } from '@/lib/analytics';
 import { api } from '@/lib/api';
 
-type ScenePhase = 'intro' | 'sidePosition' | 'projecting' | 'submitting' | 'success' | 'error' | 'returnCenter';
+type ScenePhase = 'projecting' | 'submitting' | 'success' | 'error';
 
 export default function RegisterClient() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function RegisterClient() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [phase, setPhase] = useState<ScenePhase>('intro');
+  const [phase, setPhase] = useState<ScenePhase>('projecting');
   const [devVerificationLink, setDevVerificationLink] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [isDirectLogin, setIsDirectLogin] = useState(false);
@@ -48,38 +48,16 @@ export default function RegisterClient() {
     passwordStrength: getPasswordStrength(password),
   });
 
-  // Map mascotState dynamically based on phase
-  const mascotState = (phase === 'projecting') ? hookMascotState : (
-    phase === 'success' ? 'success' : (
-      phase === 'submitting' ? 'submitting' : (
-        phase === 'error' ? 'error' : 'idle'
-      )
-    )
-  );
+  const mascotState = phase === 'projecting' ? hookMascotState :
+    phase === 'success' ? 'success' :
+    phase === 'submitting' ? 'submitting' :
+    phase === 'error' ? 'error' : 'idle';
 
   useEffect(() => {
-    if (user && (phase === 'intro' || phase === 'sidePosition' || phase === 'projecting')) {
+    if (user && phase === 'projecting') {
       window.location.href = '/dashboard';
     }
   }, [user, phase]);
-
-  // Intro -> Side Position Transition
-  useEffect(() => {
-    const t1 = setTimeout(() => {
-      setPhase('sidePosition');
-    }, 1400);
-    return () => clearTimeout(t1);
-  }, []);
-
-  // Side Position -> Projecting (Reveal Hologram)
-  useEffect(() => {
-    if (phase === 'sidePosition') {
-      const t2 = setTimeout(() => {
-        setPhase('projecting');
-      }, 800);
-      return () => clearTimeout(t2);
-    }
-  }, [phase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,11 +82,7 @@ export default function RegisterClient() {
     } catch (err: any) {
       setError(err.message || 'Registration failed');
       setPhase('error');
-      
-      // Revert to projection mode after showing error warning pose
-      setTimeout(() => {
-        setPhase('projecting');
-      }, 1500);
+      setTimeout(() => setPhase('projecting'), 1500);
     }
   };
 
@@ -117,10 +91,8 @@ export default function RegisterClient() {
     try {
       await api.auth.resendVerification(email);
       setResendStatus('success');
-      setTimeout(() => {
-        setResendStatus('idle');
-      }, 5000);
-    } catch (err: any) {
+      setTimeout(() => setResendStatus('idle'), 5000);
+    } catch {
       setResendStatus('error');
     }
   };
@@ -128,47 +100,52 @@ export default function RegisterClient() {
   const strength = getPasswordStrength(password);
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-[#09090e] p-4 text-white font-sans overflow-hidden">
-      
-      {/* Back to Home Button */}
-      <Link 
-        href="/"
-        className="absolute top-6 left-6 z-50 flex items-center gap-2 px-3 py-2 text-white/50 hover:text-white hover:bg-white/5 rounded-xl transition-all text-xs font-bold uppercase tracking-widest group"
+    <div className="min-h-screen flex bg-white font-sans overflow-hidden">
+
+      {/* ─── LEFT PANEL: Sentinel ─────────────────────────────────────────── */}
+      <div
+        className="auth-dark-panel auth-sentinel-panel hidden lg:flex lg:w-[44%] relative flex-col justify-between p-12 select-none"
+        style={{ backgroundColor: '#0B0F19' }}
       >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-        Back to Home
-      </Link>
+        {/* Ambient glow blobs */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-none">
+          <div className="absolute top-[15%] left-[10%] w-[280px] h-[280px] rounded-full"
+               style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.14) 0%, transparent 70%)' }} />
+          <div className="absolute bottom-[18%] right-[8%] w-[320px] h-[320px] rounded-full"
+               style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)' }} />
+        </div>
 
-      {/* Ambient background decoration blobs */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        <motion.div 
-          animate={{
-            scale: [1, 1.2, 1],
-            x: [0, -30, 0],
-            y: [0, 20, 0]
-          }}
-          transition={{ repeat: Infinity, duration: 16, ease: "easeInOut" }}
-          className="absolute top-[10%] right-[15%] w-[350px] h-[350px] bg-indigo-600/10 rounded-full blur-[100px]" 
-        />
-        <motion.div 
-          animate={{
-            scale: [1, 1.15, 1],
-            x: [0, 30, 0],
-            y: [0, -30, 0]
-          }}
-          transition={{ repeat: Infinity, duration: 14, ease: "easeInOut" }}
-          className="absolute bottom-[10%] left-[15%] w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[120px]" 
-        />
-      </div>
-
-      <div className="w-full max-w-4xl min-h-[520px] flex items-center justify-center z-10 relative">
-        {phase === 'intro' || phase === 'returnCenter' ? (
-          <motion.div
-            layout
-            layoutId="robot-wrapper"
-            className="flex items-center justify-center"
-            transition={{ type: 'spring', stiffness: 80, damping: 15 }}
+        {/* Top: Back link */}
+        <div className="relative z-10">
+          <Link
+            href="/"
+            className="auth-back-link inline-flex items-center gap-2 transition-all duration-200 group"
+            style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}
           >
+            <ArrowLeft
+              className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform"
+            />
+            <span className="group-hover:opacity-100 transition-opacity">Back to Home</span>
+          </Link>
+        </div>
+
+        {/* Middle: Sentinel mascot */}
+        <div className="relative z-10 flex flex-col items-center justify-center flex-1 gap-8">
+          {/* Card */}
+          <div
+            className="auth-sentinel-card relative w-full max-w-[248px] rounded-[28px] flex flex-col items-center justify-center p-6"
+            style={{
+              background: 'rgba(255,255,255,0.028)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 32px 64px rgba(0,0,0,0.35), 0 0 0 1px rgba(99,102,241,0.08) inset',
+            }}
+          >
+            {/* Corner accents */}
+            <span className="auth-sentinel-corner absolute top-0 left-0 w-4 h-4 border-t border-l border-white/15 rounded-tl-[10px]" />
+            <span className="auth-sentinel-corner absolute top-0 right-0 w-4 h-4 border-t border-r border-white/15 rounded-tr-[10px]" />
+            <span className="auth-sentinel-corner absolute bottom-0 left-0 w-4 h-4 border-b border-l border-white/15 rounded-bl-[10px]" />
+            <span className="auth-sentinel-corner absolute bottom-0 right-0 w-4 h-4 border-b border-r border-white/15 rounded-br-[10px]" />
+
             <PixelSentinel
               state={mascotState}
               showPassword={showPassword}
@@ -177,276 +154,354 @@ export default function RegisterClient() {
               passwordLength={password.length}
               nameLength={name.length}
             />
-          </motion.div>
-        ) : (
-          <div className="w-full flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
-            <motion.div
-              layout
-              layoutId="robot-wrapper"
-              className="flex justify-center items-center relative"
-              transition={{ type: 'spring', stiffness: 80, damping: 15 }}
-            >
-              <PixelSentinel
-                state={mascotState}
-                showPassword={showPassword}
-                focusedField={focusedField}
-                emailLength={email.length}
-                passwordLength={password.length}
-                nameLength={name.length}
-              />
+          </div>
 
-              <AnimatePresence>
-                {(phase === 'projecting' || phase === 'submitting' || phase === 'error') && (
+          {/* Caption */}
+          <div className="text-center space-y-2.5 max-w-[280px]">
+            <h2
+              className="font-display font-bold"
+              style={{ color: '#ffffff', fontSize: '1.0625rem', letterSpacing: '-0.015em', lineHeight: 1.35 }}
+            >
+              Start your workspace
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.75rem', lineHeight: 1.7, fontWeight: 400, letterSpacing: '0.005em' }}>
+              Create an account to start visual QA sessions, invite teammates, and manage reviews.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── RIGHT PANEL: Form ────────────────────────────────────────── */}
+      <div
+        className="auth-form-panel flex-1 flex flex-col min-h-screen overflow-y-auto"
+        style={{ background: '#F8F7F4' }}
+      >
+        {/* Mobile top bar */}
+        <div className="flex items-center justify-between px-6 py-5 lg:hidden border-b" style={{ borderColor: 'rgba(37,59,128,0.07)' }}>
+          <Link href="/" className="inline-flex items-center gap-1.5 text-pm-muted hover:text-[#253B80] transition-colors group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+            <span style={{ fontSize: '13px', fontWeight: 600 }}>Home</span>
+          </Link>
+          <Link href="/" className="flex items-center gap-1.5">
+            <div className="text-[#253B80]">
+              <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+                <rect x="1.5" y="1.5" width="23" height="23" rx="6" stroke="currentColor" strokeWidth="2.5" fill="none"/>
+                <circle cx="13" cy="13" r="4.5" stroke="currentColor" strokeWidth="2.5" fill="none"/>
+                <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <span className="font-display font-extrabold tracking-tight" style={{ color: '#1E2022', fontSize: '15px' }}>PixelMark</span>
+          </Link>
+        </div>
+
+        {/* Form centered vertically */}
+        <div className="flex-1 flex items-center justify-center px-6 md:px-12 py-14">
+          <div className="w-full max-w-[420px] space-y-7">
+
+            {/* Logo + Headline */}
+            <div className="space-y-5">
+              <Link href="/" className="hidden lg:inline-flex items-center gap-2 group">
+                <div className="text-[#253B80] group-hover:scale-105 transition-transform duration-300">
+                  <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+                    <rect x="1.5" y="1.5" width="23" height="23" rx="6" stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.9"/>
+                    <circle cx="13" cy="13" r="4.5" stroke="currentColor" strokeWidth="2.5" fill="none"/>
+                    <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
+                  </svg>
+                </div>
+                <span
+                  className="font-display font-bold tracking-tight"
+                  style={{ color: '#1E2022', fontSize: '14px', letterSpacing: '-0.01em' }}
+                >PixelMark</span>
+              </Link>
+
+              {phase !== 'success' && (
+                <div className="space-y-3">
+                  <h1
+                    className="auth-form-heading font-display font-extrabold"
+                    style={{ color: '#0F172A', fontSize: '2.25rem', lineHeight: 1.1, letterSpacing: '-0.03em' }}
+                  >
+                    Create account
+                  </h1>
+                  <p
+                    className="auth-form-subtext"
+                    style={{ color: '#64748B', fontSize: '0.875rem', lineHeight: 1.65, fontWeight: 400, maxWidth: '34ch' }}
+                  >
+                    Get started with your free personal QA workspace today.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {phase === 'success' ? (
+              <div
+                className="w-full rounded-2xl border p-6 space-y-5 shadow-sm text-center"
+                style={{
+                  background: '#ffffff',
+                  borderColor: 'rgba(37,59,128,0.12)',
+                }}
+              >
+                {isDirectLogin ? (
                   <>
-                    <motion.div
-                      initial={{ opacity: 0, scaleX: 0 }}
-                      animate={{ opacity: 0.12, scaleX: 1 }}
-                      exit={{ opacity: 0, scaleX: 0 }}
-                      transition={{ duration: 0.4 }}
-                      style={{
-                        originX: 1,
-                        clipPath: 'polygon(0 40%, 100% 0, 100% 100%, 0 60%)',
-                        background: 'linear-gradient(to right, rgba(6, 182, 212, 0.8) 0%, rgba(6, 182, 212, 0.05) 100%)',
-                      }}
-                      className="hidden md:block absolute left-full top-[10px] w-[64px] md:w-[90px] h-[260px] pointer-events-none"
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, scaleY: 0 }}
-                      animate={{ opacity: 0.1, scaleY: 1 }}
-                      exit={{ opacity: 0, scaleY: 0 }}
-                      transition={{ duration: 0.4 }}
-                      style={{
-                        originY: 0,
-                        clipPath: 'polygon(45% 0, 55% 0, 100% 100%, 0 100%)',
-                        background: 'linear-gradient(to bottom, rgba(6, 182, 212, 0.8) 0%, rgba(6, 182, 212, 0.05) 100%)',
-                      }}
-                      className="block md:hidden absolute top-[135px] left-1/2 -translate-x-1/2 w-[180px] h-[36px] pointer-events-none"
-                    />
+                    <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                      🎉
+                    </div>
+
+                    <div className="space-y-2">
+                      <h2 className="text-xl font-bold text-slate-800">Account Created!</h2>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Welcome, <strong>{name || email}</strong>! Logging you in and redirecting to the dashboard...
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                      ✉️
+                    </div>
+
+                    <div className="space-y-2">
+                      <h2 className="text-xl font-bold text-slate-800">Check your email</h2>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        We've sent a verification link to <strong>{email}</strong>. Please check your inbox and click the link to activate your account.
+                      </p>
+                    </div>
+
+                    {devVerificationLink && (
+                      <a
+                        href={devVerificationLink}
+                        className="block text-xs rounded-xl p-3 text-center break-all transition-colors"
+                        style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.3)', color: '#92400E' }}
+                      >
+                        [Dev] Click to auto-verify →
+                      </a>
+                    )}
+
+                    <div className="border-t border-slate-100 pt-4 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={handleResend}
+                        disabled={resendStatus === 'sending'}
+                        className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs transition-colors font-bold uppercase tracking-widest rounded-xl disabled:opacity-50"
+                      >
+                        {resendStatus === 'sending' ? 'Resending...' :
+                         resendStatus === 'success' ? 'Verification email resent!' :
+                         resendStatus === 'error' ? 'Resend failed. Retry.' :
+                         'Resend verification email'}
+                      </button>
+                      <Link href="/login" className="text-slate-400 hover:text-slate-600 text-xs transition-colors font-bold uppercase tracking-widest block py-2">
+                        Back to sign in
+                      </Link>
+                    </div>
                   </>
                 )}
-              </AnimatePresence>
-            </motion.div>
-
-            <AnimatePresence>
-              {(phase === 'projecting' || phase === 'submitting' || phase === 'error') && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8, x: -30 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.85, x: -15, filter: 'blur(4px)' }}
-                  transition={{ duration: 0.4, ease: 'easeOut' }}
+              </div>
+            ) : (
+              <>
+                {/* GitHub SSO */}
+                <a
+                  href={`${process.env.NEXT_PUBLIC_API_URL || ''}/auth/oauth/github/start`}
+                  className="auth-github-btn btn-secondary-3d flex items-center justify-center gap-2.5 w-full rounded-xl transition-all duration-200"
                   style={{
-                    originX: 0,
-                    backgroundImage: 'linear-gradient(rgba(6, 182, 212, 0.02) 1px, transparent 1px)',
-                    backgroundSize: '100% 4px',
+                    background: '#ffffff',
+                    border: '1px solid rgba(37,59,128,0.12)',
+                    color: '#1E2022',
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
+                    padding: '10px 16px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                   }}
-                  className="w-full max-w-md bg-indigo-950/5 backdrop-blur-2xl border border-cyan-500/20 rounded-[32px] p-8 space-y-6 shadow-[0_0_50px_rgba(6,182,212,0.1)] hover:border-cyan-500/30 transition-colors duration-500 relative"
                 >
-                  <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400 rounded-tl-lg" />
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400 rounded-tr-lg" />
-                  <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 rounded-bl-lg" />
-                  <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 rounded-br-lg" />
+                  <svg className="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                  </svg>
+                  Sign up with GitHub
+                </a>
 
-                  <div className="text-center space-y-4">
-                    <Link href="/" className="inline-flex flex-col items-center gap-1 group/logo">
-                      <div className="inline-flex w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 items-center justify-center text-white shadow-xl shadow-cyan-500/20 mb-2 group-hover/logo:scale-105 transition-transform duration-300">
-                        <Layout className="w-6 h-6" />
-                      </div>
-                      <div className="space-y-1">
-                        <h1 className="text-3xl font-black tracking-tight text-white flex items-center justify-center gap-2 group-hover/logo:text-cyan-400 transition-colors duration-300">
-                          Pixel<span className="text-cyan-400">Mark</span>
-                        </h1>
-                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Create your personal QA workspace</p>
-                      </div>
-                    </Link>
-                  </div>
+                {/* Divider */}
+                <div className="flex items-center gap-3">
+                  <div className="auth-divider-line flex-1 h-px" style={{ background: 'rgba(37,59,128,0.08)' }} />
+                  <span
+                    className="auth-divider-text"
+                    style={{ color: '#B0BBCF', fontSize: '11px', fontWeight: 500, whiteSpace: 'nowrap', letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                  >
+                    or with email
+                  </span>
+                  <div className="auth-divider-line flex-1 h-px" style={{ background: 'rgba(37,59,128,0.08)' }} />
+                </div>
 
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-xl leading-relaxed text-center"
+                {/* Error banner */}
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl px-4 py-3 text-sm text-center font-medium"
+                    style={{
+                      background: 'rgba(254,226,226,0.9)',
+                      border: '1px solid rgba(239,68,68,0.25)',
+                      color: '#B91C1C',
+                    }}
+                  >
+                    {error}
+                  </motion.div>
+                )}
+
+                {/* Form */}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Name */}
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="name"
+                      className="auth-form-label"
+                      style={{ color: '#475569', fontSize: '11.5px', fontWeight: 600, display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase' }}
                     >
-                      {error}
-                    </motion.div>
-                  )}
+                      Name (optional)
+                    </label>
+                    <input
+                      id="name"
+                      type="text"
+                      disabled={phase === 'submitting'}
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        otherProps.onChange();
+                      }}
+                      onFocus={otherProps.onFocus}
+                      onBlur={otherProps.onBlur}
+                      placeholder="e.g. John Doe"
+                      className="auth-form-input w-full rounded-xl outline-none transition-all duration-200 disabled:opacity-50"
+                      style={{ padding: '10px 14px', fontSize: '0.875rem' }}
+                    />
+                  </div>
 
-                  {/* Social Logins */}
-                  <div className="flex justify-center">
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_API_URL || ''}/auth/oauth/github/start`}
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-white/[0.02] hover:bg-white/[0.05] border border-white/10 rounded-xl transition-all duration-300 group cursor-pointer text-xs font-bold text-white"
+                  {/* Email */}
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="email"
+                      className="auth-form-label"
+                      style={{ color: '#475569', fontSize: '11.5px', fontWeight: 600, display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase' }}
                     >
-                      <svg className="w-4 h-4 text-white/60 group-hover:text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
-                      </svg>
-                      Sign up with GitHub
-                    </a>
-                  </div>
-                  
-                  <div className="relative flex py-1 items-center">
-                    <div className="flex-grow border-t border-white/5"></div>
-                    <span className="flex-shrink mx-4 text-[9px] font-bold text-white/20 uppercase tracking-widest">or email & password</span>
-                    <div className="flex-grow border-t border-white/5"></div>
+                      Email
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      disabled={phase === 'submitting'}
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (error) setError(null);
+                        emailProps.onChange();
+                      }}
+                      onFocus={emailProps.onFocus}
+                      onBlur={emailProps.onBlur}
+                      placeholder="name@company.com"
+                      autoComplete="email"
+                      className="auth-form-input w-full rounded-xl outline-none transition-all duration-200 disabled:opacity-50"
+                      style={{ padding: '10px 14px', fontSize: '0.875rem' }}
+                    />
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-white/40 text-[10px] font-black uppercase tracking-widest block">Name (optional)</label>
-                      <input
-                        type="text"
-                        disabled={phase === 'submitting'}
-                        value={name}
-                        onChange={(e) => {
-                          setName(e.target.value);
-                          otherProps.onChange();
-                        }}
-                        onFocus={otherProps.onFocus}
-                        onBlur={otherProps.onBlur}
-                        placeholder="Pro Bro"
-                        className="w-full bg-white/[0.03] border border-white/[0.08] text-white rounded-xl px-4 py-3 text-xs placeholder:text-white/20 focus:border-cyan-500 outline-none transition-all focus:ring-1 focus:ring-cyan-500/50"
-                      />
+                  {/* Password */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label
+                        htmlFor="password"
+                        className="auth-form-label"
+                        style={{ color: '#475569', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                      >
+                        Password
+                      </label>
+                      {password.length > 0 && (
+                        <span className={`text-[9.5px] font-bold uppercase tracking-wider ${strength === 'strong' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {strength === 'strong' ? 'Strong' : 'Weak'}
+                        </span>
+                      )}
                     </div>
-
-                    <div className="space-y-2">
-                      <label className="text-white/40 text-[10px] font-black uppercase tracking-widest block">Email Address</label>
+                    <div className="relative">
                       <input
-                        type="email"
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
                         required
                         disabled={phase === 'submitting'}
-                        value={email}
+                        value={password}
                         onChange={(e) => {
-                          setEmail(e.target.value);
+                          setPassword(e.target.value);
                           if (error) setError(null);
-                          emailProps.onChange();
+                          passwordProps.onChange();
                         }}
-                        onFocus={emailProps.onFocus}
-                        onBlur={emailProps.onBlur}
-                        placeholder="name@company.com"
-                        className="w-full bg-white/[0.03] border border-white/[0.08] text-white rounded-xl px-4 py-3 text-xs placeholder:text-white/20 focus:border-cyan-500 outline-none transition-all focus:ring-1 focus:ring-cyan-500/50"
+                        onFocus={passwordProps.onFocus}
+                        onBlur={passwordProps.onBlur}
+                        placeholder="Create a strong password"
+                        autoComplete="new-password"
+                        className="auth-form-input w-full rounded-xl outline-none transition-all duration-200 disabled:opacity-50"
+                        style={{ padding: '10px 44px 10px 14px', fontSize: '0.875rem' }}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        disabled={phase === 'submitting'}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors p-1 rounded-lg"
+                        style={{ color: '#94A3B8' }}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <label className="text-white/40 text-[10px] font-black uppercase tracking-widest block">Password</label>
-                        {password.length > 0 && (
-                          <span className={`text-[9px] font-bold uppercase tracking-wider ${strength === 'strong' ? 'text-emerald-400' : 'text-amber-400 animate-pulse'}`}>
-                            {strength === 'strong' ? 'Strong' : 'Weak (Min 8 chars, 3 types)'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          disabled={phase === 'submitting'}
-                          value={password}
-                          onChange={(e) => {
-                            setPassword(e.target.value);
-                            if (error) setError(null);
-                            passwordProps.onChange();
-                          }}
-                          onFocus={passwordProps.onFocus}
-                          onBlur={passwordProps.onBlur}
-                          placeholder="••••••••"
-                          className="w-full bg-white/[0.03] border border-white/[0.08] text-white rounded-xl pl-4 pr-11 py-3 text-xs placeholder:text-white/20 focus:border-cyan-500 outline-none transition-all focus:ring-1 focus:ring-cyan-500/50"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors p-1"
-                          disabled={phase === 'submitting'}
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={phase === 'submitting'}
-                      className="w-full py-3.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:hover:bg-cyan-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-cyan-900/20 active:scale-[0.98] text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 group mt-2"
-                    >
-                      {phase === 'submitting' ? 'Creating...' : 'Create Account'}
-                      {phase !== 'submitting' && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-                    </button>
-                  </form>
-
-                  <div className="text-center pt-2">
-                    <Link href="/login" className="text-cyan-400 hover:text-cyan-300 text-xs transition-colors font-bold uppercase tracking-widest text-[10px]">
-                      Already have an account? Sign in
-                    </Link>
                   </div>
-                </motion.div>
-              )}
 
-              {phase === 'success' && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8, x: -30 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.85, x: -15, filter: 'blur(4px)' }}
-                  transition={{ duration: 0.4, ease: 'easeOut' }}
-                  style={{
-                    originX: 0,
-                    backgroundImage: 'linear-gradient(rgba(6, 182, 212, 0.02) 1px, transparent 1px)',
-                    backgroundSize: '100% 4px',
-                  }}
-                  className="w-full max-w-md bg-indigo-950/5 backdrop-blur-2xl border border-cyan-500/20 rounded-[32px] p-8 space-y-6 shadow-[0_0_50px_rgba(6,182,212,0.1)] text-center relative"
-                >
-                  <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400 rounded-tl-lg" />
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400 rounded-tr-lg" />
-                  <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 rounded-bl-lg" />
-                  <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 rounded-br-lg" />
+                  {/* Submit */}
+                  <button
+                    type="submit"
+                    disabled={phase === 'submitting'}
+                    className="btn-primary-3d w-full flex items-center justify-center gap-2 group rounded-xl transition-all duration-200 font-display font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: '#253B80',
+                      color: '#ffffff',
+                      fontSize: '0.875rem',
+                      letterSpacing: '0.03em',
+                      padding: '11px 20px',
+                      marginTop: '8px',
+                    }}
+                  >
+                    {phase === 'submitting' ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Creating Account…
+                      </span>
+                    ) : (
+                      <>
+                        Sign up free
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                </form>
 
-                  {isDirectLogin ? (
-                    <>
-                      <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-                        🎉
-                      </div>
-
-                      <div className="space-y-2">
-                        <h2 className="text-2xl font-black italic tracking-tight text-white font-display">Account Created!</h2>
-                        <p className="text-xs text-white/40 leading-relaxed max-w-xs mx-auto">
-                          Welcome, <strong className="text-white">{name || email}</strong>! Logging you in and redirecting to the dashboard...
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-                        ✉️
-                      </div>
-
-                      <div className="space-y-2">
-                        <h2 className="text-2xl font-black italic tracking-tight text-white">Check your email</h2>
-                        <p className="text-xs text-white/40 leading-relaxed max-w-xs mx-auto">
-                          We've sent a verification link to <strong className="text-white">{email}</strong>. Please check your inbox and click the link to activate your account.
-                        </p>
-                      </div>
-
-                      <div className="border-t border-white/5 pt-4 flex flex-col gap-3">
-                        <button
-                          type="button"
-                          onClick={handleResend}
-                          disabled={resendStatus === 'sending'}
-                          className="w-full py-3 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 text-xs transition-colors font-bold uppercase tracking-widest text-[10px] rounded-xl cursor-pointer disabled:opacity-50"
-                        >
-                          {resendStatus === 'sending' ? 'Resending...' :
-                           resendStatus === 'success' ? 'Verification email resent!' :
-                           resendStatus === 'error' ? 'Resend failed. Retry.' :
-                           'Resend verification email'}
-                        </button>
-                        <Link href="/login" className="text-white/40 hover:text-white text-xs transition-colors font-bold uppercase tracking-widest text-[10px] block py-2">
-                          Back to sign in
-                        </Link>
-                      </div>
-                    </>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+                {/* Footer link */}
+                <p className="auth-form-footer-text text-center" style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 400 }}>
+                  Already have an account?{' '}
+                  <Link
+                    href="/login"
+                    style={{ color: '#253B80', fontWeight: 600 }}
+                    className="hover:underline transition-colors"
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Footer */}
+        <div
+          className="auth-form-footer-bar text-center py-5 border-t"
+          style={{ borderColor: 'rgba(37,59,128,0.07)', color: '#94A3B8', fontSize: '12px' }}
+        >
+          © {new Date().getFullYear()} PixelMark · Secure Workspace · All rights reserved
+        </div>
       </div>
     </div>
   );
