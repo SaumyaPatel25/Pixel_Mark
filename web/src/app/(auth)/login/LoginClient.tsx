@@ -160,15 +160,8 @@ export default function LoginClient() {
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
             <span style={{ fontSize: '13px', fontWeight: 600 }}>Home</span>
           </Link>
-          <Link href="/" className="flex items-center gap-1.5">
-            <div className="text-[#253B80]">
-              <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
-                <rect x="1.5" y="1.5" width="23" height="23" rx="6" stroke="currentColor" strokeWidth="2.5" fill="none"/>
-                <circle cx="13" cy="13" r="4.5" stroke="currentColor" strokeWidth="2.5" fill="none"/>
-                <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
-              </svg>
-            </div>
-            <span className="font-display font-extrabold tracking-tight" style={{ color: '#1E2022', fontSize: '15px' }}>PixelMark</span>
+          <Link href="/">
+            <img src="/logo.png" alt="PixelMark" className="h-11 w-auto object-contain" />
           </Link>
         </div>
 
@@ -178,18 +171,8 @@ export default function LoginClient() {
 
             {/* Logo + Headline */}
             <div className="space-y-5">
-              <Link href="/" className="hidden lg:inline-flex items-center gap-2 group">
-                <div className="text-[#253B80] group-hover:scale-105 transition-transform duration-300">
-                  <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
-                    <rect x="1.5" y="1.5" width="23" height="23" rx="6" stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.9"/>
-                    <circle cx="13" cy="13" r="4.5" stroke="currentColor" strokeWidth="2.5" fill="none"/>
-                    <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
-                  </svg>
-                </div>
-                <span
-                  className="font-display font-bold tracking-tight"
-                  style={{ color: '#1E2022', fontSize: '14px', letterSpacing: '-0.01em' }}
-                >PixelMark</span>
+              <Link href="/" className="hidden lg:block">
+                <img src="/logo.png" alt="PixelMark" className="h-11 w-auto object-contain" />
               </Link>
 
               <div className="space-y-3">

@@ -61,15 +61,10 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
         <div className="space-y-8">
           {/* Brand header */}
           <div className="space-y-1">
-            <Link href="/dashboard" className="text-lg font-black tracking-tight text-pm-text flex items-center gap-2">
-              <svg width="18" height="18" viewBox="0 0 26 26" fill="none" className="text-pm-accent">
-                <rect x="1.5" y="1.5" width="23" height="23" rx="6" stroke="currentColor" strokeWidth="2.5" fill="none"/>
-                <circle cx="13" cy="13" r="4.5" stroke="currentColor" strokeWidth="2.5" fill="none"/>
-                <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
-              </svg>
-              <span>PixelMark</span>
+            <Link href="/dashboard" className="block">
+              <img src="/logo.png" alt="PixelMark" className="h-10 w-auto object-contain" />
             </Link>
-            <span className="text-[9px] font-mono tracking-widest text-pm-muted uppercase block leading-none pl-6">Visual QA OS</span>
+            <span className="text-[9px] font-mono tracking-widest text-pm-muted uppercase block leading-none pl-1">Visual QA OS</span>
           </div>
 
           {/* Navigation Links */}

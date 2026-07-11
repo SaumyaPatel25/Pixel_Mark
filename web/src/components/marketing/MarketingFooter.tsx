@@ -25,19 +25,8 @@ export default function MarketingFooter() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 mb-16">
           {/* Column 1: Brand */}
           <div className="lg:col-span-4 space-y-4 text-left">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="text-pm-accent group-hover:scale-105 transition-transform duration-300">
-                <svg width="22" height="22" viewBox="0 0 26 26" fill="none">
-                  <rect x="1.5" y="1.5" width="23" height="23" rx="6"
-                    stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.9"/>
-                  <circle cx="13" cy="13" r="4.5"
-                    stroke="currentColor" strokeWidth="2.5" fill="none"/>
-                  <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
-                </svg>
-              </div>
-              <span className="font-display font-extrabold text-base tracking-tight text-pm-text">
-                PixelMark
-              </span>
+            <Link href="/" className="block">
+              <img src="/logo.png" alt="PixelMark" className="h-12 w-auto object-contain" />
             </Link>
             <p className="text-xs text-pm-muted leading-relaxed max-w-sm font-sans">
               Precision visual feedback and website reviews built for designers, developers, QA teams, and agencies. Bridge the gap between UI revisions and codebase fixes.

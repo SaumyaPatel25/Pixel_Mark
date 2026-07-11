@@ -475,12 +475,15 @@ export function ProjectCard({
           {/* Quick Action Button Group */}
           <div className="flex items-center gap-1.5">
             {/* Primary Workspace CTA Button */}
-            <span id="onboarding-open-workspace-btn" className="text-[10px] font-extrabold uppercase bg-pm-accent-subtle border border-pm-border text-pm-accent group-hover:bg-pm-accent group-hover:text-white px-4 py-1.5 rounded-xl transition-all select-none">
+            <span 
+              id="onboarding-open-workspace-btn" 
+              className="text-[10px] font-extrabold uppercase bg-pm-accent-subtle border border-pm-border text-pm-accent px-4 py-1.5 rounded-xl select-none transition-all duration-200 transform group-hover:opacity-0 group-hover:scale-95 group-hover:pointer-events-none"
+            >
               Open Workspace →
             </span>
 
             {/* Quick Action Overlays */}
-            <div className="absolute right-0 bottom-1 flex items-center gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 bg-pm-surface pl-4">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 transform scale-95 group-hover:scale-100">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
