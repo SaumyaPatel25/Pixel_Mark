@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: pixelmark-backend
+    env: docker
+    rootDir: backend
+    dockerfilePath: Dockerfile
+    plan: free
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: PROVIDER_SECRETS_ENCRYPTION_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: BACKEND_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: pixelmark-redis
+          property: connectionString
+
+  - type: redis
+    name: pixelmark-redis
+    plan: free
+    ipAllowList: [] # Restrict access to internal network only for security

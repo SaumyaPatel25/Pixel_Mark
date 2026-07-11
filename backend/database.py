@@ -26,7 +26,7 @@ elif DATABASE_URL.startswith("postgres://"):
 if "sslmode=" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.split("?")[0]
 
-if "neon.tech" in DATABASE_URL:
+if "neon.tech" in DATABASE_URL or "render.com" in DATABASE_URL:
     engine = create_async_engine(
         DATABASE_URL,
         echo=False,
