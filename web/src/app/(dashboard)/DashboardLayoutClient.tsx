@@ -4,6 +4,7 @@ import React, { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
+import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
 import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download, Home } from 'lucide-react'
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
@@ -33,8 +34,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   if (isLoading && !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-pm-bg text-pm-text transition-colors duration-300">
-        <span className="w-6 h-6 border-2 border-pm-accent border-t-transparent rounded-full animate-spin mr-3" />
-        <span className="text-xs uppercase font-mono tracking-widest text-pm-muted">Restoring Session...</span>
+        <PixelmarkLoader size="md" text="Restoring Session..." />
       </div>
     )
   }

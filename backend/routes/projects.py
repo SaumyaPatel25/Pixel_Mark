@@ -144,14 +144,44 @@ async def get_project_analytics(project_id: str, current_user: User = Depends(ge
     if cached is not None:
         return cached
 
+    from markers.models import Marker
+    from datetime import datetime
+    
+    res_markers = await db.execute(select(Marker).where(Marker.project_id == project_id))
+    markers = res_markers.scalars().all()
+
+    total = len(markers)
+    resolved = sum(1 for m in markers if m.status and m.status.lower() == 'resolved')
+    open_markers = total - resolved
+
+    by_severity = {"P0": 0, "P1": 0, "P2": 0, "P3": 0}
+    for m in markers:
+        if m.priority and m.priority.upper() in by_severity:
+            by_severity[m.priority.upper()] += 1
+
+    resolution_rate = int((resolved / total) * 100) if total > 0 else 100
+    health_score = 100 - (by_severity["P0"] * 20) - (by_severity["P1"] * 10) - (by_severity["P2"] * 5)
+    health_score = max(0, min(100, health_score))
+
+    activity = [0] * 7
+    now = datetime.utcnow()
+    for m in markers:
+        if m.created_at:
+            m_created = m.created_at.replace(tzinfo=None) if m.created_at.tzinfo else m.created_at
+            delta = now - m_created
+            if delta.days < 7:
+                idx = 6 - delta.days
+                if 0 <= idx < 7:
+                    activity[idx] += 1
+
     res_data = {
-        "health_score": 100,
-        "by_severity": {"P0": 0, "P1": 0, "P2": 0, "P3": 0},
-        "open": 0,
-        "resolved": 0,
-        "total": 0,
-        "resolution_rate": 100,
-        "activity": [0, 0, 0, 0, 0, 0, 0]
+        "health_score": health_score,
+        "by_severity": by_severity,
+        "open": open_markers,
+        "resolved": resolved,
+        "total": total,
+        "resolution_rate": resolution_rate,
+        "activity": activity
     }
     from services.cache import cache
     cache.set(cache_key, res_data, 15)

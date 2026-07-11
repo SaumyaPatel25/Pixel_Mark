@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Loader2, ArrowLeft, Monitor, Pin, Plus, X, Check,
   AlertTriangle, ChevronDown, MousePointer2, Layers,
-  Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil, Share2, Minimize2
+  Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil, Share2, Minimize2, Maximize2
 } from 'lucide-react'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
 import { api } from '@/lib/api'
@@ -64,6 +64,8 @@ interface AuditSurfaceProps {
   onMarkerCreated?: (marker: any) => void
   onPageChanged?: (url: string, title: string) => void
   shouldConnectSocket?: boolean
+  isHeaderCollapsed?: boolean
+  onHeaderCollapsedChange?: (collapsed: boolean) => void
 }
 
 type IssueType = 'layout' | 'copy' | 'interaction' | 'navigation' | 'rendering' | 'canvas_webgl' | 'other'
@@ -305,9 +307,12 @@ export function AuditSurface({
   isReviewerGateOpen,
   onMarkerCreated,
   onPageChanged,
-  shouldConnectSocket = true
+  shouldConnectSocket = true,
+  isHeaderCollapsed = false,
+  onHeaderCollapsedChange
 }: AuditSurfaceProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const isDraggingExitFocusRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const containerRectRef = useRef<DOMRect | null>(null)
@@ -1866,7 +1871,10 @@ export function AuditSurface({
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
 
         {/* Top bar */}
-        <div className="bg-[#0d0d14] border-b border-white/5 text-white/60 text-xs px-5 h-12 flex items-center justify-between z-20 select-none gap-4">
+        <div className={cn(
+          "bg-[#0d0d14] border-b border-white/5 text-white/60 text-xs px-5 flex items-center justify-between z-20 select-none gap-4 transition-all duration-300",
+          isHeaderCollapsed ? "h-0 overflow-hidden border-b-0 py-0 opacity-0" : "h-12"
+        )}>
 
           {/* Left: back + URL */}
           <div className="flex items-center gap-3 min-w-0">
@@ -1940,6 +1948,16 @@ export function AuditSurface({
           {/* Right: controls */}
           <div className="flex items-center gap-3 flex-shrink-0">
 
+            {/* ── Focus Mode Button ────────────────────────────── */}
+            <button
+              onClick={() => onHeaderCollapsedChange?.(!isHeaderCollapsed)}
+              title="Focus Mode (Hide Headers)"
+              className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all border border-[#293681]/20 bg-white/5 text-slate-300 hover:bg-white/10 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              Focus Mode
+            </button>
+
             {/* ── Share Review CTA ────────────────────────────── */}
             <button
               onClick={() => setIsSharePanelOpen(true)}
@@ -2012,13 +2030,15 @@ export function AuditSurface({
 
 
         {/* Page navigation tab bar */}
-        <PageTabBar
-          sessionId={sessionId}
-          currentUrl={currentUrl}
-          onSelectPage={handleSelectPage}
-          shareToken={shareToken}
-          refreshTrigger={refreshTrigger}
-        />
+        {!isHeaderCollapsed && (
+          <PageTabBar
+            sessionId={sessionId}
+            currentUrl={currentUrl}
+            onSelectPage={handleSelectPage}
+            shareToken={shareToken}
+            refreshTrigger={refreshTrigger}
+          />
+        )}
 
         {/* ── Viewport frame ───────────────────────────────────────────── */}
         <div
@@ -3075,6 +3095,25 @@ export function AuditSurface({
             />
           </div>
         </div>
+      )}
+      {isHeaderCollapsed && (
+        <motion.button
+          drag
+          dragMomentum={false}
+          onDragStart={() => { isDraggingExitFocusRef.current = true }}
+          onDragEnd={() => { 
+            setTimeout(() => { isDraggingExitFocusRef.current = false }, 100) 
+          }}
+          type="button"
+          onPointerUp={() => {
+            if (isDraggingExitFocusRef.current) return;
+            onHeaderCollapsedChange?.(false);
+          }}
+          className="fixed top-3 right-3 z-[9999] w-auto h-9 px-3 rounded-xl border border-pm-border bg-pm-surface/90 hover:bg-pm-surface text-pm-text flex items-center justify-center gap-2 cursor-grab active:cursor-grabbing shadow-lg backdrop-blur-sm opacity-60 hover:opacity-100 transition-opacity group"
+        >
+          <Maximize2 className="w-4 h-4 pointer-events-none" />
+          <span className="text-[10px] font-bold uppercase tracking-wider pointer-events-none">Exit Focus Mode</span>
+        </motion.button>
       )}
     </div>
   )

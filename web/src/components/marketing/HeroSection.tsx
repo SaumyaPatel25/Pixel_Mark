@@ -525,7 +525,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
     }
 
     return () => clearTimeout(timer);
-  }, [cinematicStep, isInteractive]);
+  }, [cinematicStep, isInteractive, demoState]);
 
   // Show Conversion when Launch Sandbox is clicked
   const launchSandbox = () => {
@@ -863,6 +863,11 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                       setDemoState('mockDemo');
                       setIsInteractive(false);
                       setCinematicStep(0);
+                      
+                      const sandboxEl = document.getElementById('hero-sandbox-demo');
+                      if (sandboxEl) {
+                        sandboxEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
                     }}
                     className="btn-secondary-3d px-8 py-4 bg-pm-surface hover:bg-pm-surface-2 text-pm-accent border border-pm-border rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer"
                   >
@@ -956,6 +961,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
 
         {/* Sandbox Mockup Section with Dramatic Spacing and Spotlight framing */}
         <motion.div 
+          id="hero-sandbox-demo"
           initial="collapsed"
           animate={isHeroTextComplete ? "burst" : "collapsed"}
           variants={sandboxVariants}

@@ -4,6 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
 import { api } from '@/lib/api'
 import { 
   ArrowLeft, 
@@ -95,9 +96,8 @@ function SessionsList() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-pm-bg text-pm-text flex flex-col items-center justify-center space-y-4 transition-colors duration-300">
-        <Loader2 className="w-8 h-8 animate-spin text-pm-accent" />
-        <span className="text-[10px] font-mono tracking-widest text-pm-muted uppercase">Loading Sessions...</span>
+      <div className="min-h-screen bg-pm-bg text-pm-text flex flex-col items-center justify-center transition-colors duration-300">
+        <PixelmarkLoader size="md" text="Loading Sessions..." />
       </div>
     )
   }
@@ -182,8 +182,8 @@ function SessionsList() {
                         : 'border-pm-border'
                     }`}
                   >
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-bold text-pm-text leading-snug">{s.title}</h3>
+                    <div className="space-y-2 min-w-0">
+                      <h3 className="text-sm font-bold text-pm-text leading-snug truncate">{s.title}</h3>
                       <div className="flex items-center gap-4 text-[10px] text-pm-muted font-bold uppercase tracking-wider">
                         <span className="flex items-center gap-1.5 font-mono">
                           <Clock className="w-3.5 h-3.5 text-pm-muted" />
@@ -197,20 +197,22 @@ function SessionsList() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <Link
                         href={`/project/${projectId}`}
-                        className="h-10 px-4 rounded-xl bg-pm-accent-subtle hover:bg-pm-accent/20 border border-pm-border text-pm-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
+                        title="Audit Canvas"
+                        className="group h-10 px-4 rounded-xl bg-pm-accent-subtle hover:bg-pm-accent/20 border border-pm-border text-pm-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm whitespace-nowrap overflow-hidden"
                       >
-                        <Play className="w-3.5 h-3.5" />
-                        Audit Canvas
+                        <Play className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="max-w-0 opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 transition-all duration-300 overflow-hidden">Audit Canvas</span>
                       </Link>
                       <Link
                         href={`/sessions/${s.id}`}
-                        className="h-10 px-4 rounded-xl bg-pm-surface border border-pm-border hover:bg-pm-surface-2 text-pm-muted hover:text-pm-text text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
+                        title="Observation Details"
+                        className="group h-10 px-4 rounded-xl bg-pm-surface border border-pm-border hover:bg-pm-surface-2 text-pm-muted hover:text-pm-text text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm whitespace-nowrap overflow-hidden"
                       >
-                        <Compass className="w-3.5 h-3.5 text-pm-accent" />
-                        Observation Details
+                        <Compass className="w-3.5 h-3.5 text-pm-accent flex-shrink-0" />
+                        <span className="max-w-0 opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 transition-all duration-300 overflow-hidden">Observation Details</span>
                       </Link>
                     </div>
                   </div>
@@ -334,9 +336,8 @@ function SessionsList() {
 export default function SessionsListPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-pm-bg text-pm-text flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-8 h-8 animate-spin text-pm-accent" />
-        <span className="text-[10px] font-mono tracking-widest text-pm-muted uppercase">Initialising sessions list...</span>
+      <div className="min-h-screen bg-pm-bg text-pm-text flex flex-col items-center justify-center">
+        <PixelmarkLoader size="md" text="Initialising sessions list..." />
       </div>
     }>
       <SessionsList />

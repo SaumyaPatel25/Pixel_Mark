@@ -8,13 +8,16 @@ import { Loader2, Shield, Lock, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { motion } from 'framer-motion'
+import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
 import { getStoredReviewerIdentity, clearStoredReviewerIdentity } from '@/lib/reviewerIdentity'
 import { getMarkerColors } from '@/lib/markerColors'
 import { ReviewerIdentity } from '@/types/markers'
+import { cn } from '@/lib/utils'
 
 export default function ReviewPage() {
   const params = useParams()
   const token = typeof params.token === 'string' ? params.token : ''
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -95,9 +98,8 @@ export default function ReviewPage() {
 
   if (loading && !verifying) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center space-y-4 bg-pm-bg text-pm-text transition-colors duration-300">
-        <Loader2 className="w-8 h-8 animate-spin text-pm-accent" />
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-pm-muted">Loading Review Session</p>
+      <div className="h-screen flex flex-col items-center justify-center bg-pm-bg text-pm-text transition-colors duration-300">
+        <PixelmarkLoader size="md" text="Loading Review Session" />
       </div>
     )
   }
@@ -173,7 +175,10 @@ export default function ReviewPage() {
         )}
 
         {/* Minimal Public Header */}
-        <header className="h-16 border-b border-pm-border flex items-center justify-between px-6 bg-pm-surface z-40 transition-colors duration-300">
+        <header className={cn(
+          "border-b border-pm-border flex items-center justify-between px-6 bg-pm-surface z-40 transition-all duration-300",
+          isHeaderCollapsed ? "h-0 overflow-hidden border-b-0 py-0 opacity-0" : "h-16"
+        )}>
           <div className="flex items-center gap-4">
             <div className="w-8 h-8 rounded-xl bg-pm-accent flex items-center justify-center shadow-sm">
               <span className="text-white font-black text-lg">P</span>
@@ -221,6 +226,8 @@ export default function ReviewPage() {
             shareToken={token}
             reviewerIdentity={reviewerIdentity}
             isReviewerGateOpen={showIdentityGate}
+            isHeaderCollapsed={isHeaderCollapsed}
+            onHeaderCollapsedChange={setIsHeaderCollapsed}
           />
         </main>
       </div>

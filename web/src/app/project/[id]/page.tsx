@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircle, BarChart3, Sparkles, ChevronDown, ExternalLink, MapPin, Eye, Zap } from 'lucide-react'
+import { Loader2, ArrowLeft, Share2, PanelRightClose, PanelRightOpen, AlertCircle, BarChart3, Sparkles, ChevronDown, ExternalLink, MapPin, Eye, Zap, Play, Compass, Minimize2, Maximize2 } from 'lucide-react'
 import { useScreenshotStore } from '@/store/screenshotStore'
 import { Button } from '@/components/ui/button'
 import { ExportPanel } from '@/components/ExportPanel'
@@ -17,6 +17,7 @@ import { AuditSurface } from '@/components/audit/AuditSurface'
 import { api } from '@/lib/api'
 import { Suspense } from 'react'
 import { ObservationDetails } from '@/components/audit/ObservationDetails'
+import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
 
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { useSessionSocket } from '@/lib/useSessionSocket'
@@ -98,6 +99,8 @@ function ProjectPageContent() {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const addToast = useUIStore(s => s.addToast)
   const viewportHeight = useViewportHeight()
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
+  const isDraggingExitFocusRef = useRef(false)
 
   const handleGenerateReport = useCallback(() => {
     if (!sessionId) return
@@ -248,6 +251,9 @@ function ProjectPageContent() {
     }
   }, [updateCursor])
 
+
+
+
   const { connected, send } = useRealtimeSync({
     projectId: id,
     onMessage,
@@ -296,9 +302,8 @@ function ProjectPageContent() {
   }
 
   if (isProjectLoading) return (
-    <div className="h-screen bg-pm-bg flex flex-col items-center justify-center space-y-4 overflow-hidden font-sans selection:bg-pm-cyan/20 transition-colors duration-300">
-      <Loader2 className="w-8 h-8 animate-spin text-pm-accent" />
-      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-pm-muted">Hydrating Project Surface</p>
+    <div className="h-screen bg-pm-bg flex flex-col items-center justify-center overflow-hidden font-sans selection:bg-pm-cyan/20 transition-colors duration-300">
+      <PixelmarkLoader size="md" text="Hydrating Project Surface" />
     </div>
   )
 
@@ -330,7 +335,10 @@ function ProjectPageContent() {
       className="h-screen flex flex-col overflow-hidden font-sans bg-pm-bg text-pm-text selection:bg-pm-cyan/20 transition-colors duration-300"
     >
       {/* Premium Navigation Header - Slim Adaptive Theme */}
-      <header className="h-14 border-b border-pm-border bg-pm-surface flex items-center justify-between px-4 md:px-6 z-45 relative gap-4 flex-shrink-0 shadow-sm transition-all duration-300">
+      <header className={cn(
+        "border-b border-pm-border bg-pm-surface flex items-center justify-between px-4 md:px-6 z-45 relative gap-4 flex-shrink-0 shadow-sm transition-all duration-300",
+        isHeaderCollapsed ? "h-0 overflow-hidden border-b-0 py-0 opacity-0" : "h-14"
+      )}>
         <div className="flex items-center gap-4 min-w-0">
           <button 
             onClick={() => router.push('/dashboard')}
@@ -366,38 +374,42 @@ function ProjectPageContent() {
             </div>
 
             {/* In-Session View Switcher Tabs - Segmented Control */}
-            <div className="hidden md:flex p-0.5 rounded-xl border border-pm-border bg-pm-surface-2 flex-shrink-0 transition-colors duration-300">
+             <div className="hidden md:flex p-0.5 rounded-xl border border-pm-border bg-pm-surface-2 flex-shrink-0 transition-colors duration-300">
               <button
                 type="button"
+                title="Audit Canvas"
                 onClick={() => {
                   const url = new URL(window.location.href)
                   url.searchParams.set('view', 'canvas')
                   router.push(url.pathname + url.search)
                 }}
                 className={cn(
-                  "px-3.5 h-7.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 focus:outline-none cursor-pointer",
+                  "group px-3 h-7.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 focus:outline-none cursor-pointer whitespace-nowrap overflow-hidden",
                   view !== 'details'
                     ? "bg-pm-surface text-pm-text shadow-sm border border-pm-border"
                     : "text-pm-muted hover:text-pm-text"
                 )}
               >
-                Audit Canvas
+                <Play className="w-3 h-3 flex-shrink-0" />
+                <span className="max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 transition-all duration-300 overflow-hidden">Audit Canvas</span>
               </button>
               <button
                 type="button"
+                title="Observation Details"
                 onClick={() => {
                   const url = new URL(window.location.href)
                   url.searchParams.set('view', 'details')
                   router.push(url.pathname + url.search)
                 }}
                 className={cn(
-                  "px-3.5 h-7.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 focus:outline-none cursor-pointer",
+                  "group px-3 h-7.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 focus:outline-none cursor-pointer whitespace-nowrap overflow-hidden",
                   view === 'details'
                     ? "bg-pm-surface text-pm-text shadow-sm border border-pm-border"
                     : "text-pm-muted hover:text-pm-text"
                 )}
               >
-                Observation Details
+                <Compass className="w-3 h-3 flex-shrink-0 text-pm-accent" />
+                <span className="max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 transition-all duration-300 overflow-hidden">Observation Details</span>
               </button>
             </div>
           </div>
@@ -411,6 +423,8 @@ function ProjectPageContent() {
               Click Canvas to Pin Feedback
             </div>
           )}
+
+
 
           {/* More Actions Dropdown Menu */}
           <div className="relative">
@@ -597,8 +611,7 @@ function ProjectPageContent() {
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-pm-bg">
-                 <Loader2 className="w-8 h-8 animate-spin text-pm-accent mb-3" />
-                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-pm-muted/40">Negotiating Review Session</p>
+                 <PixelmarkLoader size="md" text="Negotiating Review Session" />
               </div>
             )
           ) : (
@@ -658,9 +671,15 @@ function ProjectPageContent() {
                        </Button>
                     </div>
               ) : (
-                    <div className="w-full h-full p-2 bg-pm-bg flex flex-col overflow-hidden">
+                    <div className={cn(
+                      "w-full h-full bg-pm-bg flex flex-col overflow-hidden transition-all duration-300",
+                      isHeaderCollapsed ? "p-0" : "p-2"
+                    )}>
                       {/* Premium Device Frame Mockup Header */}
-                      <div className="h-7.5 rounded-t-xl bg-pm-surface-2 border-t border-x border-pm-border flex items-center justify-between px-4 flex-shrink-0 relative shadow-sm">
+                      <div className={cn(
+                        "rounded-t-xl bg-pm-surface-2 border-t border-x border-pm-border flex items-center justify-between px-4 flex-shrink-0 relative shadow-sm transition-all duration-300",
+                        isHeaderCollapsed ? "h-0 overflow-hidden border-t-0 py-0 opacity-0" : "h-7.5"
+                      )}>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full bg-pm-muted/40" />
                           <div className="w-2 h-2 rounded-full bg-pm-muted/40" />
@@ -675,12 +694,19 @@ function ProjectPageContent() {
                         </div>
                       </div>
                       
-                      <div className="flex-1 relative border-b border-x border-pm-border rounded-b-xl overflow-hidden bg-pm-surface-2 shadow-md">
+                      <div className={cn(
+                        "flex-1 relative bg-pm-surface-2 transition-all duration-300",
+                        isHeaderCollapsed 
+                          ? "border-none rounded-none shadow-none" 
+                          : "border-b border-x border-pm-border rounded-b-xl overflow-hidden shadow-md"
+                      )}>
                         {sessionId ? (
                           <AuditSurface
                             sessionId={sessionId}
                             projectId={id}
                             shouldConnectSocket={false}
+                            isHeaderCollapsed={isHeaderCollapsed}
+                            onHeaderCollapsedChange={setIsHeaderCollapsed}
                             onMarkerCreated={(marker) => {
                               // Refresh markers from server after creation to stay in sync
                               useMarkerStore.getState().loadSessionMarkers(id)
@@ -688,8 +714,7 @@ function ProjectPageContent() {
                           />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-pm-bg">
-                             <Loader2 className="w-6 h-6 animate-spin text-pm-accent mb-3" />
-                             <p className="text-[9px] font-black uppercase tracking-[0.3em] text-pm-muted">Negotiating Review Session</p>
+                             <PixelmarkLoader size="md" text="Negotiating Review Session" />
                           </div>
                         )}
                       </div>
@@ -769,6 +794,8 @@ function ProjectPageContent() {
           />
         )}
       </AnimatePresence>
+
+
     </div>
   )
 }
@@ -776,9 +803,8 @@ function ProjectPageContent() {
 export default function ProjectPage() {
   return (
     <Suspense fallback={
-      <div className="h-screen bg-[#0a0a0b] flex flex-col items-center justify-center overflow-hidden font-sans">
-        <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-3">Hydrating Project Surface</p>
+      <div className="h-screen bg-pm-bg flex flex-col items-center justify-center overflow-hidden font-sans">
+        <PixelmarkLoader size="lg" text="Hydrating Project Surface" />
       </div>
     }>
       <ProjectPageContent />
