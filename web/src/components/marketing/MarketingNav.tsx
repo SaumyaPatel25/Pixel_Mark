@@ -53,7 +53,7 @@ export default function MarketingNav() {
         >
           {/* Logo */}
           <Link href="/" className="block">
-            <img src="/logo.png" alt="PixelMark" className="h-14 w-auto object-contain" />
+            <img src="/logo.png" alt="PixelMark" className="h-7 w-auto object-contain" />
           </Link>
 
           {/* Links */}

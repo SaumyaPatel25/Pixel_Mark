@@ -183,7 +183,7 @@ export default function RegisterClient() {
             <span style={{ fontSize: '13px', fontWeight: 600 }}>Home</span>
           </Link>
           <Link href="/">
-            <img src="/logo.png" alt="PixelMark" className="h-11 w-auto object-contain" />
+            <img src="/logo.png" alt="PixelMark" className="h-6 w-auto object-contain" />
           </Link>
         </div>
 
@@ -194,7 +194,7 @@ export default function RegisterClient() {
             {/* Logo + Headline */}
             <div className="space-y-5">
               <Link href="/" className="hidden lg:block">
-                <img src="/logo.png" alt="PixelMark" className="h-11 w-auto object-contain" />
+                <img src="/logo.png" alt="PixelMark" className="h-6 w-auto object-contain" />
               </Link>
 
               {phase !== 'success' && (
