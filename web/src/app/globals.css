@@ -6,6 +6,8 @@
   --color-pm-surface: var(--pm-surface);
   --color-pm-surface-2: var(--pm-surface-2);
   --color-pm-surface-3: var(--pm-surface-3);
+  --color-pm-border: var(--pm-border);
+  --color-pm-border-bright: var(--pm-border-bright);
   --color-pm-accent: var(--pm-accent);
   --color-pm-accent-bright: var(--pm-accent-bright);
   --color-pm-accent-vivid: var(--pm-accent-vivid);
@@ -73,156 +75,187 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   DARK THEME FOUNDATION VARIABLES (Theme Module Part 1)
+   ───────────────────────────────────────────────────────────────────────────── */
+html[data-theme="dark"] {
+  --pm-bg:           #0d0e12;
+  --pm-surface:      #13151c;
+  --pm-surface-2:    #181a24;
+  --pm-surface-3:    #202330;
+  --pm-border:       rgba(255, 255, 255, 0.055);
+  --pm-border-bright:rgba(255, 255, 255, 0.12);
+  --pm-accent:       #4382df;
+  --pm-accent-bright:#60a5fa;
+  --pm-accent-vivid: #93c5fd;
+  --pm-accent-glow:  rgba(67, 130, 223, 0.15);
+  --pm-accent-subtle:rgba(255, 255, 255, 0.02);
+  --pm-accent-mid:   rgba(255, 255, 255, 0.05);
+  --pm-cyan:         #38bdf8;
+  --pm-cyan-subtle:  rgba(56, 189, 248, 0.1);
+  --pm-text:         #e2e4e9;
+  --pm-text-muted:   #949aab;
+  --pm-text-faint:   #5f6575;
+  --pm-text-title:   #f3f4f7;
+  --pm-nav-bg:       rgba(13, 14, 18, 0.85);
+  --pm-bg-trans-20:  rgba(13, 14, 18, 0.2);
+  --pm-bg-trans-50:  rgba(13, 14, 18, 0.5);
+  
+  --pm-border-hover: rgba(255, 255, 255, 0.18);
+  --pm-border-card:  rgba(255, 255, 255, 0.04);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    COMPLETE LIGHT THEME UTILITY CLASS OVERRIDES
    ───────────────────────────────────────────────────────────────────────────── */
+html:not([data-theme="dark"]) {
+  /* Escaped selectors for hardcoded dark background utilities */
+  .bg-\[\#070709\],
+  .bg-\[\#09090e\],
+  .bg-\[\#0a0a0f\],
+  .bg-\[\#09090b\],
+  .bg-\[\#0d0d12\],
+  .bg-\[\#0d0d14\],
+  .bg-\[\#111118\],
+  .bg-\[\#111116\],
+  .bg-\[\#1c1b19\],
+  .bg-\[\#151413\],
+  .bg-\[\#1a1a24\],
+  .bg-\[\#1a1a26\],
+  .bg-\[\#12121a\],
+  .bg-\[\#14141f\],
+  .bg-\[\#1a1a28\],
+  .bg-\[\#0f0f15\],
+  .bg-\[\#0f0f16\],
+  .bg-\[\#0f0f16\]\/90,
+  .bg-\[\#0f0f16\]\/95,
+  .bg-\[\#0d0d14\]\/95,
+  .bg-\[\#0d0d14\]\/80,
+  .bg-\[\#0c0c0e\],
+  .bg-\[\#0c0c0e\]\/80,
+  .bg-\[\#0c0c0e\]\/60,
+  .bg-\[\#0c0c0e\]\/30 {
+    background-color: var(--pm-surface) !important;
+  }
 
-/* Escaped selectors for hardcoded dark background utilities */
-.bg-\[\#070709\],
-.bg-\[\#09090e\],
-.bg-\[\#0a0a0f\],
-.bg-\[\#09090b\],
-.bg-\[\#0d0d12\],
-.bg-\[\#0d0d14\],
-.bg-\[\#111118\],
-.bg-\[\#111116\],
-.bg-\[\#1c1b19\],
-.bg-\[\#151413\],
-.bg-\[\#1a1a24\],
-.bg-\[\#1a1a26\],
-.bg-\[\#12121a\],
-.bg-\[\#14141f\],
-.bg-\[\#1a1a28\],
-.bg-\[\#0f0f15\],
-.bg-\[\#0f0f16\],
-.bg-\[\#0f0f16\]\/90,
-.bg-\[\#0f0f16\]\/95,
-.bg-\[\#0d0d14\]\/95,
-.bg-\[\#0d0d14\]\/80,
-.bg-\[\#0c0c0e\],
-.bg-\[\#0c0c0e\]\/80,
-.bg-\[\#0c0c0e\]\/60,
-.bg-\[\#0c0c0e\]\/30 {
-  background-color: var(--pm-surface) !important;
-}
+  /* Specific main backdrops should use the main page background color */
+  body,
+  .bg-\[\#0a0a0f\],
+  .bg-\[\#09090e\],
+  .bg-\[\#070709\],
+  .bg-\[\#171614\],
+  .bg-\[\#171614\]\/80 {
+    background-color: var(--pm-bg) !important;
+  }
 
-/* Specific main backdrops should use the main page background color */
-body,
-.bg-\[\#0a0a0f\],
-.bg-\[\#09090e\],
-.bg-\[\#070709\],
-.bg-\[\#171614\],
-.bg-\[\#171614\]\/80 {
-  background-color: var(--pm-bg) !important;
-}
+  /* Off-white and surface-2 level background utility overrides */
+  .bg-\[\#0d0d12\],
+  .bg-\[\#0d0d14\],
+  .bg-\[\#151413\],
+  .bg-\[\#0f0f15\],
+  .bg-\[\#111116\] {
+    background-color: var(--pm-surface-2) !important;
+  }
 
-/* Off-white and surface-2 level background utility overrides */
-.bg-\[\#0d0d12\],
-.bg-\[\#0d0d14\],
-.bg-\[\#151413\],
-.bg-\[\#0f0f15\],
-.bg-\[\#111116\] {
-  background-color: var(--pm-surface-2) !important;
-}
+  /* Input / Dropdown / Surface-3 utility overrides */
+  .bg-\[\#12121a\],
+  .bg-\[\#1a1a24\],
+  .bg-\[\#1a1a26\],
+  .bg-\[\#1a1a28\],
+  .bg-\[\#14141f\] {
+    background-color: var(--pm-surface-3) !important;
+  }
 
-/* Input / Dropdown / Surface-3 utility overrides */
-.bg-\[\#12121a\],
-.bg-\[\#1a1a24\],
-.bg-\[\#1a1a26\],
-.bg-\[\#1a1a28\],
-.bg-\[\#14141f\] {
-  background-color: var(--pm-surface-3) !important;
-}
+  /* Translucent layer overrides */
+  .bg-white\/\[0\.02\],
+  .bg-white\/\[0\.03\],
+  .bg-white\/5,
+  .bg-white\/10 {
+    background-color: var(--pm-surface-2) !important;
+  }
 
-/* Translucent layer overrides */
-.bg-white\/\[0\.02\],
-.bg-white\/\[0\.03\],
-.bg-white\/5,
-.bg-white\/10 {
-  background-color: var(--pm-surface-2) !important;
-}
+  /* Border overrides */
+  .border-white\/5,
+  .border-white\/8,
+  .border-white\/\[0\.05\],
+  .border-white\/\[0\.08\],
+  .border-white\/10,
+  .border-white\/20 {
+    border-color: var(--pm-border) !important;
+  }
 
-/* Border overrides */
-.border-white\/5,
-.border-white\/8,
-.border-white\/\[0\.05\],
-.border-white\/\[0\.08\],
-.border-white\/10,
-.border-white\/20 {
-  border-color: var(--pm-border) !important;
-}
+  .hover\:border-white\/10:hover,
+  .hover\:border-white\/20:hover {
+    border-color: var(--pm-border-bright) !important;
+  }
 
-.hover\:border-white\/10:hover,
-.hover\:border-white\/20:hover {
-  border-color: var(--pm-border-bright) !important;
-}
+  /* Text overrides */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--pm-text-title) !important;
+  }
 
-/* Text overrides */
-h1, h2, h3, h4, h5, h6 {
-  color: var(--pm-text-title) !important;
-}
+  .text-white,
+  .text-white\/90,
+  .text-slate-100,
+  .text-slate-200,
+  .text-slate-300,
+  .text-gray-100,
+  .text-gray-200,
+  .text-gray-300,
+  .text-zinc-100,
+  .text-zinc-200,
+  .text-zinc-300 {
+    color: var(--pm-text) !important;
+  }
 
-.text-white,
-.text-white\/90,
-.text-slate-100,
-.text-slate-200,
-.text-slate-300,
-.text-gray-100,
-.text-gray-200,
-.text-gray-300,
-.text-zinc-100,
-.text-zinc-200,
-.text-zinc-300 {
-  color: var(--pm-text) !important;
-}
+  .text-white\/80,
+  .text-white\/60,
+  .text-white\/50,
+  .text-gray-400,
+  .text-slate-400,
+  .text-zinc-400 {
+    color: var(--pm-text-muted) !important;
+  }
 
-.text-white\/80,
-.text-white\/60,
-.text-white\/50,
-.text-gray-400,
-.text-slate-400,
-.text-zinc-400 {
-  color: var(--pm-text-muted) !important;
-}
+  .text-white\/40,
+  .text-white\/30,
+  .text-white\/20,
+  .text-gray-500,
+  .text-slate-500,
+  .text-zinc-500,
+  .text-pm-text-faint {
+    color: var(--pm-text-faint) !important;
+  }
 
-.text-white\/40,
-.text-white\/30,
-.text-white\/20,
-.text-gray-500,
-.text-slate-500,
-.text-zinc-500,
-.text-pm-text-faint {
-  color: var(--pm-text-faint) !important;
-}
-
-/* Exceptions: Maintain white text inside primary buttons, badges, and labels */
-button .text-white,
-button.text-white,
-button span.text-white,
-a.text-white,
-a .text-white,
-a span.text-white,
-.bg-purple-600 *,
-.bg-purple-500 *,
-.bg-cyan-600 *,
-.bg-cyan-500 *,
-.bg-emerald-600 *,
-.bg-emerald-500 *,
-.bg-red-600 *,
-.bg-red-500 *,
-.bg-rose-500 *,
-.bg-pm-accent *,
-.bg-pm-accent-bright *,
-.badge *,
-.bg-purple-600,
-.bg-purple-500,
-.bg-cyan-600,
-.bg-cyan-500,
-.bg-emerald-600,
-.bg-emerald-500,
-.bg-red-500,
-.bg-pm-accent,
-.bg-pm-accent-bright {
-  color: #ffffff !important;
+  /* Exceptions: Maintain white text inside primary buttons, badges, and labels */
+  button .text-white,
+  button.text-white,
+  button span.text-white,
+  a.text-white,
+  a .text-white,
+  a span.text-white,
+  .bg-purple-600 *,
+  .bg-purple-500 *,
+  .bg-cyan-600 *,
+  .bg-cyan-500 *,
+  .bg-emerald-600 *,
+  .bg-emerald-500 *,
+  .bg-red-600 *,
+  .bg-red-500 *,
+  .bg-rose-500 *,
+  .bg-pm-accent *,
+  .bg-pm-accent-bright *,
+  .badge *,
+  .bg-purple-600,
+  .bg-purple-500,
+  .bg-cyan-600,
+  .bg-cyan-500,
+  .bg-emerald-600,
+  .bg-emerald-500,
+  .bg-red-500,
+  .bg-pm-accent,
+  .bg-pm-accent-bright {
+    color: #ffffff !important;
+  }
 }
 
 /* Maintain dark mode appearance for simulated demo components */
@@ -376,6 +409,617 @@ body {
 .auth-form-input:focus {
   border-color: #253B80 !important;
   box-shadow: 0 0 0 3px rgba(37, 59, 128, 0.08) !important;
+}
+
+/* ── DARK THEME AUTH OVERRIDES ───────────────────────────────────────────────
+   In dark mode the layout flips:
+   • Left (Sentinel) panel → clean white with dark accents
+   • Right (Form) panel   → deep blue-black with light text & adapted inputs
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Left sentinel panel */
+html[data-theme="dark"] .auth-sentinel-panel {
+  background-color: #f0f2f8 !important;
+  color: #0F172A !important;
+}
+
+html[data-theme="dark"] .auth-sentinel-panel h1,
+html[data-theme="dark"] .auth-sentinel-panel h2,
+html[data-theme="dark"] .auth-sentinel-panel h3 {
+  color: #0d1730 !important;
+}
+
+html[data-theme="dark"] .auth-sentinel-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(37, 59, 128, 0.18) !important;
+  box-shadow: 0 24px 56px rgba(37, 59, 128, 0.12), 0 0 0 1px rgba(37, 59, 128, 0.08) inset !important;
+}
+
+html[data-theme="dark"] .auth-sentinel-corner {
+  border-color: rgba(37, 59, 128, 0.3) !important;
+}
+
+html[data-theme="dark"] .auth-back-link {
+  color: rgba(15, 23, 42, 0.5) !important;
+}
+
+html[data-theme="dark"] .auth-back-link:hover {
+  color: #0F172A !important;
+}
+
+/* Right form panel */
+html[data-theme="dark"] .auth-form-panel {
+  background-color: #080D1A !important;
+}
+
+html[data-theme="dark"] .auth-form-panel .auth-form-heading {
+  color: #f1f5f9 !important;
+}
+
+html[data-theme="dark"] .auth-form-panel .auth-form-subtext {
+  color: rgba(148, 163, 184, 0.85) !important;
+}
+
+html[data-theme="dark"] .auth-form-panel .auth-form-label {
+  color: rgba(203, 213, 225, 0.9) !important;
+}
+
+html[data-theme="dark"] .auth-form-panel .auth-form-footer-text {
+  color: rgba(100, 116, 139, 0.8) !important;
+}
+
+/* Dark-mode inputs inside form panel */
+html[data-theme="dark"] .auth-form-panel .auth-form-input {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f1f5f9 !important;
+}
+
+html[data-theme="dark"] .auth-form-panel .auth-form-input::placeholder {
+  color: rgba(148, 163, 184, 0.4) !important;
+}
+
+html[data-theme="dark"] .auth-form-panel .auth-form-input:focus {
+  border-color: rgba(99, 130, 255, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(99, 130, 255, 0.12) !important;
+}
+
+/* GitHub OAuth button */
+html[data-theme="dark"] .auth-form-panel .auth-github-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f1f5f9 !important;
+}
+
+html[data-theme="dark"] .auth-form-panel .auth-github-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Divider */
+html[data-theme="dark"] .auth-form-panel .auth-divider-line {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme="dark"] .auth-form-panel .auth-divider-text {
+  color: rgba(100, 116, 139, 0.7) !important;
+}
+
+/* Footer bar */
+html[data-theme="dark"] .auth-form-footer-bar {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(100, 116, 139, 0.6) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MARKETING LANDING PAGE — DARK THEME OVERRIDES
+   All components use their original light-mode classes.
+   This block overrides them only when dark theme is active.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Section headings (WhyPixelMark, Features, About, Entrext, FAQ) */
+html[data-theme="dark"] .mkt-section-h2 {
+  color: #ffffff !important;
+}
+html[data-theme="dark"] .mkt-section-h2-sub {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Vision section — "it looks broken" underline highlight */
+html[data-theme="dark"] .mkt-vision-highlight {
+  color: #ffffff !important;
+  text-decoration-color: rgba(99, 130, 255, 0.6) !important;
+}
+
+/* Vision section — left-border text column */
+html[data-theme="dark"] .about-text-border {
+  border-left-color: rgba(99, 130, 255, 0.2) !important;
+}
+
+/* Vision stage cards — h3 titles */
+html[data-theme="dark"] .about-stage-title {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+/* Active stage card uses a parent class set in JSX via isActive */
+html[data-theme="dark"] [data-active="true"] .about-stage-title {
+  color: #ffffff !important;
+}
+
+/* Vision stage — active tag badge */
+html[data-theme="dark"] .about-stage-tag {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Vision stage — autoplay progress bar track */
+html[data-theme="dark"] .about-progress-track {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* FAQ — accordion cards */
+html[data-theme="dark"] .faq-accordion-card {
+  background: rgba(255, 255, 255, 0.025) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+html[data-theme="dark"] .faq-accordion-card.border-pm-accent-bright\/15 {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(99, 130, 255, 0.25) !important;
+  box-shadow: 0 8px 32px -8px rgba(99, 130, 255, 0.15) !important;
+}
+
+/* FAQ — toggle +/- button */
+html[data-theme="dark"] .faq-toggle-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+html[data-theme="dark"] .faq-toggle-btn.bg-\[\#253B80\] {
+  background: rgba(99, 130, 255, 0.15) !important;
+  border-color: rgba(99, 130, 255, 0.3) !important;
+  color: rgba(99, 130, 255, 1) !important;
+}
+
+/* FAQ — Contact Engineering button */
+html[data-theme="dark"] .faq-contact-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Entrext Labs card */
+html[data-theme="dark"] .entrext-labs-card {
+  background: rgba(9, 9, 13, 0.93) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  backdrop-filter: blur(16px) !important;
+}
+html[data-theme="dark"] .entrext-labs-card.border-pm-cyan\/40 {
+  border-color: rgba(99, 130, 255, 0.25) !important;
+  box-shadow: 0 20px 60px -16px rgba(0, 0, 0, 0.4) !important;
+}
+html[data-theme="dark"] .entrext-labs-highlight {
+  color: #ffffff !important;
+}
+
+/* Entrext — primary buttons */
+html[data-theme="dark"] .entrext-primary-btn {
+  background: rgba(99, 130, 255, 1) !important;
+}
+html[data-theme="dark"] .entrext-primary-btn:hover {
+  background: rgba(79, 110, 235, 1) !important;
+}
+
+/* Entrext — secondary buttons */
+html[data-theme="dark"] .entrext-secondary-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+html[data-theme="dark"] .entrext-secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.09) !important;
+}
+
+/* Entrext — partnership strip */
+html[data-theme="dark"] .entrext-partnership {
+  border-top-color: rgba(255, 255, 255, 0.07) !important;
+  opacity: 1 !important;
+}
+html[data-theme="dark"] .entrext-partnership span {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HOW IT WORKS — STYLING ENGINE (Theme Scoped)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Default (Light Mode) Styling */
+.mkt-how-outer-frame {
+  -webkit-backdrop-filter: blur(16px) !important;
+  backdrop-filter: blur(16px) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  border: 1px solid rgba(37, 59, 128, 0.08) !important;
+  box-shadow: 0 40px 80px -20px rgba(37, 59, 128, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.5) inset !important;
+}
+.mkt-how-chrome-bar {
+  border-bottom: 1px solid rgba(37, 59, 128, 0.06) !important;
+  background: rgba(37, 59, 128, 0.015) !important;
+}
+.mkt-how-caption-bar {
+  border-top: 1px solid rgba(37, 59, 128, 0.06) !important;
+  background: rgba(37, 59, 128, 0.01) !important;
+}
+.mkt-how-caption-title {
+  color: #1D264F !important;
+}
+.mkt-how-caption-sub {
+  color: rgba(29, 38, 79, 0.4) !important;
+}
+.mkt-how-nav-btn {
+  background: rgba(37, 59, 128, 0.04) !important;
+  border: 1px solid rgba(37, 59, 128, 0.08) !important;
+  color: rgba(29, 38, 79, 0.6) !important;
+}
+.mkt-how-nav-btn:hover {
+  background: rgba(37, 59, 128, 0.08) !important;
+  color: #253B80 !important;
+}
+
+/* Inner visualizer cards in Light Mode */
+.mkt-how-inner-card {
+  background: rgba(37, 59, 128, 0.015) !important;
+  border: 1px solid rgba(37, 59, 128, 0.08) !important;
+  color: #1D264F !important;
+}
+.mkt-how-nested-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(37, 59, 128, 0.08) !important;
+  color: #1D264F !important;
+}
+
+/* Steps list on the right in Light Mode */
+.mkt-how-step-card {
+  transition: all 0.3s ease;
+  -webkit-backdrop-filter: blur(16px) !important;
+  backdrop-filter: blur(16px) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid rgba(37, 59, 128, 0.04) !important;
+}
+.mkt-how-step-card:hover {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(37, 59, 128, 0.08) !important;
+}
+.mkt-how-step-card[data-active="true"] {
+  background: rgba(255, 255, 255, 0.97) !important;
+  border-color: rgba(37, 59, 128, 0.12) !important;
+  box-shadow: 0 12px 30px -10px rgba(37, 59, 128, 0.08) !important;
+}
+
+/* Default state for icon wrapper in Light Mode */
+.mkt-how-icon-wrapper {
+  background: rgba(37, 59, 128, 0.04) !important;
+  border: 1px solid rgba(37, 59, 128, 0.08) !important;
+  color: rgba(29, 38, 79, 0.5) !important;
+}
+
+/* Active colored icon wrappers in Light Mode */
+.mkt-how-step-card[data-active="true"][data-index="0"] .mkt-how-icon-wrapper {
+  background: rgba(99, 130, 255, 0.12) !important;
+  border-color: rgba(99, 130, 255, 0.25) !important;
+  color: rgba(99, 130, 255, 1) !important;
+}
+.mkt-how-step-card[data-active="true"][data-index="1"] .mkt-how-icon-wrapper {
+  background: rgba(52, 211, 153, 0.12) !important;
+  border-color: rgba(52, 211, 153, 0.25) !important;
+  color: rgba(52, 211, 153, 1) !important;
+}
+.mkt-how-step-card[data-active="true"][data-index="2"] .mkt-how-icon-wrapper {
+  background: rgba(251, 146, 60, 0.12) !important;
+  border-color: rgba(251, 146, 60, 0.25) !important;
+  color: rgba(251, 146, 60, 1) !important;
+}
+.mkt-how-step-card[data-active="true"][data-index="3"] .mkt-how-icon-wrapper {
+  background: rgba(232, 121, 249, 0.12) !important;
+  border-color: rgba(232, 121, 249, 0.25) !important;
+  color: rgba(232, 121, 249, 1) !important;
+}
+
+/* Text styles in Light Mode */
+.mkt-how-step-badge {
+  color: rgba(29, 38, 79, 0.4) !important;
+}
+.mkt-how-step-num {
+  color: rgba(29, 38, 79, 0.2) !important;
+}
+.mkt-how-step-title {
+  color: #1D264F !important;
+}
+.mkt-how-step-desc {
+  color: rgba(29, 38, 79, 0.6) !important;
+}
+
+
+/* Dark Mode Overrides */
+html[data-theme="dark"] .mkt-how-outer-frame {
+  -webkit-backdrop-filter: blur(16px) !important;
+  backdrop-filter: blur(16px) !important;
+  background: rgba(9, 9, 13, 0.93) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04) inset !important;
+}
+html[data-theme="dark"] .mkt-how-chrome-bar {
+  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+html[data-theme="dark"] .mkt-how-caption-bar {
+  border-top-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.015) !important;
+}
+html[data-theme="dark"] .mkt-how-caption-title {
+  color: #ffffff !important;
+}
+html[data-theme="dark"] .mkt-how-caption-sub {
+  color: rgba(255, 255, 255, 0.25) !important;
+}
+html[data-theme="dark"] .mkt-how-nav-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+html[data-theme="dark"] .mkt-how-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+html[data-theme="dark"] .mkt-how-inner-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #e2e4e9 !important;
+}
+html[data-theme="dark"] .mkt-how-nested-card {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  color: #e2e4e9 !important;
+}
+
+html[data-theme="dark"] .mkt-how-step-card {
+  background: rgba(15, 23, 42, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+html[data-theme="dark"] .mkt-how-step-card:hover {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+html[data-theme="dark"] .mkt-how-step-card[data-active="true"] {
+  background: rgba(15, 23, 42, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.3) !important;
+}
+
+html[data-theme="dark"] .mkt-how-icon-wrapper {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+html[data-theme="dark"] .mkt-how-step-badge {
+  color: rgba(255, 255, 255, 0.25) !important;
+}
+html[data-theme="dark"] .mkt-how-step-num {
+  color: rgba(255, 255, 255, 0.15) !important;
+}
+html[data-theme="dark"] .mkt-how-step-title {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+html[data-theme="dark"] .mkt-how-step-card[data-active="true"] .mkt-how-step-title {
+  color: #ffffff !important;
+}
+html[data-theme="dark"] .mkt-how-step-desc {
+  color: rgba(255, 255, 255, 0.42) !important;
+}
+
+/* Header colors in Dark Theme */
+html[data-theme="dark"] .mkt-how-subtitle {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+html[data-theme="dark"] .mkt-how-desc {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HERO WALKTHROUGH STRIP & CAPABILITY CARDS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Strip default (light mode) */
+.mkt-hero-walkthrough-strip {
+  border-top: 1px solid rgba(37, 59, 128, 0.08) !important;
+  border-bottom: 1px solid rgba(37, 59, 128, 0.08) !important;
+}
+.mkt-hero-walkthrough-num {
+  background: rgba(37, 59, 128, 0.05) !important;
+  border: 1px solid rgba(37, 59, 128, 0.12) !important;
+  color: #253B80 !important;
+}
+.mkt-hero-walkthrough-desc {
+  color: rgba(29, 38, 79, 0.6) !important;
+}
+
+/* Strip dark mode overrides */
+html[data-theme="dark"] .mkt-hero-walkthrough-strip {
+  border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+html[data-theme="dark"] .mkt-hero-walkthrough-num {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+html[data-theme="dark"] .mkt-hero-walkthrough-title {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+html[data-theme="dark"] .mkt-hero-walkthrough-desc {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Capability Cards default (light mode) active styles */
+.mkt-hero-capability-card[data-active="true"][data-accent="dom"] .mkt-hero-card-left-border { background: #7c3aed !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="threejs"] .mkt-hero-card-left-border { background: #06b6d4 !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="webgl"] .mkt-hero-card-left-border { background: #f59e0b !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="spa"] .mkt-hero-card-left-border { background: #10b981 !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="shadow-dom"] .mkt-hero-card-left-border { background: #d946ef !important; }
+
+.mkt-hero-capability-card[data-active="true"][data-accent="dom"] .mkt-hero-card-dot { background: #7c3aed !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="threejs"] .mkt-hero-card-dot { background: #06b6d4 !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="webgl"] .mkt-hero-card-dot { background: #f59e0b !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="spa"] .mkt-hero-card-dot { background: #10b981 !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="shadow-dom"] .mkt-hero-card-dot { background: #d946ef !important; }
+
+.mkt-hero-capability-card[data-active="true"][data-accent="dom"] .mkt-hero-card-title { color: #7c3aed !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="threejs"] .mkt-hero-card-title { color: #06b6d4 !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="webgl"] .mkt-hero-card-title { color: #f59e0b !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="spa"] .mkt-hero-card-title { color: #10b981 !important; }
+.mkt-hero-capability-card[data-active="true"][data-accent="shadow-dom"] .mkt-hero-card-title { color: #d946ef !important; }
+
+/* Capability Cards dark mode overrides */
+html[data-theme="dark"] .mkt-hero-capability-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card .mkt-hero-card-title {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card .mkt-hero-card-desc {
+  color: rgba(255, 255, 255, 0.28) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card .mkt-hero-card-icon-wrapper {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card:hover {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* DOM (Dark Active) */
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="dom"] {
+  background: linear-gradient(135deg, rgba(168,85,247,0.07) 0%, rgba(255,255,255,0.04) 100%) !important;
+  border-color: rgba(168,85,247,0.22) !important;
+  box-shadow: 0 0 0 1px rgba(168,85,247,0.12) inset, 0 20px 40px -16px rgba(168,85,247,0.15) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="dom"] .mkt-hero-card-title {
+  color: rgba(168,85,247,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="dom"] .mkt-hero-card-icon-wrapper {
+  background: rgba(168,85,247,0.12) !important;
+  border-color: rgba(168,85,247,0.25) !important;
+  color: rgba(168,85,247,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="dom"] .mkt-hero-card-left-border {
+  background: rgba(168,85,247,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="dom"] .mkt-hero-card-dot {
+  background: rgba(168,85,247,1) !important;
+}
+
+/* THREE.JS (Dark Active) */
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="threejs"] {
+  background: linear-gradient(135deg, rgba(34,211,238,0.07) 0%, rgba(255,255,255,0.04) 100%) !important;
+  border-color: rgba(34,211,238,0.22) !important;
+  box-shadow: 0 0 0 1px rgba(34,211,238,0.12) inset, 0 20px 40px -16px rgba(34,211,238,0.15) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="threejs"] .mkt-hero-card-title {
+  color: rgba(34,211,238,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="threejs"] .mkt-hero-card-icon-wrapper {
+  background: rgba(34,211,238,0.12) !important;
+  border-color: rgba(34,211,238,0.25) !important;
+  color: rgba(34,211,238,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="threejs"] .mkt-hero-card-left-border {
+  background: rgba(34,211,238,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="threejs"] .mkt-hero-card-dot {
+  background: rgba(34,211,238,1) !important;
+}
+
+/* WEBGL (Dark Active) */
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="webgl"] {
+  background: linear-gradient(135deg, rgba(251,191,36,0.07) 0%, rgba(255,255,255,0.04) 100%) !important;
+  border-color: rgba(251,191,36,0.22) !important;
+  box-shadow: 0 0 0 1px rgba(251,191,36,0.12) inset, 0 20px 40px -16px rgba(251,191,36,0.15) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="webgl"] .mkt-hero-card-title {
+  color: rgba(251,191,36,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="webgl"] .mkt-hero-card-icon-wrapper {
+  background: rgba(251,191,36,0.12) !important;
+  border-color: rgba(251,191,36,0.25) !important;
+  color: rgba(251,191,36,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="webgl"] .mkt-hero-card-left-border {
+  background: rgba(251,191,36,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="webgl"] .mkt-hero-card-dot {
+  background: rgba(251,191,36,1) !important;
+}
+
+/* SPA (Dark Active) */
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="spa"] {
+  background: linear-gradient(135deg, rgba(52,211,153,0.07) 0%, rgba(255,255,255,0.04) 100%) !important;
+  border-color: rgba(52,211,153,0.22) !important;
+  box-shadow: 0 0 0 1px rgba(52,211,153,0.12) inset, 0 20px 40px -16px rgba(52,211,153,0.15) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="spa"] .mkt-hero-card-title {
+  color: rgba(52,211,153,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="spa"] .mkt-hero-card-icon-wrapper {
+  background: rgba(52,211,153,0.12) !important;
+  border-color: rgba(52,211,153,0.25) !important;
+  color: rgba(52,211,153,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="spa"] .mkt-hero-card-left-border {
+  background: rgba(52,211,153,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="spa"] .mkt-hero-card-dot {
+  background: rgba(52,211,153,1) !important;
+}
+
+/* SHADOW DOM (Dark Active) */
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="shadow-dom"] {
+  background: linear-gradient(135deg, rgba(232,121,249,0.07) 0%, rgba(255,255,255,0.04) 100%) !important;
+  border-color: rgba(232,121,249,0.22) !important;
+  box-shadow: 0 0 0 1px rgba(232,121,249,0.12) inset, 0 20px 40px -16px rgba(232,121,249,0.15) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="shadow-dom"] .mkt-hero-card-title {
+  color: rgba(232,121,249,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="shadow-dom"] .mkt-hero-card-icon-wrapper {
+  background: rgba(232,121,249,0.12) !important;
+  border-color: rgba(232,121,249,0.25) !important;
+  color: rgba(232,121,249,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="shadow-dom"] .mkt-hero-card-left-border {
+  background: rgba(232,121,249,1) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-active="true"][data-accent="shadow-dom"] .mkt-hero-card-dot {
+  background: rgba(232,121,249,1) !important;
+}
+
+/* Hover Spotlights in Dark Mode */
+html[data-theme="dark"] .mkt-hero-capability-card[data-accent="dom"] .mkt-hero-card-glow {
+  background: radial-gradient(ellipse 80% 80% at 20% 20%, rgba(168,85,247,0.08) 0%, transparent 70%) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-accent="threejs"] .mkt-hero-card-glow {
+  background: radial-gradient(ellipse 80% 80% at 20% 20%, rgba(34,211,238,0.08) 0%, transparent 70%) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-accent="webgl"] .mkt-hero-card-glow {
+  background: radial-gradient(ellipse 80% 80% at 20% 20%, rgba(251,191,36,0.08) 0%, transparent 70%) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-accent="spa"] .mkt-hero-card-glow {
+  background: radial-gradient(ellipse 80% 80% at 20% 20%, rgba(52,211,153,0.08) 0%, transparent 70%) !important;
+}
+html[data-theme="dark"] .mkt-hero-capability-card[data-accent="shadow-dom"] .mkt-hero-card-glow {
+  background: radial-gradient(ellipse 80% 80% at 20% 20%, rgba(232,121,249,0.08) 0%, transparent 70%) !important;
 }
 
 * {

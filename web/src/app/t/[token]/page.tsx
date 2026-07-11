@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { Loader2 } from 'lucide-react'
 
 const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
 
@@ -17,9 +18,9 @@ interface TokenData {
 }
 
 const ROLE_META = {
-  tester:   { emoji: '✏️', label: 'Tester',   hint: 'Ctrl+Click any element to leave feedback', color: 'text-purple-400 border-purple-500/30 bg-purple-500/10' },
-  reviewer: { emoji: '🔍', label: 'Reviewer', hint: 'Annotate and resolve issues',               color: 'text-blue-400 border-blue-500/30 bg-blue-500/10'     },
-  viewer:   { emoji: '👁',  label: 'Viewer',   hint: 'Read-only access to this project',          color: 'text-slate-400 border-slate-500/30 bg-slate-500/10'  },
+  tester:   { emoji: '✏️', label: 'Tester',   hint: 'Ctrl+Click any element to leave feedback', color: 'text-pm-accent border-pm-border bg-pm-accent-subtle' },
+  reviewer: { emoji: '🔍', label: 'Reviewer', hint: 'Annotate and resolve issues',               color: 'text-pm-cyan border-pm-border bg-pm-cyan/10'     },
+  viewer:   { emoji: '👁',  label: 'Viewer',   hint: 'Read-only access to this project',          color: 'text-pm-muted border-pm-border bg-pm-surface-2'  },
 }
 
 const ERROR_META: Record<string, { icon: string; title: string; body: string }> = {
@@ -102,42 +103,42 @@ export default function TesterLanding() {
   if (['revoked','expired','exhausted','not_found','error'].includes(state)) {
     const meta = ERROR_META[state] ?? ERROR_META.error
     return (
-      <div className="min-h-screen bg-[#080810] flex flex-col items-center justify-center text-center px-6">
+      <div className="min-h-screen bg-pm-bg flex flex-col items-center justify-center text-center px-6 text-pm-text transition-colors duration-300">
         <div className="text-6xl mb-5">{meta.icon}</div>
-        <h1 className="text-white font-bold text-2xl mb-2">{meta.title}</h1>
-        <p className="text-white/40 text-sm max-w-xs leading-relaxed">{meta.body}</p>
+        <h1 className="text-pm-text font-black text-xl mb-2 uppercase">{meta.title}</h1>
+        <p className="text-pm-muted text-xs max-w-xs leading-relaxed font-bold">{meta.body}</p>
       </div>
     )
   }
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (state === 'loading') return (
-    <div className="min-h-screen bg-[#080810] flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-pm-bg flex items-center justify-center transition-colors duration-300">
+      <Loader2 className="w-8 h-8 animate-spin text-pm-accent" />
     </div>
   )
 
   // ── Password gate ──────────────────────────────────────────────────────────
   if (state === 'password') return (
-    <div className="min-h-screen bg-[#080810] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-pm-bg flex items-center justify-center px-4 transition-colors duration-300">
       <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }}
-        className="w-full max-w-sm">
+        className="w-full max-w-sm p-8 rounded-3xl bg-pm-surface border border-pm-border shadow-2xl transition-all">
         <div className="text-center mb-8">
           <div className="text-5xl mb-4">🔐</div>
-          <h2 className="text-white text-xl font-bold">Password Required</h2>
-          <p className="text-white/40 text-sm mt-2">This review link is password protected</p>
+          <h2 className="text-pm-text text-lg font-black uppercase">Password Required</h2>
+          <p className="text-pm-muted text-xs mt-2 font-bold">This review link is password protected</p>
         </div>
         <input type="password" value={password} autoFocus
           onChange={e => setPassword(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && resolve(password)}
           placeholder="Enter password"
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm mb-2
-                     focus:outline-none focus:border-purple-500 transition-colors"
+          className="w-full bg-pm-surface-2 border border-pm-border rounded-xl px-4 py-3 text-pm-text text-xs mb-2
+                     placeholder:text-pm-muted focus:outline-none focus:border-pm-accent transition-colors"
         />
-        {pwError && <p className="text-red-400 text-xs mb-3 px-1">{pwError}</p>}
+        {pwError && <p className="text-red-400 text-xs mb-3 px-1 font-bold">{pwError}</p>}
         <button onClick={() => resolve(password)} disabled={!password.trim()}
-          className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-30
-                     text-white py-3 rounded-xl font-semibold text-sm transition-colors">
+          className="w-full bg-pm-accent hover:bg-pm-accent-bright disabled:opacity-30
+                     text-white py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-colors shadow-md">
           Unlock →
         </button>
       </motion.div>
@@ -148,19 +149,19 @@ export default function TesterLanding() {
   const roleMeta = ROLE_META[data?.role ?? 'tester']
 
   return (
-    <div className="min-h-screen bg-[#080810] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-pm-bg flex items-center justify-center px-4 transition-colors duration-300">
       <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}
-        transition={{ duration:0.3 }} className="w-full max-w-sm">
+        transition={{ duration:0.3 }} className="w-full max-w-sm space-y-6">
 
         {/* Brand */}
-        <div className="text-center mb-8">
-          <p className="text-purple-500 font-mono text-xs tracking-[0.4em] mb-4">PIXELMARK</p>
-          <h1 className="text-white text-3xl font-bold leading-tight">{data?.project_name}</h1>
+        <div className="text-center space-y-3">
+          <p className="text-pm-accent font-mono text-[10px] font-black tracking-[0.4em]">PIXELMARK</p>
+          <h1 className="text-pm-text text-2xl font-black leading-tight truncate uppercase">{data?.project_name}</h1>
           {data?.project_description && (
-            <p className="text-white/40 text-sm mt-2 leading-relaxed">{data.project_description}</p>
+            <p className="text-pm-muted text-xs leading-relaxed max-w-xs mx-auto font-bold">{data.project_description}</p>
           )}
-          <div className="mt-4 flex justify-center">
-            <span className={`text-xs px-3 py-1.5 rounded-full border font-mono inline-flex items-center gap-1.5 ${roleMeta.color}`}>
+          <div className="mt-2 flex justify-center">
+            <span className={`text-[10px] px-3 py-1.5 rounded-full border font-mono font-black uppercase inline-flex items-center gap-1.5 ${roleMeta.color}`}>
               <span>{roleMeta.emoji}</span>
               <span>{roleMeta.label}</span>
             </span>
@@ -168,10 +169,10 @@ export default function TesterLanding() {
         </div>
 
         {/* Instructions */}
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 mb-5 space-y-2">
-          <p className="text-white/50 text-xs leading-relaxed"><span className="text-purple-400">✓</span> {roleMeta.hint}</p>
-          <p className="text-white/50 text-xs leading-relaxed"><span className="text-purple-400">✓</span> All feedback is sent directly to the dev team</p>
-          <p className="text-white/50 text-xs leading-relaxed"><span className="text-purple-400">✓</span> Your name helps the team follow up with you</p>
+        <div className="bg-pm-surface-2 border border-pm-border rounded-2xl p-4.5 space-y-2.5">
+          <p className="text-pm-text/70 text-xs leading-relaxed font-bold"><span className="text-pm-accent font-black">✓</span> {roleMeta.hint}</p>
+          <p className="text-pm-text/70 text-xs leading-relaxed font-bold"><span className="text-pm-accent font-black">✓</span> All feedback is sent directly to the dev team</p>
+          <p className="text-pm-text/70 text-xs leading-relaxed font-bold"><span className="text-pm-accent font-black">✓</span> Your name helps the team follow up with you</p>
         </div>
 
         {/* Name */}
@@ -179,17 +180,17 @@ export default function TesterLanding() {
           onChange={e => setName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && startSession()}
           placeholder="Your name (required)"
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm mb-3
-                     focus:outline-none focus:border-purple-500 transition-colors placeholder-white/20"
+          className="w-full bg-pm-surface-2 border border-pm-border rounded-xl px-4 py-3 text-pm-text text-xs
+                     focus:outline-none focus:border-pm-accent transition-colors placeholder:text-pm-muted"
         />
 
         <motion.button whileTap={{ scale:0.98 }} onClick={startSession} disabled={!name.trim()}
-          className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-25 disabled:cursor-not-allowed
-                     text-white py-3.5 rounded-xl font-semibold text-sm transition-all">
+          className="w-full bg-pm-accent hover:bg-pm-accent-bright disabled:opacity-25 disabled:cursor-not-allowed
+                     text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-md">
           Start Review Session →
         </motion.button>
 
-        <p className="text-white/15 text-[10px] text-center mt-4">Powered by PixelMark · Visual Feedback Platform</p>
+        <p className="text-pm-muted/60 text-[9px] font-mono text-center">Powered by PixelMark · Visual Feedback Platform</p>
       </motion.div>
     </div>
   )

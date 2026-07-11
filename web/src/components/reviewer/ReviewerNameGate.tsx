@@ -57,21 +57,21 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
   return (
     // Backdrop
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-sm mx-4 rounded-3xl bg-[#0f0f16] border border-white/8 shadow-2xl shadow-black/60 overflow-hidden">
+      <div className="w-full max-w-sm mx-4 rounded-3xl bg-pm-surface border border-pm-border shadow-2xl shadow-black/60 overflow-hidden transition-all duration-300">
         {/* Header gradient bar */}
         <div className="h-1 w-full bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600" />
 
         <div className="p-8 space-y-6">
           {/* Icon + title */}
           <div className="text-center space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto">
-              <UserRound className="w-7 h-7 text-violet-400" />
+            <div className="w-14 h-14 rounded-2xl bg-pm-accent-subtle border border-pm-border flex items-center justify-center mx-auto shadow-sm">
+              <UserRound className="w-7 h-7 text-pm-accent" />
             </div>
             <div>
-              <h2 className="text-lg font-black tracking-tight text-white uppercase">
+              <h2 className="text-lg font-black tracking-tight text-pm-text uppercase">
                 Who are you?
               </h2>
-              <p className="text-xs text-white/40 mt-1 font-medium">
+              <p className="text-xs text-pm-muted mt-1 font-medium font-sans">
                 Your name helps the team follow up with your feedback.
               </p>
             </div>
@@ -80,7 +80,7 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Name input */}
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-pm-muted">
                 Your Name
               </label>
               <input
@@ -91,14 +91,14 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
                 placeholder="e.g. Anika Sharma"
                 maxLength={60}
                 autoFocus
-                className="w-full h-12 rounded-2xl bg-white/5 border border-white/10 text-white px-4 text-sm
-                           placeholder:text-white/20 focus:outline-none focus:border-violet-500 transition-colors"
+                className="w-full h-12 rounded-2xl bg-pm-surface-2 border border-pm-border text-pm-text px-4 text-sm
+                           placeholder:text-pm-muted focus:outline-none focus:border-pm-accent transition-colors"
               />
             </div>
 
             {/* Color selection */}
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-pm-muted">
                 Your Color
               </label>
               <div className="flex gap-2.5 flex-wrap">
@@ -108,7 +108,7 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
                     type="button"
                     onClick={() => setSelectedColor(token)}
                     title={token}
-                    className="w-8 h-8 rounded-full border-2 transition-all focus:outline-none"
+                    className="w-8 h-8 rounded-full border-2 transition-all focus:outline-none cursor-pointer"
                     style={{
                       backgroundColor: hex,
                       borderColor: selectedColor === token ? '#fff' : 'transparent',
@@ -122,7 +122,7 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
 
             {/* Error message */}
             {error && (
-              <p className="text-rose-400 text-xs px-1">{error}</p>
+              <p className="text-rose-500 text-xs px-1 font-bold">{error}</p>
             )}
 
             {/* Submit */}
@@ -130,8 +130,8 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
               id="reviewer-name-submit"
               type="submit"
               disabled={!displayName.trim() || loading}
-              className="w-full h-12 rounded-2xl bg-violet-600 hover:bg-violet-500
-                         text-white font-black uppercase tracking-widest text-xs
+              className="w-full h-12 rounded-2xl bg-pm-accent hover:bg-pm-accent-bright
+                         text-white font-black uppercase tracking-widest text-xs shadow-md cursor-pointer
                          transition-all disabled:opacity-30 disabled:cursor-not-allowed
                          flex items-center justify-center gap-2"
             >
@@ -143,7 +143,7 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
             </button>
           </form>
 
-          <p className="text-center text-[10px] text-white/20 font-mono">
+          <p className="text-center text-[10px] text-pm-muted/60 font-mono">
             Powered by PixelMark · Visual Feedback Platform
           </p>
         </div>

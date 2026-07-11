@@ -802,30 +802,30 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
               damping: 12,
               mass: 0.9
             }}
-            className="flex flex-col items-center text-center space-y-7 max-w-4xl mx-auto pt-8 md:pt-12 relative z-30"
+            className="flex flex-col items-center text-center space-y-7 max-w-5xl mx-auto pt-8 md:pt-12 relative z-30"
           >
 
             {/* Headline */}
             <motion.h1 
               layoutId="hero-headline"
-              className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-[#1D264F] leading-[0.98] transition-all duration-500 min-h-[2.1em]"
+              className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-pm-text leading-[0.98] transition-all duration-500 min-h-[2.1em] text-center"
             >
               {headline1}
               {headline1.length > 0 && headline1.length < 25 && (
-                <span className="inline-block w-[6px] h-[0.85em] bg-[#1D264F] ml-1.5 align-middle animate-pulse" />
+                <span className="inline-block w-[6px] h-[0.85em] bg-pm-text ml-1.5 align-middle animate-pulse" />
               )}
               {headline2.length > 0 && (
                 <>
                   <br />
                   {headline2.startsWith("built for ") ? (
                     <>
-                      built for <span className="text-[#253B80] underline decoration-3 decoration-[#FCE2E1] underline-offset-6">{headline2.slice(10)}</span>
+                      built for <span className="text-pm-accent underline decoration-3 decoration-pm-surface-3 underline-offset-6">{headline2.slice(10)}</span>
                     </>
                   ) : (
                     headline2
                   )}
                   {headline2.length < 24 && (
-                    <span className="inline-block w-[6px] h-[0.85em] bg-[#253B80] ml-1.5 align-middle animate-pulse" />
+                    <span className="inline-block w-[6px] h-[0.85em] bg-pm-accent ml-1.5 align-middle animate-pulse" />
                   )}
                 </>
               )}
@@ -833,7 +833,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
 
             {/* Supporting Copy */}
             <motion.p 
-              className="text-sm md:text-base text-pm-muted leading-relaxed max-w-2xl font-sans min-h-[3.2em]"
+              className="text-sm md:text-base text-pm-muted leading-relaxed max-w-2xl font-sans min-h-[3.2em] text-center"
             >
               {descText}
               {descText.length > 0 && descText.length < 188 && (
@@ -853,7 +853,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                 <div className="flex flex-wrap gap-4 justify-center items-center">
                   <Link
                     href="/register"
-                    className="btn-primary-3d px-8 py-4 bg-[#253B80] hover:bg-[#1B2C60] text-white rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 flex items-center gap-2 cursor-pointer"
+                    className="btn-primary-3d px-8 py-4 bg-pm-accent hover:bg-pm-accent-bright text-white rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 flex items-center gap-2 cursor-pointer"
                   >
                     Start Free Project
                     <ArrowRight className="w-4 h-4" />
@@ -864,7 +864,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                       setIsInteractive(false);
                       setCinematicStep(0);
                     }}
-                    className="btn-secondary-3d px-8 py-4 bg-white hover:bg-[#FAF2F2] text-[#253B80] border border-pm-border rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer"
+                    className="btn-secondary-3d px-8 py-4 bg-pm-surface hover:bg-pm-surface-2 text-pm-accent border border-pm-border rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer"
                   >
                     Watch Sandbox Demo
                   </button>
@@ -878,10 +878,10 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
               {/* Sleek URL Input */}
               <form
                 onSubmit={handleUrlSubmit}
-                className="flex items-center gap-2 max-w-lg w-full bg-white border border-pm-border p-2 rounded-full focus-within:border-[#253B80]/40 focus-within:ring-2 focus-within:ring-[#253B80]/5 transition-all duration-300 shadow-sm focus-within:shadow-md"
+                className="flex items-center gap-2 max-w-lg w-full bg-pm-surface border border-pm-border p-2 rounded-full focus-within:border-pm-accent focus-within:ring-2 focus-within:ring-pm-accent/20 transition-all duration-300 shadow-sm focus-within:shadow-md"
               >
                 <div className="flex items-center gap-2.5 flex-1 pl-3.5 text-pm-muted">
-                  <Search className="w-4 h-4 text-[#253B80]/60" />
+                  <Search className="w-4 h-4 text-pm-accent/60" />
                   <input
                     type="text"
                     value={urlInput}
@@ -893,19 +893,19 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="btn-secondary-3d px-6 py-2.5 bg-[#253B80] hover:bg-[#1B2C60] disabled:bg-pm-surface-3 text-white text-[10px] font-mono font-bold uppercase tracking-wider rounded-full transition-colors duration-200 flex items-center gap-2 cursor-pointer"
+                  className="btn-secondary-3d px-6 py-2.5 bg-pm-accent hover:bg-pm-accent-bright disabled:bg-pm-surface-3 text-white text-[10px] font-mono font-bold uppercase tracking-wider rounded-full transition-colors duration-200 flex items-center gap-2 cursor-pointer"
                 >
                   {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Load Sandbox'}
                 </button>
               </form>
 
               {/* Micro Onboarding Explainer Box */}
-              <div className="text-[10.5px] text-pm-muted leading-normal max-w-lg font-sans bg-white border border-pm-border p-4 rounded-2xl flex items-start gap-3 shadow-sm text-left">
-                <div className="w-5 h-5 rounded-full bg-[#C7B4D6]/25 flex items-center justify-center text-[#253B80] flex-shrink-0">
+              <div className="text-[10.5px] text-pm-muted leading-normal max-w-lg font-sans bg-pm-surface border border-pm-border p-4 rounded-2xl flex items-start gap-3 shadow-sm text-left">
+                <div className="w-5 h-5 rounded-full bg-pm-accent-subtle flex items-center justify-center text-pm-accent flex-shrink-0">
                   <HelpCircle className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <span className="font-bold text-[#253B80] block mb-0.5 text-[11px] uppercase tracking-wider font-mono">
+                  <span className="font-bold text-pm-accent block mb-0.5 text-[11px] uppercase tracking-wider font-mono">
                     {isInteractive ? 'Active Sandbox Workspace' : 'Interactive Walkthrough'}
                   </span>
                   <p className="leading-relaxed text-[10.5px]">{modeExplainer[activeMode].hint}</p>
@@ -962,18 +962,18 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
           className="w-full max-w-5xl mx-auto mt-16 flex flex-col items-center space-y-6 relative z-10"
         >
           {/* Cinematic Theatrical Spotlight glow */}
-          <div className="absolute -inset-16 bg-gradient-to-b from-[#253B80]/8 via-transparent to-transparent rounded-[48px] blur-3xl pointer-events-none z-0" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[#FAF2F2] opacity-0 rounded-[32px] pointer-events-none z-0 shadow-[0_48px_96px_-24px_rgba(37,59,128,0.18)]" />
+          <div className="absolute -inset-16 bg-gradient-to-b from-pm-accent-glow via-transparent to-transparent rounded-[48px] blur-3xl pointer-events-none z-0" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-pm-bg opacity-0 rounded-[32px] pointer-events-none z-0 shadow-[0_48px_96px_-24px_var(--pm-accent-glow)]" />
           
           <div className="absolute -top-20 -left-20 w-96 h-96 bg-[#FCE2E1]/20 rounded-full blur-[90px] pointer-events-none z-0 animate-pulse duration-[7000ms]" />
           <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-[#C7B4D6]/20 rounded-full blur-[90px] pointer-events-none z-0 animate-pulse duration-[9000ms]" />
           
           {/* Guide strip explaining current step during mockDemo */}
           {demoState === 'mockDemo' && (
-            <div className="w-full max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-3 rounded-full bg-white border border-[#C7B4D6]/20 text-[9.5px] text-pm-muted font-sans shadow-sm animate-fade-in relative z-10">
-              <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-[#253B80]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#FCE2E1]" />
-                <Info className="w-3.5 h-3.5 text-[#253B80]" />
+            <div className="w-full max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-3 rounded-full bg-pm-surface border border-pm-border text-[9.5px] text-pm-muted font-sans shadow-sm animate-fade-in relative z-10">
+              <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-pm-accent">
+                <span className="w-1.5 h-1.5 rounded-full bg-pm-accent" />
+                <Info className="w-3.5 h-3.5 text-pm-accent" />
                 <span>Interactive Walkthrough Loop</span>
               </div>
               <div className="flex gap-1 overflow-x-auto scrollbar-none max-w-full">
@@ -988,7 +988,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                   return (
                     <span
                       key={s.step}
-                      className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider transition-all duration-300 ${isActive ? 'bg-[#253B80] text-white shadow-sm' : 'bg-pm-surface-2 text-pm-muted/60 border border-pm-border'}`}
+                      className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider transition-all duration-300 ${isActive ? 'bg-pm-accent text-white shadow-sm' : 'bg-pm-surface-2 text-pm-muted/60 border border-pm-border'}`}
                     >
                       {s.label}
                     </span>
@@ -1000,16 +1000,16 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
 
           {/* Sandbox Ready Banner Card */}
           {demoState === 'sandboxReady' && (
-            <div className="w-full max-w-3xl flex items-center justify-between gap-4 px-6 py-3.5 rounded-2xl bg-[#E2F3F5]/40 border border-[#E2F3F5] text-[10.5px] text-[#253B80] font-sans animate-fade-in shadow-sm relative z-10">
+            <div className="w-full max-w-3xl flex items-center justify-between gap-4 px-6 py-3.5 rounded-2xl bg-pm-accent-subtle border border-pm-border text-[10.5px] text-pm-accent font-sans animate-fade-in shadow-sm relative z-10">
               <div className="flex items-center gap-2.5">
-                <span className="w-2 h-2 rounded-full bg-[#253B80] animate-ping" />
+                <span className="w-2 h-2 rounded-full bg-pm-accent animate-ping" />
                 <div>
                   <span className="font-bold">Walkthrough Complete!</span> Ready to test? Launch sandbox to drop custom pins.
                 </div>
               </div>
               <button
                 onClick={launchSandbox}
-                className="px-5 py-2.5 bg-[#253B80] hover:bg-[#1B2C60] rounded-full text-[9px] font-bold uppercase tracking-wider text-white cursor-pointer flex items-center gap-1.5 transition-all shadow-md"
+                className="px-5 py-2.5 bg-pm-accent hover:bg-pm-accent-bright rounded-full text-[9px] font-bold uppercase tracking-wider text-white cursor-pointer flex items-center gap-1.5 transition-all shadow-md"
               >
                 <Play className="w-3 h-3 fill-white" />
                 <span>Launch Sandbox</span>
@@ -1018,7 +1018,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
           )}
 
           {/* Browser Mode Switcher above the preview */}
-          <div className="flex items-center gap-1 p-1 bg-white border border-pm-border rounded-full shadow-sm">
+          <div className="flex items-center gap-1 p-1 bg-pm-surface border border-pm-border rounded-full shadow-sm">
             {(['dom', 'threejs', 'webgl', 'spa', 'shadow-dom'] as ModeType[]).map((mode) => {
               const isSelected = activeMode === mode;
               const label = mode === 'dom' ? 'Layout' : mode === 'threejs' ? 'Three.js' : mode === 'webgl' ? 'WebGL' : mode === 'spa' ? 'SPA' : 'Encapsulated';
@@ -1031,7 +1031,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                       setDemoState('mockDemo');
                     }
                   }}
-                  className={`px-4.5 py-2 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${isSelected ? 'bg-[#253B80] text-white font-extrabold shadow-sm' : 'text-pm-muted hover:text-[#253B80] hover:bg-[#FAF2F2]'}`}
+                  className={`px-4.5 py-2 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${isSelected ? 'bg-pm-accent text-white font-extrabold shadow-sm' : 'text-pm-muted hover:text-pm-accent hover:bg-pm-surface-2'}`}
                 >
                   {label}
                 </button>
@@ -1048,14 +1048,14 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
               x: { duration: 0.8, delay: 0.2 },
               y: { duration: 5, repeat: Infinity, ease: 'easeInOut' }
             }}
-            className="hidden lg:flex absolute -left-12 top-[20%] z-20 items-center gap-2 px-3 py-2 bg-white border border-[#E2F3F5] rounded-xl shadow-lg pointer-events-none select-none font-sans"
+            className="hidden lg:flex absolute -left-12 top-[20%] z-20 items-center gap-2 px-3 py-2 bg-pm-surface border border-pm-border rounded-xl shadow-lg pointer-events-none select-none font-sans"
           >
-            <div className="w-4 h-4 rounded bg-[#E2F3F5] flex items-center justify-center text-[#253B80]">
+            <div className="w-4 h-4 rounded bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
               <MousePointer2 className="w-2.5 h-2.5 animate-pulse" />
             </div>
             <div className="text-[9.5px]">
-              <span className="font-mono font-bold text-[#1D264F] block leading-none">button.btn-cta</span>
-              <span className="text-[#253B80] text-[8px] font-semibold">Selector matched</span>
+              <span className="font-mono font-bold text-pm-text block leading-none">button.btn-cta</span>
+              <span className="text-pm-accent text-[8px] font-semibold">Selector matched</span>
             </div>
           </motion.div>
 
@@ -1067,11 +1067,11 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
               x: { duration: 0.8, delay: 0.3 },
               y: { duration: 6, repeat: Infinity, ease: 'easeInOut' }
             }}
-            className="hidden lg:flex absolute -right-16 top-[35%] z-20 items-center gap-2.5 px-3.5 py-2.5 bg-white border border-[#FCE2E1]/80 rounded-xl shadow-lg pointer-events-none select-none font-sans"
+            className="hidden lg:flex absolute -right-16 top-[35%] z-20 items-center gap-2.5 px-3.5 py-2.5 bg-pm-surface border border-pm-border rounded-xl shadow-lg pointer-events-none select-none font-sans"
           >
-            <span className="w-2 h-2 rounded-full bg-[#253B80] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-pm-accent animate-pulse" />
             <div className="text-[9.5px]">
-              <span className="font-bold text-[#253B80] block leading-none">"Visual alignment issue"</span>
+              <span className="font-bold text-pm-accent block leading-none">"Visual alignment issue"</span>
               <span className="text-pm-muted text-[8px]">Client pin added</span>
             </div>
           </motion.div>
@@ -1084,19 +1084,19 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
               x: { duration: 0.8, delay: 0.4 },
               y: { duration: 4.5, repeat: Infinity, ease: 'easeInOut' }
             }}
-            className="hidden lg:flex absolute -left-16 bottom-[25%] z-20 items-center gap-2 px-3 py-2 bg-white border border-[#C7B4D6]/75 rounded-xl shadow-lg pointer-events-none select-none font-sans"
+            className="hidden lg:flex absolute -left-16 bottom-[25%] z-20 items-center gap-2 px-3 py-2 bg-pm-surface border border-pm-border rounded-xl shadow-lg pointer-events-none select-none font-sans"
           >
-            <div className="w-4 h-4 rounded bg-[#C7B4D6]/20 flex items-center justify-center text-[#253B80]">
+            <div className="w-4 h-4 rounded bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
               <Layers className="w-2.5 h-2.5" />
             </div>
             <div className="text-[9.5px]">
-              <span className="font-mono font-bold text-[#1D264F] block leading-none">Safari v17.4</span>
-              <span className="font-mono text-[#253B80] text-[8px] font-semibold">macOS Sonoma</span>
+              <span className="font-mono font-bold text-pm-text block leading-none">Safari v17.4</span>
+              <span className="font-mono text-pm-accent text-[8px] font-semibold font-mono">macOS Sonoma</span>
             </div>
           </motion.div>
 
           {/* Mockup Browser Container */}
-          <div className="relative w-full rounded-[32px] border border-[#253B80]/8 bg-[#FCF5F5]/65 p-3 md:p-4 backdrop-blur-md shadow-[0_30px_80px_-20px_rgba(37,59,128,0.08)]">
+          <div className="relative w-full rounded-[32px] border border-pm-border bg-pm-surface/65 p-3 md:p-4 backdrop-blur-md shadow-[0_30px_80px_-20px_rgba(37,59,128,0.08)]">
             <motion.div 
               style={{
                 rotateX: previewRotateX,
@@ -2003,50 +2003,71 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
         </motion.div>
 
         {/* Horizontal Walkthrough Workflow Strip */}
-        <div className="py-8 border-t border-b border-pm-border/30 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-left mt-6">
+        <div
+          className="mkt-hero-walkthrough-strip py-8 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-left mt-6"
+        >
           {onboardingSteps.map((step) => (
-            <div key={step.num} className="flex gap-4 items-start p-1">
-              <span className="w-6 h-6 rounded-full bg-white border border-[#253B80]/15 flex items-center justify-center font-sans text-[10.5px] font-bold text-[#253B80] flex-shrink-0 shadow-sm transition-colors duration-500">
+            <div key={step.num} className="flex gap-3.5 items-start p-1">
+              <span className="mkt-hero-walkthrough-num w-6 h-6 rounded-full flex items-center justify-center font-mono text-[10px] font-bold flex-shrink-0">
                 {step.num}
               </span>
-              <div className="space-y-1">
-                <h4 className="text-[11px] font-bold text-pm-text uppercase tracking-wider">{step.title}</h4>
-                <p className="text-[9.5px] text-pm-muted leading-normal font-sans">{step.desc}</p>
+              <div className="space-y-0.5">
+                <h4
+                  className="mkt-hero-walkthrough-title font-display font-bold uppercase tracking-wider text-[10px] text-white"
+                  style={{ letterSpacing: '0.1em' }}
+                >
+                  {step.title}
+                </h4>
+                <p className="mkt-hero-walkthrough-desc text-[9px] text-pm-muted leading-relaxed" style={{ lineHeight: 1.6 }}>{step.desc}</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* Lower Layout: 5 Capability Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mt-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
           {systems.map((sys) => {
             const isActive = activeMode === sys.id;
             return (
               <motion.div
                 key={sys.id}
-                onMouseEnter={() => {
-                  if (!isLoading) {
-                    setActiveMode(sys.id);
-                  }
-                }}
-                whileHover={{ y: -3 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className={`p-5 rounded-2xl border border-pm-border/60 bg-white/70 text-left transition-all duration-300 cursor-pointer shadow-sm ${sys.border} ${isActive ? 'border-[#253B80]/40 bg-white shadow-[0_16px_40px_-12px_rgba(37,59,128,0.08)]' : 'hover:bg-white hover:shadow-md'}`}
+                onMouseEnter={() => { if (!isLoading) setActiveMode(sys.id); }}
+                whileHover={{ y: -4, scale: 1.01 }}
+                transition={{ type: 'spring', stiffness: 340, damping: 22 }}
+                onClick={() => { if (!isLoading) setActiveMode(sys.id); }}
+                data-active={isActive}
+                data-accent={sys.id}
+                className={`mkt-hero-capability-card relative p-5 rounded-2xl text-left cursor-pointer overflow-hidden group border border-pm-border bg-pm-surface/30 transition-all duration-300 ${sys.border} ${isActive ? `${sys.glow} border-pm-accent/50 bg-pm-surface-2/40` : ''}`}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`w-8 h-8 rounded-full ${sys.accentBg} flex items-center justify-center ${sys.color} transition-colors duration-500`}>
+                {/* Hover glow background */}
+                <div className="mkt-hero-card-glow absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl" />
+
+                {/* Active left border accent */}
+                {isActive && (
+                  <div className="mkt-hero-card-left-border absolute left-0 top-3 bottom-3 w-[2px] rounded-full" />
+                )}
+
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                  <div className={`mkt-hero-card-icon-wrapper w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 bg-pm-surface-2 border border-pm-border text-pm-accent`}>
                     <sys.icon className="w-4 h-4" />
                   </div>
                   {isActive && (
-                    <span className="w-2 h-2 rounded-full bg-[#253B80] animate-pulse" />
+                    <motion.span
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 1.8, repeat: Infinity }}
+                      className="mkt-hero-card-dot w-1.5 h-1.5 rounded-full"
+                    />
                   )}
                 </div>
-                <h4 className="font-sans text-[11px] font-bold text-pm-text mb-1.5 uppercase tracking-wide">
-                  {sys.name}
-                </h4>
-                <p className="text-[9.5px] text-pm-muted leading-relaxed font-sans">
-                  {sys.description}
-                </p>
+
+                <div className="relative z-10 space-y-1.5">
+                  <h4 className="mkt-hero-card-title font-display font-bold uppercase tracking-widest transition-colors duration-300 text-[9.5px] text-white">
+                    {sys.name}
+                  </h4>
+                  <p className="mkt-hero-card-desc text-[9px] text-pm-muted leading-relaxed font-sans" style={{ lineHeight: 1.65 }}>
+                    {sys.description}
+                  </p>
+                </div>
               </motion.div>
             );
           })}

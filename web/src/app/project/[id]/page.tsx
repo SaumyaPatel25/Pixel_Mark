@@ -31,6 +31,7 @@ import { useUIStore } from '@/store/uiStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
+import { ThemeSegmentedControl } from '@/components/ThemeToggle'
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
 const WS_BASE  = (process.env.NEXT_PUBLIC_WS_BASE  || '').replace(/\/$/, '')
@@ -295,25 +296,25 @@ function ProjectPageContent() {
   }
 
   if (isProjectLoading) return (
-    <div className="h-screen bg-[#0a0a0b] flex flex-col overflow-hidden font-sans selection:bg-purple-500/30">
-      <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
-      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Hydrating Project Surface</p>
+    <div className="h-screen bg-pm-bg flex flex-col items-center justify-center space-y-4 overflow-hidden font-sans selection:bg-pm-cyan/20 transition-colors duration-300">
+      <Loader2 className="w-8 h-8 animate-spin text-pm-accent" />
+      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-pm-muted">Hydrating Project Surface</p>
     </div>
   )
 
   const error = projectError
   if (error) return (
-    <div className="h-screen bg-[#0a0a0b] flex items-center justify-center p-6 text-center">
+    <div className="h-screen bg-pm-bg flex items-center justify-center p-6 text-center transition-colors duration-300">
       <div className="max-w-md space-y-6">
-        <AlertCircle className="w-16 h-16 text-rose-500 mx-auto" />
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
         <div>
-          <h1 className="text-3xl font-black tracking-tighter text-white mb-2">Connection Blocked</h1>
-          <p className="text-white/40 text-xs font-mono uppercase leading-relaxed">{typeof error === 'string' ? error : 'Failed to synchronize with review substrate'}</p>
+          <h1 className="text-xl font-black tracking-tighter text-pm-text mb-2">Connection Blocked</h1>
+          <p className="text-pm-muted text-xs font-mono uppercase leading-relaxed">{typeof error === 'string' ? error : 'Failed to synchronize with review substrate'}</p>
         </div>
         <Button 
           variant="outline" 
           onClick={() => window.location.reload()}
-          className="rounded-full px-8 bg-white/5 border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/10"
+          className="rounded-full px-8 bg-pm-surface-2 border-pm-border text-pm-text text-[10px] font-black uppercase tracking-widest hover:bg-pm-surface-3 transition-all"
         >
           Re-engage Substrate
         </Button>
@@ -326,46 +327,46 @@ function ProjectPageContent() {
   return (
     <div 
       style={pageStyle}
-      className="h-screen flex flex-col overflow-hidden font-sans bg-[#fcfbfa] text-[#1e2022] selection:bg-[#D0E7E6]"
+      className="h-screen flex flex-col overflow-hidden font-sans bg-pm-bg text-pm-text selection:bg-pm-cyan/20 transition-colors duration-300"
     >
-      {/* Premium Navigation Header - Slim Light Theme */}
-      <header className="h-14 border-b border-slate-200/60 bg-white flex items-center justify-between px-4 md:px-6 z-45 relative gap-4 flex-shrink-0 shadow-sm shadow-slate-100/10">
+      {/* Premium Navigation Header - Slim Adaptive Theme */}
+      <header className="h-14 border-b border-pm-border bg-pm-surface flex items-center justify-between px-4 md:px-6 z-45 relative gap-4 flex-shrink-0 shadow-sm transition-all duration-300">
         <div className="flex items-center gap-4 min-w-0">
           <button 
             onClick={() => router.push('/dashboard')}
-            className="w-9 h-9 rounded-xl flex items-center justify-center border border-slate-200/80 bg-white text-[#293681]/60 hover:text-[#293681] hover:bg-slate-50 transition-all flex-shrink-0 cursor-pointer shadow-sm"
+            className="w-9 h-9 rounded-xl flex items-center justify-center border border-pm-border bg-pm-surface text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all flex-shrink-0 cursor-pointer shadow-sm"
             title="Return to Dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           
-          <div className="h-8 w-[1px] bg-slate-200 hidden sm:block flex-shrink-0" />
+          <div className="h-8 w-[1px] bg-pm-border hidden sm:block flex-shrink-0" />
           
           <div className="min-w-0 flex items-center gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-extrabold tracking-tight text-[#293681] truncate max-w-[150px] sm:max-w-xs">
+                <h1 className="text-sm font-extrabold tracking-tight text-pm-text truncate max-w-[150px] sm:max-w-xs">
                   {currentProject?.name}
                 </h1>
-                <span className="px-2 py-0.5 rounded-full border border-[#293681]/10 bg-[#D0E7E6]/50 text-[#293681] text-[8px] font-black uppercase tracking-widest flex-shrink-0">
+                <span className="px-2 py-0.5 rounded-full border border-pm-border bg-pm-surface-2 text-pm-text text-[8px] font-black uppercase tracking-widest flex-shrink-0">
                   Active Review
                 </span>
                 
                 {/* Live Sync connection indicator */}
                 <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
                   <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-500 animate-pulse" : "bg-rose-500")} />
-                  <span className="text-[8.5px] font-mono font-black uppercase tracking-widest text-slate-400">
+                  <span className="text-[8.5px] font-mono font-black uppercase tracking-widest text-pm-muted">
                     {connected ? 'Live Sync' : 'Offline'}
                   </span>
                 </div>
               </div>
-              <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 font-mono text-slate-400 truncate max-w-[150px] sm:max-w-xs">
+              <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 font-mono text-pm-muted truncate max-w-[150px] sm:max-w-xs">
                 {currentProject?.url}
               </p>
             </div>
 
-            {/* In-Session View Switcher Tabs - Minimal Segmented Control */}
-            <div className="hidden md:flex p-0.5 rounded-xl border border-slate-200 bg-slate-50 flex-shrink-0">
+            {/* In-Session View Switcher Tabs - Segmented Control */}
+            <div className="hidden md:flex p-0.5 rounded-xl border border-pm-border bg-pm-surface-2 flex-shrink-0 transition-colors duration-300">
               <button
                 type="button"
                 onClick={() => {
@@ -376,8 +377,8 @@ function ProjectPageContent() {
                 className={cn(
                   "px-3.5 h-7.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 focus:outline-none cursor-pointer",
                   view !== 'details'
-                    ? "bg-white text-[#293681] shadow-sm border border-slate-200/30"
-                    : "text-slate-500 hover:text-[#293681]"
+                    ? "bg-pm-surface text-pm-text shadow-sm border border-pm-border"
+                    : "text-pm-muted hover:text-pm-text"
                 )}
               >
                 Audit Canvas
@@ -392,8 +393,8 @@ function ProjectPageContent() {
                 className={cn(
                   "px-3.5 h-7.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 focus:outline-none cursor-pointer",
                   view === 'details'
-                    ? "bg-white text-[#293681] shadow-sm border border-slate-200/30"
-                    : "text-slate-500 hover:text-[#293681]"
+                    ? "bg-pm-surface text-pm-text shadow-sm border border-pm-border"
+                    : "text-pm-muted hover:text-pm-text"
                 )}
               >
                 Observation Details
@@ -405,8 +406,8 @@ function ProjectPageContent() {
         <div className="flex items-center gap-3 justify-end flex-shrink-0">
           {/* Drop Pin Guide Label for Non-Technical Clients */}
           {view !== 'details' && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#D0E7E6]/25 border border-[#293681]/8 text-[#293681] text-[9.5px] font-black uppercase tracking-widest font-mono">
-              <MapPin className="w-3.5 h-3.5 text-[#293681]/70" />
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-pm-cyan/10 border border-pm-border text-pm-text text-[9.5px] font-black uppercase tracking-widest font-mono transition-colors duration-300">
+              <MapPin className="w-3.5 h-3.5 text-pm-cyan" />
               Click Canvas to Pin Feedback
             </div>
           )}
@@ -415,10 +416,10 @@ function ProjectPageContent() {
           <div className="relative">
             <button
               onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-              className="h-9 px-3 rounded-xl border border-slate-200/80 bg-white text-slate-600 font-bold text-xs uppercase tracking-wider hover:bg-slate-50 flex items-center gap-1.5 focus:outline-none cursor-pointer transition-colors shadow-sm"
+              className="h-9 px-3 rounded-xl border border-pm-border bg-pm-surface text-pm-muted font-bold text-xs uppercase tracking-wider hover:bg-pm-surface-2 flex items-center gap-1.5 focus:outline-none cursor-pointer transition-all shadow-sm"
             >
               <span>Actions</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <ChevronDown className="w-3.5 h-3.5 text-pm-muted" />
             </button>
             
             <AnimatePresence>
@@ -430,8 +431,9 @@ function ProjectPageContent() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 8, scale: 0.96 }}
                     transition={{ duration: 0.12, ease: "easeOut" }}
-                    className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200/80 shadow-xl z-55 py-2 flex flex-col select-none text-slate-700"
+                    className="absolute right-0 mt-2 w-56 rounded-2xl bg-pm-surface border border-pm-border shadow-xl z-55 py-2 flex flex-col select-none text-pm-text"
                   >
+                    <ThemeSegmentedControl />
                     {view !== 'details' && (
                       <>
                         {/* Aesthetics Panel Toggle */}
@@ -441,11 +443,11 @@ function ProjectPageContent() {
                             setIsMoreMenuOpen(false)
                           }}
                           className={cn(
-                            "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50",
-                            isDesignSystemOpen ? "text-[#293681] bg-[#D0E7E6]/25" : "text-slate-600"
+                            "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-pm-surface-2",
+                            isDesignSystemOpen ? "text-pm-text bg-pm-surface-3" : "text-pm-muted"
                           )}
                         >
-                          <Palette className="w-4 h-4 text-[#293681]/60" />
+                          <Palette className="w-4 h-4 text-pm-muted" />
                           Aesthetics Controller
                         </button>
                         
@@ -456,15 +458,15 @@ function ProjectPageContent() {
                             setIsMoreMenuOpen(false)
                           }}
                           className={cn(
-                            "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50",
-                            isAnalyticsOpen ? "text-[#293681] bg-[#D0E7E6]/25" : "text-slate-600"
+                            "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-pm-surface-2",
+                            isAnalyticsOpen ? "text-pm-text bg-pm-surface-3" : "text-pm-muted"
                           )}
                         >
-                          <BarChart3 className="w-4 h-4 text-[#293681]/60" />
+                          <BarChart3 className="w-4 h-4 text-pm-muted" />
                           Session Analytics
                         </button>
                         
-                        <div className="h-[1px] bg-slate-100 my-1" />
+                        <div className="h-[1px] bg-pm-border my-1" />
                       </>
                     )}
 
@@ -475,11 +477,11 @@ function ProjectPageContent() {
                         setIsMoreMenuOpen(false)
                       }}
                       className={cn(
-                        "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50",
-                        isExportPanelOpen ? "text-[#293681] bg-[#D0E7E6]/25" : "text-slate-600"
+                        "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-pm-surface-2",
+                        isExportPanelOpen ? "text-pm-text bg-pm-surface-3" : "text-pm-muted"
                       )}
                     >
-                      <Share2 className="w-4 h-4 text-[#293681]/60" />
+                      <Share2 className="w-4 h-4 text-pm-muted" />
                       Download Report
                     </button>
 
@@ -489,9 +491,9 @@ function ProjectPageContent() {
                         handleGenerateReport()
                         setIsMoreMenuOpen(false)
                       }}
-                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50 text-indigo-600"
+                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-pm-surface-2 text-indigo-600 dark:text-indigo-400"
                     >
-                      <Sparkles className="w-4 h-4 text-indigo-500" />
+                      <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                       AI Review Report ✨
                     </button>
 
@@ -502,15 +504,15 @@ function ProjectPageContent() {
                         setIsMoreMenuOpen(false)
                       }}
                       className={cn(
-                        "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50",
-                        isSharePanelOpen ? "text-[#293681] bg-[#D0E7E6]/25" : "text-slate-600"
+                        "flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-pm-surface-2",
+                        isSharePanelOpen ? "text-pm-text bg-pm-surface-3" : "text-pm-muted"
                       )}
                     >
-                      <ExternalLink className="w-4 h-4 text-[#293681]/60" />
+                      <ExternalLink className="w-4 h-4 text-pm-muted" />
                       Share Session Link
                     </button>
 
-                    <div className="h-[1px] bg-slate-100 my-1" />
+                    <div className="h-[1px] bg-pm-border my-1" />
 
                     {/* Take Screenshot */}
                     <button
@@ -518,9 +520,9 @@ function ProjectPageContent() {
                         setIsMoreMenuOpen(false)
                         useScreenshotStore.getState().setMode('region')
                       }}
-                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50 text-slate-600"
+                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-pm-surface-2 text-pm-muted"
                     >
-                      <svg className="w-4 h-4 text-[#293681]/60" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                      <svg className="w-4 h-4 text-pm-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3"></circle></svg>
                       Take Screenshot
                     </button>
 
@@ -530,9 +532,9 @@ function ProjectPageContent() {
                         setIsMoreMenuOpen(false)
                         window.postMessage({ type: 'PIXELMARK_TRIGGER_FRAME_CAPTURE_GLOBAL' }, '*')
                       }}
-                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50 text-slate-600"
+                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-pm-surface-2 text-pm-muted"
                     >
-                      <Eye className="w-4 h-4 text-[#293681]/60" />
+                      <Eye className="w-4 h-4 text-pm-muted" />
                       Capture Frame
                     </button>
 
@@ -542,7 +544,7 @@ function ProjectPageContent() {
                         setIsMoreMenuOpen(false)
                         useScreenshotStore.getState().setPermission('pending')
                       }}
-                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-slate-50 text-amber-600"
+                      className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-pm-surface-2 text-amber-600 dark:text-amber-400"
                     >
                       <Zap className="w-4 h-4 text-amber-500" />
                       Enable Captures
@@ -556,7 +558,7 @@ function ProjectPageContent() {
           {/* Feedback Feed Drawer Toggle Button */}
           {view !== 'details' && (
             <>
-              <div className="h-6 w-[1px] bg-slate-200" />
+              <div className="h-6 w-[1px] bg-pm-border" />
               <button 
                 id="command-center-trigger"
                 aria-label="Toggle Feedback Feed"
@@ -566,14 +568,14 @@ function ProjectPageContent() {
                 className={cn(
                   "h-9 px-4 rounded-xl border text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm focus:outline-none",
                   isCommandCenterOpen 
-                    ? "bg-[#D0E7E6] border-[#293681]/25 text-[#293681]" 
-                    : "bg-white border-slate-200 text-[#293681]/70 hover:text-[#293681] hover:bg-slate-50"
+                    ? "bg-pm-surface-3 border-pm-border text-pm-text" 
+                    : "bg-pm-surface border-pm-border text-pm-muted hover:text-pm-text hover:bg-pm-surface-2"
                 )}
               >
                 {isCommandCenterOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
                 <span className="hidden sm:inline">Open Feedback</span>
                 {markerCount > 0 && (
-                  <span className="bg-[#293681] text-white text-[8.5px] font-mono font-black px-1.5 py-0.5 rounded-md ml-1">
+                  <span className="bg-pm-accent text-white text-[8.5px] font-mono font-black px-1.5 py-0.5 rounded-md ml-1 animate-pulse">
                     {markerCount}
                   </span>
                 )}
@@ -585,7 +587,7 @@ function ProjectPageContent() {
       
       {/* Main Viewport Substrate */}
       <main className="flex-1 flex overflow-hidden relative" onMouseMove={handleMouseMove}>
-        <div className={cn("flex-1 relative h-full overflow-hidden", view === 'details' ? "bg-[#F8F7F4]" : "bg-black")}>
+        <div className={cn("flex-1 relative h-full overflow-hidden", view === 'details' ? "bg-pm-bg" : "bg-black")}>
           {view === 'details' ? (
             sessionId ? (
               <ObservationDetails 
@@ -594,9 +596,9 @@ function ProjectPageContent() {
                 onJumpToCanvas={handleJumpToCanvas}
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#F8F7F4]">
-                 <Loader2 className="w-8 h-8 animate-spin text-[#253B80] mb-3" />
-                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1E2022]/40">Negotiating Review Session</p>
+              <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-pm-bg">
+                 <Loader2 className="w-8 h-8 animate-spin text-pm-accent mb-3" />
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-pm-muted/40">Negotiating Review Session</p>
               </div>
             )
           ) : (
@@ -641,39 +643,39 @@ function ProjectPageContent() {
                    </motion.div>
                 )}
               </AnimatePresence>
-
-              {/* Interactive Proxy Board - Lightweight Light Theme Frame */}
+              
+              {/* Interactive Proxy Board - Frame */}
               {proxyStatus === 'failed' ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#fcfbfa]">
+                    <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-pm-bg animate-fade-in">
                        <AlertCircle className="w-12 h-12 text-rose-500 mb-4 opacity-40" />
-                       <h3 className="text-[#293681] font-black uppercase tracking-widest text-xs mb-2">Proxy Negotiation Failed</h3>
-                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] max-w-sm text-center">Security policies are blocking the iframe. Try switching pages or contact admin.</p>
+                       <h3 className="text-pm-text font-black uppercase tracking-widest text-xs mb-2">Proxy Negotiation Failed</h3>
+                       <p className="text-[10px] text-pm-muted font-bold uppercase tracking-[0.2em] max-w-sm text-center">Security policies are blocking the iframe. Try switching pages or contact admin.</p>
                        <Button 
                         onClick={() => setProxyStatus('ok')}
-                        className="mt-6 rounded-full bg-slate-100 border border-slate-200 text-[#293681] text-[9px] font-black uppercase hover:bg-slate-200"
+                        className="mt-6 rounded-full bg-pm-surface-2 border border-pm-border text-pm-text text-[9px] font-black uppercase hover:bg-pm-surface-3 transition-colors"
                        >
-                         Retry Connection
+                          Retry Connection
                        </Button>
                     </div>
               ) : (
-                    <div className="w-full h-full p-2 bg-[#fcfbfa] flex flex-col overflow-hidden">
+                    <div className="w-full h-full p-2 bg-pm-bg flex flex-col overflow-hidden">
                       {/* Premium Device Frame Mockup Header */}
-                      <div className="h-7.5 rounded-t-xl bg-slate-50 border-t border-x border-slate-200/80 flex items-center justify-between px-4 flex-shrink-0 relative shadow-sm shadow-slate-100/10">
+                      <div className="h-7.5 rounded-t-xl bg-pm-surface-2 border-t border-x border-pm-border flex items-center justify-between px-4 flex-shrink-0 relative shadow-sm">
                         <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-slate-300" />
-                          <div className="w-2 h-2 rounded-full bg-slate-300" />
-                          <div className="w-2 h-2 rounded-full bg-slate-300" />
+                          <div className="w-2 h-2 rounded-full bg-pm-muted/40" />
+                          <div className="w-2 h-2 rounded-full bg-pm-muted/40" />
+                          <div className="w-2 h-2 rounded-full bg-pm-muted/40" />
                         </div>
-                        <div className="absolute left-1/2 -translate-x-1/2 text-[9px] font-mono text-slate-400 uppercase tracking-widest bg-white px-4 py-0.5 rounded-md border border-slate-200/60 max-w-[200px] sm:max-w-xs md:max-w-md truncate text-center">
+                        <div className="absolute left-1/2 -translate-x-1/2 text-[9px] font-mono text-pm-muted uppercase tracking-widest bg-pm-surface px-4 py-0.5 rounded-md border border-pm-border max-w-[200px] sm:max-w-xs md:max-w-md truncate text-center transition-all">
                           {currentProject?.url || "Audit Canvas Substrate"}
                         </div>
-                        <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-wider text-[#293681]/70 font-mono">
-                          <span className="w-1 h-1 rounded-full bg-[#293681]" />
+                        <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-wider text-pm-muted font-mono">
+                          <span className="w-1 h-1 rounded-full bg-pm-accent animate-pulse" />
                           Review Active
                         </div>
                       </div>
                       
-                      <div className="flex-1 relative border-b border-x border-slate-200/80 rounded-b-xl overflow-hidden bg-[#fbfbfc] shadow-md shadow-slate-100/20">
+                      <div className="flex-1 relative border-b border-x border-pm-border rounded-b-xl overflow-hidden bg-pm-surface-2 shadow-md">
                         {sessionId ? (
                           <AuditSurface
                             sessionId={sessionId}
@@ -685,9 +687,9 @@ function ProjectPageContent() {
                             }}
                           />
                         ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[#fcfbfa]">
-                             <Loader2 className="w-6 h-6 animate-spin text-[#293681] mb-3" />
-                             <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Negotiating Review Session</p>
+                          <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-pm-bg">
+                             <Loader2 className="w-6 h-6 animate-spin text-pm-accent mb-3" />
+                             <p className="text-[9px] font-black uppercase tracking-[0.3em] text-pm-muted">Negotiating Review Session</p>
                           </div>
                         )}
                       </div>
@@ -725,9 +727,9 @@ function ProjectPageContent() {
                     exit="closed"
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                     className={cn(
-                      "bg-[#0c0c0e] shadow-2xl flex flex-col flex-shrink-0 transition-all duration-300",
+                      "bg-pm-surface shadow-2xl flex flex-col flex-shrink-0 transition-all duration-300 border-pm-border",
                       // Mobile: Bottom sheet styling
-                      "w-full h-[60dvh] absolute bottom-0 left-0 right-0 border-t border-white/[0.05] rounded-t-[32px] z-50 overflow-hidden",
+                      "w-full h-[60dvh] absolute bottom-0 left-0 right-0 border-t rounded-t-[32px] z-50 overflow-hidden",
                       // Tablet: Side drawer overlay
                       "md:w-[380px] md:h-full md:absolute md:top-0 md:right-0 md:bottom-0 md:left-auto md:border-l md:border-t-0 md:rounded-t-none md:z-50",
                       // Desktop: Side-by-side layout
@@ -736,7 +738,7 @@ function ProjectPageContent() {
                 >
                     {/* Swipe bar for mobile bottom sheet */}
                     <div className="w-full flex justify-center py-2.5 md:hidden cursor-pointer" onClick={() => toggleCommandCenter()}>
-                      <div className="w-12 h-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
+                      <div className="w-12 h-1 rounded-full bg-pm-muted/20 hover:bg-pm-muted/40 transition-colors" />
                     </div>
                     <FeedbackFeed sessionId={sessionId} />
                 </motion.div>

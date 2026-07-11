@@ -40,30 +40,30 @@ export default function SettingsShell({
   ]
 
   return (
-    <div className="min-h-screen bg-[#F8F7F4] text-[#1E2022] font-sans selection:bg-[#253B80]/10 relative overflow-x-hidden">
+    <div className="min-h-screen bg-pm-bg text-pm-text font-sans selection:bg-pm-accent/15 relative overflow-x-hidden transition-colors duration-300">
       {/* Background Dots */}
       <div 
-        className="absolute inset-0 z-0 pointer-events-none opacity-25"
+        className="absolute inset-0 z-0 pointer-events-none opacity-10 dark:opacity-5"
         style={{
-          backgroundImage: 'radial-gradient(circle, #253B80 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, var(--pm-accent) 1px, transparent 1px)',
           backgroundSize: '32px 32px'
         }}
       />
 
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-8 relative z-10">
         {/* Top bar back link */}
-        <div className="flex items-center justify-between border-b border-[#253B80]/8 pb-6">
+        <div className="flex items-center justify-between border-b border-pm-border pb-6">
           <div className="space-y-1.5">
-            <h1 className="text-3xl font-extrabold tracking-tight text-[#1E2022] leading-tight">
+            <h1 className="text-3xl font-extrabold tracking-tight text-pm-text leading-tight">
               {title}
             </h1>
-            <p className="text-[#1E2022]/60 text-xs font-bold uppercase tracking-wider">{description}</p>
+            <p className="text-pm-muted text-xs font-bold uppercase tracking-wider">{description}</p>
           </div>
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#253B80]/12 hover:bg-[#F8F7F4] text-[#1E2022]/70 hover:text-[#1E2022] text-xs font-bold transition-all active:scale-95 shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-pm-surface border border-pm-border hover:bg-pm-surface-2 text-pm-text hover:text-pm-text text-xs font-bold transition-all active:scale-95 shadow-sm"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 text-pm-muted" />
             Back to Dashboard
           </Link>
         </div>
@@ -81,16 +81,16 @@ export default function SettingsShell({
                   href={tab.href}
                   className={`flex items-start gap-3 p-4 rounded-2xl border transition-all text-left group shadow-sm ${
                     isActive
-                      ? 'bg-white border-[#253B80]/15 ring-1 ring-[#253B80]/5'
-                      : 'bg-white/50 border-[#253B80]/8 hover:bg-white hover:border-[#253B80]/15'
+                      ? 'bg-pm-surface border-pm-accent shadow-sm'
+                      : 'bg-pm-surface-2 border-pm-border hover:bg-pm-surface hover:border-pm-border-bright'
                   }`}
                 >
-                  <div className={`p-2 rounded-xl border ${isActive ? 'bg-[#253B80]/[0.06] border-[#253B80]/10' : 'bg-white border-[#253B80]/5 group-hover:bg-[#253B80]/[0.02]'}`}>
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-[#253B80]' : 'text-[#1E2022]/40 group-hover:text-[#253B80]/70'}`} />
+                  <div className={`p-2 rounded-xl border ${isActive ? 'bg-pm-accent-subtle border-pm-border' : 'bg-pm-surface-2 border-pm-border group-hover:bg-pm-surface'}`}>
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-pm-accent' : 'text-pm-muted group-hover:text-pm-accent/80'}`} />
                   </div>
                   <div className="space-y-0.5 mt-0.5">
-                    <p className={`text-xs font-extrabold ${isActive ? 'text-[#253B80]' : 'text-[#1E2022]/70 group-hover:text-[#1E2022]'}`}>{tab.name}</p>
-                    <p className="text-[10px] text-[#1E2022]/50 font-semibold leading-normal">{tab.desc}</p>
+                    <p className={`text-xs font-extrabold ${isActive ? 'text-pm-accent' : 'text-pm-text/80 group-hover:text-pm-text'}`}>{tab.name}</p>
+                    <p className="text-[10px] text-pm-muted font-semibold leading-normal">{tab.desc}</p>
                   </div>
                 </Link>
               )

@@ -165,7 +165,7 @@ function DetailedCompletionRing({ percent }: { percent: number }) {
     <div className="relative flex items-center justify-center w-24 h-24 flex-shrink-0 select-none">
       <svg className="w-full h-full transform -rotate-90">
         <circle
-          className="text-slate-100/70"
+          className="text-pm-border-bright/40"
           strokeWidth={stroke}
           stroke="currentColor"
           fill="transparent"
@@ -189,8 +189,8 @@ function DetailedCompletionRing({ percent }: { percent: number }) {
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center">
-        <span className="text-base font-black text-[#1E2022] leading-none tabular-nums">{percent}%</span>
-        <span className="text-[7.5px] text-[#1E2022]/40 font-mono font-bold uppercase tracking-wider mt-0.5 leading-none">Done</span>
+        <span className="text-base font-black text-pm-text leading-none tabular-nums">{percent}%</span>
+        <span className="text-[7.5px] text-pm-muted font-mono font-bold uppercase tracking-wider mt-0.5 leading-none">Done</span>
       </div>
     </div>
   )
@@ -207,33 +207,33 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
 
   if (!sessionId) {
     return (
-      <div className="bg-white border border-[#253B80]/8 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center space-y-3 min-h-[300px]">
-        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-[#1E2022]/30">
+      <div className="bg-pm-surface border border-pm-border rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center space-y-3 min-h-[300px]">
+        <div className="w-10 h-10 rounded-xl bg-pm-surface-2 border border-pm-border flex items-center justify-center text-pm-muted">
           <Activity className="w-5 h-5" />
         </div>
-        <p className="text-xs font-bold text-[#1E2022]">Select a session to view analytics</p>
+        <p className="text-xs font-bold text-pm-text">Select a session to view analytics</p>
       </div>
     )
   }
 
   if (stats.isLoading) {
     return (
-      <div className="bg-white border border-[#253B80]/8 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center space-y-3 min-h-[300px]">
-        <span className="w-6 h-6 border-2 border-[#253B80] border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-bold text-[#1E2022]/40 uppercase font-mono tracking-wider">Loading Analytics...</p>
+      <div className="bg-pm-surface border border-pm-border rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center space-y-3 min-h-[300px]">
+        <span className="w-6 h-6 border-2 border-pm-accent border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-bold text-pm-muted uppercase font-mono tracking-wider">Loading Analytics...</p>
       </div>
     )
   }
 
   if (stats.total === 0) {
     return (
-      <div className="bg-white border border-[#253B80]/8 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center space-y-4 min-h-[300px] select-none">
-        <div className="w-10 h-10 rounded-xl bg-[#253B80]/5 border border-[#253B80]/10 flex items-center justify-center text-[#253B80]/40">
+      <div className="bg-pm-surface border border-pm-border rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center space-y-4 min-h-[300px] select-none">
+        <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle border border-pm-border flex items-center justify-center text-pm-accent">
           <Activity className="w-5 h-5" />
         </div>
         <div className="space-y-1">
-          <h4 className="text-xs font-bold text-[#1E2022]">No observations in this session</h4>
-          <p className="text-[10px] text-[#1E2022]/50 max-w-xs leading-relaxed uppercase tracking-wider font-semibold">
+          <h4 className="text-xs font-bold text-pm-text">No observations in this session</h4>
+          <p className="text-[10px] text-pm-muted max-w-xs leading-relaxed uppercase tracking-wider font-semibold">
             Pins will appear here in real-time as reviewers add feedback.
           </p>
         </div>
@@ -242,30 +242,30 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
   }
 
   return (
-    <div className="bg-white border border-[#253B80]/8 rounded-3xl p-6 shadow-md hover:shadow-lg transition-all space-y-6 select-none flex flex-col justify-between relative overflow-hidden min-h-[360px]">
+    <div className="bg-pm-surface border border-pm-border rounded-3xl p-6 shadow-md hover:shadow-lg transition-all space-y-6 select-none flex flex-col justify-between relative overflow-hidden min-h-[360px]">
       {/* Glow highlight */}
       <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-400 via-[#253B80] to-indigo-500" />
 
       {/* Header with Title and Page Tabs */}
-      <div className="border-b border-[#253B80]/8 pb-4 flex items-center justify-between gap-4">
+      <div className="border-b border-pm-border pb-4 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[9px] font-black uppercase tracking-widest text-[#1E2022]/45">
+          <h3 className="text-[9px] font-black uppercase tracking-widest text-pm-muted">
             Live Session Analytics
           </h3>
-          <p className="text-sm font-black text-[#1E2022] mt-0.5 truncate">
+          <p className="text-sm font-black text-pm-text mt-0.5 truncate">
             {sessionTitle || 'Active Review'}
           </p>
         </div>
 
         {/* Tab pagination buttons */}
-        <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 flex-shrink-0">
+        <div className="flex bg-pm-surface-2 p-0.5 rounded-xl border border-pm-border flex-shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('metrics')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'metrics'
-                ? 'bg-white text-[#253B80] shadow-sm'
-                : 'text-[#1E2022]/50 hover:text-[#1E2022]/70'
+                ? 'bg-pm-surface text-pm-accent shadow-sm'
+                : 'text-pm-muted hover:text-pm-text'
             }`}
           >
             <BarChart3 className="w-3 h-3" />
@@ -274,10 +274,10 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
           <button
             type="button"
             onClick={() => setActiveTab('timeline')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'timeline'
-                ? 'bg-white text-[#253B80] shadow-sm'
-                : 'text-[#1E2022]/50 hover:text-[#1E2022]/70'
+                ? 'bg-pm-surface text-pm-accent shadow-sm'
+                : 'text-pm-muted hover:text-pm-text'
             }`}
           >
             <LineChart className="w-3 h-3" />
@@ -299,33 +299,33 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
               className="space-y-6 flex-1 flex flex-col justify-between"
             >
               {/* Completion Donut & Stats */}
-              <div className="flex items-center gap-6 bg-gradient-to-br from-slate-50 to-[#253B80]/2 border border-[#253B80]/5 rounded-2xl p-5 shadow-inner">
+              <div className="flex items-center gap-6 bg-pm-surface-2 border border-pm-border rounded-2xl p-5 shadow-inner">
                 <DetailedCompletionRing percent={stats.completionPercent} />
                 <div className="space-y-3 min-w-0 flex-1">
                   <div>
-                    <h4 className="text-[9px] font-black uppercase tracking-wider text-[#1E2022]/40">
+                    <h4 className="text-[9px] font-black uppercase tracking-wider text-pm-muted">
                       Resolution Progress
                     </h4>
-                    <p className="text-sm font-black text-[#1E2022] mt-0.5 whitespace-nowrap">
+                    <p className="text-sm font-black text-pm-text mt-0.5 whitespace-nowrap">
                       {stats.resolved} of {stats.total} resolved
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-1.5">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-[#1E2022]/70 uppercase tracking-wider">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-pm-text uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm" />
                         Resolved
                       </span>
                       <span className="font-mono text-xs">{stats.resolved}</span>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] font-bold text-[#1E2022]/70 uppercase tracking-wider">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-pm-text uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-[#253B80] shadow-sm" />
+                        <span className="w-2 h-2 rounded-full bg-pm-accent shadow-sm" />
                         In Progress
                       </span>
                       <span className="font-mono text-xs">{stats.inProgress}</span>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] font-bold text-[#1E2022]/70 uppercase tracking-wider">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-pm-text uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-amber-500 shadow-sm" />
                         Open
@@ -338,12 +338,12 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
 
               {/* Contributors list */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between border-b border-[#253B80]/8 pb-2">
-                  <h4 className="text-[10px] font-black uppercase tracking-wider text-[#1E2022]/50 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-[#253B80]/70" />
+                <div className="flex items-center justify-between border-b border-pm-border pb-2">
+                  <h4 className="text-[10px] font-black uppercase tracking-wider text-pm-muted flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-pm-accent" />
                     Contributors
                   </h4>
-                  <span className="text-[9px] font-mono text-[#1E2022]/45 uppercase font-bold">
+                  <span className="text-[9px] font-mono text-pm-muted uppercase font-bold">
                     Pins
                   </span>
                 </div>
@@ -360,7 +360,7 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
                     return (
                       <div
                         key={p.participantId}
-                        className="flex items-center justify-between bg-white border border-[#253B80]/6 rounded-2xl px-4 py-2.5 shadow-sm hover:border-[#253B80]/20 hover:shadow-md transition-all duration-200"
+                        className="flex items-center justify-between bg-pm-surface border border-pm-border rounded-2xl px-4 py-2.5 shadow-sm hover:border-pm-border-bright hover:shadow-md transition-all duration-200"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div
@@ -370,20 +370,20 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
                             {initials}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-[#1E2022] truncate max-w-[130px] sm:max-w-none">
+                            <p className="text-xs font-bold text-pm-text truncate max-w-[130px] sm:max-w-none">
                               {p.displayName}
                             </p>
-                            <p className="text-[8px] font-mono uppercase tracking-wider text-[#1E2022]/40 -mt-0.5">
+                            <p className="text-[8px] font-mono uppercase tracking-wider text-pm-muted -mt-0.5">
                               {p.role}
                             </p>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-3">
-                          <span className="text-[9px] font-mono text-[#1E2022]/50 font-bold uppercase tracking-wider">
+                          <span className="text-[9px] font-mono text-pm-muted font-bold uppercase tracking-wider">
                             {p.resolvedCount} / {p.count}
                           </span>
-                          <span className="text-xs font-black text-[#253B80] bg-[#253B80]/5 border border-[#253B80]/10 px-2 py-0.5 rounded-lg min-w-[28px] text-center shadow-sm">
+                          <span className="text-xs font-black text-pm-accent bg-pm-accent-subtle border border-pm-border px-2 py-0.5 rounded-lg min-w-[28px] text-center shadow-sm">
                             {p.count}
                           </span>
                         </div>

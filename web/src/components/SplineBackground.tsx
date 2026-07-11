@@ -32,6 +32,7 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
     const [isMobile, setIsMobile] = useState(false)
     const [isInView, setIsInView] = useState(true)
 
+
     // Motion values for subtle hover parallax (ranging from -1 to 1)
     const mouseX = useMotionValue(0)
     const mouseY = useMotionValue(0)

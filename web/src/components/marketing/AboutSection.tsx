@@ -97,15 +97,25 @@ export default function AboutSection() {
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80] bg-[#253B80]/5 px-3 py-1 rounded-full">
               THE VISION
             </span>
-            <h2 className="font-display text-4xl md:text-5xl lg:text-[4rem] font-extrabold tracking-[-0.03em] text-[#1D264F] leading-[1.02]">
-              Built to end the <br />
-              <span className="text-[#253B80] underline decoration-3 decoration-[#FCE2E1] underline-offset-6">
+            <h2 className="mkt-section-h2 font-display font-extrabold text-[#1D264F]"
+              style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', lineHeight: 1.04, letterSpacing: '-0.03em' }}
+            >
+              Built to end the{' '}
+              <span
+                className="mkt-vision-highlight"
+                style={{
+                  textDecoration: 'underline',
+                  textDecorationThickness: '3px',
+                  textUnderlineOffset: '6px',
+                }}
+              >
                 "it looks broken"
-              </span> email.
+              </span>
+              {' '}email.
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 text-sm text-pm-muted leading-relaxed font-sans max-w-4xl border-l-2 border-[#253B80]/15 pl-6 py-2">
+          <div className="about-text-border grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 text-sm text-pm-muted leading-relaxed font-sans max-w-4xl border-l-2 border-[#253B80]/15 pl-6 py-2">
             <p>
               We’ve all received it. A client clicks a button, it doesn’t work, and they write: <em>"The button is broken, please fix."</em> No screenshot, no browser info, and no console logs or error traces.
             </p>
@@ -125,13 +135,14 @@ export default function AboutSection() {
               return (
                 <div
                   key={i}
+                  data-active={isActive}
                   onClick={() => handleStageSelect(i)}
                   onMouseEnter={() => setIsAutoPlaying(false)}
                   onMouseLeave={() => setIsAutoPlaying(true)}
                   className={`relative p-6 rounded-2xl border transition-all duration-400 cursor-pointer text-left select-none overflow-hidden ${
                     isActive
-                      ? `${stage.borderColor} bg-white shadow-[0_16px_36px_-12px_${stage.glowColor}]`
-                      : 'border-pm-border/60 bg-white/40 opacity-75 hover:opacity-100 hover:border-pm-border'
+                      ? `${stage.borderColor} bg-pm-surface shadow-[0_16px_36px_-12px_${stage.glowColor}]`
+                      : 'border-pm-border/60 bg-pm-surface-2/40 opacity-75 hover:opacity-100 hover:border-pm-border'
                   }`}
                 >
                   <div className="flex gap-4 items-start">
@@ -152,13 +163,15 @@ export default function AboutSection() {
                           {stage.subtitle}
                         </span>
                         {isActive && (
-                          <span className="text-[8px] font-mono px-2 py-0.5 rounded bg-slate-100 text-pm-text font-bold uppercase tracking-widest">
+                          <span className="about-stage-tag text-[8px] font-mono px-2 py-0.5 rounded bg-slate-100 text-pm-text font-bold uppercase tracking-widest">
                             {stage.tag}
                           </span>
                         )}
                       </div>
                       
-                      <h3 className="text-base font-bold text-[#1D264F] leading-tight font-display">
+                      <h3
+                        className="about-stage-title text-base font-bold text-[#1D264F] leading-tight font-display"
+                      >
                         {stage.title}
                       </h3>
                       
@@ -176,7 +189,7 @@ export default function AboutSection() {
 
                   {/* Autoplay loading line */}
                   {isActive && isAutoPlaying && (
-                    <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-slate-100 overflow-hidden">
+                    <div className="about-progress-track absolute bottom-0 left-0 right-0 h-[2.5px] bg-slate-100 overflow-hidden">
                       <motion.div
                         key={currentStage}
                         initial={{ scaleX: 0 }}

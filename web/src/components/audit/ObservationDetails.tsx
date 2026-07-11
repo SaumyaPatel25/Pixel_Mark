@@ -285,15 +285,15 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#fcfbfa] text-slate-700 overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-pm-bg text-pm-text overflow-hidden select-none transition-colors duration-300">
       {/* 1. Session Level Summary Panel - Compact Minimal */}
-      <div className="bg-white border-b border-slate-200/60 p-4 flex flex-col md:flex-row items-center justify-between gap-4 flex-shrink-0 shadow-sm shadow-slate-100/10">
+      <div className="bg-pm-surface border-b border-pm-border p-4 flex flex-col md:flex-row items-center justify-between gap-4 flex-shrink-0 shadow-sm transition-all duration-300">
         <div className="flex items-center gap-5 w-full md:w-auto">
           {/* Progress Donut Chart */}
           <div className="relative w-12 h-12 flex items-center justify-center flex-shrink-0">
             <svg className="w-full h-full transform -rotate-90">
               <circle
-                className="text-slate-100"
+                className="text-pm-border-bright"
                 strokeWidth="4"
                 stroke="currentColor"
                 fill="transparent"
@@ -316,22 +316,22 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                 cy="24"
               />
             </svg>
-            <span className="absolute text-[10px] font-black text-[#293681]">{stats.completionPercent}%</span>
+            <span className="absolute text-[10px] font-black text-pm-text">{stats.completionPercent}%</span>
           </div>
 
           <div>
-            <h2 className="text-[9px] font-black uppercase tracking-widest text-[#293681]/50">Session Health Summary</h2>
+            <h2 className="text-[9px] font-black uppercase tracking-widest text-pm-muted">Session Health Summary</h2>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span className="text-[10px] font-bold bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-slate-600">
+              <span className="text-[10px] font-bold bg-pm-surface-2 border border-pm-border px-2 py-0.5 rounded text-pm-muted">
                 {stats.total} total
               </span>
-              <span className="text-[10px] font-bold text-[#b45309] bg-[#fef3c7] border border-[#fde68a]/50 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
                 {stats.open} open
               </span>
-              <span className="text-[10px] font-bold text-[#4382DF] bg-blue-50/50 border border-blue-100/50 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">
                 {stats.inProgress} ongoing
               </span>
-              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100/50 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
                 {stats.resolved} resolved
               </span>
             </div>
@@ -340,14 +340,14 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
         {/* Reviewers attribution */}
         {stats.creators.length > 0 && (
-          <div className="flex items-center gap-3 bg-slate-50/50 border border-slate-200/60 rounded-xl px-3 py-1.5 self-stretch md:self-auto min-w-0">
+          <div className="flex items-center gap-3 bg-pm-surface-2 border border-pm-border rounded-xl px-3 py-1.5 self-stretch md:self-auto min-w-0">
             <div className="flex -space-x-1 overflow-hidden flex-shrink-0">
               {stats.creators.slice(0, 3).map((c, i) => {
                 const initials = c.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
                 return (
                   <div
                     key={i}
-                    className="w-6.5 h-6.5 rounded-lg border-2 border-white flex items-center justify-center text-[9px] font-black text-white shadow-sm flex-shrink-0"
+                    className="w-6.5 h-6.5 rounded-lg border-2 border-pm-surface-2 flex items-center justify-center text-[9px] font-black text-white shadow-sm flex-shrink-0"
                     style={{ backgroundColor: c.color }}
                     title={`${c.name} (${c.count} pins)`}
                   >
@@ -357,7 +357,7 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
               })}
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">
+              <p className="text-[10px] font-bold text-pm-muted truncate max-w-[150px]">
                 {stats.creators.length} contributors
               </p>
             </div>
@@ -366,16 +366,16 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
       </div>
 
       {/* 2. Filter / Triage Bar - Collapsed to Popover */}
-      <div className="bg-white border-b border-slate-200/60 px-4 py-3 flex items-center gap-2 flex-shrink-0">
+      <div className="bg-pm-surface border-b border-pm-border px-4 py-3 flex items-center gap-2 flex-shrink-0 transition-colors duration-300">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-pm-muted absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search observations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9.5 pr-4 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:bg-white outline-none transition-colors duration-200"
+            className="w-full pl-9.5 pr-4 py-1.5 rounded-lg bg-pm-surface-2 border border-pm-border text-xs font-bold text-pm-text placeholder:text-pm-muted focus:bg-pm-surface outline-none transition-colors duration-200"
           />
         </div>
 
@@ -384,16 +384,16 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
           <button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
             className={cn(
-              "h-8 px-3 rounded-lg border flex items-center gap-1.5 transition-colors duration-200 text-xs font-bold shadow-sm relative cursor-pointer",
+              "h-8 px-3 rounded-lg border flex items-center gap-1.5 transition-all duration-200 text-xs font-bold shadow-sm relative cursor-pointer",
               hasActiveFilters 
-                ? "bg-[#D0E7E6]/40 border-[#293681]/30 text-[#293681]" 
-                : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                ? "bg-pm-cyan/10 border-pm-border text-pm-text" 
+                : "bg-pm-surface border-pm-border text-pm-muted hover:bg-pm-surface-2"
             )}
           >
             <Filter className="w-3.5 h-3.5" />
             <span>Filters</span>
             {hasActiveFilters && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#293681]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-pm-cyan" />
             )}
           </button>
 
@@ -406,10 +406,10 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.97 }}
                   transition={{ duration: 0.1, ease: "easeOut" }}
-                  className="absolute left-0 mt-2 w-64 rounded-xl bg-white border border-slate-200 shadow-xl z-55 p-4 flex flex-col gap-3.5 text-slate-700 select-none"
+                  className="absolute left-0 mt-2 w-64 rounded-xl bg-pm-surface border border-pm-border shadow-xl z-55 p-4 flex flex-col gap-3.5 text-pm-text select-none"
                 >
-                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-[#293681]">Filter Options</span>
+                  <div className="flex items-center justify-between pb-1.5 border-b border-pm-border">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-pm-text">Filter Options</span>
                     {hasActiveFilters && (
                       <button 
                         onClick={handleResetFilters}
@@ -422,11 +422,11 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
                   {/* Status filter */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Status</label>
+                    <label className="text-[8.5px] font-black uppercase tracking-wider text-pm-muted">Status</label>
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer"
+                      className="bg-pm-surface-2 border border-pm-border text-pm-text rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer"
                     >
                       <option value="all">All states</option>
                       <option value="open">Unresolved</option>
@@ -437,11 +437,11 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
                   {/* Reviewer Filter */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Reviewer</label>
+                    <label className="text-[8.5px] font-black uppercase tracking-wider text-pm-muted">Reviewer</label>
                     <select
                       value={reviewerFilter}
                       onChange={(e) => setReviewerFilter(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer"
+                      className="bg-pm-surface-2 border border-pm-border text-pm-text rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer"
                     >
                       <option value="all">Everyone</option>
                       {filterOptions.reviewers.map(r => (
@@ -452,11 +452,11 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
                   {/* Page Filter */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Page Context</label>
+                    <label className="text-[8.5px] font-black uppercase tracking-wider text-pm-muted">Page Context</label>
                     <select
                       value={pageFilter}
                       onChange={(e) => setPageFilter(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer max-w-full truncate"
+                      className="bg-pm-surface-2 border border-pm-border text-pm-text rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer max-w-full truncate"
                     >
                       <option value="all">All pages</option>
                       {filterOptions.pages.map(p => (
@@ -467,11 +467,11 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
                   {/* Sort order */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Sort By</label>
+                    <label className="text-[8.5px] font-black uppercase tracking-wider text-pm-muted">Sort By</label>
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer"
+                      className="bg-pm-surface-2 border border-pm-border text-pm-text rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer"
                     >
                       <option value="newest">Newest first</option>
                       <option value="oldest">Oldest first</option>
@@ -490,87 +490,101 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
       <div className="flex-1 flex overflow-hidden">
         
         {/* Left Pane: Observation List */}
-        <div className="w-full md:w-[320px] lg:w-[350px] border-r border-slate-200/60 flex flex-col bg-white flex-shrink-0 overflow-y-auto">
+        <div className="w-full md:w-[320px] lg:w-[350px] border-r border-pm-border flex flex-col bg-pm-surface flex-shrink-0 overflow-y-auto transition-colors duration-300">
           {filteredMarkers.length > 0 ? (
-            <div className="divide-y divide-slate-100">
-              {filteredMarkers.map((m) => {
-                const isSelected = selectedMarkerId === m.id
-                const titleText = m.title || m.description || 'Pinned observation'
-                
-                return (
-                  <div
-                    key={m.id}
-                    onClick={() => selectMarker(m.id)}
-                    className={cn(
-                      "p-4 cursor-pointer transition-colors duration-200 hover:bg-slate-50/50 flex flex-col gap-2 border-l-4",
-                      isSelected 
-                        ? 'bg-indigo-50/20 border-[#293681]' 
-                        : 'border-transparent'
-                    )}
-                  >
-                    {/* Top Row: Creator & Time */}
-                    <div className="flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      <div className="flex items-center gap-1.5">
-                        <span 
-                          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: m.color_token || '#8b5cf6' }}
-                        />
-                        <span>{m.creator_name || 'Anonymous'}</span>
-                      </div>
-                      <span className="font-mono text-slate-400">
-                        {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-
-                    {/* Excerpt title */}
-                    <p className="text-[11px] font-extrabold text-[#293681] leading-snug line-clamp-2">
-                      {titleText}
-                    </p>
-
-                    {/* Meta info */}
-                    <div className="flex items-center justify-between mt-1 flex-wrap gap-2">
-                      {/* Page Context */}
-                      <span className="text-[8.5px] font-bold text-[#4382DF] flex items-center gap-1 max-w-[120px] truncate bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                        <Globe className="w-2.5 h-2.5 text-slate-300" />
-                        {m.page_url?.split('/').pop() || '/'}
-                      </span>
-
-                      {/* Badges */}
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {m.priority && m.priority !== 'medium' && (
-                          <span className={cn(
-                            "text-[7.5px] font-black uppercase px-1 py-0.5 rounded border",
-                            m.priority === 'critical' 
-                              ? 'bg-rose-50 text-rose-500 border-rose-100' 
-                              : 'bg-amber-50 text-amber-600 border-amber-100'
-                          )}>
-                            {m.priority}
-                          </span>
-                        )}
-                        <span className={cn(
-                          "text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border",
-                          m.status === 'resolved' 
-                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                            : m.status === 'in_progress' 
-                              ? 'bg-indigo-50 text-indigo-500 border-indigo-100' 
-                              : 'bg-[#FFD5CD]/40 text-[#293681] border-[#293681]/8'
-                        )}>
-                          {m.status}
+            <div className="divide-y divide-pm-border flex flex-col min-h-0">
+              {filteredMarkers
+                .sort((a, b) => {
+                  if (sortBy === 'newest') return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+                  if (sortBy === 'oldest') return new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime()
+                  if (sortBy === 'unresolved') {
+                    if (a.status === 'resolved' && b.status !== 'resolved') return 1
+                    if (a.status !== 'resolved' && b.status === 'resolved') return -1
+                    return 0
+                  }
+                  if (sortBy === 'priority') {
+                    const w = { critical: 4, high: 3, medium: 2, low: 1 }
+                    return (w[b.priority || 'medium'] || 2) - (w[a.priority || 'medium'] || 2)
+                  }
+                  return 0
+                })
+                .map((m) => {
+                  const isSelected = selectedMarker?.id === m.id
+                  const titleText = m.title || m.description || 'Pinned observation'
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => selectMarker(m.id)}
+                      className={cn(
+                        "p-4 cursor-pointer transition-all duration-200 hover:bg-pm-surface-2 flex flex-col gap-2 border-l-4",
+                        isSelected 
+                          ? 'bg-pm-accent-subtle border-pm-accent shadow-inner' 
+                          : 'border-transparent'
+                      )}
+                    >
+                      {/* Top Row: Creator & Time */}
+                      <div className="flex items-center justify-between text-[9px] font-black text-pm-muted uppercase tracking-widest">
+                        <div className="flex items-center gap-1.5">
+                          <span 
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: m.color_token || '#8b5cf6' }}
+                          />
+                          <span>{m.creator_name || 'Anonymous'}</span>
+                        </div>
+                        <span className="font-mono text-pm-muted">
+                          {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
+
+                      {/* Excerpt title */}
+                      <p className="text-[11px] font-extrabold text-pm-text leading-snug line-clamp-2">
+                        {titleText}
+                      </p>
+
+                      {/* Meta info */}
+                      <div className="flex items-center justify-between mt-1 flex-wrap gap-2">
+                        {/* Page Context */}
+                        <span className="text-[8.5px] font-bold text-pm-accent flex items-center gap-1 max-w-[120px] truncate bg-pm-surface-2 px-1.5 py-0.5 rounded border border-pm-border">
+                          <Globe className="w-2.5 h-2.5 text-pm-muted" />
+                          {m.page_url?.split('/').pop() || '/'}
+                        </span>
+
+                        {/* Badges */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {m.priority && m.priority !== 'medium' && (
+                            <span className={cn(
+                              "text-[7.5px] font-black uppercase px-1 py-0.5 rounded border",
+                              m.priority === 'critical' 
+                                ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' 
+                                : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                            )}>
+                              {m.priority}
+                            </span>
+                          )}
+                          <span className={cn(
+                            "text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border",
+                            m.status === 'resolved' 
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
+                              : m.status === 'in_progress' 
+                                ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border-indigo-500/20' 
+                                : 'bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/20'
+                          )}>
+                            {m.status}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-300 shadow-sm">
+              <div className="w-12 h-12 rounded-2xl bg-pm-surface border border-pm-border flex items-center justify-center text-pm-muted shadow-sm">
                 <AlertCircle className="w-5 h-5" />
               </div>
               <div className="space-y-1 max-w-[200px]">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-[#293681]">No observations</h4>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-relaxed">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-pm-text">No observations</h4>
+                <p className="text-[9px] text-pm-muted font-bold uppercase tracking-wider leading-relaxed">
                   Try adjusting search filter tags.
                 </p>
               </div>
@@ -579,57 +593,33 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
         </div>
 
         {/* Right Pane: Selected Observation Detail */}
-        <div className="flex-1 flex flex-col overflow-y-auto bg-white min-w-0">
+        <div className="flex-1 flex flex-col overflow-y-auto bg-pm-surface min-w-0 transition-colors duration-300">
           {selectedMarker ? (
             <div className="p-6 md:p-8 space-y-6 min-w-0 max-w-4xl">
               
-              {/* Header Title section */}
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-slate-100 pb-5 min-w-0">
-                <div className="space-y-2 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span 
-                      className="px-2 py-0.5 rounded text-[8px] font-black text-white uppercase tracking-wider"
-                      style={{ backgroundColor: selectedMarker.color_token || '#8b5cf6' }}
-                    >
-                      {selectedMarker.creator_role || 'reviewer'}
-                    </span>
+              {/* Header inside details */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-pm-border">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className={cn(
-                      "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border",
-                      selectedMarker.status === 'resolved' 
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                        : selectedMarker.status === 'in_progress' 
-                          ? 'bg-indigo-50 text-indigo-500 border-indigo-100' 
-                          : 'bg-[#FFD5CD]/40 text-[#293681] border-[#293681]/8'
+                      "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white shadow-sm",
+                      selectedMarker.status === 'resolved' ? 'bg-emerald-600' : 'bg-[#4382DF]'
                     )}>
-                      {selectedMarker.status}
+                      {markers.findIndex(m => m.id === selectedMarker.id) + 1}
                     </span>
-                    {selectedMarker.priority && (
-                      <span className={cn(
-                        "px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-widest border",
-                        selectedMarker.priority === 'critical' 
-                          ? 'bg-rose-50 text-rose-500 border-rose-100' 
-                          : selectedMarker.priority === 'high' 
-                            ? 'bg-amber-50 text-amber-600 border-[#fde68a]' 
-                            : 'bg-slate-50 text-slate-500 border-slate-100'
-                      )}>
-                        {selectedMarker.priority} Priority
-                      </span>
-                    )}
+                    <h3 className="text-sm font-extrabold text-pm-text truncate max-w-xs sm:max-w-md">
+                      {selectedMarker.title || 'Pinned Observation'}
+                    </h3>
                   </div>
-                  <h1 className="text-base font-extrabold tracking-tight text-[#293681] leading-snug break-words">
-                    {selectedMarker.title || selectedMarker.description || 'Pinned observation'}
-                  </h1>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
-                    <Clock className="w-3.5 h-3.5 text-slate-300" />
-                    Updated {new Date(selectedMarker.updated_at || selectedMarker.created_at).toLocaleString()}
+                  <p className="text-[8.5px] font-mono font-bold uppercase tracking-widest text-pm-muted">
+                    ID: {selectedMarker.id.substring(0, 8)} • Created {new Date(selectedMarker.created_at).toLocaleDateString()}
                   </p>
                 </div>
 
-                {/* Status Toggles & Jump Actions */}
-                <div className="flex items-center gap-2 flex-wrap md:flex-nowrap flex-shrink-0">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => onJumpToCanvas(selectedMarker.id)}
-                    className="h-8.5 px-3 rounded-lg bg-[#293681] hover:bg-[#112E81] text-white font-black text-[9.5px] uppercase tracking-wider flex items-center gap-1.5 transition-colors duration-200 shadow-sm cursor-pointer"
+                    className="h-8.5 px-3 rounded-lg bg-pm-accent hover:bg-pm-accent-bright text-white font-black text-[9.5px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                   >
                     <MapPin className="w-3 h-3" />
                     Jump to Pin
@@ -641,10 +631,10 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                       selectedMarker.status === 'resolved' ? 'open' : 'resolved'
                     )}
                     className={cn(
-                      "h-8.5 px-3 rounded-lg border font-black text-[9.5px] uppercase tracking-wider flex items-center gap-1.5 transition-colors duration-200 shadow-sm cursor-pointer",
+                      "h-8.5 px-3 rounded-lg border font-black text-[9.5px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer",
                       selectedMarker.status === 'resolved'
-                        ? 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
-                        : 'bg-emerald-50 border-emerald-500/15 hover:bg-emerald-100 text-emerald-600'
+                        ? 'bg-pm-surface border-pm-border hover:bg-pm-surface-2 text-pm-muted'
+                        : 'bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                     )}
                   >
                     {selectedMarker.status === 'resolved' ? <Circle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
@@ -656,9 +646,9 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
               {/* Information Architecture Grid: Client Summaries & Visual cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Left Card: Reviewer attribution */}
-                <div className="bg-slate-50/40 border border-slate-200/50 rounded-xl p-4 space-y-2">
-                  <h4 className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                    <User className="w-3 h-3 text-[#293681]/40" />
+                <div className="bg-pm-surface-2 border border-pm-border rounded-xl p-4 space-y-2">
+                  <h4 className="text-[8.5px] font-black uppercase tracking-widest text-pm-muted flex items-center gap-1.5">
+                    <User className="w-3 h-3 text-pm-accent" />
                     Identity
                   </h4>
                   <div className="flex items-center gap-2.5">
@@ -669,25 +659,25 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                       {selectedMarker.creator_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'AR'}
                     </div>
                     <div>
-                      <p className="text-xs font-extrabold text-[#293681]">{selectedMarker.creator_name || 'Anonymous Reviewer'}</p>
-                      <p className="text-[8px] font-mono uppercase tracking-widest text-slate-400 mt-0.5 font-bold">{selectedMarker.creator_role || 'Guest Reviewer'}</p>
+                      <p className="text-xs font-extrabold text-pm-text">{selectedMarker.creator_name || 'Anonymous Reviewer'}</p>
+                      <p className="text-[8px] font-mono uppercase tracking-widest text-pm-muted mt-0.5 font-bold">{selectedMarker.creator_role || 'Guest Reviewer'}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Right Card: Context Info */}
-                <div className="bg-slate-50/40 border border-slate-200/50 rounded-xl p-4 space-y-2">
-                  <h4 className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                    <Globe className="w-3 h-3 text-[#293681]/40" />
+                <div className="bg-pm-surface-2 border border-pm-border rounded-xl p-4 space-y-2">
+                  <h4 className="text-[8.5px] font-black uppercase tracking-widest text-pm-muted flex items-center gap-1.5">
+                    <Globe className="w-3 h-3 text-pm-accent" />
                     Target Page URL
                   </h4>
                   <div className="space-y-0.5">
-                    <p className="text-xs font-extrabold text-slate-700 truncate max-w-xs">{selectedMarker.page_title || 'Workspace Page'}</p>
+                    <p className="text-xs font-extrabold text-pm-text truncate max-w-xs">{selectedMarker.page_title || 'Workspace Page'}</p>
                     <a
                       href={selectedMarker.page_url || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[9px] font-mono text-[#4382DF] hover:underline flex items-center gap-1 truncate max-w-xs font-bold"
+                      className="text-[9px] font-mono text-pm-accent hover:underline flex items-center gap-1 truncate max-w-xs font-bold"
                     >
                       {selectedMarker.page_url}
                       <ExternalLink className="w-2.5 h-2.5" />
@@ -699,10 +689,10 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
               {/* Screenshot Preview */}
               {selectedMarker.screenshot_url && (
                 <div className="space-y-2">
-                  <h4 className="text-[8.5px] font-black uppercase tracking-widest text-slate-400">
+                  <h4 className="text-[8.5px] font-black uppercase tracking-widest text-pm-muted">
                     What the reviewer saw
                   </h4>
-                  <div className="border border-slate-200/60 rounded-xl overflow-hidden shadow-sm bg-slate-50/50 p-1">
+                  <div className="border border-pm-border rounded-xl overflow-hidden shadow-sm bg-pm-surface-2 p-1">
                     <img 
                       src={selectedMarker.screenshot_url} 
                       alt="Reviewer screen capture context preview"
@@ -714,30 +704,30 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
               {/* Description Body */}
               <div className="space-y-1.5">
-                <h4 className="text-[8.5px] font-black uppercase tracking-widest text-slate-400">
+                <h4 className="text-[8.5px] font-black uppercase tracking-widest text-pm-muted">
                   Description
                 </h4>
-                <p className="text-xs text-slate-600 leading-relaxed font-bold bg-[#fcfbfa] border border-slate-200/50 rounded-xl p-3.5 shadow-sm">
+                <p className="text-xs text-pm-text leading-relaxed font-bold bg-pm-surface-2 border border-pm-border rounded-xl p-3.5 shadow-sm">
                   {selectedMarker.description || 'No description added yet'}
                 </p>
               </div>
 
               {/* Technical Context Accordion (Progressive Disclosure for Developers) */}
-              <div className="border border-slate-200/60 rounded-xl overflow-hidden bg-slate-50/20">
+              <div className="border border-pm-border rounded-xl overflow-hidden bg-pm-surface-2">
                 <details className="group">
                   <summary className="flex items-center justify-between p-3.5 cursor-pointer select-none focus:outline-none">
                     <div className="flex items-center gap-2">
-                      <Code className="w-3.5 h-3.5 text-[#293681]/40" />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">More Details</span>
+                      <Code className="w-3.5 h-3.5 text-pm-accent" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-pm-muted">More Details</span>
                     </div>
-                    <span className="text-[9px] font-black text-[#4382DF]/80 group-open:hidden uppercase tracking-widest">Show Tech specs</span>
-                    <span className="text-[9px] font-black text-[#4382DF]/80 hidden group-open:block uppercase tracking-widest">Hide Tech specs</span>
+                    <span className="text-[9px] font-black text-pm-accent group-open:hidden uppercase tracking-widest">Show Tech specs</span>
+                    <span className="text-[9px] font-black text-pm-accent hidden group-open:block uppercase tracking-widest">Hide Tech specs</span>
                   </summary>
-                  <div className="p-3.5 border-t border-slate-200/50 bg-white space-y-3 font-mono text-[9px] leading-normal font-bold">
+                  <div className="p-3.5 border-t border-pm-border bg-pm-surface space-y-3 font-mono text-[9px] leading-normal font-bold">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-0.5">
-                        <span className="text-slate-400 uppercase text-[8px] block">Attachment Method</span>
-                        <span className="text-[#293681] bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 uppercase text-[8px] font-mono">{selectedMarker.anchor_mode || 'dom'}</span>
+                        <span className="text-pm-muted uppercase text-[8px] block">Attachment Method</span>
+                        <span className="text-pm-text bg-pm-surface-2 px-1.5 py-0.5 rounded border border-pm-border uppercase text-[8px] font-mono">{selectedMarker.anchor_mode || 'dom'}</span>
                       </div>
                       <div className="space-y-0.5">
                         <span className="text-slate-400 uppercase text-[8px] block">Page Type</span>
@@ -770,33 +760,33 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
               </div>
 
               {/* Split row: Activity Timeline & Collaboration Discussion */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 border-t border-slate-100 pt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 border-t border-pm-border pt-6">
                 
                 {/* 1. History & Log Timeline */}
                 <div className="space-y-3">
-                  <h4 className="text-[9px] font-black uppercase tracking-widest text-[#293681]/50 flex items-center gap-1.5 pb-2 border-b border-slate-100">
-                    <History className="w-3.5 h-3.5 text-slate-400" />
+                  <h4 className="text-[9px] font-black uppercase tracking-widest text-pm-text/40 flex items-center gap-1.5 pb-2 border-b border-pm-border">
+                    <History className="w-3.5 h-3.5 text-pm-muted" />
                     History Log
                   </h4>
 
                   {historyLoading ? (
-                    <div className="flex items-center justify-center p-4 gap-2 bg-slate-50/20 border border-dashed border-slate-200/50 rounded-xl">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-300" />
-                      <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-slate-400">Loading...</span>
+                    <div className="flex items-center justify-center p-4 gap-2 bg-pm-surface-2/25 border border-dashed border-pm-border rounded-xl">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-pm-muted" />
+                      <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-pm-muted">Loading...</span>
                     </div>
                   ) : historyEvents.length > 0 ? (
-                    <div className="space-y-3.5 pl-2 relative border-l border-slate-200">
+                    <div className="space-y-3.5 pl-2 relative border-l border-pm-border">
                       {historyEvents.map((evt, idx) => (
                         <div key={idx} className="relative pl-4">
-                          <div className="absolute -left-[4.5px] top-1.5 w-2 h-2 rounded-full border border-white bg-[#293681] shadow-sm" />
-                          <div className="text-[8.5px] font-mono text-slate-400 font-bold">
+                          <div className="absolute -left-[4.5px] top-1.5 w-2 h-2 rounded-full border border-pm-surface bg-pm-accent shadow-sm" />
+                          <div className="text-[8.5px] font-mono text-pm-muted font-bold">
                             {new Date(evt.occurred_at || evt.timestamp).toLocaleString()}
                           </div>
-                          <p className="text-[10px] font-bold text-slate-600 mt-0.5">
+                          <p className="text-[10px] font-bold text-pm-text/80 mt-0.5">
                             {evt.action || evt.message || 'Observation logged'}
                           </p>
                           {evt.actor_name && (
-                            <span className="text-[9px] font-bold text-[#293681]/60">
+                            <span className="text-[9px] font-bold text-pm-accent">
                               by {evt.actor_name}
                             </span>
                           )}
@@ -804,24 +794,24 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                       ))}
                     </div>
                   ) : (
-                    <div className="space-y-3.5 pl-2 relative border-l border-slate-200">
+                    <div className="space-y-3.5 pl-2 relative border-l border-pm-border">
                       <div className="relative pl-4">
-                        <div className="absolute -left-[4.5px] top-1.5 w-2 h-2 rounded-full border border-white bg-emerald-500 shadow-sm" />
-                        <div className="text-[8.5px] font-mono text-slate-400 font-bold">
+                        <div className="absolute -left-[4.5px] top-1.5 w-2 h-2 rounded-full border border-pm-surface bg-emerald-500 shadow-sm" />
+                        <div className="text-[8.5px] font-mono text-pm-muted font-bold">
                           {new Date(selectedMarker.created_at).toLocaleString()}
                         </div>
-                        <p className="text-[10px] font-bold text-slate-600 mt-0.5">
+                        <p className="text-[10px] font-bold text-pm-text/80 mt-0.5">
                           Observation logged by {selectedMarker.creator_name || 'Anonymous Reviewer'}
                         </p>
                       </div>
                       {selectedMarker.updated_at && (
                         <div className="relative pl-4">
-                          <div className="absolute -left-[4.5px] top-1.5 w-2 h-2 rounded-full border border-white bg-[#293681] shadow-sm" />
-                          <div className="text-[8.5px] font-mono text-slate-400 font-bold">
+                          <div className="absolute -left-[4.5px] top-1.5 w-2 h-2 rounded-full border border-pm-surface bg-pm-accent shadow-sm" />
+                          <div className="text-[8.5px] font-mono text-pm-muted font-bold">
                             {new Date(selectedMarker.updated_at).toLocaleString()}
                           </div>
-                          <p className="text-[10px] font-bold text-slate-600 mt-0.5">
-                            Observation updated to status: <span className="font-black text-[#293681]">{selectedMarker.status}</span>
+                          <p className="text-[10px] font-bold text-pm-text/80 mt-0.5">
+                            Observation updated to status: <span className="font-black text-pm-accent">{selectedMarker.status}</span>
                           </p>
                         </div>
                       )}
@@ -831,8 +821,8 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
                 {/* 2. Collaboration Replies */}
                 <div className="space-y-3">
-                  <h4 className="text-[9px] font-black uppercase tracking-widest text-[#293681]/50 flex items-center gap-1.5 pb-2 border-b border-slate-100">
-                    <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                  <h4 className="text-[9px] font-black uppercase tracking-widest text-pm-text/40 flex items-center gap-1.5 pb-2 border-b border-pm-border">
+                    <MessageSquare className="w-3.5 h-3.5 text-pm-muted" />
                     Discussion
                   </h4>
 
@@ -849,12 +839,12 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                             >
                               {init}
                             </div>
-                            <div className="bg-slate-50 border border-slate-200/50 rounded-xl px-3 py-2 flex-1 min-w-0">
-                              <div className="flex items-center justify-between text-[7.5px] font-black uppercase text-slate-400">
+                            <div className="bg-pm-surface border border-pm-border rounded-xl px-3 py-2 flex-1 min-w-0">
+                              <div className="flex items-center justify-between text-[7.5px] font-black uppercase text-pm-muted">
                                 <span>{rep.authorName} ({rep.authorRole})</span>
                                 <span>{new Date(rep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
-                              <p className="text-[10.5px] text-slate-600 font-bold mt-1 leading-normal break-words">
+                              <p className="text-[10.5px] text-pm-text font-bold mt-1 leading-normal break-words">
                                 {rep.text}
                               </p>
                             </div>
@@ -862,8 +852,8 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                         )
                       })
                     ) : (
-                      <div className="text-center p-4 border border-dashed border-slate-200/50 bg-slate-50/20 rounded-xl">
-                        <p className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">No replies yet.</p>
+                      <div className="text-center p-4 border border-dashed border-pm-border bg-pm-surface-2 rounded-xl">
+                        <p className="text-[8.5px] font-bold text-pm-muted uppercase tracking-wider">No replies yet.</p>
                       </div>
                     )}
                   </div>
@@ -875,11 +865,11 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                       placeholder="Type reply or note..."
                       value={newReplyText}
                       onChange={(e) => setNewReplyText(e.target.value)}
-                      className="flex-1 px-3.5 py-2 border border-slate-200 bg-slate-50 rounded-lg text-xs font-bold text-slate-800 outline-none placeholder:text-slate-400 focus:bg-white focus:border-[#293681] transition-colors duration-200"
+                      className="flex-1 px-3.5 py-2 border border-pm-border bg-pm-surface rounded-lg text-xs font-bold text-pm-text outline-none placeholder:text-pm-muted focus:bg-pm-surface-2 focus:border-pm-accent transition-colors duration-200"
                     />
                     <button
                       type="submit"
-                      className="w-8.5 h-8.5 rounded-lg bg-[#293681] hover:bg-[#112E81] text-white flex items-center justify-center shadow-sm flex-shrink-0 transition-colors cursor-pointer"
+                      className="w-8.5 h-8.5 rounded-lg bg-pm-accent hover:bg-pm-accent-bright text-white flex items-center justify-center shadow-sm flex-shrink-0 transition-all cursor-pointer"
                     >
                       <Send className="w-3.5 h-3.5" />
                     </button>
@@ -888,10 +878,10 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
               </div>
 
               {/* Extra actions */}
-              <div className="border-t border-slate-100 pt-5 flex items-center justify-between">
+              <div className="border-t border-pm-border pt-5 flex items-center justify-between">
                 <button
                   onClick={handleCopyLink}
-                  className="h-8.5 px-3 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                  className="h-8.5 px-3 rounded-lg border border-pm-border bg-pm-surface text-pm-muted hover:bg-pm-surface-2 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   Copy link
@@ -899,7 +889,7 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
                 <button
                   onClick={() => handleDeleteMarker(selectedMarker.id)}
-                  className="h-8.5 px-3 rounded-lg border border-rose-100 text-rose-500 hover:bg-rose-50 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="h-8.5 px-3 rounded-lg border border-rose-500/20 text-rose-500 hover:bg-rose-500/10 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   Delete Pin
@@ -908,13 +898,13 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4 select-none bg-slate-50/10">
-              <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-200 shadow-sm">
-                <MapPin className="w-6 h-6 animate-pulse text-[#293681]/30" />
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4 select-none bg-pm-surface-2/40">
+              <div className="w-14 h-14 rounded-2xl bg-pm-surface border border-pm-border flex items-center justify-center text-pm-muted shadow-sm">
+                <MapPin className="w-6 h-6 animate-pulse text-pm-accent/40" />
               </div>
               <div className="space-y-1 max-w-[200px]">
-                <h3 className="text-[10px] font-black text-[#293681] uppercase tracking-widest">Select an item</h3>
-                <p className="text-[9px] text-slate-400 leading-relaxed uppercase tracking-wider font-black">
+                <h3 className="text-[10px] font-black text-pm-text uppercase tracking-widest">Select an item</h3>
+                <p className="text-[9px] text-pm-muted leading-relaxed uppercase tracking-wider font-black">
                   Choose a card from the left panel list or select its pin on the canvas to inspect description details.
                 </p>
               </div>

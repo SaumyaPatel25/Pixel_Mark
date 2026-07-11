@@ -15,9 +15,9 @@ export default function MarketingFooter() {
   const isUserLoggedIn = mounted && !!user;
   
   return (
-    <footer className="relative bg-[#FCF5F5] border-t border-pm-border/30 pt-24 pb-16 overflow-hidden">
+    <footer className="relative bg-pm-surface-2 border-t border-pm-border/30 pt-24 pb-16 overflow-hidden">
       {/* Footer glow backdrop */}
-      <div className="absolute bottom-0 right-1/4 w-[300px] h-[300px] bg-[#C7B4D6]/8 rounded-full blur-[80px] pointer-events-none z-0" />
+      <div className="absolute bottom-0 right-1/4 w-[300px] h-[300px] bg-pm-accent-subtle rounded-full blur-[80px] pointer-events-none z-0" />
       
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         
@@ -26,7 +26,7 @@ export default function MarketingFooter() {
           {/* Column 1: Brand */}
           <div className="lg:col-span-4 space-y-4 text-left">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="text-[#253B80] group-hover:scale-105 transition-transform duration-300">
+              <div className="text-pm-accent group-hover:scale-105 transition-transform duration-300">
                 <svg width="22" height="22" viewBox="0 0 26 26" fill="none">
                   <rect x="1.5" y="1.5" width="23" height="23" rx="6"
                     stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.9"/>
@@ -35,26 +35,26 @@ export default function MarketingFooter() {
                   <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
                 </svg>
               </div>
-              <span className="font-display font-extrabold text-base tracking-tight text-[#1D264F]">
+              <span className="font-display font-extrabold text-base tracking-tight text-pm-text">
                 PixelMark
               </span>
             </Link>
             <p className="text-xs text-pm-muted leading-relaxed max-w-sm font-sans">
               Precision visual feedback and website reviews built for designers, developers, QA teams, and agencies. Bridge the gap between UI revisions and codebase fixes.
             </p>
-            <a href="mailto:saumyavishwam@gmail.com" className="block text-[11px] font-mono font-bold text-[#253B80] hover:underline pt-2">
+            <a href="mailto:saumyavishwam@gmail.com" className="block text-[11px] font-mono font-bold text-pm-accent hover:underline pt-2">
               saumyavishwam@gmail.com
             </a>
           </div>
 
           {/* Column 2: Product */}
           <div className="lg:col-span-2 space-y-4 text-left">
-            <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80]">Product</h4>
+            <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent">Product</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
-              <a href="#features" className="hover:text-[#253B80] transition-colors">Features</a>
-              <a href="#how-it-works" className="hover:text-[#253B80] transition-colors">How It Works</a>
-              <Link href="/pricing" className="hover:text-[#253B80] transition-colors">Pricing</Link>
-              <Link href={isUserLoggedIn ? "/dashboard" : "/register"} className="hover:text-[#253B80] transition-colors">
+              <a href="#features" className="hover:text-pm-accent transition-colors">Features</a>
+              <a href="#how-it-works" className="hover:text-pm-accent transition-colors">How It Works</a>
+              <Link href="/pricing" className="hover:text-pm-accent transition-colors">Pricing</Link>
+              <Link href={isUserLoggedIn ? "/dashboard" : "/register"} className="hover:text-pm-accent transition-colors">
                 {isUserLoggedIn ? "Dashboard" : "Start Free"}
               </Link>
             </div>
@@ -62,23 +62,23 @@ export default function MarketingFooter() {
 
           {/* Column 3: Company */}
           <div className="lg:col-span-2 space-y-4 text-left">
-            <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80]">Company</h4>
+            <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent">Company</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
-              <Link href="/company#story" className="hover:text-[#253B80] transition-colors">About Story</Link>
-              <Link href="/company#company" className="hover:text-[#253B80] transition-colors">Entrext Labs</Link>
-              <a href="https://entrextlabs.substack.com/subscribe" target="_blank" rel="noopener noreferrer" className="hover:text-[#253B80] transition-colors">Blog Substack</a>
-              <Link href="/company#opportunities" className="hover:text-[#253B80] transition-colors">Careers</Link>
+              <Link href="/company#story" className="hover:text-pm-accent transition-colors">About Story</Link>
+              <Link href="/company#company" className="hover:text-pm-accent transition-colors">Entrext Labs</Link>
+              <a href="https://entrextlabs.substack.com/subscribe" target="_blank" rel="noopener noreferrer" className="hover:text-pm-accent transition-colors">Blog Substack</a>
+              <Link href="/company#opportunities" className="hover:text-pm-accent transition-colors">Careers</Link>
             </div>
           </div>
 
           {/* Column 4: Legal */}
           <div className="lg:col-span-4 space-y-4 text-left">
-            <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80]">Legal</h4>
+            <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent">Legal</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
-              <Link href="/company#legal" className="hover:text-[#253B80] transition-colors">Privacy Policy</Link>
-              <Link href="/company#legal" className="hover:text-[#253B80] transition-colors">Terms of Service</Link>
-              <Link href="/company#legal" className="hover:text-[#253B80] transition-colors">CORS Scoping Agreement</Link>
-              <Link href="/company#legal" className="hover:text-[#253B80] transition-colors">Security Disclosures</Link>
+              <Link href="/company#legal" className="hover:text-pm-accent transition-colors">Privacy Policy</Link>
+              <Link href="/company#legal" className="hover:text-pm-accent transition-colors">Terms of Service</Link>
+              <Link href="/company#legal" className="hover:text-pm-accent transition-colors">CORS Scoping Agreement</Link>
+              <Link href="/company#legal" className="hover:text-pm-accent transition-colors">Security Disclosures</Link>
             </div>
           </div>
         </div>
@@ -94,7 +94,7 @@ export default function MarketingFooter() {
               href="https://www.linkedin.com/in/saumya-rajeshbhai-patel-857290372"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-[#253B80] transition-colors cursor-pointer flex items-center gap-1.5"
+              className="hover:text-pm-accent transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
@@ -107,7 +107,7 @@ export default function MarketingFooter() {
               href="https://github.com/sp25126"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-[#253B80] transition-colors cursor-pointer flex items-center gap-1.5"
+              className="hover:text-pm-accent transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />

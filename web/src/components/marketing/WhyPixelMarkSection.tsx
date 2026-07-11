@@ -52,9 +52,11 @@ export default function WhyPixelMarkSection() {
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80] bg-[#253B80]/5 px-3 py-1 rounded-full border border-[#253B80]/10">
               WHY PIXELMARK
             </span>
-            <h2 className="font-display text-4xl md:text-5xl lg:text-[4rem] font-extrabold tracking-[-0.03em] text-[#1D264F] leading-[1.02]">
-              Engineered for trust. <br />
-              Built for speed.
+            <h2 className="mkt-section-h2 font-display font-extrabold text-[#1D264F]"
+              style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', lineHeight: 1.04, letterSpacing: '-0.03em' }}
+            >
+              Engineered for trust.<br />
+              <span className="mkt-section-h2-sub">Built for speed.</span>
             </h2>
             <p className="text-sm md:text-base text-pm-muted leading-relaxed max-w-xl font-sans pt-2">
               No chrome extension walls. No screenshotted bug reports. We handle staging proxies, CSS selectors, and multi-device viewports out of the box.
@@ -81,13 +83,13 @@ export default function WhyPixelMarkSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-50px' }}
               transition={{ duration: 0.5, delay: idx * 0.08 }}
-              className="p-6 md:p-8 rounded-[24px] border border-pm-border/60 bg-white/70 backdrop-blur-md hover:border-[#253B80]/30 hover:shadow-[0_20px_40px_-15px_rgba(37,59,128,0.04)] transition-all duration-300 flex flex-col justify-between"
+              className="p-6 md:p-8 rounded-[24px] border border-pm-border/60 bg-pm-surface/70 backdrop-blur-md hover:border-pm-accent-bright/35 hover:shadow-accent transition-all duration-300 flex flex-col justify-between"
             >
               <div className="space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-[#E2F3F5] flex items-center justify-center text-[#253B80]">
+                <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
                   <item.icon className="w-5 h-5" />
                 </div>
-                <h3 className="font-display text-xl font-bold tracking-tight text-[#1D264F]">
+                <h3 className="font-display text-xl font-bold tracking-tight text-pm-text">
                   {item.title}
                 </h3>
                 <p className="text-xs text-pm-muted leading-relaxed font-sans">
@@ -95,7 +97,7 @@ export default function WhyPixelMarkSection() {
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-pm-border/20 flex justify-between items-center">
-                <span className="text-[9px] font-mono font-bold text-[#253B80] uppercase tracking-wider">
+                <span className="text-[9px] font-mono font-bold text-pm-accent uppercase tracking-wider">
                   {item.tag}
                 </span>
                 <span className="text-[10px] text-pm-text-faint font-semibold">✓ Verified</span>
@@ -109,7 +111,7 @@ export default function WhyPixelMarkSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            className="p-6 md:p-8 rounded-[24px] border border-[#253B80]/10 bg-gradient-to-br from-[#253B80] to-[#1D264F] text-white flex flex-col justify-between min-h-[250px]"
+            className="p-6 md:p-8 rounded-[24px] border border-pm-border bg-gradient-to-br from-pm-accent to-pm-accent-bright text-white flex flex-col justify-between min-h-[250px]"
           >
             <div className="space-y-3">
               <span className="text-[9px] font-mono font-bold text-[#E2F3F5] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded">
@@ -124,7 +126,7 @@ export default function WhyPixelMarkSection() {
             </div>
             <Link
               href="/register"
-              className="mt-6 w-full py-3.5 bg-white hover:bg-[#FAF2F2] text-[#253B80] rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-colors text-center cursor-pointer block"
+              className="mt-6 w-full py-3.5 bg-white hover:bg-white/90 text-pm-accent rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-colors text-center cursor-pointer block"
             >
               Start Project In 3 Seconds →
             </Link>

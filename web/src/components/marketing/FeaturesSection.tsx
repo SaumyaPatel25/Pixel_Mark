@@ -49,9 +49,11 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80] bg-[#E2F3F5] px-3 py-1 rounded-full border border-[#E2F3F5]">
             PRODUCT CAPABILITIES
           </span>
-          <h2 className="font-display text-4xl md:text-5xl lg:text-[4rem] font-extrabold tracking-[-0.03em] text-[#1D264F] leading-[1.02]">
-            Everything developers need. <br />
-            Nothing clients have to learn.
+          <h2 className="mkt-section-h2 font-display font-extrabold text-[#1D264F]"
+            style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', lineHeight: 1.04, letterSpacing: '-0.03em' }}
+          >
+            Everything developers need.<br />
+            <span className="mkt-section-h2-sub">Nothing clients have to learn.</span>
           </h2>
           <p className="text-sm md:text-base text-pm-muted leading-relaxed max-w-xl font-sans pt-2">
             A visual bug reporting tool and collaboration dashboard built directly on top of raw browser engines.
@@ -68,7 +70,7 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
         >
           {/* Card 1: Interactive Pin Engine (Double Width) */}
           <GlassTiltCard
-            className="md:col-span-2 border-[#C7B4D6]/40 bg-white hover:border-[#253B80]/40 hover:shadow-[0_24px_50px_-16px_rgba(37,59,128,0.06)] transition-all duration-300 min-h-[320px]"
+            className="md:col-span-2 border-pm-border bg-pm-surface hover:border-pm-accent/40 hover:shadow-[0_24px_50px_-16px_var(--pm-accent-glow)] transition-all duration-300 min-h-[320px]"
             onMouseEnter={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
@@ -80,7 +82,7 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
             <div className="flex flex-col md:flex-row justify-between gap-8 h-full items-stretch">
               <div className="space-y-4 max-w-sm flex flex-col justify-between h-full">
                 <div className="space-y-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#C7B4D6]/25 flex items-center justify-center text-[#253B80]">
+                  <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
                     <Layers className="w-5 h-5" />
                   </div>
                   <h3 className="font-display text-2xl font-bold tracking-tight text-pm-text">
@@ -91,27 +93,27 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
                   </p>
                 </div>
                 <div className="flex gap-2 pt-4">
-                  <span className="text-[10px] font-mono font-bold bg-[#C7B4D6]/20 text-[#253B80] px-2.5 py-1 rounded">
+                  <span className="text-[10px] font-mono font-bold bg-pm-accent-subtle text-pm-accent px-2.5 py-1 rounded">
                     CSS PATHS
                   </span>
-                  <span className="text-[10px] font-mono font-bold bg-[#E2F3F5] text-[#253B80] px-2.5 py-1 rounded">
+                  <span className="text-[10px] font-mono font-bold bg-pm-surface-2 border border-pm-border text-pm-accent px-2.5 py-1 rounded">
                     XPATH MAPS
                   </span>
                 </div>
               </div>
 
               {/* Bento Visual Side */}
-              <div className="flex-1 min-h-[160px] bg-slate-50 rounded-2xl border border-slate-100 p-4 flex flex-col justify-between relative overflow-hidden">
+              <div className="flex-1 min-h-[160px] bg-pm-surface-2 rounded-2xl border border-pm-border p-4 flex flex-col justify-between relative overflow-hidden">
                 <div className="flex justify-between items-center text-[9px] font-mono text-pm-text-faint">
                   <span>ELEMENT SELECTOR</span>
                   <span className="text-emerald-500 font-bold">READY</span>
                 </div>
                 <div className="py-4 space-y-2">
-                  <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl shadow-sm flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#253B80] animate-pulse" />
+                  <div className="p-2.5 bg-pm-surface border border-pm-border rounded-xl shadow-sm flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pm-accent animate-pulse" />
                     <span className="font-mono text-[10px] text-pm-text font-bold">button.btn-signup-hero</span>
                   </div>
-                  <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl shadow-sm flex items-center gap-2 opacity-50">
+                  <div className="p-2.5 bg-pm-surface border border-pm-border rounded-xl shadow-sm flex items-center gap-2 opacity-50">
                     <span className="w-1.5 h-1.5 rounded-full bg-pm-text-faint" />
                     <span className="font-mono text-[10px] text-pm-text">div.nav-wrapper &gt; a.logo</span>
                   </div>
@@ -125,7 +127,7 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
 
           {/* Card 2: Zero Extension Install (Single Width) */}
           <GlassTiltCard
-            className="border-[#E2F3F5] bg-white hover:border-[#253B80]/40 hover:shadow-[0_24px_50px_-16px_rgba(37,59,128,0.06)] transition-all duration-300"
+            className="border-pm-border bg-pm-surface hover:border-pm-accent/40 hover:shadow-[0_24px_50px_-16px_var(--pm-accent-glow)] transition-all duration-300"
             onMouseEnter={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
@@ -136,19 +138,19 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
           >
             <div className="space-y-5 flex flex-col justify-between h-full">
               <div className="space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-[#E2F3F5] flex items-center justify-center text-[#253B80]">
+                <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
                   <Share2 className="w-5 h-5" />
                 </div>
                 <h3 className="font-display text-2xl font-bold tracking-tight text-pm-text">
-                  Zero Extensions
+                  Zero Plugin Install
                 </h3>
                 <p className="text-xs text-pm-muted leading-relaxed font-sans">
                   Generate secure, lightweight review links that load directly inside any standard desktop or mobile web browser. No plugins required.
                 </p>
               </div>
 
-              <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between text-[10px] font-mono">
-                <span className="text-[#253B80] font-semibold">pixelmark.co/t/294f</span>
+              <div className="p-3.5 bg-pm-surface-2 border border-pm-border rounded-xl flex items-center justify-between text-[10px] font-mono">
+                <span className="text-pm-accent font-semibold">pixelmark.co/t/294f</span>
                 <span className="text-pm-text-faint">Copy</span>
               </div>
             </div>
@@ -156,7 +158,7 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
 
           {/* Card 3: Specifications Inspector (Single Width) */}
           <GlassTiltCard
-            className="border-[#FCE2E1]/60 bg-white hover:border-[#253B80]/40 hover:shadow-[0_24px_50px_-16px_rgba(37,59,128,0.06)] transition-all duration-300"
+            className="border-pm-border bg-pm-surface hover:border-pm-accent/40 hover:shadow-[0_24px_50px_-16px_var(--pm-accent-glow)] transition-all duration-300"
             onMouseEnter={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
@@ -167,7 +169,7 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
           >
             <div className="space-y-5 flex flex-col justify-between h-full">
               <div className="space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-[#FCE2E1]/40 flex items-center justify-center text-[#253B80]">
+                <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
                   <Terminal className="w-5 h-5" />
                 </div>
                 <h3 className="font-display text-2xl font-bold tracking-tight text-pm-text">
@@ -178,7 +180,7 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
                 </p>
               </div>
 
-              <div className="bg-slate-950 border border-white/5 rounded-xl p-3 font-mono text-[9px] text-[#FCE2E1] space-y-1">
+              <div className="bg-pm-bg border border-pm-border rounded-xl p-3 font-mono text-[9px] text-pm-accent space-y-1">
                 <div>browser: Chrome v126</div>
                 <div>viewport: 1920x1080</div>
                 <div>os: Windows 11</div>
@@ -188,7 +190,7 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
 
           {/* Card 4: WebSocket Collaboration Sync (Double Width) */}
           <GlassTiltCard
-            className="md:col-span-2 border-[#C7B4D6]/40 bg-white hover:border-[#253B80]/40 hover:shadow-[0_24px_50px_-16px_rgba(37,59,128,0.06)] transition-all duration-300 min-h-[320px]"
+            className="md:col-span-2 border-pm-border bg-pm-surface hover:border-pm-accent/40 hover:shadow-[0_24px_50px_-16px_var(--pm-accent-glow)] transition-all duration-300 min-h-[320px]"
             onMouseEnter={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
@@ -200,7 +202,7 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
             <div className="flex flex-col md:flex-row justify-between gap-8 h-full items-stretch">
               <div className="space-y-4 max-w-sm flex flex-col justify-between h-full">
                 <div className="space-y-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#C7B4D6]/25 flex items-center justify-center text-[#253B80]">
+                  <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
                     <Users className="w-5 h-5" />
                   </div>
                   <h3 className="font-display text-2xl font-bold tracking-tight text-pm-text">
@@ -216,23 +218,23 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
               </div>
 
               {/* Bento Visual Side */}
-              <div className="flex-1 min-h-[160px] bg-slate-50 rounded-2xl border border-slate-100 p-5 flex flex-col justify-between relative overflow-hidden">
+              <div className="flex-1 min-h-[160px] bg-pm-surface-2 rounded-2xl border border-pm-border p-5 flex flex-col justify-between relative overflow-hidden">
                 <div className="flex justify-between items-center text-[9px] font-mono text-pm-text-faint">
                   <span>ACTIVE TEAM SESSIONS</span>
-                  <span className="text-[#253B80] font-bold">2 PARTICIPANTS</span>
+                  <span className="text-pm-accent font-bold">2 PARTICIPANTS</span>
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2.5 bg-white border border-slate-200/80 rounded-xl shadow-sm">
+                  <div className="flex items-center justify-between p-2.5 bg-pm-surface border border-pm-border rounded-xl shadow-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-[#C7B4D6]/30 flex items-center justify-center text-[#253B80] text-[9px] font-bold">S</div>
+                      <div className="w-5 h-5 rounded-full bg-pm-accent-subtle flex items-center justify-center text-pm-accent text-[9px] font-bold">S</div>
                       <span className="text-[11px] font-semibold text-pm-text">Sarah (Product Lead)</span>
                     </div>
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   </div>
-                  <div className="flex items-center justify-between p-2.5 bg-white border border-slate-200/80 rounded-xl shadow-sm">
+                  <div className="flex items-center justify-between p-2.5 bg-pm-surface border border-pm-border rounded-xl shadow-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-[#E2F3F5] flex items-center justify-center text-[#253B80] text-[9px] font-bold">M</div>
+                      <div className="w-5 h-5 rounded-full bg-pm-surface-2 border border-pm-border flex items-center justify-center text-pm-accent text-[9px] font-bold">M</div>
                       <span className="text-[11px] font-semibold text-pm-text">Michael (Client Reviewer)</span>
                     </div>
                     <span className="w-2 h-2 rounded-full bg-emerald-400" />

@@ -61,6 +61,7 @@ export const metadata: Metadata = {
 import { Suspense } from "react";
 import { CustomCursor } from "@/components/CustomCursor";
 import { AuthInitializer } from "@/components/AuthInitializer";
+import { ThemeInitializer } from "@/components/ThemeInitializer";
 import { ToastContainer } from "@/components/ui/ToastContainer";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
@@ -107,8 +108,33 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${jakarta.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var savedTheme = localStorage.getItem('pixelmark_theme') || 'system';
+                  var resolved = savedTheme;
+                  if (savedTheme === 'system') {
+                    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                  }
+                  var doc = document.documentElement;
+                  doc.setAttribute('data-theme', resolved);
+                  if (resolved === 'dark') {
+                    doc.classList.add('dark');
+                    doc.classList.remove('light');
+                  } else {
+                    doc.classList.add('light');
+                    doc.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `
+          }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
@@ -121,6 +147,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col selection:bg-cyan-500/20 selection:text-cyan-200">
         <GoogleAnalytics />
         <AuthInitializer />
+        <ThemeInitializer />
         <CustomCursor />
         <ToastContainer />
         <QueueIndicator />

@@ -44,7 +44,7 @@ export const GlassTiltCard = ({ children, className = '', onMouseEnter, onMouseL
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`bg-white/70 backdrop-blur-xl border border-pm-border/60 rounded-2xl p-8 relative overflow-hidden group hover:border-[#253B80]/35 hover:bg-white hover:shadow-[0_20px_48px_-12px_rgba(37,59,128,0.08)] transition-all duration-400 ${className}`}
+      className={`bg-pm-surface/70 backdrop-blur-xl border border-pm-border/60 rounded-2xl p-8 relative overflow-hidden group hover:border-pm-accent-bright/35 hover:bg-pm-surface-2 hover:shadow-[0_20px_48px_-12px_var(--pm-accent-glow)] transition-all duration-400 ${className}`}
       {...props}
     >
       <div style={{ transform: 'translateZ(20px)', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>

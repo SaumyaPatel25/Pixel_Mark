@@ -1,9 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { ArrowUpRight, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+const SentinelHideAndSeek = dynamic(
+  () => import('@/components/marketing/SentinelHideAndSeek'),
+  { ssr: false }
+);
 
 export default function EntrextSection() {
   const cardX = useMotionValue(0.5);
@@ -13,6 +19,19 @@ export default function EntrextSection() {
   const tiltX = useSpring(useTransform(cardY, [0, 1], [4, -4]), { stiffness: 150, damping: 22 });
   const tiltY = useSpring(useTransform(cardX, [0, 1], [-4, 4]), { stiffness: 150, damping: 22 });
   const [isHovered, setIsHovered] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const checkTheme = () => {
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
+    };
+    checkTheme();
+
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) return;
@@ -59,9 +78,11 @@ export default function EntrextSection() {
             GET STARTED TODAY
           </span>
           
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-[4.5rem] font-extrabold tracking-[-0.035em] text-[#1D264F] leading-[1.02]">
-            Ready to streamline <br />
-            your visual sign-offs?
+          <h2 className="mkt-section-h2 font-display font-extrabold text-[#1D264F]"
+            style={{ fontSize: 'clamp(2.75rem, 6vw, 4.5rem)', lineHeight: 1.04, letterSpacing: '-0.035em' }}
+          >
+            Ready to streamline<br />
+            <span className="mkt-section-h2-sub">your visual sign-offs?</span>
           </h2>
           
           <p className="text-sm md:text-base text-pm-muted leading-relaxed max-w-xl mx-auto font-sans">
@@ -71,14 +92,14 @@ export default function EntrextSection() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <Link
               href="/register"
-              className="btn-primary-3d w-full sm:w-auto px-8 py-4 bg-[#253B80] hover:bg-[#1B2C60] text-white rounded-full text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+              className="entrext-primary-btn btn-primary-3d w-full sm:w-auto px-8 py-4 bg-[#253B80] hover:bg-[#1B2C60] text-white rounded-full text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2"
             >
               Create Free Project
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
               href="/pricing"
-              className="btn-secondary-3d w-full sm:w-auto px-8 py-4 bg-slate-50 hover:bg-[#FCF5F5] text-pm-text border border-pm-border rounded-full text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5"
+              className="entrext-secondary-btn btn-secondary-3d w-full sm:w-auto px-8 py-4 bg-slate-50 hover:bg-[#FCF5F5] text-pm-text border border-pm-border rounded-full text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5"
             >
               View Pricing Tier
             </Link>
@@ -110,16 +131,16 @@ export default function EntrextSection() {
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
         >
-          <motion.div 
+          <motion.div
             style={{
               rotateX: tiltX,
               rotateY: tiltY,
-              transformStyle: 'preserve-3d',
+              transformStyle: 'preserve-3d' as const,
             }}
             onMouseMove={handleMouseMove}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            className={`relative p-8 md:p-12 rounded-3xl border bg-[#FCF5F5] overflow-hidden flex flex-col items-center text-center space-y-6 transition-all duration-500 cursor-default ${
+            className={`entrext-labs-card relative p-8 md:p-12 rounded-3xl border bg-[#FCF5F5] overflow-hidden flex flex-col items-center text-center space-y-6 transition-all duration-500 cursor-default ${
               isHovered
                 ? 'border-pm-cyan/40 shadow-[0_20px_60px_-16px_rgba(37,59,128,0.08)]'
                 : 'border-pm-border shadow-sm'
@@ -136,6 +157,9 @@ export default function EntrextSection() {
 
             {/* Dot Grid overlay */}
             <div className="absolute inset-0 bg-[radial-gradient(rgba(37,59,128,0.04)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none opacity-50 transition-opacity duration-500" />
+
+            {/* ── Sentinel hide-and-seek ──────────────────────── */}
+            {isDark && <SentinelHideAndSeek />}
             
             {/* Badge */}
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-pm-cyan/20 bg-pm-cyan-subtle text-pm-cyan text-[10px] font-mono font-bold uppercase tracking-widest">
@@ -144,7 +168,7 @@ export default function EntrextSection() {
 
             {/* Title */}
             <h3 className="font-display text-2xl md:text-3xl font-extrabold tracking-tight text-pm-text leading-tight">
-              Designed and supported by <span className="text-[#253B80]">Entrext Labs</span>
+              Designed and supported by <span className="entrext-labs-highlight text-[#253B80]">Entrext Labs</span>
             </h3>
 
             {/* Body */}
@@ -158,7 +182,7 @@ export default function EntrextSection() {
                 href="https://entrextlabs.entrext.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-primary-3d px-6 py-3 bg-[#253B80] hover:bg-[#1B2C60] text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 group cursor-pointer"
+                className="entrext-primary-btn btn-primary-3d px-6 py-3 bg-[#253B80] hover:bg-[#1B2C60] text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 group cursor-pointer"
               >
                 Visit Entrext Labs
                 <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -167,14 +191,14 @@ export default function EntrextSection() {
                 href="https://www.linkedin.com/in/saumya-rajeshbhai-patel-857290372"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-secondary-3d px-6 py-3 bg-slate-50 hover:bg-[#FCF5F5] text-pm-text border border-pm-border rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2"
+                className="entrext-secondary-btn btn-secondary-3d px-6 py-3 bg-slate-50 hover:bg-[#FCF5F5] text-pm-text border border-pm-border rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2"
               >
                 LinkedIn Profile
               </a>
             </div>
 
             {/* Partnership Badge Strip */}
-            <div className="pt-8 border-t border-pm-border w-full flex items-center justify-center gap-6 md:gap-8 opacity-60 text-pm-muted text-[10px] font-mono select-none">
+            <div className="entrext-partnership pt-8 border-t border-pm-border w-full flex items-center justify-center gap-6 md:gap-8 opacity-60 text-pm-muted text-[10px] font-mono select-none">
               <span className="font-mono font-bold text-[#1D264F] tracking-wider">PIXELMARK</span>
               <span className="text-pm-border-bright text-sm font-light">×</span>
               <span className="font-mono font-bold text-[#253B80] tracking-wider">ENTREXT LABS</span>

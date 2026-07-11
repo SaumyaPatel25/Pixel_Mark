@@ -95,24 +95,24 @@ export default function ReviewPage() {
 
   if (loading && !verifying) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center space-y-4 bg-[#0a0a0f]">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Loading Review Session</p>
+      <div className="h-screen flex flex-col items-center justify-center space-y-4 bg-pm-bg text-pm-text transition-colors duration-300">
+        <Loader2 className="w-8 h-8 animate-spin text-pm-accent" />
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-pm-muted">Loading Review Session</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center p-6 text-center space-y-6 bg-[#0a0a0f]">
-        <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+      <div className="h-screen flex flex-col items-center justify-center p-6 text-center space-y-6 bg-pm-bg text-pm-text transition-colors duration-300">
+        <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shadow-lg">
           <Lock className="w-8 h-8 text-rose-500" />
         </div>
         <div>
-          <h1 className="text-2xl font-black tracking-tighter text-white uppercase">Access Denied</h1>
-          <p className="text-white/40 text-xs font-mono mt-2">{error}</p>
+          <h1 className="text-xl font-black tracking-tighter text-pm-text uppercase">Access Denied</h1>
+          <p className="text-pm-muted text-xs font-mono mt-2">{error}</p>
         </div>
-        <Button onClick={() => window.location.reload()} variant="outline" className="rounded-2xl h-11 px-8 border-white/10 hover:bg-white/5">
+        <Button onClick={() => window.location.reload()} variant="outline" className="rounded-2xl h-11 px-8 border-pm-border bg-pm-surface-2 hover:bg-pm-surface-3 text-pm-text transition-all">
           Retry Access
         </Button>
       </div>
@@ -121,19 +121,19 @@ export default function ReviewPage() {
 
   if (needsPassword) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center p-6 bg-[#0a0a0f]">
+      <div className="h-screen flex flex-col items-center justify-center p-6 bg-pm-bg text-pm-text transition-colors duration-300">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md space-y-8 p-10 rounded-[2.5rem] bg-[#0f0f16] border border-white/5 shadow-2xl"
+          className="w-full max-w-md space-y-8 p-10 rounded-[2.5rem] bg-pm-surface border border-pm-border shadow-2xl transition-all"
         >
           <div className="text-center space-y-4">
-            <div className="w-20 h-20 rounded-[2rem] bg-purple-600/10 border border-purple-600/20 flex items-center justify-center mx-auto shadow-2xl shadow-purple-900/20">
-              <Shield className="w-10 h-10 text-purple-500" />
+            <div className="w-20 h-20 rounded-[2rem] bg-pm-accent-subtle border border-pm-border flex items-center justify-center mx-auto shadow-2xl">
+              <Shield className="w-10 h-10 text-pm-accent" />
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tighter text-white uppercase">Secure Audit</h1>
-              <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-2">Password required to view this audit</p>
+              <h1 className="text-xl font-black tracking-tighter text-pm-text uppercase">Secure Audit</h1>
+              <p className="text-[10px] text-pm-muted font-bold uppercase tracking-widest mt-2">Password required to view this audit</p>
             </div>
           </div>
 
@@ -144,14 +144,14 @@ export default function ReviewPage() {
                 placeholder="Enter password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-white/20 h-14 rounded-2xl px-6"
+                className="bg-pm-surface-2 border border-pm-border text-pm-text placeholder:text-pm-muted h-14 rounded-2xl px-6 focus:border-pm-accent transition-colors"
                 autoFocus
               />
             </div>
             <Button 
               type="submit" 
               disabled={verifying}
-              className="w-full h-14 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-purple-900/20"
+              className="w-full h-14 bg-pm-accent hover:bg-pm-accent-bright text-white font-black uppercase tracking-widest rounded-2xl shadow-lg transition-all"
             >
               {verifying ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Access Audit'}
             </Button>
@@ -163,7 +163,7 @@ export default function ReviewPage() {
 
   if (sessionInfo) {
     return (
-      <div className="h-screen flex flex-col overflow-hidden bg-[#0a0a0f]">
+      <div className="h-screen flex flex-col overflow-hidden bg-pm-bg text-pm-text transition-colors duration-300">
         {/* Reviewer identity gate — shown until reviewer registers name */}
         {showIdentityGate && (
           <ReviewerNameGate
@@ -173,42 +173,42 @@ export default function ReviewPage() {
         )}
 
         {/* Minimal Public Header */}
-        <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#0a0a0f] z-40">
+        <header className="h-16 border-b border-pm-border flex items-center justify-between px-6 bg-pm-surface z-40 transition-colors duration-300">
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-xl bg-purple-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-pm-accent flex items-center justify-center shadow-sm">
               <span className="text-white font-black text-lg">P</span>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-black text-white uppercase truncate max-w-[200px]">{sessionInfo.session_title}</h1>
-                <span className="px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[7px] font-black text-purple-400 uppercase tracking-widest">Public Review</span>
+                <h1 className="text-sm font-black text-pm-text uppercase truncate max-w-[200px]">{sessionInfo.session_title}</h1>
+                <span className="px-2 py-0.5 rounded-full bg-pm-accent-subtle border border-pm-border text-[7px] font-black text-pm-accent uppercase tracking-widest">Public Review</span>
               </div>
-              <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest">{sessionInfo.project_name}</p>
+              <p className="text-[8px] text-pm-muted font-bold uppercase tracking-widest mt-0.5">{sessionInfo.project_name}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             {/* Show reviewer's identity chip if logged in */}
             {reviewerIdentity && (
-              <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/8">
+              <div className="flex items-center gap-2 bg-pm-surface-2 px-3 py-1.5 rounded-full border border-pm-border transition-colors">
                 <div
                   className="w-4 h-4 rounded-full flex-shrink-0"
                   style={{ backgroundColor: getMarkerColors(reviewerIdentity.color_token).dot }}
                 />
-                <span className="text-[10px] font-black text-white/70 uppercase tracking-wide">
+                <span className="text-[10px] font-black text-pm-text/70 uppercase tracking-wide">
                   {reviewerIdentity.display_name}
                 </span>
               </div>
             )}
 
-            <div className="hidden md:flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/5">
-              <Pin className="w-3 h-3 text-purple-400" />
-              <span className="text-[9px] font-bold text-white/60 uppercase tracking-widest">Drop pins to leave feedback</span>
+            <div className="hidden md:flex items-center gap-2 bg-pm-surface-2 px-4 py-2 rounded-full border border-pm-border transition-colors">
+              <Pin className="w-3 h-3 text-pm-accent" />
+              <span className="text-[9px] font-bold text-pm-muted uppercase tracking-widest">Drop pins to leave feedback</span>
             </div>
-            <div className="h-4 w-[1px] bg-white/10" />
-            <div className="flex items-center gap-2 text-white/20">
+            <div className="h-4 w-[1px] bg-pm-border" />
+            <div className="flex items-center gap-2 text-pm-muted">
               <span className="text-[8px] font-black uppercase tracking-widest">Powered by</span>
-              <strong className="text-[10px] text-white/40 tracking-tighter">PIXELMARK</strong>
+              <strong className="text-[10px] text-pm-text tracking-tighter">PIXELMARK</strong>
             </div>
           </div>
         </header>

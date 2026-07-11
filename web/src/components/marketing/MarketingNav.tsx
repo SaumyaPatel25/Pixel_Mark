@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ArrowRight, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function MarketingNav() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -46,13 +47,13 @@ export default function MarketingNav() {
         <div 
           className={`flex items-center justify-between h-[64px] transition-all duration-300 px-6 ${
             isScrolled 
-              ? 'bg-white/90 backdrop-blur-md rounded-full border border-pm-border shadow-[0_12px_40px_-12px_rgba(41,54,129,0.08)]' 
+              ? 'bg-pm-surface/90 backdrop-blur-md rounded-full border border-pm-border shadow-[0_12px_40px_-12px_rgba(41,54,129,0.08)]' 
               : 'bg-transparent border-b border-transparent'
           }`}
         >
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="text-[#253B80] group-hover:scale-105 transition-transform duration-300">
+            <div className="text-pm-accent group-hover:scale-105 transition-transform duration-300">
               <svg width="24" height="24" viewBox="0 0 26 26" fill="none">
                 <rect x="1.5" y="1.5" width="23" height="23" rx="6"
                   stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.9"/>
@@ -65,7 +66,7 @@ export default function MarketingNav() {
                 <circle cx="21"  cy="21"  r="1.2" fill="currentColor" opacity="0.6"/>
               </svg>
             </div>
-            <span className="font-display font-extrabold text-lg tracking-tight text-[#1E2022]">
+            <span className="font-display font-extrabold text-lg tracking-tight text-pm-text">
               PixelMark
             </span>
           </Link>
@@ -76,33 +77,34 @@ export default function MarketingNav() {
               <a
                 key={link.name}
                 href={link.href}
-                className="text-[11px] font-mono font-bold uppercase tracking-wider text-pm-muted hover:text-[#253B80] transition-colors relative group py-2"
+                className="text-[11px] font-mono font-bold uppercase tracking-wider text-pm-muted hover:text-pm-accent transition-colors relative group py-2"
               >
                 {link.name}
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#253B80] transition-all group-hover:w-full" />
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-pm-accent transition-all group-hover:w-full" />
               </a>
             ))}
           </div>
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-4">
+            <ThemeToggle />
             {isUserLoggedIn ? (
               <>
                 <Link
                   href="/dashboard"
-                  className="btn-ghost-3d text-[11px] font-mono font-bold uppercase tracking-wider text-pm-muted hover:text-[#253B80] transition-colors"
+                  className="btn-ghost-3d text-[11px] font-mono font-bold uppercase tracking-wider text-pm-muted hover:text-pm-accent transition-colors"
                 >
                   Hi, {user?.name || 'Developer'}
                 </Link>
                 <Link
                   href="/dashboard"
-                  className="btn-primary-3d text-[11px] font-mono font-bold uppercase tracking-wider bg-[#253B80] hover:bg-[#1A2E6F] text-white px-5 py-2.5 rounded-full flex items-center gap-1.5"
+                  className="btn-primary-3d text-[11px] font-mono font-bold uppercase tracking-wider bg-pm-accent hover:bg-pm-accent-bright text-white px-5 py-2.5 rounded-full flex items-center gap-1.5"
                 >
                   Dashboard <ArrowRight className="w-3 h-3" />
                 </Link>
                 <button
                   onClick={() => logout()}
-                  className="p-2 text-pm-muted hover:text-red-500 transition-colors"
+                  className="p-2 text-pm-muted hover:text-red-500 transition-colors cursor-pointer"
                   title="Sign Out"
                 >
                   <LogOut className="w-4 h-4" />
@@ -112,19 +114,19 @@ export default function MarketingNav() {
               <>
                 <Link
                   href="/dashboard"
-                  className="btn-ghost-3d text-[11px] font-mono font-bold uppercase tracking-wider text-[#253B80]/80 hover:text-[#253B80] transition-colors px-3 py-2"
+                  className="btn-ghost-3d text-[11px] font-mono font-bold uppercase tracking-wider text-pm-muted hover:text-pm-accent transition-colors px-3 py-2"
                 >
                   Dashboard
                 </Link>
                 <Link
                   href="/login"
-                  className="btn-ghost-3d text-[11px] font-mono font-bold uppercase tracking-wider text-[#253B80]/80 hover:text-[#253B80] transition-colors px-3 py-2"
+                  className="btn-ghost-3d text-[11px] font-mono font-bold uppercase tracking-wider text-pm-muted hover:text-pm-accent transition-colors px-3 py-2"
                 >
                   Sign In
                 </Link>
                 <Link
                   href="/register"
-                  className="btn-primary-3d text-[11px] font-mono font-bold uppercase tracking-wider bg-[#253B80] hover:bg-[#1A2E6F] text-white px-5 py-2.5 rounded-full flex items-center gap-1.5"
+                  className="btn-primary-3d text-[11px] font-mono font-bold uppercase tracking-wider bg-pm-accent hover:bg-pm-accent-bright text-white px-5 py-2.5 rounded-full flex items-center gap-1.5"
                 >
                   Get Started <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
@@ -135,7 +137,7 @@ export default function MarketingNav() {
           {/* Mobile menu trigger */}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="md:hidden text-pm-text p-1.5 hover:bg-pm-surface-2 rounded-full transition-colors"
+            className="md:hidden text-pm-text p-1.5 hover:bg-pm-surface-2 rounded-full transition-colors cursor-pointer"
           >
             <Menu className="w-5.5 h-5.5" />
           </button>
@@ -150,16 +152,19 @@ export default function MarketingNav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 z-[100] bg-white/98 backdrop-blur-xl flex flex-col p-6"
+            className="fixed inset-0 z-[100] bg-pm-surface/98 backdrop-blur-xl flex flex-col p-6 text-pm-text"
           >
-            <div className="flex items-center justify-between h-[60px] border-b border-pm-border">
-              <span className="font-display font-extrabold text-lg text-[#1E2022]">PixelMark</span>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-pm-text p-1.5 hover:bg-pm-surface-2 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
+            <div className="flex items-center justify-between h-[64px] border-b border-pm-border">
+              <span className="font-display font-extrabold text-lg text-pm-text">PixelMark</span>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-pm-text p-1.5 hover:bg-pm-surface-2 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-col gap-8 items-center justify-center flex-1">
@@ -168,7 +173,7 @@ export default function MarketingNav() {
                   key={link.name}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="font-display text-2xl font-bold text-pm-muted hover:text-[#253B80] transition-colors"
+                  className="font-display text-2xl font-bold text-pm-muted hover:text-pm-accent transition-colors"
                 >
                   {link.name}
                 </a>
@@ -190,7 +195,7 @@ export default function MarketingNav() {
                       logout();
                       setMobileMenuOpen(false);
                     }}
-                    className="text-center text-xs font-mono font-bold uppercase tracking-wider bg-red-50/50 text-red-600 border border-red-200 py-3.5 rounded-xl transition-colors"
+                    className="text-center text-xs font-mono font-bold uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20 py-3.5 rounded-xl transition-colors cursor-pointer"
                   >
                     Sign Out
                   </button>
@@ -214,7 +219,7 @@ export default function MarketingNav() {
                   <Link
                     href="/register"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="btn-primary-3d text-center text-xs font-mono font-bold uppercase tracking-wider bg-[#253B80] text-white py-3.5 rounded-xl"
+                    className="btn-primary-3d text-center text-xs font-mono font-bold uppercase tracking-wider bg-pm-accent text-white py-3.5 rounded-xl"
                   >
                     Get Started
                   </Link>

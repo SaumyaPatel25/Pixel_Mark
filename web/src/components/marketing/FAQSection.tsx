@@ -51,8 +51,11 @@ export default function FAQSection() {
               SUPPORT & TRUST
             </span>
             
-            <h2 className="font-display text-4xl lg:text-[3.5rem] font-extrabold tracking-[-0.03em] text-[#1D264F] leading-[1.02]">
-              Frequently Asked <br />Questions.
+            <h2 className="mkt-section-h2 font-display font-extrabold text-[#1D264F]"
+              style={{ fontSize: 'clamp(2.25rem, 4vw, 3.5rem)', lineHeight: 1.04, letterSpacing: '-0.03em' }}
+            >
+              Frequently Asked<br />
+              <span className="mkt-section-h2-sub">Questions.</span>
             </h2>
             
             <p className="text-sm text-pm-muted leading-relaxed font-sans max-w-sm">
@@ -60,9 +63,9 @@ export default function FAQSection() {
             </p>
 
             <div className="pt-4">
-              <a 
-                href="mailto:saumyavishwam@gmail.com" 
-                className="btn-secondary-3d inline-flex items-center gap-2.5 px-6 py-3 border border-pm-border hover:border-[#253B80]/30 bg-slate-50 hover:bg-[#253B80]/5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-pm-text hover:text-[#253B80]"
+              <a
+                href="mailto:saumyavishwam@gmail.com"
+                className="faq-contact-btn btn-secondary-3d inline-flex items-center gap-2.5 px-6 py-3 border border-pm-border hover:border-[#253B80]/30 bg-slate-50 hover:bg-[#253B80]/5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-pm-text hover:text-[#253B80]"
               >
                 <Mail className="w-4 h-4" />
                 Contact Engineering
@@ -75,25 +78,29 @@ export default function FAQSection() {
             {faqs.map((faq, index) => {
               const isExpanded = expandedIndex === index;
               return (
-                <div
-                  key={index}
-                  className={`rounded-2xl border transition-all duration-400 overflow-hidden ${
-                    isExpanded 
-                      ? 'border-[#253B80]/15 bg-slate-50 shadow-sm' 
-                      : 'border-pm-border bg-white hover:border-pm-border-hover'
-                  }`}
-                >
+              <div
+                key={index}
+                className={`faq-accordion-card rounded-2xl border transition-all duration-300 overflow-hidden ${
+                  isExpanded
+                    ? 'border-pm-accent-bright/15 bg-pm-surface-2 shadow-sm'
+                    : 'border-pm-border bg-pm-surface hover:border-pm-border-hover'
+                }`}
+              >
                   <button
                     onClick={() => toggleExpand(index)}
                     className="w-full flex items-center justify-between p-6 text-left transition-colors duration-200"
                   >
                     <div className="flex gap-4 items-center pr-4">
-                      <HelpCircle className={`w-4.5 h-4.5 flex-shrink-0 transition-colors ${isExpanded ? 'text-[#253B80]' : 'text-pm-text-faint'}`} />
-                      <span className={`font-sans text-sm font-bold transition-colors ${isExpanded ? 'text-[#253B80]' : 'text-pm-text hover:text-[#253B80]'}`}>
+                      <HelpCircle className={`w-4.5 h-4.5 flex-shrink-0 transition-colors ${isExpanded ? 'text-pm-accent' : 'text-pm-text-faint'}`} />
+                      <span className={`font-sans text-sm font-bold transition-colors ${isExpanded ? 'text-pm-accent' : 'text-pm-text hover:text-pm-accent'}`}>
                         {faq.question}
                       </span>
                     </div>
-                    <div className={`p-1.5 rounded-full transition-all duration-300 ${isExpanded ? 'bg-[#253B80] text-white' : 'bg-slate-100 text-pm-text-faint'}`}>
+                    <div
+                      className={`faq-toggle-btn p-1.5 rounded-full transition-all duration-300 flex-shrink-0 ${
+                        isExpanded ? 'bg-[#253B80] text-white' : 'bg-slate-100 text-pm-text-faint'
+                      }`}
+                    >
                       {isExpanded ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                     </div>
                   </button>

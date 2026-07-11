@@ -32,29 +32,29 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   // If page is loading and no user yet, display simple full viewport loader
   if (isLoading && !user) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F8F7F4] text-[#1E2022]">
-        <span className="w-6 h-6 border-2 border-[#253B80] border-t-transparent rounded-full animate-spin mr-3" />
-        <span className="text-xs uppercase font-mono tracking-widest text-[#253B80]/60">Restoring Session...</span>
+      <div className="flex h-screen items-center justify-center bg-pm-bg text-pm-text transition-colors duration-300">
+        <span className="w-6 h-6 border-2 border-pm-accent border-t-transparent rounded-full animate-spin mr-3" />
+        <span className="text-xs uppercase font-mono tracking-widest text-pm-muted">Restoring Session...</span>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F7F4] text-[#1E2022] flex overflow-hidden">
+    <div className="min-h-screen bg-pm-bg text-pm-text flex overflow-hidden transition-colors duration-300">
       {/* Fixed Left Sidebar */}
-      <aside className="w-56 fixed left-0 top-0 bottom-0 bg-white border-r border-[#253B80]/8 flex flex-col justify-between p-6 z-30">
+      <aside className="w-56 fixed left-0 top-0 bottom-0 bg-pm-surface border-r border-pm-border flex flex-col justify-between p-6 z-30 transition-all duration-300">
         <div className="space-y-8">
           {/* Brand header */}
           <div className="space-y-1">
-            <Link href="/dashboard" className="text-lg font-black tracking-tight text-[#1E2022] flex items-center gap-2">
-              <svg width="18" height="18" viewBox="0 0 26 26" fill="none" className="text-[#253B80]">
+            <Link href="/dashboard" className="text-lg font-black tracking-tight text-pm-text flex items-center gap-2">
+              <svg width="18" height="18" viewBox="0 0 26 26" fill="none" className="text-pm-accent">
                 <rect x="1.5" y="1.5" width="23" height="23" rx="6" stroke="currentColor" strokeWidth="2.5" fill="none"/>
                 <circle cx="13" cy="13" r="4.5" stroke="currentColor" strokeWidth="2.5" fill="none"/>
                 <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
               </svg>
               <span>PixelMark</span>
             </Link>
-            <span className="text-[9px] font-mono tracking-widest text-[#253B80]/40 uppercase block leading-none pl-6">Visual QA OS</span>
+            <span className="text-[9px] font-mono tracking-widest text-pm-muted uppercase block leading-none pl-6">Visual QA OS</span>
           </div>
 
           {/* Navigation Links */}
@@ -63,8 +63,8 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               href="/" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
                 pathname === '/' 
-                  ? 'bg-[#253B80]/[0.06] text-[#253B80] font-semibold' 
-                  : 'text-[#1E2022]/70 hover:text-[#1E2022] hover:bg-[#253B80]/[0.03]'
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
               }`}
             >
               <Home className="w-4 h-4" />
@@ -74,8 +74,8 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               href="/dashboard" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
                 pathname === '/dashboard' 
-                  ? 'bg-[#253B80]/[0.06] text-[#253B80] font-semibold' 
-                  : 'text-[#1E2022]/70 hover:text-[#1E2022] hover:bg-[#253B80]/[0.03]'
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
@@ -85,8 +85,8 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               href="/projects" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
                 pathname === '/projects' 
-                  ? 'bg-[#253B80]/[0.06] text-[#253B80] font-semibold' 
-                  : 'text-[#1E2022]/70 hover:text-[#1E2022] hover:bg-[#253B80]/[0.03]'
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
               }`}
             >
               <Folder className="w-4 h-4" />
@@ -96,8 +96,8 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               href="/docs/api" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
                 pathname === '/docs/api' 
-                  ? 'bg-[#253B80]/[0.06] text-[#253B80] font-semibold' 
-                  : 'text-[#1E2022]/70 hover:text-[#1E2022] hover:bg-[#253B80]/[0.03]'
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
               }`}
             >
               <BookOpen className="w-4 h-4" />
@@ -107,36 +107,36 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               href="/support/diagnostics" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
                 pathname === '/support/diagnostics' 
-                  ? 'bg-[#253B80]/[0.06] text-[#253B80] font-semibold' 
-                  : 'text-[#1E2022]/70 hover:text-[#1E2022] hover:bg-[#253B80]/[0.03]'
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
               }`}
             >
               <HelpCircle className="w-4 h-4" />
               Diagnostic Support
             </Link>
             <div 
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-sm text-[#1E2022]/40 cursor-not-allowed select-none"
+              className="flex items-center justify-between px-3 py-2 rounded-xl text-sm text-pm-muted/60 cursor-not-allowed select-none"
             >
               <div className="flex items-center gap-3">
-                <Download className="w-4 h-4 text-[#1E2022]/30" />
+                <Download className="w-4 h-4 text-pm-muted" />
                 <span>Chrome Extension</span>
               </div>
-              <span className="text-[8px] font-black uppercase bg-[#253B80]/5 border border-[#253B80]/15 text-[#253B80]/60 px-1.5 py-0.5 rounded">Soon</span>
+              <span className="text-[8px] font-black uppercase bg-pm-accent-subtle border border-pm-border text-pm-accent px-1.5 py-0.5 rounded">Soon</span>
             </div>
           </nav>
         </div>
 
         {/* User profile section + Sign out */}
-        <div className="space-y-4 pt-4 border-t border-[#253B80]/8">
+        <div className="space-y-4 pt-4 border-t border-pm-border">
           {user && (
             <div className="px-3 min-w-0">
-              <p className="text-xs font-bold text-[#1E2022] truncate">{user.name || 'Pro Reviewer'}</p>
-              <p className="text-[10px] text-[#1E2022]/40 truncate mt-0.5">{user.email}</p>
+              <p className="text-xs font-bold text-pm-text truncate">{user.name || 'Pro Reviewer'}</p>
+              <p className="text-[10px] text-pm-muted truncate mt-0.5">{user.email}</p>
             </div>
           )}
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs text-[#1E2022]/60 hover:text-rose-600 hover:bg-rose-50 transition-all text-left"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs text-pm-muted hover:text-rose-600 hover:bg-rose-500/10 transition-all text-left"
           >
             <LogOut className="w-4 h-4" />
             Sign Out

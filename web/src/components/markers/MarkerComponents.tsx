@@ -57,13 +57,13 @@ export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClic
 
       {/* Hover action strip (delete / move) */}
       {showStrip && (
-        <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[#0f0f16]/95 border border-white/10 rounded-2xl p-1.5 shadow-2xl z-10 animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-pm-surface border border-pm-border rounded-2xl p-1.5 shadow-2xl z-10 animate-in fade-in zoom-in-95 duration-100 transition-all">
           {(onMove || onDragStart) && (
             <button
               title="Move marker (Drag me)"
               onClick={(e) => { e.stopPropagation(); onMove?.(marker.id) }}
               onPointerDown={(e) => { e.stopPropagation(); onDragStart?.(marker.id, e) }}
-              className="p-1.5 border border-white/10 hover:border-sky-500/30 rounded-lg hover:text-sky-400 text-white/60 bg-white/[0.02] hover:bg-sky-500/10 transition-colors cursor-grab active:cursor-grabbing"
+              className="p-1.5 border border-pm-border hover:border-pm-accent-bright/30 rounded-lg hover:text-pm-accent text-pm-muted bg-pm-surface-2 hover:bg-pm-accent/10 transition-colors cursor-grab active:cursor-grabbing"
             >
               <Move className="w-3.5 h-3.5" />
             </button>
@@ -72,7 +72,7 @@ export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClic
             <button
               title="Delete marker"
               onClick={(e) => { e.stopPropagation(); onDelete(marker.id) }}
-              className="p-1.5 border border-white/10 hover:border-rose-500/30 rounded-lg hover:text-rose-400 text-white/60 bg-white/[0.02] hover:bg-rose-500/10 transition-colors"
+              className="p-1.5 border border-pm-border hover:border-rose-500/30 rounded-lg hover:text-rose-500 text-pm-muted bg-pm-surface-2 hover:bg-rose-500/10 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
