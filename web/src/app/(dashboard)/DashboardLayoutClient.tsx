@@ -62,7 +62,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           {/* Brand header */}
           <div className="space-y-1">
             <Link href="/dashboard" className="block">
-              <img src="/logo.png" alt="PixelMark" className="h-6 w-auto object-contain" />
+              <img src="/logo.png" alt="PixelMark" className="h-20 w-auto object-contain dark-theme-logo" />
             </Link>
             <span className="text-[9px] font-mono tracking-widest text-pm-muted uppercase block leading-none pl-1">Visual QA OS</span>
           </div>

@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, animate, useScroll, AnimationPlaybackControls } from 'framer-motion';
 import { ArrowRight, Zap, MousePointer2, Search, RefreshCw, Globe, Box, Grid, Compass, HelpCircle, CheckCircle2, Layers, Info, Trash2, PlusCircle, Play } from 'lucide-react';
+import FloatingHeroShape from '@/components/marketing/FloatingHeroShape';
 import Link from 'next/link';
 import { ModeType } from './HomeClient';
+import SentinelHideAndSeek from '@/components/marketing/SentinelHideAndSeek';
 import { useAuthStore } from '@/store/authStore';
 import AmbientParallaxBackground from './AmbientParallaxBackground';
+import DarkHeroAura from './DarkHeroAura';
+import ScrambleAuto from './ScrambleAuto';
 
 interface MockPin {
   id: number;
@@ -185,12 +189,81 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
   const [headline1, setHeadline1] = useState('');
   const [headline2, setHeadline2] = useState('');
   const [descText, setDescText] = useState('');
+  const [isLightTheme, setIsLightTheme] = useState(true);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const checkTheme = () => {
+      setIsLightTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
+    };
+    checkTheme();
+
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Keep a stable ref to the callback to prevent the typewriter effect from re-running on parent updates
   const onHeroTextCompleteRef = useRef(onHeroTextComplete);
   useEffect(() => {
     onHeroTextCompleteRef.current = onHeroTextComplete;
   }, [onHeroTextComplete]);
+
+  // Floating shape motion values for Light Theme signature effect
+  const floatX = useMotionValue(20);
+  const floatY = useMotionValue(20);
+  
+  const { scrollY } = useScroll();
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+  const controlsXRef = useRef<AnimationPlaybackControls | null>(null);
+  const controlsYRef = useRef<AnimationPlaybackControls | null>(null);
+
+  useEffect(() => {
+    return scrollY.on("change", () => {
+      if (!isScrolling) setIsScrolling(true);
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+      scrollTimeout.current = setTimeout(() => setIsScrolling(false), 150);
+    });
+  }, [scrollY, isScrolling]);
+
+  useEffect(() => {
+    if (!isLightTheme || !isHeroTextComplete) return;
+    
+    controlsXRef.current = animate(floatX, [20, 80, 40, 70, 20], {
+      duration: 15,
+      ease: "easeInOut",
+      repeat: Infinity,
+    });
+    
+    controlsYRef.current = animate(floatY, [10, 80, 30, 90, 10], {
+      duration: 12,
+      ease: "easeInOut",
+      repeat: Infinity,
+    });
+
+    return () => {
+      controlsXRef.current?.stop();
+      controlsYRef.current?.stop();
+    };
+  }, [isLightTheme, isHeroTextComplete, floatX, floatY]);
+
+  // Pause idle floating animation during active scrolling to prevent VRAM thrashing and save CPU
+  useEffect(() => {
+    if (isScrolling) {
+      controlsXRef.current?.pause();
+      controlsYRef.current?.pause();
+    } else {
+      controlsXRef.current?.play();
+      controlsYRef.current?.play();
+    }
+  }, [isScrolling]);
+
+  // CSS Variable bindings for SVG Mask
+  const maskVars = {
+    "--float-x": useTransform(floatX, x => `${x}%`),
+    "--float-y": useTransform(floatY, y => `${y}%`)
+  } as any;
 
   // Cinematic Word-by-Word Reveal for Headlines
   useEffect(() => {
@@ -784,9 +857,12 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
   };
 
   return (
-    <section id="hero-section" className="relative min-h-screen pt-36 pb-28 flex flex-col justify-start overflow-hidden bg-transparent dot-grid">
+    <section id="hero-section" className="relative min-h-screen pt-36 pb-28 flex flex-col justify-start overflow-hidden bg-transparent dot-grid" style={{ isolation: 'isolate' }}>
       {/* Ambient 3D Parallax Background — z-0, pointer-events-none */}
       <AmbientParallaxBackground variant="full" />
+
+      {/* Dark-theme-only hero aura / hover atmosphere */}
+      <DarkHeroAura isDark={!isLightTheme} />
 
 
       <div className="max-w-7xl mx-auto px-6 md:px-12 w-full flex-1 flex flex-col justify-start gap-12 relative z-10">
@@ -805,31 +881,164 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
             className="flex flex-col items-center text-center space-y-7 max-w-5xl mx-auto pt-8 md:pt-12 relative z-30"
           >
 
-            {/* Headline */}
-            <motion.h1 
-              layoutId="hero-headline"
-              className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-pm-text leading-[0.98] transition-all duration-500 min-h-[2.1em] text-center"
-            >
-              {headline1}
-              {headline1.length > 0 && headline1.length < 25 && (
-                <span className="inline-block w-[6px] h-[0.85em] bg-pm-text ml-1.5 align-middle animate-pulse" />
+            {/* Headline Wrapper */}
+            <div className="relative z-10 w-full max-w-full">
+              {isLightTheme && isHeroTextComplete && (
+                <motion.svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0, ...maskVars }}>
+                  <defs>
+                    <mask id="hero-mask-base">
+                      <rect width="100%" height="100%" fill="white" />
+                      <circle r="130" fill="black" style={{ cx: "var(--float-x)", cy: "var(--float-y)" } as any} />
+                    </mask>
+                    <mask id="hero-mask-duplicate">
+                      <rect width="100%" height="100%" fill="black" />
+                      <circle r="130" fill="white" style={{ cx: "var(--float-x)", cy: "var(--float-y)" } as any} />
+                    </mask>
+                  </defs>
+                </motion.svg>
               )}
-              {headline2.length > 0 && (
-                <>
-                  <br />
-                  {headline2.startsWith("built for ") ? (
-                    <>
-                      built for <span className="text-pm-accent underline decoration-3 decoration-pm-surface-3 underline-offset-6">{headline2.slice(10)}</span>
-                    </>
-                  ) : (
-                    headline2
-                  )}
-                  {headline2.length < 24 && (
-                    <span className="inline-block w-[6px] h-[0.85em] bg-pm-accent ml-1.5 align-middle animate-pulse" />
-                  )}
-                </>
+              {/* Base H1 */}
+              <motion.h1 
+                layoutId="hero-headline"
+                className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-pm-text leading-[0.98] transition-all duration-500 min-h-[2.1em] text-center relative z-10"
+                style={isLightTheme && isHeroTextComplete ? {
+                  WebkitMaskImage: "url(#hero-mask-base)",
+                  maskImage: "url(#hero-mask-base)",
+                } : {}}
+              >
+                {headline1.includes("feedback") ? (
+                  <>
+                    {headline1.substring(0, headline1.indexOf("feedback"))}
+                    <br />
+                    {headline1.substring(headline1.indexOf("feedback"))}
+                  </>
+                ) : (
+                  headline1
+                )}
+                {headline1.length > 0 && headline1.length < 32 && (
+                  <span className="inline-block w-[6px] h-[0.85em] bg-pm-text ml-1.5 align-middle animate-pulse" />
+                )}
+                {headline2.length > 0 && (
+                  <>
+                    <br />
+                    {headline2.length <= 10 ? (
+                      headline2
+                    ) : (
+                      <>
+                        {headline2.substring(0, 10)}
+                        <br />
+                        {/* The Glassmorphic Capsule and Text (middle) */}
+                        <motion.span
+                          className={`relative z-10 inline-block transition-all duration-700 ${
+                            isLightTheme && isHeroTextComplete
+                              ? "bg-white/40 border border-blue-500/10 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.03)] px-5 py-1"
+                              : "border border-transparent px-0 py-0"
+                          }`}
+                          animate={isLightTheme && isHeroTextComplete ? {
+                            y: [0, -1.2, 0]
+                          } : {}}
+                          transition={{
+                            y: { repeat: Infinity, duration: 4.6, ease: "easeInOut", delay: 0.3 }
+                          }}
+                        >
+                          <ScrambleAuto
+                            text={headline2.substring(10)}
+                            isDark={!isLightTheme}
+                            sweepDuration={1850}
+                            pauseBetween={4300}
+                            className={`inline-block transition-all duration-700 font-serif italic font-semibold ${
+                              isLightTheme && isHeroTextComplete
+                                ? 'text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-pink-600'
+                                : 'text-pm-accent'
+                            }`}
+                          />
+                        </motion.span>
+                      </>
+                    )}
+                    {headline2.length < 24 && (
+                      <span className="inline-block w-[6px] h-[0.85em] bg-pm-accent ml-1.5 align-middle animate-pulse" />
+                    )}
+                  </>
+                )}
+              </motion.h1>
+              
+              {/* Floating Shape & Masked Typography Interaction Layer (Light Theme Only) */}
+              {isLightTheme && isHeroTextComplete && (
+                <motion.div
+                  className="absolute inset-0 z-50 pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 1, delay: 0.5 }}
+                  style={{
+                    WebkitMaskImage: "url(#hero-mask-duplicate)",
+                    maskImage: "url(#hero-mask-duplicate)",
+                  }}
+                >
+                  {/* Soft Premium Glowing/Tinted Background Wash */}
+                  <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(99,102,241,0.11)_0%,rgba(168,85,247,0.05)_60%,transparent_100%)] pointer-events-none rounded-3xl" />
+
+                  {/* Masked Duplicate Text Layer */}
+                  <motion.h1 
+                    className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] leading-[0.98] min-h-[2.1em] text-center absolute inset-0 text-transparent drop-shadow-[0_0_15px_rgba(99,102,241,0.65)]"
+                    style={{
+                      WebkitTextStroke: "1.5px #6366f1",
+                    }}
+                  >
+                    {headline1.includes("feedback") ? (
+                      <>
+                        {headline1.substring(0, headline1.indexOf("feedback"))}
+                        <br />
+                        {headline1.substring(headline1.indexOf("feedback"))}
+                      </>
+                    ) : (
+                      headline1
+                    )}
+                    {headline1.length > 0 && headline1.length < 32 && (
+                      <span className="inline-block w-[6px] h-[0.85em] bg-transparent ml-1.5 align-middle" />
+                    )}
+                    {headline2.length > 0 && (
+                      <>
+                        <br />
+                        {headline2.length <= 10 ? (
+                          headline2
+                        ) : (
+                          <>
+                            {headline2.substring(0, 10)}
+                            <br />
+                            <motion.span
+                              className={`relative z-10 inline-block transition-all duration-700 ${
+                                isLightTheme && isHeroTextComplete
+                                  ? "bg-white/45 border border-indigo-500/15 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.02)] px-5 py-1"
+                                  : "border border-transparent px-0 py-0"
+                              }`}
+                              animate={isLightTheme && isHeroTextComplete ? {
+                                y: [0, -1.2, 0]
+                              } : {}}
+                              transition={{
+                                y: { repeat: Infinity, duration: 4.6, ease: "easeInOut", delay: 0.3 }
+                              }}
+                            >
+                              <span
+                                className={`inline-block transition-all duration-700 font-serif italic font-semibold ${
+                                  isLightTheme && isHeroTextComplete
+                                    ? "text-transparent"
+                                    : "text-pm-accent"
+                                }`}
+                                style={{
+                                  WebkitTextStroke: "1.5px #ec4899", // pink neon stroke
+                                }}
+                              >
+                                {headline2.substring(10)}
+                              </span>
+                            </motion.span>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </motion.h1>
+                </motion.div>
               )}
-            </motion.h1>
+            </div>
 
             {/* Supporting Copy */}
             <motion.p 

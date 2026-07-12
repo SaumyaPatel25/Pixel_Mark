@@ -26,7 +26,7 @@ export default function MarketingFooter() {
           {/* Column 1: Brand */}
           <div className="lg:col-span-4 space-y-4 text-left">
             <Link href="/" className="block">
-              <img src="/logo.png" alt="PixelMark" className="h-6 w-auto object-contain" />
+              <img src="/logo.png" alt="PixelMark" className="h-24 w-auto object-contain dark-theme-logo" />
             </Link>
             <p className="text-xs text-pm-muted leading-relaxed max-w-sm font-sans">
               Precision visual feedback and website reviews built for designers, developers, QA teams, and agencies. Bridge the gap between UI revisions and codebase fixes.

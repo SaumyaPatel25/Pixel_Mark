@@ -1,5 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Figtree:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Figtree:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 @import "tailwindcss";
+
 
 @theme {
   --color-pm-bg: var(--pm-bg);
@@ -1150,4 +1151,34 @@ html[data-theme="dark"] .mkt-hero-capability-card[data-accent="shadow-dom"] .mkt
   }
 }
 
+html[data-theme="dark"] .dark-theme-logo {
+  /* Provides a solid 1px white stroke around the letters/shapes of the transparent PNG */
+  filter: drop-shadow(1px 1px 0 #ffffff)
+          drop-shadow(-1px -1px 0 #ffffff)
+          drop-shadow(1px -1px 0 #ffffff)
+          drop-shadow(-1px 1px 0 #ffffff);
+}
 
+/* ─── DarkHeroAura — static orb ambient animations ──────────────────────── */
+@keyframes dark-hero-orb-breathe {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50%       { opacity: 1;    transform: scale(1.06); }
+}
+@keyframes dark-hero-orb-breathe-2 {
+  0%, 100% { opacity: 0.6;  transform: scale(1.04); }
+  50%       { opacity: 0.9; transform: scale(0.97); }
+}
+
+html[data-theme="dark"] .dark-hero-orb-pulse {
+  animation: dark-hero-orb-breathe   22s ease-in-out infinite;
+}
+html[data-theme="dark"] .dark-hero-orb-pulse-2 {
+  animation: dark-hero-orb-breathe-2 28s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dark-hero-orb-pulse,
+  .dark-hero-orb-pulse-2 {
+    animation: none !important;
+  }
+}
