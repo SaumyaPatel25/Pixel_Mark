@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useRef, memo } from 'react';
 
@@ -10,10 +10,10 @@ const LERP  = 0.06;
 const BLOOM = 0.03;
 
 function DarkHeroAura({ isDark }: DarkHeroAuraProps) {
-  const auraRef  = useRef(null);
-  const bloomRef = useRef(null);
-  const rafRef   = useRef(0);
-  const activeRef = useRef(false);
+  const auraRef  = useRef<HTMLDivElement>(null);
+  const bloomRef = useRef<HTMLDivElement>(null);
+  const rafRef   = useRef<number>(0);
+  const activeRef = useRef<boolean>(false);
 
   const cursor   = useRef({ x: 0.5, y: 0.5 });
   const auraPos  = useRef({ x: 0.5, y: 0.5 });
@@ -29,7 +29,7 @@ function DarkHeroAura({ isDark }: DarkHeroAuraProps) {
     activeRef.current = true;
     const heroEl = document.getElementById('hero-section');
 
-    const onMove = (e) => {
+    const onMove = (e: MouseEvent) => {
       if (!heroEl) return;
       const r = heroEl.getBoundingClientRect();
       cursor.current.x = (e.clientX - r.left) / r.width;

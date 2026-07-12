@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 /**
  * ScrambleAuto
@@ -30,7 +30,7 @@ function ScrambleAuto({
 }: ScrambleAutoProps) {
   const [chars, setChars] = useState<string[]>(text.split(''));
   const rafRef    = useRef<number>(0);
-  const timerRef  = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mounted   = useRef(false);
 
   const rnd = useCallback(
