@@ -20,5 +20,13 @@
 - Outcome: Integrated Firebase client SDK for Google Sign-In and Email Verification checking; added backend `/auth/firebase-sync` exchange and provisioning endpoint; updated documentation, diagrams, and file maps.
 - Related docs: [/status.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/status.md), [integrations.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/integrations.md), [architecture.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/architecture.md)
 
+## 2026-07-18 — Firebase Auth Option A (Passwordless Email Link)
+- Request: Migrate auth to Firebase Option A (Google SSO + passwordless magic link email authentication, with no passwords).
+- Scope: LoginClient, RegisterClient, email-callback route handlers.
+- Status: Completed
+- Outcome: Completely removed password fields and flows. Configured email verification/sign-up through Firebase's `sendSignInLinkToEmail` and `signInWithEmailLink` APIs. Created `/auth/email-callback` callback page to capture magic link code and sync session with PixelMark backend.
+- Related docs: [/status.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/status.md), [integrations.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/integrations.md), [architecture.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/architecture.md)
+
+
 
 

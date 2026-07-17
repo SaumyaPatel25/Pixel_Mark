@@ -183,3 +183,14 @@ Entrext/
 - **Key Exports**: `auth` instance, `googleProvider` instance.
 - **Confidence**: VERIFIED
 
+#### [ROUTE] [web/src/app/(auth)/auth/email-callback/page.tsx](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/web/src/app/%28auth%29/auth/email-callback/page.tsx)
+- **File Type**: Page wrapper.
+- **Primary Responsibility**: Wraps the EmailCallbackClient in a Next.js Suspense boundary for handling query parameters.
+- **Confidence**: VERIFIED
+
+#### [COMPONENT] [web/src/app/(auth)/auth/email-callback/EmailCallbackClient.tsx](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/web/src/app/%28auth%29/auth/email-callback/EmailCallbackClient.tsx)
+- **File Type**: Callback Client component.
+- **Primary Responsibility**: Inspects parameters, completes sign-in via `signInWithEmailLink`, synchronizes the session with the backend, and clears local sign-in state.
+- **Confidence**: VERIFIED
+
+
