@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { motion } from 'framer-motion';
-import { Loader2, XCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Loader2, XCircle, CheckCircle2, ArrowRight, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -14,6 +14,7 @@ export default function EmailCallbackClient() {
   const { firebaseSync } = useAuthStore();
   
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<'none' | 'invalid-link' | 'generic'>('none');
   const [status, setStatus] = useState<'verifying' | 'input-email' | 'success' | 'error'>('verifying');
   const [emailInput, setEmailInput] = useState('');
   const [submittingEmail, setSubmittingEmail] = useState(false);
@@ -21,6 +22,7 @@ export default function EmailCallbackClient() {
   useEffect(() => {
     // Confirm if the link is a sign-in link
     if (!isSignInWithEmailLink(auth, window.location.href)) {
+      setErrorType('invalid-link');
       setError('The link is invalid or has expired.');
       setStatus('error');
       return;
@@ -38,6 +40,8 @@ export default function EmailCallbackClient() {
 
   const completeSignIn = async (email: string) => {
     setStatus('verifying');
+    setError(null);
+    setErrorType('none');
     try {
       // 1. Complete sign-in in Firebase
       const result = await signInWithEmailLink(auth, email, window.location.href);
@@ -59,7 +63,20 @@ export default function EmailCallbackClient() {
         window.location.href = '/dashboard';
       }, 1500);
     } catch (err: any) {
-      setError(err.message || 'Verification of email link failed.');
+      const errCode = err.code || '';
+      const errMsg = err.message || '';
+      
+      if (
+        errCode === 'auth/invalid-action-code' || 
+        errCode === 'auth/expired-action-code' || 
+        errMsg.includes('INVALID_ACTION_CODE') || 
+        errMsg.includes('EXPIRED_ACTION_CODE')
+      ) {
+        setErrorType('invalid-link');
+      } else {
+        setErrorType('generic');
+        setError(errMsg || 'Verification of email link failed.');
+      }
       setStatus('error');
     }
   };
@@ -86,13 +103,8 @@ export default function EmailCallbackClient() {
         className="w-full max-w-md bg-white/[0.02] border border-white/10 rounded-[32px] p-10 backdrop-blur-xl relative z-10 shadow-2xl flex flex-col items-center text-center space-y-6"
       >
         {/* Header Logo */}
-        <div className="flex items-center gap-3 justify-center mb-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-lg">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <span className="font-black text-2xl tracking-tighter bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">PixelMark</span>
+        <div className="flex flex-col items-center justify-center mb-4 space-y-2">
+          <img src="/logo.png" alt="PixelMark" className="h-20 w-auto object-contain" />
         </div>
 
         {/* Verifying Loader */}
@@ -121,15 +133,53 @@ export default function EmailCallbackClient() {
             <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto text-3xl">
               <XCircle className="w-10 h-10" />
             </div>
-            <h2 className="text-2xl font-black italic tracking-tight">Verification Failed</h2>
-            <p className="text-sm text-rose-400/80">{error}</p>
-            <div className="pt-6 w-full">
-              <Link
-                href="/login"
-                className="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all border border-white/5 block text-center"
-              >
-                Back to Login
-              </Link>
+
+            {errorType === 'invalid-link' ? (
+              <div className="space-y-3">
+                <h2 className="text-2xl font-black italic tracking-tight text-white">Verification link expired or invalid</h2>
+                <p className="text-sm text-white/60 leading-relaxed">
+                  This link may have expired, been used already, or was opened from an older email.
+                </p>
+                
+                <div className="pt-6 w-full flex flex-col gap-3">
+                  <Link
+                    href="/login"
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2"
+                  >
+                    Send a new link
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold uppercase tracking-widest rounded-xl transition-all border border-white/5 block text-center"
+                  >
+                    Back to login
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <h2 className="text-2xl font-black italic tracking-tight">Verification Failed</h2>
+                <p className="text-sm text-rose-400/80 leading-relaxed">{error}</p>
+                
+                <div className="pt-6 w-full">
+                  <Link
+                    href="/login"
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all border border-white/5 block text-center"
+                  >
+                    Back to Login
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Support Note callout */}
+            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-left text-xs text-white/60 flex items-start gap-2.5 mt-4">
+              <HelpCircle className="w-4 h-4 text-white/40 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-white/80">Need help?</p>
+                <p className="leading-relaxed">If the link expired, request a new one.</p>
+                <p className="leading-relaxed">If you don’t see the email, check Spam/Junk or Promotions.</p>
+              </div>
             </div>
           </div>
         )}

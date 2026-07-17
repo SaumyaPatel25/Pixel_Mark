@@ -246,35 +246,40 @@ export default function LoginClient() {
 
             {showVerificationNotice ? (
               <div
-                className="w-full rounded-2xl border p-6 space-y-5 shadow-sm text-center"
-                style={{
-                  background: '#ffffff',
-                  borderColor: 'rgba(37,59,128,0.12)',
-                }}
+                className="w-full rounded-2xl border p-6 space-y-5 shadow-sm text-center bg-white dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 text-slate-800 dark:text-slate-100"
               >
-                <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
                   ✉️
                 </div>
 
                 <div className="space-y-2">
-                  <h2 className="text-xl font-bold text-slate-800">Check your inbox</h2>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    We've sent a passwordless sign-in link to <strong>{email}</strong>. Click the link in your email to complete login.
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Check your inbox</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    We've sent a passwordless sign-in link to <strong className="text-indigo-600 dark:text-indigo-400">{email}</strong>. Click the link in your email to complete login.
                   </p>
                 </div>
 
+                {/* Spam folder callout */}
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/30 rounded-xl p-3.5 text-left text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                  <span className="text-base select-none mt-0.5">⚠️</span>
+                  <div>
+                    <p className="font-semibold mb-0.5">Didn’t get the email?</p>
+                    <p className="opacity-90 leading-relaxed">Please check your Spam or Junk folder. Email providers sometimes filter passwordless links there.</p>
+                  </div>
+                </div>
+
                 {error && (
-                  <div className="text-xs text-rose-600 font-semibold p-2 bg-rose-50 rounded-lg">
+                  <div className="text-xs text-rose-600 dark:text-rose-400 font-semibold p-2 bg-rose-50 dark:bg-rose-950/20 rounded-lg">
                     {error}
                   </div>
                 )}
 
-                <div className="border-t border-slate-100 pt-4 flex flex-col gap-2">
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-4 flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={handleResend}
                     disabled={resendStatus === 'sending'}
-                    className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs transition-colors font-bold uppercase tracking-widest rounded-xl disabled:opacity-50 cursor-pointer"
+                    className="w-full py-2.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 text-xs transition-colors font-bold uppercase tracking-widest rounded-xl disabled:opacity-50 cursor-pointer"
                   >
                     {resendStatus === 'sending' ? 'Resending...' :
                      resendStatus === 'success' ? 'Sign-in link resent!' :
@@ -288,7 +293,7 @@ export default function LoginClient() {
                       setShowVerificationNotice(false);
                       setError(null);
                     }}
-                    className="text-slate-400 hover:text-slate-600 text-xs transition-colors font-bold uppercase tracking-widest block py-2 cursor-pointer"
+                    className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 text-xs transition-colors font-bold uppercase tracking-widest block py-2 cursor-pointer"
                   >
                     Back to sign in
                   </button>
