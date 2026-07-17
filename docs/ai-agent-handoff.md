@@ -24,6 +24,12 @@ This document provides guidelines, constraints, and checklist items for subseque
 - **Rule**: Neon connection pools must retry connecting up to 5 times with exponential backoff on startup.
 - **Code**: `backend/main.py:25-64`
 
+### 1.5 Firebase Identity Sync constraint
+- **Rule**: All user registrations, email/password logins, and Google Sign-Ins must be resolved client-side via Firebase client SDK. The backend does not store plaintext passwords or issue custom email triggers.
+- **Constraint**: On login/registration success, the Firebase ID Token must be synced via `/auth/firebase-sync` to fetch/upsert the backend database `User` and `UserIdentity` records and retrieve a valid `pm_token` session cookie. Access to the dashboard is strictly gated until `auth.currentUser?.emailVerified` is True.
+- **Code**: `backend/routes/auth.py:394-490`, `web/src/app/(auth)/login/LoginClient.tsx`
+
+
 ---
 
 ## 2. Common Pitfalls to Avoid

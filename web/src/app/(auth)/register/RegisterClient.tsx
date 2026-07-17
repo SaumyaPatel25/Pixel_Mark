@@ -10,12 +10,14 @@ import PixelSentinel from '@/components/auth/PixelSentinel';
 import { useMascotFormState } from '@/hooks/useMascotFormState';
 import { event as trackEvent } from '@/lib/analytics';
 import { api } from '@/lib/api';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebase';
 
 type ScenePhase = 'projecting' | 'submitting' | 'success' | 'error';
 
 export default function RegisterClient() {
   const router = useRouter();
-  const { register, user } = useAuthStore();
+  const { firebaseSync, user } = useAuthStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -65,22 +67,46 @@ export default function RegisterClient() {
     setDevVerificationLink(null);
     setPhase('submitting');
     try {
-      const res = await register(email, password, name || undefined);
-      trackEvent({ action: 'sign_up', category: 'auth' });
-      if (res && res.access_token) {
-        setIsDirectLogin(true);
-        setPhase('success');
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 1500);
-      } else {
-        if (res && res.dev_link) {
-          setDevVerificationLink(res.dev_link);
-        }
-        setPhase('success');
+      // 1. Create user in Firebase
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const fbUser = userCredential.user;
+
+      // 2. Set displayName
+      if (name) {
+        await updateProfile(fbUser, { displayName: name });
       }
+
+      // 3. Send email verification
+      await sendEmailVerification(fbUser);
+
+      trackEvent({ action: 'sign_up', category: 'auth' });
+      setPhase('success');
     } catch (err: any) {
       setError(err.message || 'Registration failed');
+      setPhase('error');
+      setTimeout(() => setPhase('projecting'), 1500);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setDevVerificationLink(null);
+    setPhase('submitting');
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const fbUser = result.user;
+
+      const idToken = await fbUser.getIdToken();
+      await firebaseSync(idToken, fbUser.displayName || undefined);
+
+      trackEvent({ action: 'google_login', category: 'auth' });
+      setIsDirectLogin(true);
+      setPhase('success');
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Google sign-in failed');
       setPhase('error');
       setTimeout(() => setPhase('projecting'), 1500);
     }
@@ -89,11 +115,49 @@ export default function RegisterClient() {
   const handleResend = async () => {
     setResendStatus('sending');
     try {
-      await api.auth.resendVerification(email);
-      setResendStatus('success');
-      setTimeout(() => setResendStatus('idle'), 5000);
-    } catch {
+      if (auth.currentUser) {
+        await sendEmailVerification(auth.currentUser);
+        setResendStatus('success');
+        setTimeout(() => setResendStatus('idle'), 5000);
+      } else {
+        setError('Firebase session not found. Please log in.');
+        setResendStatus('error');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend. Try again.');
       setResendStatus('error');
+    }
+  };
+
+  const handleCheckVerification = async () => {
+    if (auth.currentUser) {
+      setPhase('submitting');
+      try {
+        await auth.currentUser.reload();
+        if (auth.currentUser.emailVerified) {
+          const idToken = await auth.currentUser.getIdToken();
+          await firebaseSync(idToken, name || undefined);
+          setIsDirectLogin(true);
+          setPhase('success');
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 1500);
+        } else {
+          setError('Email is still unverified. Please check your inbox.');
+          setPhase('error');
+          setTimeout(() => {
+            setPhase('success');
+            setError(null);
+          }, 1500);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Verification check failed');
+        setPhase('error');
+        setTimeout(() => {
+          setPhase('success');
+          setError(null);
+        }, 1500);
+      }
     }
   };
 
@@ -249,29 +313,34 @@ export default function RegisterClient() {
                       </p>
                     </div>
 
-                    {devVerificationLink && (
-                      <a
-                        href={devVerificationLink}
-                        className="block text-xs rounded-xl p-3 text-center break-all transition-colors"
-                        style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.3)', color: '#92400E' }}
-                      >
-                        [Dev] Click to auto-verify →
-                      </a>
+                    {error && (
+                      <div className="text-xs text-rose-600 font-semibold p-2 bg-rose-50 rounded-lg">
+                        {error}
+                      </div>
                     )}
 
                     <div className="border-t border-slate-100 pt-4 flex flex-col gap-2">
                       <button
                         type="button"
+                        onClick={handleCheckVerification}
+                        disabled={phase === 'submitting'}
+                        className="w-full py-3 bg-[#253B80] hover:bg-[#1E2E60] text-white text-xs transition-colors font-bold uppercase tracking-widest rounded-xl disabled:opacity-50 cursor-pointer animate-pulse"
+                      >
+                        {phase === 'submitting' ? 'Checking...' : 'I have verified my email'}
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={handleResend}
                         disabled={resendStatus === 'sending'}
-                        className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs transition-colors font-bold uppercase tracking-widest rounded-xl disabled:opacity-50"
+                        className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs transition-colors font-bold uppercase tracking-widest rounded-xl disabled:opacity-50 cursor-pointer"
                       >
                         {resendStatus === 'sending' ? 'Resending...' :
                          resendStatus === 'success' ? 'Verification email resent!' :
                          resendStatus === 'error' ? 'Resend failed. Retry.' :
                          'Resend verification email'}
                       </button>
-                      <Link href="/login" className="text-slate-400 hover:text-slate-600 text-xs transition-colors font-bold uppercase tracking-widest block py-2">
+                      <Link href="/login" className="text-slate-400 hover:text-slate-600 text-xs transition-colors font-bold uppercase tracking-widest block py-2 cursor-pointer">
                         Back to sign in
                       </Link>
                     </div>
@@ -280,26 +349,55 @@ export default function RegisterClient() {
               </div>
             ) : (
               <>
-                {/* GitHub SSO */}
-                <a
-                  href={`${process.env.NEXT_PUBLIC_API_URL || ''}/auth/oauth/github/start`}
-                  className="auth-github-btn btn-secondary-3d flex items-center justify-center gap-2.5 w-full rounded-xl transition-all duration-200"
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid rgba(37,59,128,0.12)',
-                    color: '#1E2022',
-                    fontSize: '0.8125rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.02em',
-                    padding: '10px 16px',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                  }}
-                >
-                  <svg className="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
-                  </svg>
-                  Sign up with GitHub
-                </a>
+                {/* SSO Providers */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {/* Google SSO */}
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={phase === 'submitting'}
+                    className="btn-secondary-3d flex items-center justify-center gap-2.5 flex-1 rounded-xl transition-all duration-200 cursor-pointer"
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid rgba(37,59,128,0.12)',
+                      color: '#1E2022',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      padding: '10px 16px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <svg className="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+                    </svg>
+                    Google
+                  </button>
+
+                  {/* GitHub SSO */}
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_API_URL || ''}/auth/oauth/github/start`}
+                    className="auth-github-btn btn-secondary-3d flex items-center justify-center gap-2.5 flex-1 rounded-xl transition-all duration-200"
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid rgba(37,59,128,0.12)',
+                      color: '#1E2022',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      padding: '10px 16px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <svg className="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                    </svg>
+                    GitHub
+                  </a>
+                </div>
 
                 {/* Divider */}
                 <div className="flex items-center gap-3">
@@ -438,7 +536,7 @@ export default function RegisterClient() {
                   <button
                     type="submit"
                     disabled={phase === 'submitting'}
-                    className="btn-primary-3d w-full flex items-center justify-center gap-2 group rounded-xl transition-all duration-200 font-display font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-primary-3d w-full flex items-center justify-center gap-2 group rounded-xl transition-all duration-200 font-display font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     style={{
                       background: '#253B80',
                       color: '#ffffff',

@@ -176,3 +176,10 @@ Entrext/
 - **Primary Responsibility**: Integrates Axios/fetch HTTP requests, automatically parses Pydantic validation arrays, maps cookies, and handles global 401 logouts.
 - **Key Exports**: `api` (API endpoint mapping dictionary), `ApiError` class, `request` method.
 - **Confidence**: VERIFIED
+
+#### [SDK] [web/src/lib/firebase.ts](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/web/src/lib/firebase.ts)
+- **File Type**: Core SDK Initializer.
+- **Primary Responsibility**: Sets up client-side Firebase Auth context using Next.js public environment keys and exports auth/provider constants.
+- **Key Exports**: `auth` instance, `googleProvider` instance.
+- **Confidence**: VERIFIED
+

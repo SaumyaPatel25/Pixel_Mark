@@ -10,12 +10,14 @@ import PixelSentinel from '@/components/auth/PixelSentinel';
 import { useMascotFormState } from '@/hooks/useMascotFormState';
 import { event as trackEvent } from '@/lib/analytics';
 import { api } from '@/lib/api';
+import { signInWithEmailAndPassword, signInWithPopup, sendEmailVerification } from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebase';
 
 type ScenePhase = 'projecting' | 'submitting' | 'success' | 'error';
 
 export default function LoginClient() {
   const searchParams = useSearchParams();
-  const { login, user, logout } = useAuthStore();
+  const { firebaseSync, user, logout } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,7 @@ export default function LoginClient() {
   const [showResend, setShowResend] = useState(false);
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [devVerificationLink, setDevVerificationLink] = useState<string | null>(null);
+  const [showVerificationNotice, setShowVerificationNotice] = useState(false);
 
   const { mascotState: hookMascotState, focusedField, emailProps, passwordProps } = useMascotFormState({
     isSubmitting: phase === 'submitting',
@@ -51,17 +54,56 @@ export default function LoginClient() {
     setDevVerificationLink(null);
     setPhase('submitting');
     try {
-      await login(email, password);
+      // 1. Sign in via Firebase Email/Password
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const fbUser = userCredential.user;
+
+      // 2. Check if verified
+      if (!fbUser.emailVerified) {
+        setPhase('projecting');
+        setShowVerificationNotice(true);
+        // Automatically trigger send verification if unverified
+        try {
+          await sendEmailVerification(fbUser);
+        } catch (_) {}
+        return;
+      }
+
+      // 3. If verified, get Firebase ID token and sync with backend
+      const idToken = await fbUser.getIdToken();
+      await firebaseSync(idToken);
+
       trackEvent({ action: 'login', category: 'auth' });
       setPhase('success');
       setTimeout(() => {
         window.location.href = '/dashboard';
       }, 1200);
     } catch (err: any) {
-      const isUnverified = err.message?.toLowerCase().includes('verify your email');
       setError(err.message || 'Authentication failed');
       setPhase('error');
-      if (isUnverified) setShowResend(true);
+      setTimeout(() => setPhase('projecting'), 1500);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setDevVerificationLink(null);
+    setPhase('submitting');
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const fbUser = result.user;
+
+      const idToken = await fbUser.getIdToken();
+      await firebaseSync(idToken, fbUser.displayName || undefined);
+
+      trackEvent({ action: 'google_login', category: 'auth' });
+      setPhase('success');
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1200);
+    } catch (err: any) {
+      setError(err.message || 'Google sign-in failed');
+      setPhase('error');
       setTimeout(() => setPhase('projecting'), 1500);
     }
   };
@@ -69,12 +111,42 @@ export default function LoginClient() {
   const handleResend = async () => {
     setResendStatus('sending');
     try {
-      const res = await api.auth.resendVerification(email);
-      setResendStatus('success');
-      if (res?.dev_link) setDevVerificationLink(res.dev_link);
-      setTimeout(() => setResendStatus('idle'), 5000);
-    } catch {
+      if (auth.currentUser) {
+        await sendEmailVerification(auth.currentUser);
+        setResendStatus('success');
+        setTimeout(() => setResendStatus('idle'), 5000);
+      } else {
+        setError('Session not found. Please re-enter credentials.');
+        setResendStatus('error');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend. Try again.');
       setResendStatus('error');
+    }
+  };
+
+  const handleCheckVerification = async () => {
+    if (auth.currentUser) {
+      setPhase('submitting');
+      try {
+        await auth.currentUser.reload();
+        if (auth.currentUser.emailVerified) {
+          const idToken = await auth.currentUser.getIdToken();
+          await firebaseSync(idToken);
+          setPhase('success');
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 1200);
+        } else {
+          setError('Email is still unverified. Please check your inbox.');
+          setPhase('error');
+          setTimeout(() => setPhase('projecting'), 1500);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Verification check failed');
+        setPhase('error');
+        setTimeout(() => setPhase('projecting'), 1500);
+      }
     }
   };
 
@@ -175,217 +247,285 @@ export default function LoginClient() {
                 <img src="/logo.png" alt="PixelMark" className="h-24 w-auto object-contain dark-theme-logo" />
               </Link>
 
-              <div className="space-y-3">
-                <h1
-                  className="auth-form-heading font-display font-extrabold"
-                  style={{ color: '#0F172A', fontSize: '2.25rem', lineHeight: 1.1, letterSpacing: '-0.03em' }}
-                >
-                  Welcome back
-                </h1>
-                <p
-                  className="auth-form-subtext"
-                  style={{ color: '#64748B', fontSize: '0.875rem', lineHeight: 1.65, fontWeight: 400, maxWidth: '34ch' }}
-                >
-                  Sign in to continue your QA sessions and visual reviews.
-                </p>
-              </div>
+              {(!showVerificationNotice || phase === 'success') && (
+                <div className="space-y-3">
+                  <h1
+                    className="auth-form-heading font-display font-extrabold"
+                    style={{ color: '#0F172A', fontSize: '2.25rem', lineHeight: 1.1, letterSpacing: '-0.03em' }}
+                  >
+                    Welcome back
+                  </h1>
+                  <p
+                    className="auth-form-subtext"
+                    style={{ color: '#64748B', fontSize: '0.875rem', lineHeight: 1.65, fontWeight: 400, maxWidth: '34ch' }}
+                  >
+                    Sign in to continue your QA sessions and visual reviews.
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* GitHub SSO */}
-            <a
-              href={`${process.env.NEXT_PUBLIC_API_URL || ''}/auth/oauth/github/start`}
-              className="auth-github-btn btn-secondary-3d flex items-center justify-center gap-2.5 w-full rounded-xl transition-all duration-200"
-              style={{
-                background: '#ffffff',
-                border: '1px solid rgba(37,59,128,0.12)',
-                color: '#1E2022',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                letterSpacing: '0.02em',
-                padding: '10px 16px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-              }}
-            >
-              <svg className="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="currentColor">
-                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
-              </svg>
-              Continue with GitHub
-            </a>
-
-            {/* Divider */}
-            <div className="flex items-center gap-3">
-              <div className="auth-divider-line flex-1 h-px" style={{ background: 'rgba(37,59,128,0.08)' }} />
-              <span
-                className="auth-divider-text"
-                style={{ color: '#B0BBCF', fontSize: '11px', fontWeight: 500, whiteSpace: 'nowrap', letterSpacing: '0.04em', textTransform: 'uppercase' }}
-              >
-                or with email
-              </span>
-              <div className="auth-divider-line flex-1 h-px" style={{ background: 'rgba(37,59,128,0.08)' }} />
-            </div>
-
-            {/* Error banner */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl px-4 py-3 text-sm text-center font-medium"
+            {showVerificationNotice ? (
+              <div
+                className="w-full rounded-2xl border p-6 space-y-5 shadow-sm text-center"
                 style={{
-                  background: 'rgba(254,226,226,0.9)',
-                  border: '1px solid rgba(239,68,68,0.25)',
-                  color: '#B91C1C',
+                  background: '#ffffff',
+                  borderColor: 'rgba(37,59,128,0.12)',
                 }}
               >
-                {error}
-                {showResend && (
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      onClick={handleResend}
-                      disabled={resendStatus === 'sending'}
-                      className="underline font-semibold disabled:opacity-50"
-                      style={{ color: '#1E40AF', fontSize: '12px' }}
-                    >
-                      {resendStatus === 'sending' ? 'Sending…' :
-                       resendStatus === 'success' ? '✓ Resent!' :
-                       resendStatus === 'error' ? 'Failed. Try again.' :
-                       'Resend verification email'}
-                    </button>
+                <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                  ✉️
+                </div>
+
+                <div className="space-y-2">
+                  <h2 className="text-xl font-bold text-slate-800">Verify your email</h2>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    We've sent a verification link to <strong>{email}</strong>. Please check your inbox and click the link, then return here to complete sign-in.
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="text-xs text-rose-600 font-semibold p-2 bg-rose-50 rounded-lg">
+                    {error}
                   </div>
                 )}
-              </motion.div>
-            )}
 
-            {devVerificationLink && (
-              <a
-                href={devVerificationLink}
-                className="block text-xs rounded-xl p-3 text-center break-all transition-colors"
-                style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.3)', color: '#92400E' }}
-              >
-                [Dev] Click to auto-verify →
-              </a>
-            )}
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email */}
-              <div className="space-y-1">
-                <label
-                  htmlFor="email"
-                  className="auth-form-label"
-                  style={{ color: '#475569', fontSize: '11.5px', fontWeight: 600, display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase' }}
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  disabled={phase === 'submitting'}
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (error) setError(null);
-                    emailProps.onChange();
-                  }}
-                  onFocus={emailProps.onFocus}
-                  onBlur={emailProps.onBlur}
-                  placeholder="name@company.com"
-                  autoComplete="email"
-                  className="auth-form-input w-full rounded-xl outline-none transition-all duration-200 disabled:opacity-50"
-                  style={{ padding: '10px 14px', fontSize: '0.875rem' }}
-                />
-              </div>
-
-              {/* Password */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="password"
-                    className="auth-form-label"
-                    style={{ color: '#475569', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}
-                  >
-                    Password
-                  </label>
-                  <Link
-                    href="/forgot-password"
-                    style={{ color: '#253B80', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.01em' }}
-                    className="hover:underline transition-colors"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    disabled={phase === 'submitting'}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (error) setError(null);
-                      passwordProps.onChange();
-                    }}
-                    onFocus={passwordProps.onFocus}
-                    onBlur={passwordProps.onBlur}
-                    placeholder="Enter your password"
-                    autoComplete="current-password"
-                    className="auth-form-input w-full rounded-xl outline-none transition-all duration-200 disabled:opacity-50"
-                    style={{ padding: '10px 44px 10px 14px', fontSize: '0.875rem' }}
-                  />
+                <div className="border-t border-slate-100 pt-4 flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={handleCheckVerification}
                     disabled={phase === 'submitting'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors p-1 rounded-lg"
-                    style={{ color: '#94A3B8' }}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="w-full py-3 bg-[#253B80] hover:bg-[#1E2E60] text-white text-xs transition-colors font-bold uppercase tracking-widest rounded-xl disabled:opacity-50 cursor-pointer animate-pulse"
                   >
-                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {phase === 'submitting' ? 'Checking...' : 'I have verified my email'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resendStatus === 'sending'}
+                    className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs transition-colors font-bold uppercase tracking-widest rounded-xl disabled:opacity-50 cursor-pointer"
+                  >
+                    {resendStatus === 'sending' ? 'Resending...' :
+                     resendStatus === 'success' ? 'Verification email resent!' :
+                     resendStatus === 'error' ? 'Resend failed. Retry.' :
+                     'Resend verification email'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowVerificationNotice(false);
+                      setError(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-600 text-xs transition-colors font-bold uppercase tracking-widest block py-2 cursor-pointer"
+                  >
+                    Back to sign in
                   </button>
                 </div>
               </div>
+            ) : (
+              <>
+                {/* SSO Providers */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {/* Google SSO */}
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={phase === 'submitting'}
+                    className="btn-secondary-3d flex items-center justify-center gap-2.5 flex-1 rounded-xl transition-all duration-200 cursor-pointer"
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid rgba(37,59,128,0.12)',
+                      color: '#1E2022',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      padding: '10px 16px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <svg className="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+                    </svg>
+                    Google
+                  </button>
 
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={phase === 'submitting'}
-                className="btn-primary-3d w-full flex items-center justify-center gap-2 group rounded-xl transition-all duration-200 font-display font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  background: '#253B80',
-                  color: '#ffffff',
-                  fontSize: '0.875rem',
-                  letterSpacing: '0.03em',
-                  padding: '11px 20px',
-                  marginTop: '8px',
-                }}
-              >
-                {phase === 'submitting' ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Signing in…
+                  {/* GitHub SSO */}
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_API_URL || ''}/auth/oauth/github/start`}
+                    className="auth-github-btn btn-secondary-3d flex items-center justify-center gap-2.5 flex-1 rounded-xl transition-all duration-200"
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid rgba(37,59,128,0.12)',
+                      color: '#1E2022',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      padding: '10px 16px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <svg className="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                    </svg>
+                    GitHub
+                  </a>
+                </div>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3">
+                  <div className="auth-divider-line flex-1 h-px" style={{ background: 'rgba(37,59,128,0.08)' }} />
+                  <span
+                    className="auth-divider-text"
+                    style={{ color: '#B0BBCF', fontSize: '11px', fontWeight: 500, whiteSpace: 'nowrap', letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                  >
+                    or with email
                   </span>
-                ) : (
-                  <>
-                    Sign in
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                  </>
-                )}
-              </button>
-            </form>
+                  <div className="auth-divider-line flex-1 h-px" style={{ background: 'rgba(37,59,128,0.08)' }} />
+                </div>
 
-            {/* Footer link */}
-            <p className="auth-form-footer-text text-center" style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 400 }}>
-              No account?{' '}
-              <Link
-                href="/register"
-                style={{ color: '#253B80', fontWeight: 600 }}
-                className="hover:underline transition-colors"
-              >
-                Sign up free
-              </Link>
-            </p>
+                {/* Error banner */}
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl px-4 py-3 text-sm text-center font-medium"
+                    style={{
+                      background: 'rgba(254,226,226,0.9)',
+                      border: '1px solid rgba(239,68,68,0.25)',
+                      color: '#B91C1C',
+                    }}
+                  >
+                    {error}
+                  </motion.div>
+                )}
+
+                {/* Form */}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Email */}
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="email"
+                      className="auth-form-label"
+                      style={{ color: '#475569', fontSize: '11.5px', fontWeight: 600, display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                    >
+                      Email
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      disabled={phase === 'submitting'}
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (error) setError(null);
+                        emailProps.onChange();
+                      }}
+                      onFocus={emailProps.onFocus}
+                      onBlur={emailProps.onBlur}
+                      placeholder="name@company.com"
+                      autoComplete="email"
+                      className="auth-form-input w-full rounded-xl outline-none transition-all duration-200 disabled:opacity-50"
+                      style={{ padding: '10px 14px', fontSize: '0.875rem' }}
+                    />
+                  </div>
+
+                  {/* Password */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label
+                        htmlFor="password"
+                        className="auth-form-label"
+                        style={{ color: '#475569', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                      >
+                        Password
+                      </label>
+                      <Link
+                        href="/forgot-password"
+                        style={{ color: '#253B80', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.01em' }}
+                        className="hover:underline transition-colors"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        disabled={phase === 'submitting'}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (error) setError(null);
+                          passwordProps.onChange();
+                        }}
+                        onFocus={passwordProps.onFocus}
+                        onBlur={passwordProps.onBlur}
+                        placeholder="Enter your password"
+                        autoComplete="current-password"
+                        className="auth-form-input w-full rounded-xl outline-none transition-all duration-200 disabled:opacity-50"
+                        style={{ padding: '10px 44px 10px 14px', fontSize: '0.875rem' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        disabled={phase === 'submitting'}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors p-1 rounded-lg"
+                        style={{ color: '#94A3B8' }}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Submit */}
+                  <button
+                    type="submit"
+                    disabled={phase === 'submitting'}
+                    className="btn-primary-3d w-full flex items-center justify-center gap-2 group rounded-xl transition-all duration-200 font-display font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    style={{
+                      background: '#253B80',
+                      color: '#ffffff',
+                      fontSize: '0.875rem',
+                      letterSpacing: '0.03em',
+                      padding: '11px 20px',
+                      marginTop: '8px',
+                    }}
+                  >
+                    {phase === 'submitting' ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Signing in…
+                      </span>
+                    ) : (
+                      <>
+                        Sign in
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* Footer link */}
+                <p className="auth-form-footer-text text-center" style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 400 }}>
+                  No account?{' '}
+                  <Link
+                    href="/register"
+                    style={{ color: '#253B80', fontWeight: 600 }}
+                    className="hover:underline transition-colors"
+                  >
+                    Sign up free
+                  </Link>
+                </p>
+              </>
+            )}
           </div>
         </div>
 

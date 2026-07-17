@@ -23,6 +23,8 @@ class Settings:
     github_redirect_uri: str = ""
     auto_verify_users: bool = True
     redis_url: str = "redis://localhost:6379/0"
+    firebase_api_key: str = ""
+    firebase_project_id: str = ""
 
 
 def load_config() -> Settings:
@@ -38,6 +40,8 @@ def load_config() -> Settings:
     github_secret = os.environ.get("GITHUB_CLIENT_SECRET", "")
     github_redirect = os.environ.get("GITHUB_REDIRECT_URI", "")
     auto_verify = os.environ.get("AUTO_VERIFY_USERS", "true").lower() in ("true", "1", "yes")
+    fb_api_key = os.environ.get("FIREBASE_API_KEY", "")
+    fb_project_id = os.environ.get("FIREBASE_PROJECT_ID", "")
 
     return Settings(
         frontend_url=frontend.rstrip("/"),
@@ -53,7 +57,9 @@ def load_config() -> Settings:
         github_redirect_uri=github_redirect,
         backend_url=os.getenv("BACKEND_URL", "http://localhost:8765"),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
-        auto_verify_users=auto_verify
+        auto_verify_users=auto_verify,
+        firebase_api_key=fb_api_key,
+        firebase_project_id=fb_project_id
     )
 
 settings = load_config()

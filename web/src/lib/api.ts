@@ -235,6 +235,12 @@ export const api = {
         body: JSON.stringify({ email, password }),
       }))
     },
+    async firebaseSync(idToken: string, name?: string) {
+      return apiQueue.enqueueWrite('Syncing session with backend...', () => request('/auth/firebase-sync', {
+        method: 'POST',
+        body: JSON.stringify({ id_token: idToken, name }),
+      }))
+    },
     async me() {
       return apiQueue.enqueueRead('Loading user...', () => request('/auth/me'))
     },

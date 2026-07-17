@@ -390,3 +390,108 @@ async def me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+class FirebaseSyncRequest(BaseModel):
+    id_token: str
+    name: Optional[str] = None
+
+
+@router.post("/firebase-sync", response_model=ExtendedTokenResponse)
+async def firebase_sync(data: FirebaseSyncRequest, db: AsyncSession = Depends(get_db)):
+    if not settings.firebase_api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="Firebase API Key is not configured on the backend."
+        )
+        
+    verify_url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={settings.firebase_api_key}"
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(verify_url, json={"idToken": data.id_token}, timeout=10.0)
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Failed to reach Firebase Auth verification service: {exc}"
+            )
+            
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Firebase ID Token"
+        )
+        
+    res_data = response.json()
+    users_list = res_data.get("users", [])
+    if not users_list:
+        raise HTTPException(
+            status_code=401,
+            detail="Firebase user not found from ID Token"
+        )
+        
+    fb_user = users_list[0]
+    email = fb_user.get("email")
+    email_verified = fb_user.get("emailVerified", False)
+    display_name = fb_user.get("displayName") or data.name or email.split("@")[0]
+    provider_user_id = fb_user.get("localId")
+    
+    # Lookup user by email
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        # Create a new user record
+        user = User(
+            id=str(uuid.uuid4()),
+            email=email,
+            hashed_password=hash_password(secrets.token_hex(16)),
+            name=display_name,
+            is_verified=email_verified
+        )
+        org = Organization(id=str(uuid.uuid4()), name=f"{display_name}'s workspace", slug=str(uuid.uuid4())[:8])
+        membership = OrgMember(id=str(uuid.uuid4()), org_id=org.id, user_id=user.id, role=RoleEnum.owner)
+        
+        # Link user to Firebase Identity
+        identity = UserIdentity(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            provider="firebase",
+            provider_user_id=provider_user_id,
+            provider_email=email
+        )
+        
+        db.add_all([user, org, membership, identity])
+        await db.commit()
+        await db.refresh(user)
+    else:
+        # Update user's name or verification status if it changed
+        if user.is_verified != email_verified:
+            user.is_verified = email_verified
+            db.add(user)
+            
+        # Ensure UserIdentity exists for Firebase
+        ident_result = await db.execute(
+            select(UserIdentity).where(
+                UserIdentity.provider == "firebase",
+                UserIdentity.provider_user_id == provider_user_id
+            )
+        )
+        if not ident_result.scalar_one_or_none():
+            identity = UserIdentity(
+                id=str(uuid.uuid4()),
+                user_id=user.id,
+                provider="firebase",
+                provider_user_id=provider_user_id,
+                provider_email=email
+            )
+            db.add(identity)
+        await db.commit()
+        await db.refresh(user)
+        
+    token = create_access_token({"sub": user.id})
+    return ExtendedTokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserOut.model_validate(user)
+    )
+
+
+

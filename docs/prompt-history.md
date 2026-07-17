@@ -13,3 +13,12 @@
 - Status: Completed (Ready for subsequent implementation requests)
 - Related docs: [/status.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/status.md)
 
+## 2026-07-18 — Firebase Authentication Integration
+- Request: Add Firebase Authentication for Google Sign-In and Email Verification, sync with PixelMark backend, and handle unverified user gates.
+- Scope: Frontend Auth pages, authStore.ts, backend auth routes/handlers.
+- Status: Completed
+- Outcome: Integrated Firebase client SDK for Google Sign-In and Email Verification checking; added backend `/auth/firebase-sync` exchange and provisioning endpoint; updated documentation, diagrams, and file maps.
+- Related docs: [/status.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/status.md), [integrations.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/integrations.md), [architecture.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/architecture.md)
+
+
+

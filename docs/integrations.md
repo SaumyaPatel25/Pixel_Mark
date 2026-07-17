@@ -70,3 +70,27 @@ To prevent SSRF exploits while allowing websites to load correctly, the proxy re
 - Google Fonts Static assets: `https://fonts.gstatic.com`
 - Safe asset CDNs: `*.fastly.net`, `*.cloudfront.net`.
 - *Evidence: backend/utils/ssrf_guard.py:34-48*
+
+---
+
+## 8. Firebase Authentication (Identity Provider)
+Used for client-side authentication, including Google Sign-In and Email Verification link flows.
+- **Verification Flow**:
+  1. Frontend uses Firebase client SDK to execute email/password registration, password/login verification, or Google authentication popup flows.
+  2. For email/password sign-up, the frontend triggers `sendEmailVerification`.
+  3. Gated access: If the user is unverified, the frontend blocks dashboard access and prompts verification or resending.
+  4. Once verified, the client sends the Firebase ID Token (`id_token`) to the backend `/auth/firebase-sync` endpoint.
+  5. The backend validates the Firebase ID token by executing a secure REST POST to Google's Identity Toolkit:
+     `POST https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={FIREBASE_API_KEY}`.
+  6. On successful validation, the backend upserts the user profile, creates default workspace settings, links the provider identity in `user_identities`, and responds with a standard signed HS256 JWT access token (`pm_token`) for subsequent request authorizations.
+- **Frontend Configuration Settings**:
+  - `NEXT_PUBLIC_FIREBASE_API_KEY`
+  - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+  - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+  - `NEXT_PUBLIC_FIREBASE_APP_ID`
+  - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+  - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
+- **Backend Configuration Settings**:
+  - `FIREBASE_API_KEY`: API credential key.
+  - `FIREBASE_PROJECT_ID`: Target Firebase application ID.
+

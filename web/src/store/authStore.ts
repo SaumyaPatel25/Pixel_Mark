@@ -24,6 +24,7 @@ interface AuthState {
   }>
   verifyEmail: (token: string) => Promise<void>
   oauthLogin: (token: string) => Promise<void>
+  firebaseSync: (idToken: string, name?: string) => Promise<void>
   logout: () => void
   fetchMe: () => Promise<void>
 }
@@ -107,6 +108,21 @@ export const useAuthStore = create<AuthState>()(
           set({ user: meRes })
           if (typeof window !== 'undefined') {
             posthog.identify(meRes.id, { email: meRes.email, name: meRes.name ?? undefined })
+          }
+        } finally {
+          set({ isLoading: false })
+        }
+      },
+
+      firebaseSync: async (idToken, name) => {
+        set({ isLoading: true })
+        try {
+          const res = await api.auth.firebaseSync(idToken, name)
+          const token = res.access_token
+          document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
+          set({ token, user: res.user })
+          if (typeof window !== 'undefined' && res.user) {
+            posthog.identify(res.user.id, { email: res.user.email, name: res.user.name ?? undefined })
           }
         } finally {
           set({ isLoading: false })

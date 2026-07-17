@@ -48,27 +48,40 @@ The backend is a **FastAPI** web framework running on **Uvicorn**.
 ---
 
 ## 4. Authentication and Authorization Flow
-Reviewers use secure query-string tokens (`share_token`), whereas developers authenticate using HTTP Bearer JWT tokens or custom API Keys (`pm_...`).
+Reviewers use secure query-string tokens (`share_token`), whereas developers authenticate using Firebase identity verification synchronized with the PixelMark backend.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User
     participant App as Next.js Client
+    participant FB as Firebase Auth SDK
     participant Auth as FastAPI Auth Router
     participant DB as Neon DB / SQLite
 
-    User->>App: Input Email & Password
-    App->>Auth: POST /auth/login
-    Auth->>DB: Query User record by email
-    DB-->>Auth: User record (verified & hashed password)
-    Auth->>Auth: Verify password hash (Argon2)
-    Auth->>Auth: Sign Access Token (JWT HS256)
+    User->>App: Input Email & Password / Click Google Sign-In
+    alt Email/Password Sign-Up
+        App->>FB: createUserWithEmailAndPassword()
+        FB-->>App: Firebase User Profile (unverified)
+        App->>FB: sendEmailVerification()
+        App->>User: Show Verification notice screen
+        User->>FB: Click verification link in email
+    else Google Sign-In / Already Verified Login
+        App->>FB: signInWithPopup() / signInWithEmailAndPassword()
+    end
+    App->>FB: getIdToken()
+    FB-->>App: Firebase ID Token (JWT)
+    App->>Auth: POST /auth/firebase-sync {id_token}
+    Auth->>Auth: REST accounts:lookup call to Google Identity API
+    Auth->>DB: Upsert User profile & link UserIdentity
+    DB-->>Auth: Saved User record
+    Auth->>Auth: Sign PixelMark Access Token (JWT HS256)
     Auth-->>App: Access Token + User Details
     App->>App: Write Cookie (pm_token) & Store State
     App->>User: Redirect to Dashboard
 ```
 
+- **Firebase Sync**: The client receives a Firebase ID Token, which is sent to the backend `/auth/firebase-sync` endpoint. The backend validates it securely via REST and upserts the `User` and `UserIdentity` records before issuing a standard `pm_token` session token.
 - **API Key Flow**: If the header token prefix is `pm_`, the system hashes the key (`services.crypto.hash_token`) and validates it against `api_keys` in the database.
 - **Role Scoping**: Access is gated using `require_role(minimum_role)` dependencies, matching Guest, Member, Admin, and Owner to membership schemas.
 

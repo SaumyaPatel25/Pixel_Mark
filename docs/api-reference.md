@@ -82,10 +82,40 @@ This document maps all discoverable routes, endpoints, request schemas, response
 
 ---
 
-### 1.4 GET /auth/oauth/github/start
+### 1.4 POST /auth/firebase-sync
+- **Description**: Receives a verified Firebase ID Token, performs a secure REST lookup verification against the Google Identity API, upserts the corresponding User and UserIdentity database records, and issues a standard signed HS256 access JWT for PixelMark.
+- **Auth Required**: None
+- **Request Body**:
+  ```json
+  {
+    "id_token": "eyJhbGciOi...",
+    "name": "Test User"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "access_token": "eyJhbGciOi...",
+    "token_type": "bearer",
+    "user": {
+      "id": "23a105fa-4c48-43d9-a72e-067756f7099f",
+      "email": "fresh_dev_1234@test.com",
+      "name": "Test User",
+      "created_at": "2026-07-18T00:05:00Z"
+    }
+  }
+  ```
+- **Error Codes**:
+  - `401 Unauthorized`: `Invalid Firebase ID Token`
+  - `500 Internal Server Error`: `Firebase API Key is not configured on the backend.`
+
+---
+
+### 1.5 GET /auth/oauth/github/start
 - **Description**: Initiates GitHub OAuth authentication. Redirects to GitHub's login site and sets a state CSRF verification cookie.
 - **Auth Required**: None
 - **Response (307 Temporary Redirect)**: Location header: `https://github.com/login/oauth/authorize?...`
+- **Cookie Set**: `oauth_state` (CSRF protection)
 
 ---
 
