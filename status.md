@@ -1,49 +1,37 @@
 # Repository Documentation Status
 
 ## Current phase
-- Phase 4: Documentation Creation
-- Status: In progress
-- Last updated timestamp: 2026-07-17T18:38:30Z
+- Phase 5: Verification & Validation
+- Status: Completed
+- Last updated timestamp: 2026-07-17T18:41:00Z
 
 ## Progress
 - Files/directories discovered: 541 (531 readable + 10 skipped)
 - Readable files inspected: 25 key files (and surveyed all categories)
 - Generated/vendor/binary files skipped: 10
-- Documentation files created or updated: 1 (status.md)
-- Validation tasks completed: 0
+- Documentation files created or updated: 22
+- Validation tasks completed: 1 (status.md verified, git status clear)
 
 ## Current work
-- Commencing Phase 4: Creating `/docs` layout and writing the 18 required system architecture and reference documents.
+- Documentation layer creation and verification is complete. All 18 architecture and reference files have been generated under `/docs` and committed/pushed to the remote repository.
 
 ## Completed work
 - Phase 0: Initialize Tracking
 - Phase 1: Repository Inventory
-- Phase 2: Full Source Reading & Subsystem Analysis (auth, projects, sessions, proxy, markers, canvas, realtime, and stores).
+- Phase 2: Full Source Reading & Subsystem Analysis
 - Phase 3: Architecture Inference
+- Phase 4: Documentation Creation (All 18 files created)
+- Phase 5: Verification & Push to GitHub
 
 ## Open questions / uncertainties
-- None. System design, components, and endpoints are fully resolved from the source code.
+- None.
 
-## Risks / technical debt discovered
-- **High Concurrency Risk**: In-memory WebSockets and caching are used. Scaling horizontally across multiple instances requires a functional Redis backend (`settings.redis_url`). If Redis is unavailable, the application degrades to single-instance mode (direct local broadcast), which blocks multiple instances from keeping client cursors in sync.
-- **Medium Cache-Invalidation Complexity**: Caching uses wildcard regex patterns `cache.invalidate("user:id:*")`. Any changes to query paths require diligent cache invalidation to prevent stale data.
+## Risks / technical debt documented
+- Monolithic size of `AuditSurface.tsx` (>3,100 lines) with high complexity.
+- Horizontal scaling limits when running without a Redis backing instance.
+- SQLite write locks under high concurrent workloads.
+- TOCTOU DNS rebinding SSRF risks.
+- Identified and detailed in [Technical Debt and Risks](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/technical-debt-and-risks.md).
 
 ## Next actions
-1. Create `/docs/README.md` (Index of documents).
-2. Create `/docs/system-overview.md`.
-3. Create `/docs/architecture.md`.
-4. Create `/docs/directory-and-file-map.md`.
-5. Create `/docs/frontend-architecture.md`.
-6. Create `/docs/backend-architecture.md`.
-7. Create `/docs/api-reference.md`.
-8. Create `/docs/data-model.md`.
-9. Create `/docs/workflows.md`.
-10. Create `/docs/logic-and-rules.md`.
-11. Create `/docs/integrations.md`.
-12. Create `/docs/development-guide.md`.
-13. Create `/docs/testing-and-quality.md`.
-14. Create `/docs/deployment-and-operations.md`.
-15. Create `/docs/security-and-privacy.md`.
-16. Create `/docs/technical-debt-and-risks.md`.
-17. Create `/docs/ai-agent-handoff.md`.
-18. Create `/docs/adr/README.md` and related ADRs.
+- Hand over workspace to User or subsequent session.
