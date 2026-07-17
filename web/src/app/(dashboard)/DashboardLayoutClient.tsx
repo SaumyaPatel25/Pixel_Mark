@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
 import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play } from 'lucide-react'
 import { useOnboardingStore } from '@/store/onboardingStore'
+import { useProjectStore } from '@/store/projectStore'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
 import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist'
 
@@ -18,18 +19,67 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   const logout = useAuthStore(s => s.logout)
   const fetchMe = useAuthStore(s => s.fetchMe)
   const isLoading = useAuthStore(s => s.isLoading)
-  const { startOnboarding, hydrateFromLocalStorage } = useOnboardingStore()
+  const { 
+    startOnboarding, 
+    hydrateFromLocalStorage,
+    isOnboardingActive,
+    isCompleted,
+    isDismissed
+  } = useOnboardingStore()
+
+  const { projects, loading: projectsLoading, fetchProjects } = useProjectStore()
+  const [projectsFetched, setProjectsFetched] = useState(false)
 
   useEffect(() => {
     // Restore saved onboarding state on mount
     hydrateFromLocalStorage()
-    
-    // Auto start onboarding for new users who haven't started yet
-    const saved = localStorage.getItem('pm_onboarding_state')
-    if (!saved) {
-      startOnboarding('developer')
+  }, [hydrateFromLocalStorage])
+
+  // Fetch projects when user session is resolved
+  useEffect(() => {
+    if (user && !projectsFetched && !projectsLoading) {
+      fetchProjects().then(() => {
+        setProjectsFetched(true)
+      })
     }
-  }, [hydrateFromLocalStorage, startOnboarding])
+  }, [user, projectsFetched, projectsLoading, fetchProjects])
+
+  // Reset projectsFetched if user changes/logs out
+  useEffect(() => {
+    if (!user) {
+      setProjectsFetched(false)
+    }
+  }, [user])
+
+  // Onboarding auto-open trigger
+  useEffect(() => {
+    // Wait until user session is resolved
+    if (isLoading || !user) return
+
+    // Wait until projects list is fully resolved
+    if (!projectsFetched || projectsLoading) return
+
+    // Check if onboarding is already active, completed, or dismissed
+    if (isOnboardingActive || isCompleted || isDismissed) return
+
+    // Trigger onboarding if they have zero projects
+    if (projects.length === 0) {
+      const timer = setTimeout(() => {
+        startOnboarding('developer')
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [
+    user,
+    isLoading,
+    projectsFetched,
+    projectsLoading,
+    projects.length,
+    isOnboardingActive,
+    isCompleted,
+    isDismissed,
+    startOnboarding
+  ])
 
   useEffect(() => {
     const activeToken = token || (typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null)

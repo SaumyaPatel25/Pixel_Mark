@@ -27,6 +27,8 @@ interface OnboardingState {
   checklist: Record<string, boolean>;
   isChecklistCollapsed: boolean;
   showCompletionModal: boolean;
+  isDismissed: boolean;
+  isCompleted: boolean;
   
   // Actions
   startOnboarding: (role: OnboardingRole) => void;
@@ -187,6 +189,8 @@ const saveToLocalStorage = (state: Partial<OnboardingState>) => {
     checklist: state.checklist,
     isChecklistCollapsed: state.isChecklistCollapsed,
     showCompletionModal: state.showCompletionModal,
+    isDismissed: state.isDismissed,
+    isCompleted: state.isCompleted,
   };
   localStorage.setItem('pm_onboarding_state', JSON.stringify(data));
 };
@@ -198,6 +202,8 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   checklist: {},
   isChecklistCollapsed: false,
   showCompletionModal: false,
+  isDismissed: false,
+  isCompleted: false,
 
   startOnboarding: (role) => {
     const initialChecklist: Record<string, boolean> = role === 'developer' ? {
@@ -226,7 +232,9 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       currentStepIndex: 0,
       userRole: role,
       checklist: initialChecklist,
-      showCompletionModal: false
+      showCompletionModal: false,
+      isDismissed: false,
+      isCompleted: false
     };
     
     set(newState);
@@ -236,7 +244,8 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   stopOnboarding: () => {
     const newState = {
       isOnboardingActive: false,
-      currentStepIndex: 0
+      currentStepIndex: 0,
+      isDismissed: true
     };
     set(newState);
     saveToLocalStorage({ ...get(), ...newState });
@@ -287,7 +296,8 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       // Completed last step
       const newState = { 
         isOnboardingActive: false,
-        showCompletionModal: true 
+        showCompletionModal: true,
+        isCompleted: true 
       };
       set(newState);
       
@@ -383,6 +393,8 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
           checklist: parsed.checklist || {},
           isChecklistCollapsed: parsed.isChecklistCollapsed || false,
           showCompletionModal: parsed.showCompletionModal || false,
+          isDismissed: parsed.isDismissed || false,
+          isCompleted: parsed.isCompleted || false,
         });
       } catch (e) {
         console.error('Failed to parse onboarding local storage:', e);
