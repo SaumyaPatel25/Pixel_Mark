@@ -28,9 +28,8 @@ export default function MarketingNav() {
 
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'Features', href: '/#features' },
-    { name: 'Workflow', href: '/features' },
-    { name: 'Docs', href: '/docs' },
+    { name: 'Features', href: '/features' },
+    { name: 'Workflow', href: '/#how-it-works' },
     { name: 'FAQ', href: '/faq' },
     { name: 'About', href: '/company#story' }
   ];
