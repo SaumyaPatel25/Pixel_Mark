@@ -75,9 +75,9 @@ function Step1Visual({ accent }: { accent: string }) {
         </div>
         <div className="h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
           <motion.div
-            className="h-full rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: '100%' }}
+            className="h-full rounded-full w-full origin-left"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
             transition={{ duration: 2.4, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0.8 }}
             style={{ background: accent }}
           />
@@ -224,7 +224,7 @@ export default function HowItWorksSection() {
   const [isHovering, setIsHovering] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(sectionRef, { once: false, margin: '-20% 0px' });
+  const inView = useInView(sectionRef, { once: true, margin: '-20% 0px' });
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -241,6 +241,9 @@ export default function HowItWorksSection() {
 
   /* Auto-advance steps */
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return;
+    }
     if (isHovering) {
       if (timerRef.current) clearInterval(timerRef.current);
       return;

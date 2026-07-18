@@ -40,8 +40,8 @@ export default function MarketingFooter() {
           <div className="lg:col-span-2 space-y-4 text-left">
             <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent">Product</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
-              <a href="#features" className="hover:text-pm-accent transition-colors">Features</a>
-              <a href="#how-it-works" className="hover:text-pm-accent transition-colors">How It Works</a>
+              <Link href="/#features" className="hover:text-pm-accent transition-colors">Features</Link>
+              <Link href="/#how-it-works" className="hover:text-pm-accent transition-colors">How It Works</Link>
               <Link href="/pricing" className="hover:text-pm-accent transition-colors">Pricing</Link>
               <Link href={isUserLoggedIn ? "/dashboard" : "/register"} className="hover:text-pm-accent transition-colors">
                 {isUserLoggedIn ? "Dashboard" : "Start Free"}

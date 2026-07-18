@@ -1,5 +1,11 @@
 # Prompt History
 
+## 2026-07-18 — Homepage Streamlining and Performance Optimization
+- Request: Trim homepage sections (reduce content density) to create Hook → Value → Proof → Product Glimpse → CTA Close conversion flow, and fix performance lag on mobile and desktop.
+- Scope: web/src/components/marketing/HomeClient.tsx, SplineBackground.tsx, HowItWorksSection.tsx, and new ClosingCTASection.tsx.
+- Status: In progress
+- Related docs: [/status.md](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/status.md)
+
 ## 2026-07-18 — Create Repository Documentation
 - Request: Create a complete, accurate, and maintainable documentation and system architecture layer for the entire repository, including 18 architecture/reference documents.
 - Scope: Entire repository (frontend, backend, database models, configurations, APIs, and workflows).

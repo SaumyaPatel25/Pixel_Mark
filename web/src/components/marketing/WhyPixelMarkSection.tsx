@@ -39,7 +39,11 @@ export default function WhyPixelMarkSection() {
   ];
 
   return (
-    <section id="why-pixelmark" className="relative py-36 bg-transparent overflow-hidden border-t border-pm-border/30">
+    <section 
+      id="why-pixelmark" 
+      className="relative py-36 bg-transparent overflow-hidden border-t border-pm-border/30"
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 800px' }}
+    >
       {/* Background gradients */}
       <div className="absolute top-1/2 left-0 -translate-y-1/2 w-[600px] h-[600px] bg-[#E2F3F5]/20 rounded-full blur-[120px] pointer-events-none z-0" />
       <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[#C7B4D6]/10 rounded-full blur-[100px] pointer-events-none z-0" />

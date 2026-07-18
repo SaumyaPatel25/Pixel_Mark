@@ -8,10 +8,7 @@ import HeroSection from '@/components/marketing/HeroSection';
 import HowItWorksSection from '@/components/marketing/HowItWorksSection';
 import WhyPixelMarkSection from '@/components/marketing/WhyPixelMarkSection';
 import FeaturesSection from '@/components/marketing/FeaturesSection';
-import UseCasesSection from '@/components/marketing/UseCasesSection';
-import FAQSection from '@/components/marketing/FAQSection';
-import AboutSection from '@/components/marketing/AboutSection';
-import EntrextSection from '@/components/marketing/EntrextSection';
+import ClosingCTASection from '@/components/marketing/ClosingCTASection';
 import MarketingFooter from '@/components/marketing/MarketingFooter';
 
 const SplineBackground = dynamic(
@@ -132,10 +129,7 @@ export default function HomeClient() {
           <HowItWorksSection />
           <WhyPixelMarkSection />
           <FeaturesSection onHoverChange={setHoveredPosition} />
-          <UseCasesSection onHoverChange={setHoveredPosition} />
-          <FAQSection />
-          <AboutSection />
-          <EntrextSection />
+          <ClosingCTASection />
         </main>
         <MarketingFooter />
       </div>

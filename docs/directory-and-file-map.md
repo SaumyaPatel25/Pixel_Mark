@@ -193,4 +193,20 @@ Entrext/
 - **Primary Responsibility**: Inspects parameters, completes sign-in via `signInWithEmailLink`, synchronizes the session with the backend, and clears local sign-in state.
 - **Confidence**: VERIFIED
 
+#### [ROUTE] [web/src/app/faq/page.tsx](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/web/src/app/faq/page.tsx)
+- **File Type**: Standalone FAQ Page.
+- **Primary Responsibility**: Mounts and renders the full FAQSection component within the core navigation and footer shell.
+- **Confidence**: VERIFIED
+
+#### [ROUTE] [web/src/app/features/page.tsx](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/web/src/app/features/page.tsx)
+- **File Type**: Standalone Workflow/Features Page.
+- **Primary Responsibility**: Mounts and renders the UseCasesSection component with dummy hover callbacks for visual feature exploration.
+- **Confidence**: VERIFIED
+
+#### [COMPONENT] [web/src/components/marketing/ClosingCTASection.tsx](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/web/src/components/marketing/ClosingCTASection.tsx)
+- **File Type**: Closing call-to-action block.
+- **Primary Responsibility**: Renders the premium final signup conversion prompt for PixelMark, directing users directly to the register/login endpoints.
+- **Confidence**: VERIFIED
+
+
 

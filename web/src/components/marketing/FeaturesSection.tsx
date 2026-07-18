@@ -31,7 +31,11 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
   };
 
   return (
-    <section id="features" className="relative py-36 bg-transparent overflow-hidden border-t border-pm-border/30">
+    <section 
+      id="features" 
+      className="relative py-36 bg-transparent overflow-hidden border-t border-pm-border/30"
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 1000px' }}
+    >
       {/* Bloom gradients */}
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-[#C7B4D6]/10 rounded-full blur-[100px] pointer-events-none z-0" />
       <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] bg-[#E2F3F5]/30 rounded-full blur-[100px] pointer-events-none z-0" />

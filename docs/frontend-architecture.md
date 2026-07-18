@@ -23,6 +23,8 @@ web/src/app/
 │   └── canvas/[projectId]/    # Canvas layout board
 ├── (public)/                  # Shared reports page
 │   └── report/[sessionId]/    # Print-ready QA reports for clients
+├── faq/                       # Standalone FAQ page
+├── features/                  # Standalone Features/Workflow page
 ├── project/[id]/              # Main interactive review overlay (Developers)
 ├── review/[token]/            # Main interactive review overlay (Clients)
 ├── support/diagnostics/       # Client connectivity diagnostics panel
