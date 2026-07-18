@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { seoConfig } from '@/lib/seoConfig';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const highPriority = ['', '/pricing'].map((route) => ({
+  const highPriority = [''].map((route) => ({
     url: `${seoConfig.siteUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: 'daily' as const,

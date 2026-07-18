@@ -337,7 +337,7 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
       cta: 'Accelerate Hand-offs',
       visual: <FreelancerVisual />,
       glowColor: 'rgba(124, 58, 237, 0.25)',
-      accentClass: 'text-[#C7B4D6] bg-purple-500/10 border-purple-500/20'
+      accentClass: 'text-purple-600 dark:text-[#C7B4D6] bg-purple-500/10 border-purple-500/20'
     },
     {
       id: 'qa' as const,
@@ -353,7 +353,7 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
       cta: 'Supercharge QA Cycles',
       visual: <QAVisual />,
       glowColor: 'rgba(6, 182, 212, 0.25)',
-      accentClass: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
+      accentClass: 'text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
     },
     {
       id: 'agencies' as const,
@@ -369,15 +369,15 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
       cta: 'Upgrade Client Hand-offs',
       visual: <AgencyVisual />,
       glowColor: 'rgba(37, 59, 128, 0.25)',
-      accentClass: 'text-[#FCE2E1] bg-pink-500/10 border-pink-500/20'
+      accentClass: 'text-pink-600 dark:text-[#FCE2E1] bg-pink-500/10 border-pink-500/20'
     }
   ];
 
   return (
-    <section id="use-cases" className="relative py-36 dark-section overflow-hidden border-t border-white/5">
+    <section id="use-cases" className="relative py-36 overflow-hidden border-t border-pm-border/30 bg-[var(--pm-bg)] text-pm-text transition-colors duration-500">
       {/* Dynamic atmospheric color washes */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#C7B4D6]/5 rounded-full blur-[120px] pointer-events-none z-0" />
-      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-[#253B80]/15 rounded-full blur-[120px] pointer-events-none z-0" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-[#253B80]/10 rounded-full blur-[120px] pointer-events-none z-0" />
 
       <motion.div
         initial={{ opacity: 0, y: 24 }}
@@ -389,12 +389,12 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
         
         {/* Section Header */}
         <div className="max-w-4xl mb-20 space-y-4 text-left">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#C7B4D6] bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent-bright dark:text-[#C7B4D6] bg-pm-accent-subtle dark:bg-white/5 border border-pm-border dark:border-white/10 px-3 py-1 rounded-full">
             WORKFLOW ORCHESTRATION
           </span>
-          <h2 className="font-display text-4xl md:text-5xl lg:text-[4rem] font-extrabold tracking-[-0.03em] text-white leading-[1.02]">
+          <h2 className="font-display text-4xl md:text-5xl lg:text-[4rem] font-extrabold tracking-[-0.03em] text-pm-text dark:text-white leading-[1.02]">
             Tailored to your development workflow. <br />
-            Built for <span className="text-[#C7B4D6] underline decoration-3 decoration-[#C7B4D6]/40 underline-offset-6">every review role</span>.
+            Built for <span className="text-pm-accent dark:text-[#C7B4D6] underline decoration-3 decoration-pm-accent/40 dark:decoration-[#C7B4D6]/40 underline-offset-6">every review role</span>.
           </h2>
         </div>
 
@@ -418,7 +418,7 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
                 style={{
                   '--glow-color': card.glowColor
                 } as React.CSSProperties}
-                className="relative flex flex-col justify-between p-7 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl group hover:shadow-[0_0_40px_var(--glow-color)] transition-shadow duration-500 overflow-hidden min-h-[500px]"
+                className="relative flex flex-col justify-between p-7 rounded-3xl border border-pm-border dark:border-white/10 bg-pm-surface dark:bg-white/[0.03] backdrop-blur-xl group hover:shadow-[0_0_40px_var(--glow-color)] transition-shadow duration-500 overflow-hidden min-h-[500px]"
               >
                 {/* Accent glow on hover */}
                 <div 
@@ -435,17 +435,17 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.accentClass}`}>
                       <card.icon className="w-4 h-4" />
                     </div>
-                    <span className="text-[9px] font-mono uppercase font-bold tracking-wider text-slate-400">
+                    <span className="text-[9px] font-mono uppercase font-bold tracking-wider text-pm-text/60 dark:text-slate-400">
                       {card.subtitle}
                     </span>
                   </div>
 
                   {/* Title & Description */}
                   <div className="space-y-2 text-left">
-                    <h3 className="font-display text-xl font-bold tracking-tight text-white group-hover:text-white transition-colors leading-snug">
+                    <h3 className="font-display text-xl font-bold tracking-tight text-pm-text dark:text-white group-hover:text-pm-text dark:group-hover:text-white transition-colors leading-snug">
                       {card.title}
                     </h3>
-                    <p className="text-[11.5px] text-slate-300 leading-relaxed font-sans min-h-[48px]">
+                    <p className="text-[11.5px] text-pm-text/80 dark:text-slate-300 leading-relaxed font-sans min-h-[48px]">
                       {card.description}
                     </p>
                   </div>
@@ -459,8 +459,8 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
                   <div className="space-y-2 pt-2">
                     {card.bullets.map((bullet, idx) => (
                       <div key={idx} className="flex items-start gap-2 text-left">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                        <span className="text-[10.5px] text-slate-200 leading-tight font-sans font-medium">{bullet}</span>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <span className="text-[10.5px] text-pm-text/80 dark:text-slate-200 leading-tight font-sans font-medium">{bullet}</span>
                       </div>
                     ))}
                   </div>
@@ -470,10 +470,10 @@ export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps)
                 <div className="pt-6 relative z-10">
                   <Link
                     href={isUserLoggedIn ? "/dashboard" : "/register"}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-3 bg-white/[0.04] hover:bg-[#253B80] border border-white/10 hover:border-white/20 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider text-white transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-3 bg-pm-accent/5 dark:bg-white/[0.04] hover:bg-pm-accent dark:hover:bg-[#253B80] border border-pm-border dark:border-white/10 hover:border-pm-accent-bright dark:hover:border-white/20 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider text-pm-text hover:text-white dark:text-white transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
                   >
                     <span>{isUserLoggedIn ? "Open Dashboard" : card.cta}</span>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+                    <ArrowUpRight className="w-3.5 h-3.5 text-pm-text/50 dark:text-slate-400 group-hover:text-white" />
                   </Link>
                 </div>
               </motion.div>

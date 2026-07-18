@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useMotionValue, useSpring } from 'framer-motion';
-import dynamic from 'next/dynamic';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
+import StoryProcessSection from '@/components/marketing/StoryProcessSection';
 import HowItWorksSection from '@/components/marketing/HowItWorksSection';
-import WhyPixelMarkSection from '@/components/marketing/WhyPixelMarkSection';
-import FeaturesSection from '@/components/marketing/FeaturesSection';
+import UseCasesSection from '@/components/marketing/UseCasesSection';
+import OutcomeSection from '@/components/marketing/OutcomeSection';
 import ClosingCTASection from '@/components/marketing/ClosingCTASection';
+import EntrextSection from '@/components/marketing/EntrextSection';
 import MarketingFooter from '@/components/marketing/MarketingFooter';
+import dynamic from 'next/dynamic';
 
 const SplineBackground = dynamic(
   () => import('@/components/SplineBackground').then((mod) => mod.SplineBackground),
@@ -79,9 +81,34 @@ const modeColors = {
 export default function HomeClient() {
   const [activeMode, setActiveMode] = useState<ModeType>('dom');
   const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null);
-  const [isHeroTextComplete, setIsHeroTextComplete] = useState(false);
+  const [isHeroTextComplete, setIsHeroTextComplete] = useState(true);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
+
+  // Progressive loading sequence stage (0: Hero, 1: Process, 2: Use Cases, 3: Outcomes, 4: Closing CTA & Footer)
+  const [loadStage, setLoadStage] = useState(0);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const checkTheme = () => {
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
+    };
+    checkTheme();
+
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (loadStage < 4) {
+      const timer = setTimeout(() => {
+        setLoadStage(prev => prev + 1);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [loadStage]);
 
   // Smooth lagging spring configuration for the background spotlight glow
   const glowX = useSpring(mouseX, { stiffness: 50, damping: 25 });
@@ -109,12 +136,10 @@ export default function HomeClient() {
 
   return (
     <div
-      className="homepage-root relative min-h-screen bg-transparent text-pm-text selection:bg-[#253B80]/30 selection:text-[#1D264F] font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
+      className="homepage-root relative min-h-screen bg-[var(--pm-bg)] text-pm-text selection:bg-[#253B80]/30 selection:text-[#1D264F] font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
     >
-      
-      {/* Spline 3D background */}
       <SplineBackground hoveredPosition={hoveredPosition} isHeroTextComplete={isHeroTextComplete} />
-
+      
       {/* Main Container */}
       <div className="relative z-10 flex flex-col min-h-screen">
         <MarketingNav />
@@ -126,12 +151,13 @@ export default function HomeClient() {
             isHeroTextComplete={isHeroTextComplete}
             onHeroTextComplete={() => setIsHeroTextComplete(true)}
           />
-          <HowItWorksSection />
-          <WhyPixelMarkSection />
-          <FeaturesSection onHoverChange={setHoveredPosition} />
-          <ClosingCTASection />
+          {loadStage >= 1 && (isDark ? <HowItWorksSection /> : <StoryProcessSection />)}
+          {loadStage >= 2 && <UseCasesSection onHoverChange={setHoveredPosition} />}
+          {loadStage >= 3 && <OutcomeSection />}
+          {loadStage >= 4 && <ClosingCTASection />}
+          {loadStage >= 4 && <EntrextSection />}
         </main>
-        <MarketingFooter />
+        {loadStage >= 4 && <MarketingFooter />}
       </div>
     </div>
   );

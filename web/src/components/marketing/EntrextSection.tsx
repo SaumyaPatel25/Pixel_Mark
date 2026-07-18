@@ -62,66 +62,8 @@ export default function EntrextSection() {
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-[#E2F3F5]/20 rounded-full blur-[110px] pointer-events-none z-0" />
       <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] bg-[#FCE2E1]/10 rounded-full blur-[110px] pointer-events-none z-0" />
 
-      <div className="max-w-5xl mx-auto px-6 md:px-12 relative z-10 space-y-32">
+      <div className="max-w-5xl mx-auto px-6 md:px-12 relative z-10">
         
-        {/* =========================================================================
-            UPPER TIER: MAJESTIC FINAL CTA CLOSE
-            ========================================================================= */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-100px' }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center space-y-8 max-w-3xl mx-auto"
-        >
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80] bg-[#253B80]/5 px-3.5 py-1.5 rounded-full">
-            GET STARTED TODAY
-          </span>
-          
-          <h2 className="mkt-section-h2 font-display font-extrabold text-[#1D264F]"
-            style={{ fontSize: 'clamp(2.75rem, 6vw, 4.5rem)', lineHeight: 1.04, letterSpacing: '-0.035em' }}
-          >
-            Ready to streamline<br />
-            <span className="mkt-section-h2-sub">your visual sign-offs?</span>
-          </h2>
-          
-          <p className="text-sm md:text-base text-pm-muted leading-relaxed max-w-xl mx-auto font-sans">
-            Spin up a review session in seconds. Collect feedback, annotations, and QA bug reports from clients with zero barriers.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link
-              href="/register"
-              className="entrext-primary-btn btn-primary-3d w-full sm:w-auto px-8 py-4 bg-[#253B80] hover:bg-[#1B2C60] text-white rounded-full text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2"
-            >
-              Create Free Project
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link
-              href="/pricing"
-              className="entrext-secondary-btn btn-secondary-3d w-full sm:w-auto px-8 py-4 bg-slate-50 hover:bg-[#FCF5F5] text-pm-text border border-pm-border rounded-full text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5"
-            >
-              View Pricing Tier
-            </Link>
-          </div>
-
-          {/* Core reassurance list */}
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 pt-6 text-[10.5px] text-pm-muted font-mono font-medium">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              <span>FREE UNLIMITED CLIENT REVIEWS</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              <span>0% PLUGINS OR CODING REQUIRED</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              <span>SECURE CONSOLE & CSS ANCHORING</span>
-            </div>
-          </div>
-        </motion.div>
-
         {/* =========================================================================
             LOWER TIER: PARTNERSHIP / CREATOR DETAILS
             ========================================================================= */}

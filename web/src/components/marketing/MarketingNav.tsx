@@ -30,7 +30,7 @@ export default function MarketingNav() {
     { name: 'Home', href: '/' },
     { name: 'Features', href: '/#features' },
     { name: 'Workflow', href: '/features' },
-    { name: 'Pricing', href: '/pricing' },
+    { name: 'Docs', href: '/docs' },
     { name: 'FAQ', href: '/faq' },
     { name: 'About', href: '/company#story' }
   ];

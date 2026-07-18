@@ -6,9 +6,9 @@ import Link from 'next/link';
 
 export default function ClosingCTASection() {
   return (
-    <section className="relative py-40 overflow-hidden border-t border-pm-border/30 bg-[#09090e] text-white">
+    <section className="relative py-40 overflow-hidden border-t border-pm-border/30 bg-[var(--pm-bg)] text-pm-text transition-colors duration-500">
       {/* Decorative gradients */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(99,102,241,0.08)_0%,transparent_70%)] pointer-events-none z-0" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(99,102,241,0.12)_0%,transparent_70%)] pointer-events-none z-0" />
 
       <div className="max-w-4xl mx-auto px-6 text-center relative z-10 space-y-8">
         <motion.div
@@ -16,7 +16,7 @@ export default function ClosingCTASection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-[10px] font-mono font-bold uppercase tracking-wider mx-auto"
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-[10px] font-mono font-bold uppercase tracking-wider mx-auto transition-colors"
         >
           <Sparkles className="w-3.5 h-3.5" />
           Get started today
@@ -27,10 +27,10 @@ export default function ClosingCTASection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="font-display font-black text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-tight italic uppercase"
+          className="font-display font-black text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-tight italic uppercase flex flex-col items-center justify-center gap-1 sm:gap-2"
         >
-          Ready to experience<br />
-          <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent">
+          <span className="block pr-2">Ready to experience</span>
+          <span className="block text-[#1D264F] dark:text-transparent dark:bg-gradient-to-r dark:from-indigo-400 dark:via-violet-400 dark:to-emerald-400 dark:bg-clip-text pr-2 text-center text-wrap sm:whitespace-nowrap">
             pixel-perfect reviews?
           </span>
         </motion.h2>
@@ -40,7 +40,7 @@ export default function ClosingCTASection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-white/60 text-sm sm:text-base max-w-xl mx-auto leading-relaxed"
+          className="text-[#1D264F]/80 dark:text-white/60 text-sm sm:text-base max-w-xl mx-auto leading-relaxed transition-colors"
         >
           Anchor QA annotations on live DOM nodes, XPath selectors, and viewport states. Zero Chrome extensions required.
         </motion.p>

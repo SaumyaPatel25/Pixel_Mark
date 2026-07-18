@@ -42,7 +42,7 @@ export default function MarketingFooter() {
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
               <Link href="/#features" className="hover:text-pm-accent transition-colors">Features</Link>
               <Link href="/#how-it-works" className="hover:text-pm-accent transition-colors">How It Works</Link>
-              <Link href="/pricing" className="hover:text-pm-accent transition-colors">Pricing</Link>
+
               <Link href={isUserLoggedIn ? "/dashboard" : "/register"} className="hover:text-pm-accent transition-colors">
                 {isUserLoggedIn ? "Dashboard" : "Start Free"}
               </Link>

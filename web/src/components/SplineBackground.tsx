@@ -16,6 +16,7 @@ interface CardConfig {
     border: string;
     shadow: string;
     glowColor: string;
+    iconColorClass?: string;
     left?: string;
     right?: string;
     top?: string;
@@ -144,15 +145,16 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Marker Pin',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="9" stroke="#1D264F" strokeWidth="1.5" />
-                    <circle cx="12" cy="12" r="3" fill="#1D264F" />
-                    <path d="M12 3V5M12 19V21M3 12H5M19 12H21" stroke="#1D264F" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+                    <circle cx="12" cy="12" r="3" fill="currentColor" />
+                    <path d="M12 3V5M12 19V21M3 12H5M19 12H21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-indigo-100/80 dark:border-indigo-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(29,38,79,0.04)]',
             glowColor: 'bg-indigo-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#1D264F]',
             left: '5%',
             top: '22%',
             depth: 'bg',
@@ -176,17 +178,18 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Selection Frame',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="4" y="4" width="16" height="16" rx="2" stroke="#3B82F6" strokeWidth="1.5" strokeDasharray="3 3" />
-                    <rect x="2" y="2" width="4" height="4" rx="1" fill="#3B82F6" />
-                    <rect x="18" y="2" width="4" height="4" rx="1" fill="#3B82F6" />
-                    <rect x="2" y="18" width="4" height="4" rx="1" fill="#3B82F6" />
-                    <rect x="18" y="18" width="4" height="4" rx="1" fill="#3B82F6" />
+                    <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 3" />
+                    <rect x="2" y="2" width="4" height="4" rx="1" fill="currentColor" />
+                    <rect x="18" y="2" width="4" height="4" rx="1" fill="currentColor" />
+                    <rect x="2" y="18" width="4" height="4" rx="1" fill="currentColor" />
+                    <rect x="18" y="18" width="4" height="4" rx="1" fill="currentColor" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-blue-100/80 dark:border-blue-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(59,130,246,0.04)]',
             glowColor: 'bg-blue-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#3B82F6]',
             left: '17%',
             top: '14%',
             depth: 'mid',
@@ -211,16 +214,17 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Feedback Bubble',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M21 11.5C21 15.6421 16.9706 19 12 19C10.5185 19 9.12435 18.6657 7.9 18.068L4 19L5.0315 15.9055C4.37583 14.6749 4 13.1537 4 11.5C4 7.35786 8.02944 4 12 4C15.9706 4 21 7.35786 21 11.5Z" stroke="#EF4444" strokeWidth="1.5" strokeLinejoin="round" />
-                    <circle cx="9" cy="11.5" r="1" fill="#EF4444" />
-                    <circle cx="12" cy="11.5" r="1" fill="#EF4444" />
-                    <circle cx="15" cy="11.5" r="1" fill="#EF4444" />
+                    <path d="M21 11.5C21 15.6421 16.9706 19 12 19C10.5185 19 9.12435 18.6657 7.9 18.068L4 19L5.0315 15.9055C4.37583 14.6749 4 13.1537 4 11.5C4 7.35786 8.02944 4 12 4C15.9706 4 21 7.35786 21 11.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                    <circle cx="9" cy="11.5" r="1" fill="currentColor" />
+                    <circle cx="12" cy="11.5" r="1" fill="currentColor" />
+                    <circle cx="15" cy="11.5" r="1" fill="currentColor" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-rose-100/80 dark:border-rose-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(239,68,68,0.04)]',
             glowColor: 'bg-rose-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#EF4444]',
             left: '5%',
             top: '45%',
             depth: 'fg',
@@ -245,15 +249,16 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Reviewer Identity',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="6" width="18" height="12" rx="6" stroke="#8B5CF6" strokeWidth="1.5" />
-                    <circle cx="9" cy="12" r="3" stroke="#8B5CF6" strokeWidth="1.5" />
-                    <path d="M15 11H18M15 13H17" stroke="#8B5CF6" strokeWidth="1.5" strokeLinecap="round" />
+                    <rect x="3" y="6" width="18" height="12" rx="6" stroke="currentColor" strokeWidth="1.5" />
+                    <circle cx="9" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M15 11H18M15 13H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-violet-100/80 dark:border-violet-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(139,92,246,0.04)]',
             glowColor: 'bg-violet-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#8B5CF6]',
             left: '16%',
             bottom: '22%',
             depth: 'mid',
@@ -277,15 +282,16 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Sync Pulse',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="2" fill="#10B981" />
-                    <circle cx="12" cy="12" r="6" stroke="#10B981" strokeWidth="1.5" strokeDasharray="2 2" />
-                    <circle cx="12" cy="12" r="10" stroke="#10B981" strokeWidth="1.5" strokeOpacity="0.4" />
+                    <circle cx="12" cy="12" r="2" fill="currentColor" />
+                    <circle cx="12" cy="12" r="6" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" />
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.4" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-emerald-100/80 dark:border-emerald-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(16,185,129,0.04)]',
             glowColor: 'bg-emerald-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#10B981]',
             left: '6%',
             bottom: '10%',
             depth: 'fg',
@@ -311,18 +317,19 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Drag Handle',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="9" cy="8" r="1.5" fill="#3B82F6" />
-                    <circle cx="15" cy="8" r="1.5" fill="#3B82F6" />
-                    <circle cx="9" cy="12" r="1.5" fill="#3B82F6" />
-                    <circle cx="15" cy="12" r="1.5" fill="#3B82F6" />
-                    <circle cx="9" cy="16" r="1.5" fill="#3B82F6" />
-                    <circle cx="15" cy="16" r="1.5" fill="#3B82F6" />
+                    <circle cx="9" cy="8" r="1.5" fill="currentColor" />
+                    <circle cx="15" cy="8" r="1.5" fill="currentColor" />
+                    <circle cx="9" cy="12" r="1.5" fill="currentColor" />
+                    <circle cx="15" cy="12" r="1.5" fill="currentColor" />
+                    <circle cx="9" cy="16" r="1.5" fill="currentColor" />
+                    <circle cx="15" cy="16" r="1.5" fill="currentColor" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-blue-100/80 dark:border-blue-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(59,130,246,0.04)]',
             glowColor: 'bg-blue-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#3B82F6]',
             right: '8%',
             top: '12%',
             depth: 'fg',
@@ -346,15 +353,16 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Presence Node',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="8" cy="12" r="4" stroke="#C084FC" strokeWidth="1.5" />
-                    <circle cx="16" cy="12" r="4" stroke="#C084FC" strokeWidth="1.5" />
-                    <path d="M11 12H13" stroke="#C084FC" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="8" cy="12" r="4" stroke="currentColor" strokeWidth="1.5" />
+                    <circle cx="16" cy="12" r="4" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M11 12H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-purple-100/80 dark:border-purple-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(109,40,217,0.04)]',
             glowColor: 'bg-purple-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#C084FC]',
             right: '15%',
             top: '28%',
             depth: 'mid',
@@ -379,14 +387,15 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Resolve Mark',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="9" stroke="#22C55E" strokeWidth="1.5" />
-                    <path d="M8.5 12.5L11 15L15.5 9.5" stroke="#22C55E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M8.5 12.5L11 15L15.5 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-green-100/80 dark:border-green-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(34,197,94,0.04)]',
             glowColor: 'bg-green-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#22C55E]',
             right: '6%',
             top: '42%',
             depth: 'bg',
@@ -411,15 +420,16 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Feedback Layers',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 4L4 8L12 12L20 8L12 4Z" stroke="#6366F1" strokeWidth="1.5" strokeLinejoin="round" />
-                    <path d="M4 12L12 16L20 12" stroke="#6366F1" strokeWidth="1.5" strokeLinejoin="round" strokeOpacity="0.7" />
-                    <path d="M4 16L12 20L20 16" stroke="#6366F1" strokeWidth="1.5" strokeLinejoin="round" strokeOpacity="0.4" />
+                    <path d="M12 4L4 8L12 12L20 8L12 4Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                    <path d="M4 12L12 16L20 12" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeOpacity="0.7" />
+                    <path d="M4 16L12 20L20 16" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeOpacity="0.4" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-indigo-100/80 dark:border-indigo-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(99,102,241,0.04)]',
             glowColor: 'bg-indigo-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#6366F1]',
             right: '18%',
             bottom: '26%',
             depth: 'mid',
@@ -443,16 +453,17 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             name: 'Share Link',
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M13.5 10.5L19 5M10.5 13.5L5 19" stroke="#A855F7" strokeWidth="1.5" strokeLinecap="round" />
-                    <circle cx="19" cy="5" r="3" stroke="#A855F7" strokeWidth="1.5" fill="white" />
-                    <circle cx="5" cy="19" r="3" stroke="#A855F7" strokeWidth="1.5" fill="white" />
-                    <circle cx="12" cy="12" r="3" fill="#A855F7" />
+                    <path d="M13.5 10.5L19 5M10.5 13.5L5 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="19" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                    <circle cx="5" cy="19" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                    <circle cx="12" cy="12" r="3" fill="currentColor" />
                 </svg>
             ),
             bg: 'bg-white/85 dark:bg-[#1D264F]/85 backdrop-blur-md',
             border: 'border-purple-100/80 dark:border-purple-900/30',
             shadow: 'shadow-[0_12px_28px_rgba(168,85,247,0.04)]',
             glowColor: 'bg-purple-400',
+            iconColorClass: 'text-[#1D264F] dark:text-[#A855F7]',
             right: '6%',
             bottom: '10%',
             depth: 'fg',
@@ -537,14 +548,12 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
 
     // Render mobile layout statically
     if (isMobile) {
-        return (
-            <div className="fixed inset-0 w-full h-full z-0 bg-[var(--pm-bg)] transition-colors duration-500 overflow-hidden" />
-        )
+        return <div className="absolute inset-x-0 top-0 w-full h-[120vh] bg-[var(--pm-bg)] z-0 transition-colors duration-500" />;
     }
 
     return (
         <div 
-            className="fixed inset-0 w-full h-full z-0 bg-[var(--pm-bg)] pointer-events-none overflow-hidden transition-colors duration-500" 
+            className="absolute inset-x-0 top-0 w-full h-[120vh] z-0 bg-[var(--pm-bg)] pointer-events-none overflow-hidden transition-colors duration-500" 
             style={{ perspective: 1200, transformStyle: 'preserve-3d' }}
         >
             {/* Ambient background gradients */}
@@ -621,7 +630,7 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
                                     <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none" />
                                     
                                     {/* Branding Icon (3D layering) */}
-                                    <div className="flex items-center justify-center" style={{ transform: 'translateZ(10px)' }}>
+                                    <div className={`flex items-center justify-center ${card.iconColorClass || ''}`} style={{ transform: 'translateZ(10px)' }}>
                                         {card.icon}
                                     </div>
                                 </motion.div>
