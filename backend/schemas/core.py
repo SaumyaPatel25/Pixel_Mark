@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 from datetime import datetime
 from models import PriorityEnum, StatusEnum
 
@@ -167,6 +167,7 @@ class CanvasFrameUpdate(BaseModel):
     height: Optional[float] = None
     color: Optional[str] = None
     title: Optional[str] = None
+    session_id: Optional[str] = None
 
 class CanvasPriorityDistribution(BaseModel):
     critical: int = 0
@@ -340,6 +341,100 @@ class ApiKeyCreatedResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Blueprint DOM Edit Subsystem Schemas
+class BlueprintDomTargetUpsert(BaseModel):
+    page_url: Optional[str] = None
+    selector_primary: Optional[str] = None
+    selector_fallback: Optional[str] = None
+    xpath: Optional[str] = None
+    target_signature_json: Optional[dict] = None
+    element_tag: Optional[str] = None
+    element_label: Optional[str] = None
+    text_excerpt: Optional[str] = None
+
+
+class BlueprintDomTargetOut(BaseModel):
+    id: str
+    project_id: str
+    canvas_frame_id: str
+    page_url: Optional[str] = None
+    selector_primary: Optional[str] = None
+    selector_fallback: Optional[str] = None
+    xpath: Optional[str] = None
+    target_signature_json: Optional[dict] = None
+    element_tag: Optional[str] = None
+    element_label: Optional[str] = None
+    text_excerpt: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BlueprintDomEditOperationCreate(BaseModel):
+    op_type: Literal["style", "content", "attribute", "class_toggle"]
+    property_key: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    unit: Optional[str] = None
+    selector_override: Optional[str] = None
+    sort_order: int = 0
+
+
+class BlueprintDomEditOperationUpdate(BaseModel):
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    unit: Optional[str] = None
+    selector_override: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class BlueprintDomEditOperationOut(BaseModel):
+    id: str
+    edit_set_id: str
+    op_type: str
+    property_key: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    unit: Optional[str] = None
+    selector_override: Optional[str] = None
+    sort_order: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BlueprintDomEditSetCreate(BaseModel):
+    target_id: Optional[str] = None
+    name: Optional[str] = None
+    status: Literal["draft", "saved", "archived"] = "draft"
+    base_snapshot_json: Optional[dict] = None
+    notes: Optional[str] = None
+
+
+class BlueprintDomEditSetOut(BaseModel):
+    id: str
+    project_id: str
+    canvas_frame_id: str
+    target_id: Optional[str] = None
+    name: Optional[str] = None
+    version_number: int
+    status: str
+    base_snapshot_json: Optional[dict] = None
+    notes: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    operations: List[BlueprintDomEditOperationOut] = []
+
+    class Config:
+        from_attributes = True
+
 
 
 

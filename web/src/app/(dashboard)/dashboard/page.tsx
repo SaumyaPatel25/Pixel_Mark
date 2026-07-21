@@ -102,16 +102,31 @@ export default function DashboardPage() {
     }
   }
 
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // Load all telemetry from the unified parallel fetching flow
   const fetchDashboardData = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const [projectsList, sessionsList, summary] = await Promise.all([
+      // Use Promise.allSettled for resilient telemetry fetching
+      const [projectsResult, sessionsResult, summaryResult] = await Promise.allSettled([
         api.getProjects(),
         api.getAllSessions(),
         api.getDashboardSummary()
       ])
+
+      if (projectsResult.status === 'rejected') {
+        throw new Error(projectsResult.reason?.message || 'Failed to fetch projects list.')
+      }
+
+      const projectsList: any[] = projectsResult.value || []
+      const sessionsList: any[] = sessionsResult.status === 'fulfilled' ? (sessionsResult.value || []) : []
+      const summary: any = summaryResult.status === 'fulfilled' ? summaryResult.value : null
 
       const projectMap: Record<string, any> = {}
       projectsList.forEach((p: any) => {
@@ -142,11 +157,11 @@ export default function DashboardPage() {
 
       setProjectsData(detailed)
 
-      // Calculate stats values using the lightweight backend summary
+      // Calculate stats values using summary or fallback calculation
       setStatsData({
-        totalProjects: summary.total_projects,
-        totalSessions: summary.total_sessions,
-        openIssues: summary.open_issues
+        totalProjects: summary?.total_projects ?? projectsList.length,
+        totalSessions: summary?.total_sessions ?? sessionsList.length,
+        openIssues: summary?.open_issues ?? 0
       })
 
       // Aggregate recent activities using sessions
@@ -169,6 +184,7 @@ export default function DashboardPage() {
       setRecentActivityData(sortedActivities)
 
     } catch (err: any) {
+      console.error('[Dashboard] Fetch error:', err)
       setError(err.message || 'Failed to fetch dashboard data.')
     } finally {
       setIsLoading(false)
@@ -178,9 +194,13 @@ export default function DashboardPage() {
   const { completeTask, nextStep, isOnboardingActive } = useOnboardingStore()
 
   useEffect(() => {
-    fetchDashboardData()
-    completeTask('dashboard_visit')
-  }, [])
+    if (!mounted) return
+    let isCancelled = false
+    fetchDashboardData().then(() => {
+      if (!isCancelled) completeTask('dashboard_visit')
+    })
+    return () => { isCancelled = true }
+  }, [mounted])
 
   // Create Project handler
   const handleCreateProject = async (e: React.FormEvent) => {

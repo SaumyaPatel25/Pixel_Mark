@@ -23,6 +23,8 @@ import { SupportDiagnosticsPanel } from '@/components/audit/SupportDiagnosticsPa
 import { useScreenshotStore } from '@/store/screenshotStore'
 import { ScreenshotPermissionBanner } from '@/components/audit/ScreenshotPermissionBanner'
 import { RegionSelectionOverlay } from '@/components/audit/RegionSelectionOverlay'
+import { StylePanel } from '@/components/edit/StylePanel'
+import { useUndoRedoStore } from '@/store/undoRedoStore'
 import { MarkerPinLayer } from '@/components/audit/MarkerPinLayer'
 import { useMarkerStore } from '@/store/markerStore'
 import { useSessionSocket } from '@/lib/useSessionSocket'
@@ -379,6 +381,10 @@ export function AuditSurface({
   const [resolvedPositions, setResolvedPositions] = useState<Record<string, { clientX: number; clientY: number; pageX?: number; pageY?: number; source: string }>>({})
   // Feedback mode state
   const [feedbackModeActive, setFeedbackModeActive] = useState(false)
+  const [canvasMode, setCanvasMode] = useState<'comment' | 'edit'>('comment')
+  const [selectedEditElement, setSelectedEditElement] = useState<{ tag: string; selector: string } | null>(null)
+  const canUndo = useUndoRedoStore(state => state.canUndo)
+  const canRedo = useUndoRedoStore(state => state.canRedo)
   const { fetchEdits, createEdit } = useDOMEditStore()
   const edits = useDOMEditStore(state => state.edits)
   const [manualPlacementMode, setManualPlacementMode] = useState(false)
@@ -938,12 +944,203 @@ export function AuditSurface({
     }
   }, [])
 
+  // ─── Notify agent when edit mode changes ──────────────────────────────────
+  const notifyEditMode = useCallback((active: boolean) => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        { type: 'PIXELMARK_SET_EDIT_MODE', active },
+        '*'
+      )
+    }
+  }, [])
+
+  // Per-element-per-property debounce timer map for 400ms persistence writes
+  const domEditDebounceMap = useRef<Map<string, NodeJS.Timeout>>(new Map())
+
+  // ─── Step 6: Undo & Redo Handlers ─────────────────────────────────────────
+  const handleUndo = useCallback(() => {
+    const action = useUndoRedoStore.getState().undo()
+    if (!action) return
+
+    // 1. Live DOM Reversion via postMessage
+    iframeRef.current?.contentWindow?.postMessage({
+      type: 'PIXELMARK_PREVIEW_STYLE_MUTATION',
+      selector: action.selector,
+      property: action.property,
+      value: action.oldValue || ''
+    }, '*')
+
+    // 2. Persist reverted state to backend
+    useDOMEditStore.getState().createEdit(sessionId, {
+      session_id: sessionId,
+      selector: action.selector,
+      property: action.property,
+      old_value: action.newValue,
+      new_value: action.oldValue || '',
+      element_tag: action.elementTag,
+      page_url: action.pageUrl
+    }, shareToken).catch((err) => {
+      console.error('[DOMEdit Undo Persistence Failure]', err)
+      useUIStore.getState().addToast('Undo not saved, retrying...', 'error')
+    })
+  }, [sessionId, shareToken])
+
+  const handleRedo = useCallback(() => {
+    const action = useUndoRedoStore.getState().redo()
+    if (!action) return
+
+    // 1. Live DOM Re-application via postMessage
+    iframeRef.current?.contentWindow?.postMessage({
+      type: 'PIXELMARK_PREVIEW_STYLE_MUTATION',
+      selector: action.selector,
+      property: action.property,
+      value: action.newValue
+    }, '*')
+
+    // 2. Persist forward state to backend
+    useDOMEditStore.getState().createEdit(sessionId, {
+      session_id: sessionId,
+      selector: action.selector,
+      property: action.property,
+      old_value: action.oldValue,
+      new_value: action.newValue,
+      element_tag: action.elementTag,
+      page_url: action.pageUrl
+    }, shareToken).catch((err) => {
+      console.error('[DOMEdit Redo Persistence Failure]', err)
+      useUIStore.getState().addToast('Redo not saved, retrying...', 'error')
+    })
+  }, [sessionId, shareToken])
+
+  // ─── Step 6: Keyboard Shortcut Listener (Ctrl+Z / Ctrl+Shift+Z / Cmd+Z / Cmd+Y) ──
   useEffect(() => {
-    notifyAgent(feedbackModeActive)
-    // Safety fallback — retry after iframe may have navigated
-    const t = setTimeout(() => notifyAgent(feedbackModeActive), 1200)
-    return () => clearTimeout(t)
-  }, [feedbackModeActive, isLoading, notifyAgent])
+    if (canvasMode !== 'edit') return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey
+      if (!isCmdOrCtrl) return
+
+      const key = e.key.toLowerCase()
+
+      if (key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          handleRedo()
+        } else {
+          handleUndo()
+        }
+      } else if (key === 'y') {
+        e.preventDefault()
+        handleRedo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [canvasMode, handleUndo, handleRedo])
+
+  // ─── Step 6: Reset Section & Reset All Handlers (Single Batched Operations) ──
+  const handleResetSection = useCallback((selector: string, sectionProperties: string[]) => {
+    // 1. Single batched live DOM reset via postMessage
+    iframeRef.current?.contentWindow?.postMessage({
+      type: 'PIXELMARK_RESET_SECTION_STYLES',
+      selector,
+      sectionProperties
+    }, '*')
+
+    // 2. Single batched backend update/delete for section properties
+    const edits = useDOMEditStore.getState().edits
+    const matchingEdits = edits.filter(e => e.selector === selector && sectionProperties.includes(e.property))
+    
+    matchingEdits.forEach(edit => {
+      useDOMEditStore.getState().deleteEdit(sessionId, edit.id).catch(err => {
+        console.error('[DOMEdit Reset Section Failure]', err)
+      })
+    })
+  }, [sessionId])
+
+  const handleResetElementAll = useCallback((selector: string) => {
+    // 1. Single batched live DOM reset via postMessage
+    iframeRef.current?.contentWindow?.postMessage({
+      type: 'PIXELMARK_RESET_ELEMENT_STYLES',
+      selector
+    }, '*')
+
+    // 2. Single batched backend delete for all element edits
+    const edits = useDOMEditStore.getState().edits
+    const matchingEdits = edits.filter(e => e.selector === selector)
+    
+    matchingEdits.forEach(edit => {
+      useDOMEditStore.getState().deleteEdit(sessionId, edit.id).catch(err => {
+        console.error('[DOMEdit Reset All Failure]', err)
+      })
+    })
+  }, [sessionId])
+
+  // ─── Step 7: Generic Multi-Property Live Preview & Debounced Persistence Pipeline ───
+  const handlePropertyChange = useCallback((selector: string, property: string, valueStr: string) => {
+    // 1. Instant live visual preview via postMessage
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: 'PIXELMARK_PREVIEW_STYLE_MUTATION',
+          selector,
+          property,
+          value: valueStr
+        },
+        '*'
+      )
+    }
+
+    // 2. Push action to Undo/Redo Store (Step 6 System)
+    useUndoRedoStore.getState().pushAction({
+      selector,
+      property,
+      oldValue: '',
+      newValue: valueStr,
+      pageUrl: currentUrl,
+      elementTag: selectedEditElement?.tag || 'element'
+    })
+
+    // 3. Debounced persistence write (400ms per selector+property+url)
+    const key = `${selector}::${property}::${currentUrl}`
+    if (domEditDebounceMap.current.has(key)) {
+      clearTimeout(domEditDebounceMap.current.get(key)!)
+    }
+
+    const timer = setTimeout(() => {
+      domEditDebounceMap.current.delete(key)
+
+      const elementTag = selectedEditElement?.tag || 'element'
+      const payload = {
+        session_id: sessionId,
+        selector,
+        property,
+        old_value: '',
+        new_value: valueStr,
+        element_tag: elementTag.toUpperCase(),
+        element_text: '',
+        page_url: currentUrl
+      }
+
+      // Optimistic write using existing write queue (apiQueue)
+      useDOMEditStore.getState().createEdit(sessionId, payload, shareToken).catch((err) => {
+        console.error('[DOMEdit Persistence Failure]', err)
+        useUIStore.getState().addToast('Edit not saved, retrying...', 'error')
+      })
+    }, 400)
+
+    domEditDebounceMap.current.set(key, timer)
+  }, [currentUrl, selectedEditElement?.tag, sessionId, shareToken])
+
+  useEffect(() => {
+    if (canvasMode === 'edit') {
+      notifyAgent(false)
+      notifyEditMode(true)
+    } else {
+      notifyEditMode(false)
+    }
+  }, [canvasMode, isLoading, notifyAgent, notifyEditMode])
 
   // ─── Open feedback drawer with context ───────────────────────────────────
   const openFeedbackDrawer = useCallback((ctx: any) => {
@@ -964,6 +1161,13 @@ export function AuditSurface({
       if (!data || typeof data !== 'object') return
 
       switch (data.type) {
+        case 'PIXELMARK_EDIT_ELEMENT_SELECTED':
+          setSelectedEditElement({ tag: data.tag || '', selector: data.selector || '' })
+          break
+
+        case 'PIXELMARK_EDIT_ELEMENT_DESELECTED':
+          setSelectedEditElement(null)
+          break
         case 'PIXELMARK_PAGE_LOAD':
           setCurrentUrl(data.url)
           setCurrentTitle(data.title || '')
@@ -1987,6 +2191,38 @@ export function AuditSurface({
 
 
 
+            {/* ── MODE SWITCHER: Comment Mode / Edit Mode (Step 1) ────────── */}
+            <div className="flex items-center p-0.5 rounded-xl bg-white/[0.04] border border-white/10 select-none">
+              <button
+                id="canvas-mode-comment-btn"
+                aria-label="Switch to Comment Mode"
+                onClick={() => {
+                  setCanvasMode('comment')
+                  setFeedbackModeActive(true)
+                }}
+                className={cn(
+                  "h-7 px-3 rounded-lg font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer",
+                  canvasMode === 'comment'
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-900/40"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <Plus className="w-3 h-3" />
+                Comment Mode
+              </button>
+              <button
+                id="open-in-blueprint-btn"
+                aria-label="Refine this page in Blueprint Canvas"
+                onClick={() => {
+                  window.location.href = `/canvas?sessionId=${sessionId}`
+                }}
+                className="h-7 px-3 rounded-lg font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer text-teal-400 border border-teal-500/30 hover:bg-teal-500/10"
+              >
+                <Layers className="w-3 h-3" />
+                Open in Blueprint
+              </button>
+            </div>
+
             {/* ── PRIMARY CTA: Leave Feedback ────────────────────────────── */}
             <button
               id="leave-feedback-btn"
@@ -2331,6 +2567,27 @@ export function AuditSurface({
                   Open Original URL
                 </a>
               </div>
+            </div>
+          )}
+
+          {/* ── Guidance to Blueprint Canvas for Design Editing ──── */}
+          {canvasMode === 'edit' && (
+            <div className="absolute top-20 right-6 bg-[#18181b] border border-teal-500/30 text-white p-4 rounded-xl shadow-2xl z-40 max-w-xs space-y-3">
+              <div className="flex items-center gap-2 text-teal-400 font-bold text-xs">
+                <Layers className="w-4 h-4" />
+                <span>Refine page in Blueprint</span>
+              </div>
+              <p className="text-xs text-white/70">
+                Design style editing has moved to the Blueprint Canvas. Select a frame there to tweak layout, typography, background, and effects.
+              </p>
+              <button
+                onClick={() => {
+                  window.location.href = `/canvas?sessionId=${sessionId}`
+                }}
+                className="w-full py-2 px-3 bg-teal-500 hover:bg-teal-400 text-black font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <span>Open in Blueprint</span>
+              </button>
             </div>
           )}
 

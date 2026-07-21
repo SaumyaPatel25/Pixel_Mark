@@ -37,10 +37,11 @@ export default function LoginClient() {
     phase === 'error' ? 'error' : 'idle';
 
   useEffect(() => {
-    if (user && !searchParams.get('redirect') && phase === 'projecting') {
-      window.location.href = '/dashboard';
+    if (user && phase === 'projecting') {
+      const target = searchParams.get('redirect') || '/dashboard';
+      window.location.href = target;
     }
-  }, [user, phase, searchParams, logout]);
+  }, [user, phase, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

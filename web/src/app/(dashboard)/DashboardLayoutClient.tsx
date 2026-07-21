@@ -81,22 +81,54 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     startOnboarding
   ])
 
+  const [mounted, setMounted] = useState(false)
+
   useEffect(() => {
-    const activeToken = token || (typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null)
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const getCookieToken = () => {
+      if (typeof document === 'undefined') return null
+      const value = `; ${document.cookie}`
+      const parts = value.split(`; pm_token=`)
+      if (parts.length === 2) return parts.pop()?.split(';').shift()
+      const parts2 = value.split(`; pmtoken=`)
+      if (parts2.length === 2) return parts2.pop()?.split(';').shift()
+      return null
+    }
+
+    const getPersistedToken = () => {
+      if (typeof window === 'undefined') return null
+      try {
+        const raw = localStorage.getItem('pm_auth')
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          return parsed.state?.token || null
+        }
+      } catch {
+        // ignore
+      }
+      return null
+    }
+
+    const activeToken = token || getCookieToken() || getPersistedToken()
     if (!activeToken) {
       router.push('/login')
-    } else {
+    } else if (!user && !isLoading) {
       fetchMe()
     }
-  }, [router, fetchMe])
+  }, [mounted, token, user, isLoading, router, fetchMe])
 
   const handleSignOut = () => {
     logout()
     router.push('/login')
   }
 
-  // If page is loading and no user yet, display simple full viewport loader
-  if (isLoading && !user) {
+  // If page is not mounted or is restoring user session, display simple full viewport loader
+  if (!mounted || (isLoading && !user)) {
     return (
       <div className="flex h-screen items-center justify-center bg-pm-bg text-pm-text transition-colors duration-300">
         <PixelmarkLoader size="md" text="Restoring Session..." />

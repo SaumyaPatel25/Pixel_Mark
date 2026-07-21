@@ -1,6 +1,13 @@
 // PixelMark Core API Client (Unified exception & structured error handler)
 // Version 2.0.2
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+export function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+  if (envUrl && envUrl.trim() !== '') {
+    return envUrl.replace(/\/$/, '')
+  }
+  return 'http://127.0.0.1:8000'
+}
+
 import { apiQueue } from './apiQueue'
 
 function getCookie(name: string) {
@@ -21,7 +28,8 @@ export class ApiError extends Error {
 }
 
 export async function request(path: string, options: RequestInit = {}) {
-  const token = getCookie('pm_token')
+  const baseUrl = getApiBaseUrl()
+  const token = getCookie('pm_token') || getCookie('pmtoken')
   const headers = new Headers(options.headers || {})
 
   if (token) {
@@ -32,7 +40,7 @@ export async function request(path: string, options: RequestInit = {}) {
     headers.set('Content-Type', 'application/json')
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${baseUrl}${path}`, {
     cache: 'no-store', // Prevent Next.js from caching dynamic dashboard data
     ...options,
     headers,
@@ -210,7 +218,7 @@ export interface CommentCreate {
 
 export const api = {
   proxyUrl(url: string) {
-    return `${BASE_URL}/proxy?url=${encodeURIComponent(url)}`
+    return `${getApiBaseUrl()}/proxy?url=${encodeURIComponent(url)}`
   },
   async getProjects() {
     return this.projects.list()
@@ -585,9 +593,81 @@ export const api = {
       }))
     },
     async exportCSS(sessionId: string): Promise<Response> {
-      return apiQueue.enqueueRead('Exporting style changes CSS...', () => request(`/sessions/${sessionId}/dom-edits/export/css`, {
-        method: 'GET',
-      }))
+      return apiQueue.enqueueRead('Exporting CSS...', () => fetch(`${getApiBaseUrl()}/api/sessions/${sessionId}/dom-edits/export/css`))
+    },
+    async exportMarkdown(sessionId: string): Promise<Response> {
+      return apiQueue.enqueueRead('Exporting Markdown...', () => fetch(`${getApiBaseUrl()}/api/sessions/${sessionId}/dom-edits/export/markdown`))
+    },
+    async exportJSON(sessionId: string): Promise<Response> {
+      return apiQueue.enqueueRead('Exporting JSON...', () => fetch(`${getApiBaseUrl()}/api/sessions/${sessionId}/dom-edits/export/json`))
+    },
+    async exportAIImplementation(sessionId: string): Promise<Response> {
+      return apiQueue.enqueueRead('Exporting AI Implementation...', () => fetch(`${getApiBaseUrl()}/api/sessions/${sessionId}/dom-edits/export/ai-implementation`))
+    }
+  },
+  blueprintDomEdits: {
+    async getBlueprintDomTarget(projectId: string, frameId: string) {
+      return apiQueue.enqueueRead('Loading Blueprint target...', () =>
+        request(`/projects/${projectId}/blueprint/frames/${frameId}/dom-target`)
+      )
+    },
+    async upsertBlueprintDomTarget(projectId: string, frameId: string, payload: any) {
+      return apiQueue.enqueueWrite('Saving Blueprint target...', () =>
+        request(`/projects/${projectId}/blueprint/frames/${frameId}/dom-target`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        })
+      )
+    },
+    async listBlueprintEditSets(projectId: string, frameId: string) {
+      return apiQueue.enqueueRead('Loading Blueprint edit sets...', () =>
+        request(`/projects/${projectId}/blueprint/frames/${frameId}/edit-sets`)
+      )
+    },
+    async createBlueprintEditSet(projectId: string, frameId: string, payload: any) {
+      return apiQueue.enqueueWrite('Creating Blueprint edit set...', () =>
+        request(`/projects/${projectId}/blueprint/frames/${frameId}/edit-sets`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
+      )
+    },
+    async getBlueprintEditSet(projectId: string, editSetId: string) {
+      return apiQueue.enqueueRead('Loading Blueprint edit set...', () =>
+        request(`/projects/${projectId}/blueprint/edit-sets/${editSetId}`)
+      )
+    },
+    async createBlueprintEditOperation(projectId: string, editSetId: string, payload: any) {
+      return apiQueue.enqueueWrite('Creating edit operation...', () =>
+        request(`/projects/${projectId}/blueprint/edit-sets/${editSetId}/operations`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
+      )
+    },
+    async updateBlueprintEditOperation(projectId: string, operationId: string, payload: any) {
+      return apiQueue.enqueueWrite('Updating edit operation...', () =>
+        request(`/projects/${projectId}/blueprint/operations/${operationId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        })
+      )
+    },
+    async deleteBlueprintEditOperation(projectId: string, operationId: string) {
+      return apiQueue.enqueueWrite('Deleting edit operation...', () =>
+        request(`/projects/${projectId}/blueprint/operations/${operationId}`, {
+          method: 'DELETE',
+        })
+      )
+    },
+    async exportBlueprintFrameCSS(projectId: string, frameId: string): Promise<string> {
+      return apiQueue.enqueueRead('Exporting Blueprint CSS...', async () => {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/projects/${projectId}/blueprint/frames/${frameId}/export.css`)
+        if (!res.ok) {
+          throw new Error('Failed to export Blueprint CSS')
+        }
+        return res.text()
+      })
     }
   },
   settings: {

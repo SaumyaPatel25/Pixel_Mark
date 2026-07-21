@@ -4,82 +4,80 @@ import { NextResponse, type NextRequest } from 'next/server'
  * ROUTE GUARD POLICY
  * ─────────────────────────────────────────────────────────────────
  * PUBLIC routes (no auth required):
- *   /review/*       — share-link reviewer overlay pages
- *   /t/*            — share-link token landing pages (collect reviewer name + resolve token)
+ *   /               — marketing landing page
  *   /login          — authentication pages
- *   /signup         — signup pages
+ *   /register       — registration page
+ *   /signup         — alias for /register
+ *   /auth/*         — auth callbacks and aliases
+ *   /review/*       — share-link reviewer overlay pages
+ *   /t/*            — share-link token landing pages
  *   /docs/*         — public documentation
  *   /pricing        — public pricing page
- *   /support        — public support page
- *   / (root)        — marketing landing page
+ *   /support/*      — public support & diagnostics
+ *   /company/*      — public company pages
+ *   /faq            — public FAQ
+ *   /features       — public features
+ *   /getting-started— public getting started guide
+ *   /sample-target  — sample target pages
+ *   /chrome-extension — extension info
+ *   /api/*          — backend API routes
  *
- * PROTECTED routes (require pm_token cookie):
+ * PROTECTED routes (require pm_token or pmtoken cookie):
  *   /projects/*     — developer project list
  *   /project/*      — individual project view
  *   /dashboard/*    — dashboard views
  *   /settings/*     — account/API settings
- *   /sessions/*     — session management (developer only)
- *
- * NOTE: /review/* and /t/* intentionally bypass pm_token checks.
- * Reviewers authenticate via the reviewer identity system (per-session sessionStorage),
- * not via developer login cookies. Adding pm_token guards to these routes
- * would break the public review share-link experience.
+ *   /sessions/*     — session management
+ *   /v2/*           — v2 features
  * ─────────────────────────────────────────────────────────────────
  */
 
-// Routes that require a developer pm_token cookie
 const PROTECTED_PREFIXES = [
   '/projects',
   '/project',
   '/dashboard',
   '/settings',
   '/sessions',
+  '/v2',
 ]
 
-// Routes that redirect authenticated (pm_token) users away (auth-only screens)
-const AUTH_ONLY_PREFIXES = ['/login', '/signup']
-
-// Routes explicitly allowed without any auth — never redirect these
-const ALWAYS_PUBLIC_PREFIXES = [
-  '/review',   // Share-link reviewer overlay — reviewer auth is session-scoped
-  '/t',        // Token landing pages — resolve token and collect reviewer name
-  '/docs',
-  '/pricing',
-  '/support',
-  '/api',      // API routes handled by backend
+const AUTH_ONLY_ROUTES = [
+  '/login',
+  '/register',
+  '/signup',
+  '/auth/login',
+  '/auth/register',
 ]
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
-  // Always allow public paths first — do not redirect even if token is missing
-  if (ALWAYS_PUBLIC_PREFIXES.some(prefix => path === prefix || path.startsWith(prefix + '/'))) {
-    return NextResponse.next()
+  // Read developer auth token from cookies (support both pm_token and pmtoken)
+  const token = request.cookies.get('pm_token')?.value || request.cookies.get('pmtoken')?.value
+
+  const isAuthOnlyRoute = AUTH_ONLY_ROUTES.some(r => path === r || path.startsWith(r + '/'))
+  const isProtected = PROTECTED_PREFIXES.some(p => path === p || path.startsWith(p + '/'))
+
+  // 1. Redirect authenticated users away from login/register back to /dashboard
+  if (token && isAuthOnlyRoute) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // Read developer auth token from cookie
-  const token = request.cookies.get('pm_token')?.value
-
-  // Redirect unauthenticated users away from protected routes
-  if (!token && PROTECTED_PREFIXES.some(p => path === p || path.startsWith(p + '/'))) {
+  // 2. Redirect unauthenticated users away from protected routes to /login
+  if (!token && isProtected) {
     const redirectUrl = new URL('/login', request.url)
     redirectUrl.searchParams.set('redirect', path)
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Redirect authenticated users away from login/signup back to app
-  if (token && AUTH_ONLY_PREFIXES.some(p => path === p || path.startsWith(p + '/'))) {
-    return NextResponse.redirect(new URL('/projects', request.url))
-  }
-
+  // 3. For all other routes (public, static, landing), allow access
   return NextResponse.next()
 }
 
 export const config = {
-  // Match all paths except:
-  //   _next/static    — Next.js static files
-  //   _next/image     — Next.js image optimization
-  //   favicon.ico     — Browser favicon
-  //   overlay.js      — PixelMark browser extension overlay bundle
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|overlay.js).*)'],
+  // Match all paths except static files, Next.js internal files, favicon, and image/stylesheet/script extensions
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|overlay.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
+  ],
 }
+

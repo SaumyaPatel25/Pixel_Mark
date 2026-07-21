@@ -11,6 +11,9 @@ interface DOMEditState {
   deleteEdit: (sessionId: string, editId: string) => Promise<void>
   resetAll: (sessionId: string) => Promise<void>
   exportCSS: (sessionId: string) => Promise<void>
+  exportMarkdown: (sessionId: string) => Promise<void>
+  exportJSON: (sessionId: string) => Promise<void>
+  exportAIImplementation: (sessionId: string) => Promise<void>
   clearError: () => void
 }
 
@@ -105,6 +108,75 @@ export const useDOMEditStore = create<DOMEditState>((set, get) => ({
       set({
         isLoading: false,
         error: err instanceof Error ? err.message : 'Failed to export CSS'
+      })
+      throw err
+    }
+  },
+
+  exportMarkdown: async (sessionId) => {
+    set({ isLoading: true, error: null })
+    try {
+      const response = await api.domEdits.exportMarkdown(sessionId)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `session_${sessionId}_edits.md`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      set({ isLoading: false })
+    } catch (err: unknown) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Failed to export Markdown'
+      })
+      throw err
+    }
+  },
+
+  exportJSON: async (sessionId) => {
+    set({ isLoading: true, error: null })
+    try {
+      const response = await api.domEdits.exportJSON(sessionId)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `session_${sessionId}_edits.json`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      set({ isLoading: false })
+    } catch (err: unknown) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Failed to export JSON'
+      })
+      throw err
+    }
+  },
+
+  exportAIImplementation: async (sessionId) => {
+    set({ isLoading: true, error: null })
+    try {
+      const response = await api.domEdits.exportAIImplementation(sessionId)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `AI_IMPLEMENTATION_${sessionId}.md`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      set({ isLoading: false })
+    } catch (err: unknown) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Failed to export AI Implementation guide'
       })
       throw err
     }

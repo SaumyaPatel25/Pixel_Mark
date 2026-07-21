@@ -19,11 +19,16 @@ import {
   CheckCircle,
   HelpCircle,
   ExternalLink,
-  X
+  X,
+  MousePointer2,
+  Sliders
 } from 'lucide-react'
 import { LinkViewerPanel } from './LinkViewerPanel'
 import { StyleEditsTab } from '../command-center/StyleEditsTab'
 import { useDOMEditStore } from '@/store/domEditStore'
+import { BlueprintInspector } from './BlueprintInspector'
+import { BlueprintDomEditInspector } from './BlueprintDomEditInspector'
+import { useBlueprintStore, BlueprintToolMode } from '@/store/blueprintStore'
 
 interface CanvasProps {
   projectId: string
@@ -75,6 +80,10 @@ export function Canvas({ projectId }: CanvasProps) {
   const domEdits = useDOMEditStore(state => state.edits)
   const fetchDOMEdits = useDOMEditStore(state => state.fetchEdits)
 
+  // Blueprint Tool Mode Store Hook
+  const activeBlueprintTool = useBlueprintStore(state => state.activeBlueprintTool)
+  const setActiveBlueprintTool = useBlueprintStore(state => state.setActiveBlueprintTool)
+
   // Refs for tracking pan drag without re-triggering render on every pixel
   const containerRef = useRef<HTMLDivElement>(null)
   const isPanningRef = useRef(false)
@@ -88,12 +97,28 @@ export function Canvas({ projectId }: CanvasProps) {
   // Load Canvas + Project Name
   useEffect(() => {
     if (projectId) {
-      fetchCanvas(projectId)
+      const urlParams = new URLSearchParams(window.location.search)
+      const sessionIdParam = urlParams.get('sessionId') || undefined
+      fetchCanvas(projectId, sessionIdParam)
       api.projects.get(projectId)
         .then(p => setProjectName(p.name))
         .catch(() => {})
     }
   }, [projectId, fetchCanvas])
+
+  // Auto-select frame from query param (e.g. from "Open in Blueprint" CTA)
+  useEffect(() => {
+    if (frames.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search)
+      const frameIdParam = urlParams.get('frameId')
+      const sessionIdParam = urlParams.get('sessionId')
+      const target = frames.find(f => f.id === frameIdParam || (sessionIdParam && f.session_id === sessionIdParam))
+      if (target) {
+        setSelectedFrame(target.id)
+        useBlueprintStore.getState().selectFrame(target)
+      }
+    }
+  }, [frames, setSelectedFrame])
 
   // Spacebar panning listener
   const [spacePressed, setSpacePressed] = useState(false)
@@ -105,6 +130,7 @@ export function Canvas({ projectId }: CanvasProps) {
       }
       if (e.key === 'Escape') {
         setSelectedFrame(null)
+        useBlueprintStore.getState().selectFrame(null)
         setConnectMode(false)
         setConnectSourceId(null)
       }
@@ -230,6 +256,8 @@ export function Canvas({ projectId }: CanvasProps) {
       }
     } else {
       setSelectedFrame(frameId)
+      const target = frames.find(f => f.id === frameId) || null
+      useBlueprintStore.getState().selectFrame(target)
     }
   }
 
@@ -349,20 +377,52 @@ export function Canvas({ projectId }: CanvasProps) {
 
         {/* Toolbar Center / Right Buttons */}
         <div className="flex items-center gap-3">
-          {/* Connect Frames Toggle */}
-          <button
-            onClick={() => {
-              setConnectMode(!connectMode)
-              setConnectSourceId(null)
-            }}
-            className={`h-9 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
-              connectMode
-                ? 'bg-teal-600 border-teal-500 text-white shadow-lg shadow-teal-950/30'
-                : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            {connectMode ? 'Connecting Mode Active' : 'Connect Frames'}
-          </button>
+          {/* Blueprint Tool Mode Switch */}
+          <div className="flex items-center bg-[#121216] border border-white/10 rounded-xl p-1 gap-1">
+            <button
+              onClick={() => {
+                setActiveBlueprintTool('select')
+                setConnectMode(false)
+              }}
+              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                activeBlueprintTool === 'select' && !connectMode
+                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
+                  : 'text-white/50 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <MousePointer2 className="w-3.5 h-3.5" />
+              <span>Select</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveBlueprintTool('connect')
+                setConnectMode(true)
+                setConnectSourceId(null)
+              }}
+              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                activeBlueprintTool === 'connect' || connectMode
+                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
+                  : 'text-white/50 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>Connect</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveBlueprintTool('dom-edit')
+                setConnectMode(false)
+              }}
+              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                activeBlueprintTool === 'dom-edit'
+                  ? 'bg-teal-500 text-black shadow-lg shadow-teal-500/20 font-black'
+                  : 'text-teal-400 border border-teal-500/30 hover:bg-teal-500/10'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>DOM Edit Tool</span>
+            </button>
+          </div>
 
           <button
             onClick={handleOpenLinkViewer}
@@ -582,6 +642,10 @@ export function Canvas({ projectId }: CanvasProps) {
           </div>
         </div>
       )}
+
+      {/* Blueprint Inspector Component */}
+      <BlueprintInspector />
+      <BlueprintDomEditInspector />
 
       {/* Floating Toast Notification */}
       {toast && (

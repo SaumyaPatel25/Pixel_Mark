@@ -12,7 +12,7 @@ interface StyleEditsTabProps {
 }
 
 export function StyleEditsTab({ sessionId }: StyleEditsTabProps) {
-  const { edits, deleteEdit, exportCSS } = useDOMEditStore()
+  const { edits, deleteEdit, exportCSS, exportMarkdown, exportJSON, exportAIImplementation } = useDOMEditStore()
   const addToast = useUIStore(state => state.addToast)
 
   // Track which page sections are expanded/collapsed
@@ -77,6 +77,33 @@ export function StyleEditsTab({ sessionId }: StyleEditsTabProps) {
     }
   }
 
+  const handleExportMarkdown = async () => {
+    try {
+      await exportMarkdown(sessionId)
+      addToast('Markdown summary exported ✓', 'success')
+    } catch (err: any) {
+      addToast('Failed to export Markdown: ' + err.message, 'error')
+    }
+  }
+
+  const handleExportJSON = async () => {
+    try {
+      await exportJSON(sessionId)
+      addToast('JSON data exported ✓', 'success')
+    } catch (err: any) {
+      addToast('Failed to export JSON: ' + err.message, 'error')
+    }
+  }
+
+  const handleExportAIImplementation = async () => {
+    try {
+      await exportAIImplementation(sessionId)
+      addToast('AI_IMPLEMENTATION.md exported ✓', 'success')
+    } catch (err: any) {
+      addToast('Failed to export AI Guide: ' + err.message, 'error')
+    }
+  }
+
   const getUrlPath = (url: string) => {
     try {
       const parsed = new URL(url)
@@ -102,19 +129,49 @@ export function StyleEditsTab({ sessionId }: StyleEditsTabProps) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 space-y-4">
-      {/* Top action bar */}
-      <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-2xl p-3">
-        <div className="flex flex-col">
-          <span className="text-[10px] font-black uppercase text-white/30 tracking-widest">Active Style Tweaks</span>
-          <span className="text-xs font-black text-white mt-0.5">{edits.length} Edits Recorded</span>
+      {/* Top action bar with 4 export options */}
+      <div className="flex flex-col gap-2 bg-white/[0.02] border border-white/5 rounded-2xl p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black uppercase text-white/30 tracking-widest">Active Style Tweaks</span>
+            <span className="text-xs font-black text-white mt-0.5">{edits.length} Edits Recorded</span>
+          </div>
         </div>
-        <button
-          onClick={handleExportCSS}
-          className="h-8 rounded-xl bg-teal-600 hover:bg-teal-500 active:scale-95 text-white font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all shadow-lg shadow-teal-900/20 cursor-pointer"
-        >
-          <Download className="w-3.5 h-3.5" />
-          Export CSS
-        </button>
+
+        <div className="grid grid-cols-2 gap-1.5 pt-1">
+          <button
+            onClick={handleExportCSS}
+            className="h-8 rounded-xl bg-teal-600/30 hover:bg-teal-600/50 border border-teal-500/30 active:scale-95 text-teal-200 font-extrabold text-[10px] uppercase tracking-wider px-2.5 flex items-center justify-center gap-1 transition-all cursor-pointer"
+            title="Download pure CSS stylesheet"
+          >
+            <Download className="w-3 h-3 text-teal-400" />
+            CSS (.css)
+          </button>
+          <button
+            onClick={handleExportAIImplementation}
+            className="h-8 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/30 active:scale-95 text-purple-200 font-extrabold text-[10px] uppercase tracking-wider px-2.5 flex items-center justify-center gap-1 transition-all cursor-pointer"
+            title="Download AI IDE & Developer implementation guide"
+          >
+            <Wand2 className="w-3 h-3 text-purple-400" />
+            AI Guide (.md)
+          </button>
+          <button
+            onClick={handleExportMarkdown}
+            className="h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 active:scale-95 text-slate-300 font-extrabold text-[10px] uppercase tracking-wider px-2.5 flex items-center justify-center gap-1 transition-all cursor-pointer"
+            title="Download Markdown summary table"
+          >
+            <Download className="w-3 h-3 text-slate-400" />
+            Markdown (.md)
+          </button>
+          <button
+            onClick={handleExportJSON}
+            className="h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 active:scale-95 text-slate-300 font-extrabold text-[10px] uppercase tracking-wider px-2.5 flex items-center justify-center gap-1 transition-all cursor-pointer"
+            title="Download JSON data model"
+          >
+            <Download className="w-3 h-3 text-slate-400" />
+            JSON (.json)
+          </button>
+        </div>
       </div>
 
       {/* Grouped lists */}

@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Enum as SAEnum, UniqueConstraint, Index
+from sqlalchemy import String, Text, Integer, ForeignKey, DateTime, Boolean, JSON, Enum as SAEnum, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -275,5 +275,57 @@ class ApiKey(Base):
     last_used_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
     key_metadata: Mapped[dict] = mapped_column(JSON, nullable=True)
+
+
+class BlueprintDomTarget(Base):
+    __tablename__ = "blueprint_dom_targets"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    canvas_frame_id: Mapped[str] = mapped_column(ForeignKey("canvas_frames.id", ondelete="CASCADE"), nullable=False)
+    page_url: Mapped[str] = mapped_column(String, nullable=True)
+    selector_primary: Mapped[str] = mapped_column(String, nullable=True)
+    selector_fallback: Mapped[str] = mapped_column(String, nullable=True)
+    xpath: Mapped[str] = mapped_column(String, nullable=True)
+    target_signature_json: Mapped[dict] = mapped_column(JSON, nullable=True)
+    element_tag: Mapped[str] = mapped_column(String, nullable=True)
+    element_label: Mapped[str] = mapped_column(String, nullable=True)
+    text_excerpt: Mapped[str] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(String, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class BlueprintDomEditSet(Base):
+    __tablename__ = "blueprint_dom_edit_sets"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    canvas_frame_id: Mapped[str] = mapped_column(ForeignKey("canvas_frames.id", ondelete="CASCADE"), nullable=False)
+    target_id: Mapped[str] = mapped_column(ForeignKey("blueprint_dom_targets.id", ondelete="SET NULL"), nullable=True)
+    name: Mapped[str] = mapped_column(String, nullable=True)
+    version_number: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String, default="draft")  # draft | saved | archived
+    base_snapshot_json: Mapped[dict] = mapped_column(JSON, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(String, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class BlueprintDomEditOperation(Base):
+    __tablename__ = "blueprint_dom_edit_operations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    edit_set_id: Mapped[str] = mapped_column(ForeignKey("blueprint_dom_edit_sets.id", ondelete="CASCADE"), nullable=False)
+    op_type: Mapped[str] = mapped_column(String, nullable=False)  # style | content | attribute | class_toggle
+    property_key: Mapped[str] = mapped_column(String, nullable=False)
+    old_value: Mapped[str] = mapped_column(Text, nullable=True)
+    new_value: Mapped[str] = mapped_column(Text, nullable=True)
+    unit: Mapped[str] = mapped_column(String, nullable=True)
+    selector_override: Mapped[str] = mapped_column(String, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
 
 

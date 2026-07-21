@@ -13,6 +13,7 @@ from routers.review import router as review_router
 from routers.ai import router as ai_router
 from routers.ai_provider_configs import router as ai_provider_configs_router
 from routers.dom_edits import router as dom_edits_router
+from routers.blueprint_dom_edits import router as blueprint_dom_edits_router
 from routers.settings import router as settings_router
 from markers.router import router as markers_router
 from realtime.router import router as realtime_router
@@ -387,6 +388,7 @@ app.include_router(websocket.router)
 app.include_router(flags.router)
 app.include_router(screenshot.router)
 app.include_router(dom_edits_router)
+app.include_router(blueprint_dom_edits_router)
 app.include_router(settings_router)
 app.include_router(markers_router)
 app.include_router(realtime_router)

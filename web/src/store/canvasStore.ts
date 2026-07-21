@@ -44,7 +44,7 @@ interface CanvasStore {
   panX: number
   panY: number
 
-  fetchCanvas: (projectId: string) => Promise<void>
+  fetchCanvas: (projectId: string, sessionId?: string) => Promise<void>
   createFrame: (data: {
     project_id: string
     session_id?: string
@@ -84,13 +84,76 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   panX: 0,
   panY: 0,
 
-  fetchCanvas: async (projectId) => {
+  fetchCanvas: async (projectId, sessionId) => {
     set({ isLoading: true, error: null })
     try {
       const res = await api.canvas.getCanvas(projectId)
+      let frames: CanvasFrame[] = res?.frames || []
+      let flows: CanvasFlow[] = res?.flows || []
+
+      // If sessionId is provided, fetch page visits to map graph nodes & flows
+      if (sessionId) {
+        try {
+          const visits: any[] = await api.sessions.getVisits(sessionId)
+          if (Array.isArray(visits) && visits.length > 0) {
+            const pageMap = new Map<string, string>()
+
+            visits.forEach((visit, idx) => {
+              const urlKey = visit.page_url || `page_${visit.id}`
+              // Check if a frame already exists for this url / session
+              let existingFrame = frames.find(f => f.session_id === sessionId || f.title === visit.page_title)
+              
+              if (!existingFrame && !pageMap.has(urlKey)) {
+                const syntheticId = `frame_visit_${visit.id || idx}`
+                const newFrame: CanvasFrame = {
+                  id: syntheticId,
+                  project_id: projectId,
+                  session_id: sessionId,
+                  title: visit.page_title || visit.page_url || `Page ${idx + 1}`,
+                  position_x: (frames.length + pageMap.size) * 360 + 60,
+                  position_y: 120,
+                  width: 320,
+                  height: 220,
+                  color: '#4f98a3',
+                  created_at: visit.visited_at || new Date().toISOString()
+                }
+                frames.push(newFrame)
+                pageMap.set(urlKey, newFrame.id)
+              } else if (existingFrame) {
+                pageMap.set(urlKey, existingFrame.id)
+              }
+            })
+
+            // Generate flows for sequential visits
+            for (let i = 0; i < visits.length - 1; i++) {
+              const srcUrl = visits[i].page_url
+              const tgtUrl = visits[i + 1].page_url
+              const srcId = pageMap.get(srcUrl)
+              const tgtId = pageMap.get(tgtUrl)
+
+              if (srcId && tgtId && srcId !== tgtId) {
+                const flowExists = flows.some(fl => fl.source_frame_id === srcId && fl.target_frame_id === tgtId)
+                if (!flowExists) {
+                  flows.push({
+                    id: `flow_visit_${i}`,
+                    project_id: projectId,
+                    source_frame_id: srcId,
+                    target_frame_id: tgtId,
+                    label: 'Navigation Flow',
+                    created_at: new Date().toISOString()
+                  })
+                }
+              }
+            }
+          }
+        } catch (visitErr) {
+          console.warn('[CanvasStore] Page visits fetch warning:', visitErr)
+        }
+      }
+
       set({
-        frames: res?.frames || [],
-        flows: res?.flows || [],
+        frames,
+        flows,
         selectedFrameId: null,
         selectedFrame: null,
         zoom: 1.0,

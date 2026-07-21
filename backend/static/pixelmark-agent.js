@@ -1432,7 +1432,8 @@
       this.active = false;
     }
     onMouseMove(e) {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const rawEl = document.elementFromPoint(e.clientX, e.clientY);
+      const el = typeof normalizeHoverTarget === 'function' ? normalizeHoverTarget(rawEl, "hoverInspector") : (rawEl && rawEl.nodeType === 1 ? rawEl : null);
       if (!el || isPixelMarkOwnedNode(el) || el.id === INSPECTOR_ROOT_ID) {
         this.root.style.display = 'none';
         return;
@@ -2036,7 +2037,50 @@
     if (data.type === "PIXELMARK_TOGGLE_MARKER_MODE") {
       feedbackModeActive = !!data.active;
       updateFeedbackModeUI();
-      if (feedbackModeActive) hoverInspector.start(); else hoverInspector.stop();
+      if (feedbackModeActive) {
+        hoverInspector.start();
+        if (window.__PIXELMARK_EDIT_MODE__) window.__PIXELMARK_EDIT_MODE__.stop();
+      } else {
+        hoverInspector.stop();
+      }
+    }
+
+    if (data.type === "PIXELMARK_SET_EDIT_MODE" || data.type === "PIXELMARK_TOGGLE_EDIT_MODE") {
+      const active = !!data.active;
+      if (active) {
+        if (feedbackModeActive) {
+          feedbackModeActive = false;
+          updateFeedbackModeUI();
+          hoverInspector.stop();
+        }
+        if (window.__PIXELMARK_EDIT_MODE__) window.__PIXELMARK_EDIT_MODE__.start();
+      } else {
+        if (window.__PIXELMARK_EDIT_MODE__) window.__PIXELMARK_EDIT_MODE__.stop();
+      }
+    }
+
+    if (data.type === "PIXELMARK_PREVIEW_STYLE_MUTATION") {
+      if (window.__PIXELMARK_EDIT_MODE__ && window.__PIXELMARK_EDIT_MODE__.applyStyle) {
+        window.__PIXELMARK_EDIT_MODE__.applyStyle(data.selector, data.property, data.value);
+      }
+    }
+
+    if (data.type === "PIXELMARK_REPLAY_EDITS") {
+      if (Array.isArray(data.edits) && window.__PIXELMARK_EDIT_MODE__ && window.__PIXELMARK_EDIT_MODE__.replayBatch) {
+        window.__PIXELMARK_EDIT_MODE__.replayBatch(data.edits);
+      }
+    }
+
+    if (data.type === "PIXELMARK_RESET_SECTION_STYLES") {
+      if (window.__PIXELMARK_EDIT_MODE__ && window.__PIXELMARK_EDIT_MODE__.resetSection) {
+        window.__PIXELMARK_EDIT_MODE__.resetSection(data.selector, data.sectionProperties);
+      }
+    }
+
+    if (data.type === "PIXELMARK_RESET_ELEMENT_STYLES") {
+      if (window.__PIXELMARK_EDIT_MODE__ && window.__PIXELMARK_EDIT_MODE__.resetElementAll) {
+        window.__PIXELMARK_EDIT_MODE__.resetElementAll(data.selector);
+      }
     }
 
     if (data.type === "PIXELMARK_SET_CONTEXT") {
@@ -2403,279 +2447,523 @@
 
 })();
 
-// ─── DOM EDIT MODE ────────────────────────────────────────────────────────────
+// ─── DOM EDIT MODE (Step 1: Read-only Element Inspection & Selection) ────────
 
 (function() {
   'use strict';
 
-  var PM = window.__PM__;
-  if (!PM) return;
+  var OVERLAY_CONTAINER_ID = 'pixelmark-edit-overlay-container';
+  var HOVER_BOX_ID = 'pixelmark-edit-hover-box';
+  var HOVER_LABEL_ID = 'pixelmark-edit-hover-label';
+  var SELECT_BOX_ID = 'pixelmark-edit-select-box';
 
-  // ── ACTIVATE ──────────────────────────────────────────────
-  PM.activate = function() {
-    if (PM.overlay) return; // already active
+  var editModeActive = false;
+  var hoveredElement = null;
+  var selectedElement = null;
+  var pendingHoverEvent = null;
+  var hoverRafId = null;
+  var scrollResizeRafId = null;
 
-    // Full-page interceptor overlay
-    var overlay = document.createElement('div');
-    overlay.setAttribute('id', 'pm-overlay');
-    overlay.style.cssText = [
-      'position:fixed',
-      'top:0',
-      'left:0',
-      'width:100%',
-      'height:100%',
-      'z-index:2147483647',
-      'cursor:crosshair',
-      'background:transparent'
-    ].join(';');
+  var containerEl = null;
+  var hoverBoxEl = null;
+  var hoverLabelEl = null;
+  var selectBoxEl = null;
 
-    // Highlight box
-    var hl = document.createElement('div');
-    hl.setAttribute('id', 'pm-hl');
-    hl.style.cssText = [
-      'position:fixed',
-      'pointer-events:none',
-      'z-index:2147483646',
-      'border:2px solid #4f98a3',
-      'background:rgba(79,152,163,0.07)',
-      'border-radius:3px',
-      'display:none',
-      'box-shadow:0 0 0 1px rgba(79,152,163,0.2)'
-    ].join(';');
+  function ensureOverlayElements() {
+    if (containerEl && document.body && document.body.contains(containerEl)) return;
 
-    document.documentElement.appendChild(hl);
-    document.documentElement.appendChild(overlay);
+    containerEl = document.createElement('div');
+    containerEl.id = OVERLAY_CONTAINER_ID;
+    containerEl.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2147483647;display:none;';
 
-    PM.overlay = overlay;
-    PM.highlight = hl;
+    // Hover outline overlay (2px dashed outline, layout shift free)
+    hoverBoxEl = document.createElement('div');
+    hoverBoxEl.id = HOVER_BOX_ID;
+    hoverBoxEl.style.cssText = 'position:fixed;pointer-events:none;box-sizing:border-box;outline:2px dashed #a855f7 !important;outline-offset:-2px;background:rgba(168,85,247,0.06);display:none;z-index:2147483647;transition:none;';
 
-    // MOUSEMOVE — hide overlay, find real element, show highlight
-    overlay.addEventListener('mousemove', function(e) {
-      overlay.style.display = 'none';
-      var el = document.elementFromPoint(e.clientX, e.clientY);
-      overlay.style.display = 'block';
+    // Hover floating label (tag + resolved selector via getCSSSelector)
+    hoverLabelEl = document.createElement('div');
+    hoverLabelEl.id = HOVER_LABEL_ID;
+    hoverLabelEl.style.cssText = 'position:fixed;pointer-events:none;background:#7c3aed;color:#ffffff;padding:2px 8px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;font-weight:600;border-radius:4px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none;z-index:2147483647;max-width:320px;overflow:hidden;text-overflow:ellipsis;';
 
-      if (!el || el === hl || el.id === 'pm-panel') return;
-      if (el.tagName === 'HTML' || el.tagName === 'BODY') return;
+    // Persistent select outline overlay (2px solid outline)
+    selectBoxEl = document.createElement('div');
+    selectBoxEl.id = SELECT_BOX_ID;
+    selectBoxEl.style.cssText = 'position:fixed;pointer-events:none;box-sizing:border-box;outline:2px solid #a855f7 !important;outline-offset:-2px;background:rgba(168,85,247,0.12);display:none;z-index:2147483647;';
 
-      PM.lastTarget = el;
-      var r = el.getBoundingClientRect();
-      hl.style.display = 'block';
-      hl.style.top    = r.top + 'px';
-      hl.style.left   = r.left + 'px';
-      hl.style.width  = r.width + 'px';
-      hl.style.height = r.height + 'px';
-    });
+    containerEl.appendChild(hoverBoxEl);
+    containerEl.appendChild(hoverLabelEl);
+    containerEl.appendChild(selectBoxEl);
+    (document.body || document.documentElement).appendChild(containerEl);
+  }
 
-    // MOUSELEAVE
-    overlay.addEventListener('mouseleave', function() {
-      hl.style.display = 'none';
-      PM.lastTarget = null;
-    });
+  function isElementNode(value) {
+    return !!(
+      value &&
+      typeof value === 'object' &&
+      value.nodeType === 1 &&
+      typeof value.getBoundingClientRect === 'function'
+    );
+  }
 
-    // SHIFT+CLICK — open edit panel
-    overlay.addEventListener('click', function(e) {
-      // Only activate on Shift+Click
-      if (!e.shiftKey) {
-        // Pass click through to real element below
-        overlay.style.display = 'none';
-        var el = document.elementFromPoint(e.clientX, e.clientY);
-        overlay.style.display = 'block';
-        if (el) el.click();
+  function normalizeHoverTarget(target, source) {
+    if (source) {
+      console.log("[PixelMark Agent] hover target incoming", { source: source, target: target });
+    }
+
+    if (!target) {
+      if (source) {
+        console.log("[PixelMark Agent] hover target normalized", { source: source, tag: null });
+      }
+      return null;
+    }
+
+    if (target === window || target.window === target) {
+      if (source) {
+        console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { source: source, targetType: "window", target: target });
+      }
+      return null;
+    }
+
+    if (target.nodeType === 9) { // Document node
+      if (source) {
+        console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { source: source, targetType: "document", target: target });
+      }
+      return null;
+    }
+
+    // Convert Text node or non-Element node to parentElement
+    if (target.nodeType && target.nodeType !== 1) {
+      if (target.parentElement && isElementNode(target.parentElement)) {
+        target = target.parentElement;
+      } else if (target.parentNode && isElementNode(target.parentNode)) {
+        target = target.parentNode;
+      } else {
+        if (source) {
+          console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { source: source, targetType: typeof target, target: target });
+        }
+        return null;
+      }
+    }
+
+    if (typeof target === 'string') {
+      try {
+        target = document.querySelector(target);
+      } catch (e) {
+        target = null;
+      }
+    } else if (target && typeof target === 'object' && !target.nodeType && target.selector) {
+      try {
+        target = document.querySelector(target.selector);
+      } catch (e) {
+        target = null;
+      }
+    }
+
+    if (isElementNode(target)) {
+      if (source) {
+        console.log("[PixelMark Agent] hover target normalized", { source: source, tag: target.tagName ? target.tagName.toLowerCase() : null });
+      }
+      return target;
+    }
+
+    if (source) {
+      console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { source: source, targetType: typeof target, target: target });
+    }
+    return null;
+  }
+
+  function isPixelMarkNode(node) {
+    if (!node) return true;
+    if (node === containerEl || node.id === OVERLAY_CONTAINER_ID || node.id === HOVER_BOX_ID || node.id === HOVER_LABEL_ID || node.id === SELECT_BOX_ID || node.id === "pixelmark-hud-badge" || node.id === "pixelmark-inspector-root") return true;
+    if (node.closest && (node.closest('#' + OVERLAY_CONTAINER_ID) || node.closest('#pixelmark-inspector-root'))) return true;
+    return false;
+  }
+
+  function updateHoverBox(target) {
+    var el = normalizeHoverTarget(target, null);
+    if (!el || el === document.body || el === document.documentElement || isPixelMarkNode(el)) {
+      hoveredElement = null;
+      if (hoverBoxEl) hoverBoxEl.style.display = 'none';
+      if (hoverLabelEl) hoverLabelEl.style.display = 'none';
+      return;
+    }
+
+    if (!isElementNode(el)) {
+      console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { targetType: typeof el, target: el });
+      hoveredElement = null;
+      if (hoverBoxEl) hoverBoxEl.style.display = 'none';
+      if (hoverLabelEl) hoverLabelEl.style.display = 'none';
+      return;
+    }
+
+    hoveredElement = el;
+    try {
+      var rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        if (hoverBoxEl) hoverBoxEl.style.display = 'none';
+        if (hoverLabelEl) hoverLabelEl.style.display = 'none';
         return;
       }
 
-      e.preventDefault();
-      e.stopPropagation();
+      // Reuse existing heuristic selector engine
+      var selector = typeof getCSSSelector === 'function' ? getCSSSelector(el) : el.tagName.toLowerCase();
+      var tag = el.tagName.toLowerCase();
 
-      overlay.style.display = 'none';
-      var el = document.elementFromPoint(e.clientX, e.clientY);
-      overlay.style.display = 'block';
+      hoverBoxEl.style.left = rect.left + 'px';
+      hoverBoxEl.style.top = rect.top + 'px';
+      hoverBoxEl.style.width = rect.width + 'px';
+      hoverBoxEl.style.height = rect.height + 'px';
+      hoverBoxEl.style.display = 'block';
 
-      if (!el || el.tagName === 'HTML' || el.tagName === 'BODY') return;
-      PM.lastTarget = el;
-      PM.openPanel(el);
-    });
+      hoverLabelEl.textContent = '<' + tag + '> ' + selector;
+      var labelTop = rect.top - 26;
+      if (labelTop < 4) labelTop = rect.bottom + 4;
+      var labelLeft = Math.max(4, Math.min(rect.left, window.innerWidth - 320));
+      hoverLabelEl.style.left = labelLeft + 'px';
+      hoverLabelEl.style.top = labelTop + 'px';
+      hoverLabelEl.style.display = 'block';
 
-    console.log('[PixelMark] DOM Edit active — Shift+Click any element');
-  };
-
-  // ── DEACTIVATE ────────────────────────────────────────────
-  PM.deactivate = function() {
-    if (PM.overlay) { PM.overlay.remove(); PM.overlay = null; }
-    if (PM.highlight) { PM.highlight.remove(); PM.highlight = null; }
-    if (PM.panel) { PM.panel.remove(); PM.panel = null; }
-    PM.lastTarget = null;
-    console.log('[PixelMark] DOM Edit deactivated');
-  };
-
-  // ── EDIT PANEL ────────────────────────────────────────────
-  PM.openPanel = function(el) {
-    if (PM.panel) PM.panel.remove();
-
-    var cs = window.getComputedStyle(el);
-    var props = [
-      ['color',            'Text Color',    'color'],
-      ['background-color', 'Background',    'color'],
-      ['font-size',        'Font Size',     'text'],
-      ['font-weight',      'Font Weight',   'text'],
-      ['border-radius',    'Radius',        'text'],
-      ['padding',          'Padding',       'text'],
-      ['opacity',          'Opacity',       'text'],
-    ];
-
-    var rows = props.map(function(p) {
-      var val = cs.getPropertyValue(p[0]).trim();
-      var input = p[2] === 'color'
-        ? '<input type="color" data-prop="'+p[0]+'" data-old="'+val+'" value="'+PM.toHex(val)+'" style="width:36px;height:24px;border:none;background:none;cursor:pointer;vertical-align:middle">'
-        : '<input type="text"  data-prop="'+p[0]+'" data-old="'+val+'" value="'+val+'" style="width:110px;background:#2a2a2a;border:1px solid #555;color:#eee;border-radius:4px;padding:2px 6px;font-size:11px;vertical-align:middle">';
-      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
-        +'<span style="font-size:11px;color:#999">'+p[1]+'</span>'+input+'</div>';
-    }).join('');
-
-    var tag = el.tagName.toLowerCase();
-    var txt = (el.innerText || '').slice(0, 50).replace(/</g,'&lt;');
-
-    var panel = document.createElement('div');
-    panel.id = 'pm-panel';
-    panel.style.cssText = [
-      'position:fixed',
-      'top:16px',
-      'right:16px',
-      'width:270px',
-      'background:#1c1b19',
-      'border:1px solid rgba(255,255,255,0.15)',
-      'border-radius:10px',
-      'z-index:2147483647',
-      'font-family:-apple-system,BlinkMacSystemFont,sans-serif',
-      'box-shadow:0 8px 40px rgba(0,0,0,0.6)',
-      'overflow:hidden'
-    ].join(';');
-
-    panel.innerHTML =
-      '<div id="pm-ph" style="padding:10px 12px;background:#252422;border-bottom:1px solid rgba(255,255,255,0.08);cursor:move;display:flex;justify-content:space-between;align-items:center">'
-      +'<div><div style="color:#4f98a3;font-size:11px;font-weight:700">&lt;'+tag+'&gt;</div>'
-      +'<div style="color:#666;font-size:10px;margin-top:2px;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+txt+'</div></div>'
-      +'<button id="pm-px" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1">×</button>'
-      +'</div>'
-      +'<div style="padding:10px 12px">'+rows+'</div>'
-      +'<div style="padding:6px 12px 12px;display:flex;gap:6px">'
-      +'<button id="pm-ba" style="flex:1;background:#4f98a3;border:none;color:#fff;padding:6px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">Apply</button>'
-      +'<button id="pm-br" style="flex:1;background:rgba(255,255,255,0.08);border:none;color:#fff;padding:6px;border-radius:5px;cursor:pointer;font-size:11px">Reset</button>'
-      +'<button id="pm-bs" style="flex:1;background:#14532d;border:none;color:#6ee7b7;padding:6px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">Save ✓</button>'
-      +'</div>';
-
-    document.documentElement.appendChild(panel);
-    PM.panel = panel;
-
-    // Drag
-    PM.drag(panel, document.getElementById('pm-ph'));
-
-    // Close
-    document.getElementById('pm-px').onclick = function() { panel.remove(); PM.panel = null; };
-
-    // Apply (live preview)
-    panel.addEventListener('input', function(e) {
-      if (e.target.dataset.prop) el.style.setProperty(e.target.dataset.prop, e.target.value);
-    });
-
-    // Apply button
-    document.getElementById('pm-ba').onclick = function() {
-      panel.querySelectorAll('[data-prop]').forEach(function(i) {
-        el.style.setProperty(i.dataset.prop, i.value);
-      });
-    };
-
-    // Reset
-    document.getElementById('pm-br').onclick = function() {
-      panel.querySelectorAll('[data-prop]').forEach(function(i) {
-        el.style.removeProperty(i.dataset.prop);
-        i.value = i.dataset.old;
-      });
-    };
-
-    // Save
-    document.getElementById('pm-bs').onclick = function() {
-      var selector = PM.sel(el);
-      panel.querySelectorAll('[data-prop]').forEach(function(i) {
-        if (i.value === i.dataset.old) return;
-        window.parent.postMessage({
-          type: 'PIXELMARK_DOM_EDIT_SAVE',
-          sessionId: PM.sessionId,
-          selector: selector,
-          xpath: PM.xpath(el),
-          property: i.dataset.prop,
-          old_value: i.dataset.old,
-          new_value: i.value,
-          element_tag: tag.toUpperCase(),
-          element_text: txt,
-          page_url: PM.targetUrl
-        }, '*');
-      });
-      var b = document.getElementById('pm-bs');
-      b.textContent = 'Saved!';
-      setTimeout(function() { if(b) b.textContent = 'Save ✓'; }, 2000);
-    };
-  };
-
-  // ── HELPERS ───────────────────────────────────────────────
-  PM.drag = function(panel, handle) {
-    var ox, oy, ol, ot;
-    handle.onmousedown = function(e) {
-      var r = panel.getBoundingClientRect();
-      ox = e.clientX; oy = e.clientY; ol = r.left; ot = r.top;
-      panel.style.right = 'auto';
-      document.onmousemove = function(e) {
-        panel.style.left = (ol + e.clientX - ox) + 'px';
-        panel.style.top  = (ot + e.clientY - oy) + 'px';
-      };
-      document.onmouseup = function() {
-        document.onmousemove = null;
-        document.onmouseup = null;
-      };
-      e.preventDefault();
-    };
-  };
-
-  PM.toHex = function(color) {
-    try {
-      var c = document.createElement('canvas').getContext('2d');
-      c.fillStyle = color;
-      return c.fillStyle;
-    } catch(e) { return '#000000'; }
-  };
-
-  PM.sel = function(el) {
-    // Use your existing selector generation function here
-    // Fallback:
-    if (el.id) return '#' + el.id;
-    var path = [];
-    while (el && el.nodeType === 1) {
-      var s = el.tagName.toLowerCase();
-      if (el.className) s += '.' + Array.from(el.classList).join('.');
-      path.unshift(s);
-      el = el.parentElement;
-      if (path.length > 4) break;
+      console.log("[PixelMark Agent] updateHoverBox applied", { tag: tag });
+    } catch (err) {
+      console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { error: err.message, target: el });
+      if (hoverBoxEl) hoverBoxEl.style.display = 'none';
+      if (hoverLabelEl) hoverLabelEl.style.display = 'none';
     }
-    return path.join(' > ');
-  };
-
-  PM.xpath = function(el) {
-    if (!el) return '';
-    var parts = [];
-    while (el && el.nodeType === 1) {
-      parts.unshift(el.tagName.toLowerCase());
-      el = el.parentElement;
-    }
-    return '/' + parts.join('/');
-  };
-
-  // ── READY SIGNAL ──────────────────────────────────────────
-  PM.ready = true;
-  if (PM.pendingActivate) {
-    PM.pendingActivate = false;
-    PM.activate();
   }
+
+  function updateSelectBox(target) {
+    var el = normalizeHoverTarget(target, null);
+    if (!el || !document.body.contains(el)) {
+      selectedElement = null;
+      if (selectBoxEl) selectBoxEl.style.display = 'none';
+      window.parent.postMessage({ type: 'PIXELMARK_EDIT_ELEMENT_DESELECTED' }, '*');
+      return;
+    }
+
+    try {
+      var rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        if (selectBoxEl) selectBoxEl.style.display = 'none';
+        return;
+      }
+
+      selectBoxEl.style.left = rect.left + 'px';
+      selectBoxEl.style.top = rect.top + 'px';
+      selectBoxEl.style.width = rect.width + 'px';
+      selectBoxEl.style.height = rect.height + 'px';
+      selectBoxEl.style.display = 'block';
+    } catch (err) {
+      console.log("[PixelMark Agent] updateSelectBox skipped invalid target", { error: err.message, target: el });
+      if (selectBoxEl) selectBoxEl.style.display = 'none';
+    }
+  }
+
+  // Event Delegation: single mousemove handler throttled with requestAnimationFrame
+  function onDocumentMouseMove(e) {
+    pendingHoverEvent = e;
+    if (hoverRafId) return;
+
+    hoverRafId = requestAnimationFrame(function() {
+      hoverRafId = null;
+      if (!pendingHoverEvent || !editModeActive) return;
+
+      var startTime = performance.now();
+
+      var rawTarget = pendingHoverEvent.target;
+      var target = normalizeHoverTarget(rawTarget, "mousemove");
+      if (target && !isPixelMarkNode(target)) {
+        updateHoverBox(target);
+      } else {
+        updateHoverBox(null);
+      }
+
+      var duration = performance.now() - startTime;
+      if (duration > 4) {
+        console.warn('[PixelMark EditMode] Hover handler took ' + duration.toFixed(2) + 'ms (exceeded 4ms budget)');
+      }
+    });
+  }
+
+  // Event Delegation: single click handler (capture phase)
+  function onDocumentClick(e) {
+    if (!editModeActive) return;
+
+    var rawTarget = e.target;
+    var target = normalizeHoverTarget(rawTarget, "click");
+    if (!target || isPixelMarkNode(target) || target === document.body || target === document.documentElement) {
+      // Clicked outside / background -> deselect
+      deselect();
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    selectedElement = target;
+    updateSelectBox(selectedElement);
+
+    var selector = typeof getCSSSelector === 'function' ? getCSSSelector(target) : target.tagName.toLowerCase();
+    var tag = target.tagName.toLowerCase();
+
+    window.parent.postMessage({
+      type: 'PIXELMARK_EDIT_ELEMENT_SELECTED',
+      tag: tag,
+      selector: selector
+    }, '*');
+  }
+
+  // Event Delegation: single keydown handler for Escape key deselect
+  function onDocumentKeyDown(e) {
+    if (!editModeActive) return;
+    if (e.key === 'Escape') {
+      deselect();
+    }
+  }
+
+  function onScrollOrResize() {
+    if (!editModeActive) return;
+    if (scrollResizeRafId) return;
+    scrollResizeRafId = requestAnimationFrame(function() {
+      scrollResizeRafId = null;
+      if (hoveredElement) {
+        var normHover = normalizeHoverTarget(hoveredElement, "resize");
+        if (normHover) updateHoverBox(normHover);
+        else updateHoverBox(null);
+      }
+      if (selectedElement) {
+        var normSelect = normalizeHoverTarget(selectedElement, "resize");
+        if (normSelect) updateSelectBox(normSelect);
+        else deselect();
+      }
+    });
+  }
+
+  function deselect() {
+    selectedElement = null;
+    if (selectBoxEl) selectBoxEl.style.display = 'none';
+    window.parent.postMessage({ type: 'PIXELMARK_EDIT_ELEMENT_DESELECTED' }, '*');
+  }
+
+  // Memory map for storing element's original inline/computed style value before first mutation
+  var originalStyleMap = new Map();
+  // Memory map for storing original display property value before hiding (Step 7 Requirement 1)
+  var originalDisplayMap = new Map();
+
+  // Internal debug log buffer — avoids polluting target site console
+  var internalDebugLogs = [];
+  function internalLog(msg, extra) {
+    internalDebugLogs.push({ timestamp: Date.now(), msg: msg, extra: extra });
+    if (internalDebugLogs.length > 50) internalDebugLogs.shift();
+  }
+
+  // ── Step 3 & Step 7: Multi-Property Live Style Preview Pipeline ──────────
+  function applyLiveStylePreview(selector, property, value) {
+    if (!selector || typeof selector !== 'string') return;
+
+    try {
+      // 1. Read phase (separated from write to prevent layout thrashing):
+      //    Resolve target element & read computed style if not already stored
+      var element = document.querySelector(selector);
+      if (!element || isPixelMarkNode(element) || !document.body.contains(element)) {
+        internalLog('Selector failed to resolve or element not in DOM:', selector);
+        window.parent.postMessage({ type: 'PIXELMARK_EDIT_UNRESOLVED_ELEMENT', selector: selector }, '*');
+        return;
+      }
+
+      // Store original value in memory before first mutation
+      if (!originalStyleMap.has(selector)) {
+        var computedStyle = window.getComputedStyle(element);
+        var originalVal = element.style[property] || computedStyle[property] || '';
+        var origObj = {};
+        origObj[property] = originalVal;
+        originalStyleMap.set(selector, origObj);
+      }
+
+      // 2. Write phase (separated from read):
+      //    NEVER use element.setAttribute('style', ...) — always mutate individual style property directly
+      if (property === 'display') {
+        if (value === 'none') {
+          if (!originalDisplayMap.has(selector)) {
+            var currDisplay = element.style.display || window.getComputedStyle(element).display || 'block';
+            originalDisplayMap.set(selector, currDisplay === 'none' ? 'block' : currDisplay);
+          }
+          element.style.display = 'none';
+        } else {
+          var origDisplay = originalDisplayMap.get(selector) || value || '';
+          element.style.display = (origDisplay === 'none' ? '' : origDisplay);
+        }
+      } else {
+        element.style[property] = value;
+      }
+
+      // Re-confirm bounding rect after mutation (avoids layout shift displacement)
+      if (selectedElement === element && typeof updateSelectBox === 'function') {
+        updateSelectBox(element);
+      }
+    } catch (err) {
+      // Fail silently in try/catch to avoid polluting target site console
+      internalLog('Error applying live style preview:', err);
+    }
+  }
+
+  // Batch replay saved edits on page reload (batched read phase & batched write phase)
+  function replaySavedEditsBatch(editsList) {
+    if (!Array.isArray(editsList) || editsList.length === 0) return;
+
+    var resolvedBatch = [];
+
+    // 1. Read / Resolution Phase (batched read):
+    for (var i = 0; i < editsList.length; i++) {
+      var edit = editsList[i];
+      if (!edit || !edit.selector || !edit.property || !edit.new_value) continue;
+
+      try {
+        var element = document.querySelector(edit.selector);
+        if (!element || isPixelMarkNode(element) || !document.body.contains(element)) {
+          internalLog('Replay selector failed to resolve:', edit.selector);
+          continue;
+        }
+
+        // Store original value if not present
+        if (!originalStyleMap.has(edit.selector)) {
+          var computed = window.getComputedStyle(element);
+          var origVal = element.style[edit.property] || computed[edit.property] || '';
+          var origObj = {};
+          origObj[edit.property] = origVal;
+          originalStyleMap.set(edit.selector, origObj);
+        }
+
+        resolvedBatch.push({ element: element, property: edit.property, value: edit.new_value });
+      } catch (err) {
+        internalLog('Replay resolution error:', err);
+      }
+    }
+
+    // 2. Write Phase (batched write):
+    for (var j = 0; j < resolvedBatch.length; j++) {
+      var item = resolvedBatch[j];
+      try {
+        item.element.style[item.property] = item.value;
+      } catch (err) {
+        internalLog('Replay write error:', err);
+      }
+    }
+  }
+
+  // Reset section properties for an element to originally-captured values
+  function resetSectionProperties(selector, properties) {
+    if (!selector || !Array.isArray(properties)) return;
+
+    try {
+      var element = document.querySelector(selector);
+      if (!element || isPixelMarkNode(element) || !document.body.contains(element)) {
+        window.parent.postMessage({ type: 'PIXELMARK_EDIT_UNRESOLVED_ELEMENT', selector: selector }, '*');
+        return;
+      }
+
+      var origObj = originalStyleMap.get(selector) || {};
+
+      for (var i = 0; i < properties.length; i++) {
+        var prop = properties[i];
+        if (origObj[prop] !== undefined) {
+          element.style[prop] = origObj[prop];
+        } else {
+          element.style.removeProperty(prop);
+        }
+      }
+
+      if (selectedElement === element && typeof updateSelectBox === 'function') {
+        updateSelectBox(element);
+      }
+    } catch (err) {
+      internalLog('Reset section error:', err);
+    }
+  }
+
+  // Reset all edited properties for an element to originally-captured values
+  function resetElementAll(selector) {
+    if (!selector) return;
+
+    try {
+      var element = document.querySelector(selector);
+      if (!element || isPixelMarkNode(element) || !document.body.contains(element)) {
+        window.parent.postMessage({ type: 'PIXELMARK_EDIT_UNRESOLVED_ELEMENT', selector: selector }, '*');
+        return;
+      }
+
+      var origObj = originalStyleMap.get(selector);
+      if (origObj) {
+        Object.keys(origObj).forEach(function(prop) {
+          element.style[prop] = origObj[prop];
+        });
+      } else {
+        element.style.cssText = '';
+      }
+
+      if (selectedElement === element && typeof updateSelectBox === 'function') {
+        updateSelectBox(element);
+      }
+    } catch (err) {
+      internalLog('Reset element all error:', err);
+    }
+  }
+
+  function startEditMode() {
+    if (editModeActive) return;
+    editModeActive = true;
+
+    ensureOverlayElements();
+    if (containerEl) containerEl.style.display = 'block';
+
+    // Single delegated listeners attached to document/window
+    document.addEventListener('mousemove', onDocumentMouseMove, true);
+    document.addEventListener('click', onDocumentClick, true);
+    document.addEventListener('keydown', onDocumentKeyDown, true);
+    window.addEventListener('scroll', onScrollOrResize, { passive: true });
+    window.addEventListener('resize', onScrollOrResize, { passive: true });
+
+    console.log('[PixelMark] DOM Edit Mode Activated');
+  }
+
+  function stopEditMode() {
+    if (!editModeActive) return;
+    editModeActive = false;
+
+    // Fully remove event listeners — 0 dangling listeners, 0 memory growth
+    document.removeEventListener('mousemove', onDocumentMouseMove, true);
+    document.removeEventListener('click', onDocumentClick, true);
+    document.removeEventListener('keydown', onDocumentKeyDown, true);
+    window.removeEventListener('scroll', onScrollOrResize);
+    window.removeEventListener('resize', onScrollOrResize);
+
+    if (hoverRafId) { cancelAnimationFrame(hoverRafId); hoverRafId = null; }
+    if (scrollResizeRafId) { cancelAnimationFrame(scrollResizeRafId); scrollResizeRafId = null; }
+
+    hoveredElement = null;
+    selectedElement = null;
+    pendingHoverEvent = null;
+
+    if (containerEl && containerEl.parentNode) {
+      containerEl.parentNode.removeChild(containerEl);
+      containerEl = null;
+      hoverBoxEl = null;
+      hoverLabelEl = null;
+      selectBoxEl = null;
+    }
+
+    console.log('[PixelMark] DOM Edit Mode Deactivated');
+  }
+
+  window.__PIXELMARK_EDIT_MODE__ = {
+    start: startEditMode,
+    stop: stopEditMode,
+    isActive: function() { return editModeActive; },
+    applyStyle: applyLiveStylePreview,
+    replayBatch: replaySavedEditsBatch,
+    resetSection: resetSectionProperties,
+    resetElementAll: resetElementAll
+  };
 
   // Notify parent that agent is ready
   window.parent.postMessage({ type: 'PIXELMARK_AGENT_READY' }, '*');
