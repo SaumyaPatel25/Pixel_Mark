@@ -88,7 +88,7 @@ export default function ApiDocsPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white font-sans selection:bg-purple-500/30 relative">
+    <div className="min-h-screen bg-pm-bg text-pm-text font-sans selection:bg-purple-500/30 relative">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -108,7 +108,7 @@ export default function ApiDocsPage() {
       <main className="max-w-5xl mx-auto px-5 md:px-8 py-14 space-y-20 relative z-10">
 
         {/* ── HERO ── */}
-        <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-8 border-b border-white/[0.04] pb-14">
+        <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-8 border-b border-pm-border pb-14">
           <div className="space-y-5 max-w-2xl">
             <span className="inline-block text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-3 py-1">
               REST API · v2
@@ -119,7 +119,7 @@ export default function ApiDocsPage() {
                 STAGE API
               </span>
             </h1>
-            <p className="text-white/40 text-sm md:text-base leading-relaxed">
+            <p className="text-pm-muted text-sm md:text-base leading-relaxed">
               Everything you need to integrate visual feedback into your dev workflow.
               REST API, webhooks, and export formats.
             </p>
@@ -133,7 +133,7 @@ export default function ApiDocsPage() {
             </a>
             <Link
               href="/dashboard"
-              className="px-6 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-white font-black text-xs text-center transition-all"
+              className="px-6 py-3 rounded-xl bg-pm-surface-2 hover:bg-pm-surface-3 border border-pm-border text-pm-text font-black text-xs text-center transition-all"
             >
               Get API Key
             </Link>
@@ -142,30 +142,30 @@ export default function ApiDocsPage() {
 
         {/* ── BASE URL + AUTH ── */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-[#0d0d12] border border-white/[0.05] rounded-2xl p-6 space-y-4">
+          <div className="bg-pm-surface border border-pm-border rounded-2xl p-6 space-y-4">
             <h2 className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
               Base URL · Production
             </h2>
-            <p className="text-xs text-white/40 leading-relaxed">
+            <p className="text-xs text-pm-muted leading-relaxed">
               All API requests must be made over HTTPS. HTTP requests will be rejected.
             </p>
-            <div className="bg-black/50 border border-white/[0.04] rounded-xl px-4 py-3 font-mono text-xs text-indigo-300 break-all">
+            <div className="bg-pm-bg border border-pm-border rounded-xl px-4 py-3 font-mono text-xs text-pm-text break-all">
               https://api.stage.io
             </div>
           </div>
 
-          <div className="bg-[#0d0d12] border border-white/[0.05] rounded-2xl p-6 space-y-4">
+          <div className="bg-pm-surface border border-pm-border rounded-2xl p-6 space-y-4">
             <h2 className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
               Authentication · Bearer Token
             </h2>
-            <p className="text-xs text-white/40 leading-relaxed">
+            <p className="text-xs text-pm-muted leading-relaxed">
               Obtain your API key from the{' '}
               <Link href="/dashboard" className="text-purple-400 underline underline-offset-2">
                 dashboard
               </Link>
               . Pass it as a Bearer token in every request.
             </p>
-            <div className="bg-black/50 border border-white/[0.04] rounded-xl px-4 py-3 font-mono text-xs text-indigo-300">
+            <div className="bg-pm-bg border border-pm-border rounded-xl px-4 py-3 font-mono text-xs text-pm-text">
               Authorization: Bearer YOUR_TOKEN
             </div>
           </div>
@@ -180,28 +180,28 @@ export default function ApiDocsPage() {
             </p>
           </div>
 
-          <div className="bg-[#0d0d12] border border-white/[0.05] rounded-2xl overflow-hidden shadow-2xl">
+          <div className="bg-pm-surface border border-pm-border rounded-2xl overflow-hidden shadow-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-white/[0.04] bg-white/[0.01] text-[10px] uppercase tracking-widest text-white/30 font-black">
+                  <tr className="border-b border-pm-border bg-pm-surface-2 text-[10px] uppercase tracking-widest text-pm-muted/60 font-black">
                     <th className="px-5 py-3.5 w-24">Method</th>
                     <th className="px-5 py-3.5">Endpoint</th>
                     <th className="px-5 py-3.5">Description</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.025]">
+                <tbody className="divide-y divide-pm-border/50">
                   {endpoints.map((ep, i) => (
-                    <tr key={i} className="hover:bg-white/[0.015] transition-colors">
+                    <tr key={i} className="hover:bg-pm-surface-2 transition-colors">
                       <td className="px-5 py-3.5">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-black ${methodColors[ep.method] ?? ''}`}>
                           {ep.method}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 font-mono text-purple-300 whitespace-nowrap">
+                      <td className="px-5 py-3.5 font-mono text-purple-600 dark:text-purple-300 whitespace-nowrap">
                         {ep.path}
                       </td>
-                      <td className="px-5 py-3.5 text-white/50">{ep.desc}</td>
+                      <td className="px-5 py-3.5 text-pm-muted">{ep.desc}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -219,19 +219,19 @@ export default function ApiDocsPage() {
             </p>
           </div>
 
-          <div className="bg-[#0d0d12] border border-white/[0.05] rounded-2xl p-6 space-y-4 shadow-xl">
+          <div className="bg-pm-surface border border-pm-border rounded-2xl p-6 space-y-4 shadow-xl">
             {/* tab-like label */}
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest bg-white/[0.04] border border-white/[0.05] rounded px-2 py-0.5 text-white/40">
+              <span className="text-[10px] font-black uppercase tracking-widest bg-pm-surface-2 border border-pm-border rounded px-2 py-0.5 text-pm-muted">
                 bash
               </span>
             </div>
-            <pre className="bg-black/50 border border-white/[0.04] rounded-xl p-5 font-mono text-xs text-purple-300 overflow-x-auto leading-relaxed whitespace-pre">
+            <pre className="bg-pm-bg border border-pm-border rounded-xl p-5 font-mono text-xs text-purple-600 dark:text-purple-300 overflow-x-auto leading-relaxed whitespace-pre">
 {`curl \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   https://api.stage.io/projects`}
             </pre>
-            <p className="text-[10px] text-white/30 font-bold uppercase tracking-wider">
+            <p className="text-[10px] text-pm-muted/50 font-bold uppercase tracking-wider">
               Replace <span className="text-purple-400 font-mono">YOUR_TOKEN</span> with the key from your dashboard settings.
             </p>
           </div>
@@ -250,20 +250,20 @@ export default function ApiDocsPage() {
             {faqs.map((faq, i) => (
               <div
                 key={i}
-                className="bg-[#0d0d12] border border-white/[0.05] rounded-2xl p-6 space-y-3 hover:border-purple-500/10 transition-colors"
+                className="bg-pm-surface border border-pm-border rounded-2xl p-6 space-y-3 hover:border-purple-500/20 hover:shadow-md transition-all"
               >
-                <h3 className="text-sm font-black text-white leading-snug">{faq.q}</h3>
-                <p className="text-xs text-white/40 leading-relaxed">{faq.a}</p>
+                <h3 className="text-sm font-black text-pm-text leading-snug">{faq.q}</h3>
+                <p className="text-xs text-pm-muted leading-relaxed">{faq.a}</p>
               </div>
             ))}
           </div>
         </section>
 
         {/* ── CTA BANNER ── */}
-        <section className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/10 rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <section className="bg-gradient-to-r from-purple-950/20 to-indigo-950/20 border border-purple-500/20 rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="space-y-1.5 text-center sm:text-left">
-            <h3 className="text-lg font-black text-white">Ready to integrate?</h3>
-            <p className="text-xs text-white/40 leading-relaxed">
+            <h3 className="text-lg font-black text-pm-text">Ready to integrate?</h3>
+            <p className="text-xs text-pm-muted leading-relaxed">
               Generate your API key from the dashboard and start building in minutes.
             </p>
           </div>
@@ -277,7 +277,7 @@ export default function ApiDocsPage() {
 
       </main>
 
-      <footer className="border-t border-white/[0.04] py-8 text-center text-[10px] text-white/20 uppercase tracking-widest font-black">
+      <footer className="border-t border-pm-border py-8 text-center text-[10px] text-pm-muted/40 uppercase tracking-widest font-black">
         &copy; {new Date().getFullYear()} {seoConfig.company}. All rights reserved.
       </footer>
     </div>

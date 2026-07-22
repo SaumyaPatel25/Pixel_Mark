@@ -93,7 +93,7 @@ export default function SystemCheck() {
         )
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/40">
+          <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full bg-pm-surface-2 border border-pm-border text-[10px] font-black uppercase text-pm-muted">
             <Loader2 className="w-3 h-3 animate-spin" />
             Checking
           </span>
@@ -102,24 +102,24 @@ export default function SystemCheck() {
   }
 
   return (
-    <div className="bg-[#0c0c0e]/80 border border-white/5 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
-      <div className="flex items-center justify-between border-b border-white/[0.03] pb-4">
+    <div className="bg-pm-surface border border-pm-border rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
+      <div className="flex items-center justify-between border-b border-pm-border pb-4">
         <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-purple-400">Live System Diagnostics</h3>
-          <p className="text-[10px] text-white/30 font-bold uppercase tracking-wider mt-1">
+          <p className="text-[10px] text-pm-muted/60 font-bold uppercase tracking-wider mt-1">
             {lastChecked ? `Last Checked: ${lastChecked.toLocaleTimeString()}` : 'Initializing checks...'}
           </p>
         </div>
         <button
           onClick={checkHealth}
           disabled={isRefreshing}
-          className="p-2 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] text-white/40 hover:text-white transition-all disabled:opacity-50"
+          className="p-2 rounded-lg bg-pm-surface-2 border border-pm-border hover:bg-pm-surface-3 text-pm-muted hover:text-pm-text transition-all disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      <div className="divide-y divide-white/[0.02] text-xs">
+      <div className="divide-y divide-pm-border/50 text-xs">
         {[
           { name: 'Core REST API Gateway', key: 'api', desc: 'Main query layer for feedback data, coordinates, and projects.' },
           { name: 'Authentication Manager', key: 'auth', desc: 'OAuth integrations, session tokens, and security contexts.' },
@@ -127,8 +127,8 @@ export default function SystemCheck() {
         ].map((service) => (
           <div key={service.key} className="py-4 flex items-center justify-between gap-4">
             <div className="space-y-1">
-              <p className="font-bold text-white">{service.name}</p>
-              <p className="text-[10px] text-white/40 max-w-md leading-normal">{service.desc}</p>
+              <p className="font-bold text-pm-text">{service.name}</p>
+              <p className="text-[10px] text-pm-muted max-w-md leading-normal">{service.desc}</p>
             </div>
             {getStatusBadge(status[service.key as keyof StatusState])}
           </div>

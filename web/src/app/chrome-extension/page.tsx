@@ -49,7 +49,7 @@ export default function ChromeExtensionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white font-sans selection:bg-purple-500/30 relative overflow-x-hidden">
+    <div className="min-h-screen bg-pm-bg text-pm-text font-sans selection:bg-purple-500/30 relative overflow-x-hidden">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -85,7 +85,7 @@ export default function ChromeExtensionPage() {
             </span>
           </h1>
 
-          <p className="text-white/40 text-sm md:text-base leading-relaxed max-w-xl mx-auto">
+          <p className="text-pm-muted text-sm md:text-base leading-relaxed max-w-xl mx-auto">
             The STAGE Chrome Extension is in development. Install it to review any website directly from
             your browser — no code required.
           </p>
@@ -99,7 +99,7 @@ export default function ChromeExtensionPage() {
             </a>
             <Link
               href="/dashboard"
-              className="px-6 py-3 rounded-xl border border-white/10 hover:border-white/20 text-white/60 hover:text-white font-bold text-xs transition-all"
+              className="px-6 py-3 rounded-xl border border-pm-border hover:border-pm-border-bright text-pm-muted hover:text-pm-text font-bold text-xs transition-all"
             >
               Go to Dashboard →
             </Link>
@@ -110,18 +110,18 @@ export default function ChromeExtensionPage() {
         <section className="space-y-7">
           <div className="space-y-1">
             <h2 className="text-2xl font-black tracking-tight text-center">What it will do</h2>
-            <p className="text-xs text-white/30 font-bold uppercase tracking-wider text-center">
+            <p className="text-xs text-pm-muted/50 font-bold uppercase tracking-wider text-center">
               Everything you need for browser-native feedback
             </p>
           </div>
 
-          <div className="bg-[#0d0d12] border border-white/[0.05] rounded-2xl p-7 md:p-10 space-y-5 shadow-xl max-w-2xl mx-auto w-full">
+          <div className="bg-pm-surface border border-pm-border rounded-2xl p-7 md:p-10 space-y-5 shadow-xl max-w-2xl mx-auto w-full">
             {featureList.map((feat, i) => (
               <div key={i} className="flex items-start gap-4">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center mt-0.5">
                   <Check className="w-3 h-3 text-emerald-400" strokeWidth={3} />
                 </span>
-                <p className="text-sm text-white/80 leading-relaxed">{feat}</p>
+                <p className="text-sm text-pm-text leading-relaxed">{feat}</p>
               </div>
             ))}
           </div>
@@ -131,7 +131,7 @@ export default function ChromeExtensionPage() {
         <section id="notify" className="max-w-2xl mx-auto w-full space-y-6 scroll-mt-20">
           <div className="text-center space-y-1.5">
             <h2 className="text-2xl font-black tracking-tight">Get Notified</h2>
-            <p className="text-xs text-white/30 font-bold uppercase tracking-wider">
+            <p className="text-xs text-pm-muted/50 font-bold uppercase tracking-wider">
               Be first in line when the beta opens
             </p>
           </div>
@@ -142,10 +142,10 @@ export default function ChromeExtensionPage() {
 
         {/* ── TIMELINE NOTE ── */}
         <section className="max-w-2xl mx-auto w-full">
-          <div className="flex items-center gap-4 bg-[#0d0d12] border border-white/[0.05] rounded-2xl px-6 py-5">
-            <Clock3 className="w-5 h-5 text-white/20 flex-shrink-0" />
-            <p className="text-xs text-white/30 leading-relaxed">
-              <span className="text-white/60 font-bold">Estimated Q3 2026.</span>{' '}
+          <div className="flex items-center gap-4 bg-pm-surface border border-pm-border rounded-2xl px-6 py-5">
+            <Clock3 className="w-5 h-5 text-pm-muted/30 flex-shrink-0" />
+            <p className="text-xs text-pm-muted/50 leading-relaxed">
+              <span className="text-pm-text font-bold">Estimated Q3 2026.</span>{' '}
               Currently in active development. The core marker injection engine and real-time sync are complete.
             </p>
           </div>
@@ -153,7 +153,7 @@ export default function ChromeExtensionPage() {
 
       </main>
 
-      <footer className="border-t border-white/[0.04] py-8 text-center text-[10px] text-white/20 uppercase tracking-widest font-black">
+      <footer className="border-t border-pm-border py-8 text-center text-[10px] text-pm-muted/40 uppercase tracking-widest font-black">
         &copy; {new Date().getFullYear()} {seoConfig.company}. All rights reserved.
       </footer>
     </div>

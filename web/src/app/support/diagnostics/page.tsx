@@ -70,7 +70,7 @@ export default function DiagnosticsPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white font-sans selection:bg-purple-500/30 relative">
+    <div className="min-h-screen bg-pm-bg text-pm-text font-sans selection:bg-purple-500/30 relative">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -90,7 +90,7 @@ export default function DiagnosticsPage() {
       <main className="max-w-5xl mx-auto px-5 md:px-8 py-14 space-y-20 relative z-10">
 
         {/* ── HERO ── */}
-        <section className="space-y-5 border-b border-white/[0.04] pb-14">
+        <section className="space-y-5 border-b border-pm-border pb-14">
           <span className="inline-block text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-3 py-1">
             Support Center
           </span>
@@ -100,7 +100,7 @@ export default function DiagnosticsPage() {
               Fix Issues Fast
             </span>
           </h1>
-          <p className="text-white/40 text-sm md:text-base leading-relaxed max-w-2xl">
+          <p className="text-pm-muted text-sm md:text-base leading-relaxed max-w-2xl">
             Use this guide to check your STAGE setup, test your connections, and resolve common issues.
           </p>
         </section>
@@ -109,7 +109,7 @@ export default function DiagnosticsPage() {
         <section className="space-y-5">
           <div className="space-y-1">
             <h2 className="text-2xl font-black tracking-tight">System Status</h2>
-            <p className="text-xs text-white/30 font-bold uppercase tracking-wider">
+            <p className="text-xs text-pm-muted/50 font-bold uppercase tracking-wider">
               Live health — auto-refreshes every 30 seconds
             </p>
           </div>
@@ -120,7 +120,7 @@ export default function DiagnosticsPage() {
         <section className="space-y-6">
           <div className="space-y-1">
             <h2 className="text-2xl font-black tracking-tight">Common Troubleshooting Steps</h2>
-            <p className="text-xs text-white/30 font-bold uppercase tracking-wider">
+            <p className="text-xs text-pm-muted/50 font-bold uppercase tracking-wider">
               Most issues are resolved by one of the following
             </p>
           </div>
@@ -129,25 +129,25 @@ export default function DiagnosticsPage() {
             {issues.map((issue, idx) => (
               <div
                 key={idx}
-                className="bg-[#0d0d12] border border-white/[0.05] rounded-2xl p-6 space-y-3 hover:border-purple-500/10 hover:shadow-xl hover:shadow-purple-900/5 transition-all"
+                className="bg-pm-surface border border-pm-border rounded-2xl p-6 space-y-3 hover:border-purple-500/20 hover:shadow-md transition-all"
               >
                 <div className="flex items-start gap-3">
                   <span className="flex-shrink-0 text-[10px] font-black font-mono bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded px-2 py-0.5 mt-0.5">
                     {String(idx + 1).padStart(2, '0')}
                   </span>
-                  <h3 className="text-sm font-black text-white leading-snug">{issue.title}</h3>
+                  <h3 className="text-sm font-black text-pm-text leading-snug">{issue.title}</h3>
                 </div>
-                <p className="text-xs text-white/40 leading-relaxed pl-9">{issue.body}</p>
+                <p className="text-xs text-pm-muted leading-relaxed pl-9">{issue.body}</p>
               </div>
             ))}
           </div>
         </section>
 
         {/* ── CONTACT SUPPORT ── */}
-        <section className="bg-gradient-to-r from-purple-900/20 to-indigo-900/20 border border-purple-500/10 rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <section className="bg-gradient-to-r from-purple-950/10 to-indigo-950/10 border border-purple-500/20 rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-center sm:text-left">
-            <h3 className="text-lg font-black text-white">Still stuck?</h3>
-            <p className="text-xs text-white/40 leading-relaxed">
+            <h3 className="text-lg font-black text-pm-text">Still stuck?</h3>
+            <p className="text-xs text-pm-muted leading-relaxed">
               Reach our support team and we will help you diagnose your workspace configuration.
             </p>
           </div>
@@ -161,7 +161,7 @@ export default function DiagnosticsPage() {
 
       </main>
 
-      <footer className="border-t border-white/[0.04] py-8 text-center text-[10px] text-white/20 uppercase tracking-widest font-black">
+      <footer className="border-t border-pm-border py-8 text-center text-[10px] text-pm-muted/40 uppercase tracking-widest font-black">
         &copy; {new Date().getFullYear()} {seoConfig.company}. All rights reserved.
       </footer>
     </div>
