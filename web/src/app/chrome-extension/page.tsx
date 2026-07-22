@@ -73,8 +73,8 @@ export default function ChromeExtensionPage() {
         {/* ── HERO ── */}
         <section className="text-center space-y-7">
           {/* Styled Coming Soon badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-600/15 border border-purple-500/30 text-[11px] font-black uppercase tracking-widest text-purple-300 shadow-lg shadow-purple-900/20">
-            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-100 dark:bg-purple-600/15 border border-purple-200 dark:border-purple-500/30 text-[11px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300 shadow-lg shadow-purple-900/5 dark:shadow-purple-900/20">
+            <span className="w-2 h-2 rounded-full bg-purple-600 dark:bg-purple-400 animate-pulse" />
             Coming Soon
           </div>
 
