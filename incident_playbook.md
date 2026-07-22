@@ -1,4 +1,4 @@
-# PixelMark Incident Response Playbook
+# STAGE Incident Response Playbook
 
 ## Severity Matrix
 
@@ -17,7 +17,7 @@ When an incident is reported, the First Responder should capture the following b
 - **Context:** Browser/OS version, URL of the affected site, and network tab HAR file (if applicable).
 
 ### 1. Proxy Asset Failures
-- **Symptom:** Target website fails to load CSS, JS, or images, leading to a broken rendering in the PixelMark canvas.
+- **Symptom:** Target website fails to load CSS, JS, or images, leading to a broken rendering in the STAGE canvas.
 - **First Responder:** Backend Engineer
 - **Capture:** Failed proxy URLs in network tab, target domain. Check backend logs for circuit breaker trips.
 - **Immediate Mitigation:** 

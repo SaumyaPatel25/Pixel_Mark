@@ -3,8 +3,9 @@ import pytest
 import time
 import asyncio
 
-RAILWAY_URL = "https://pixelmark-production.up.railway.app"
-VERCEL_URL = "https://web-zeta-sable-82.vercel.app"
+import os
+RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
+VERCEL_URL = os.environ.get("VERCEL_URL", "https://web-zeta-sable-82.vercel.app")
 
 @pytest.mark.asyncio
 async def test_backend_health():
@@ -33,7 +34,7 @@ async def test_frontend_accessible():
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.get(VERCEL_URL)
         assert response.status_code == 200
-        assert "pixelmark" in response.text.lower()
+        assert "stage" in response.text.lower()
         print("Frontend Accessible: PASS")
 
 @pytest.mark.asyncio

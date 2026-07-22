@@ -1,7 +1,7 @@
 # 01 System Overview
 
 ## Product Vision
-PixelMark is intended to be a visual feedback and developer-collaboration platform designed for website QA/UAT. The platform aims to allow developers to create projects, spawn review sessions, and share public links with reviewers who can leave rich, coordinate-mapped visual feedback (markers) directly on target websites. 
+STAGE is intended to be a visual feedback and developer-collaboration platform designed for website QA/UAT. The platform aims to allow developers to create projects, spawn review sessions, and share public links with reviewers who can leave rich, coordinate-mapped visual feedback (markers) directly on target websites. 
 
 ## Current Architecture Summary
 The application follows a decoupled client-server architecture:
@@ -20,7 +20,7 @@ The application follows a decoupled client-server architecture:
 
 ## Major Subsystems
 1. **Core API Engine (FastAPI):** Handles Auth, Project management, and Session tracking.
-2. **Proxy/Canvas Injector:** Proxies external target websites so they can be injected with the `pixelmark-agent.js` review script, bypassing cross-origin restrictions.
+2. **Proxy/Canvas Injector:** Proxies external target websites so they can be injected with the `stage-agent.js` review script, bypassing cross-origin restrictions.
 3. **Collaboration Sync (WebSockets):** Handles real-time transmission of marker coordinates and status changes between reviewers and developers.
 4. **Web Dashboard (Next.js):** The primary command center for developers.
 

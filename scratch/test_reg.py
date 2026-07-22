@@ -17,7 +17,7 @@ def test_register():
                 print(f"[Response Error] {res.url} -> {res.status}")
         page.on("response", handle_response)
         
-        email = f"test_{int(time.time())}@pixelmark.com"
+        email = f"test_{int(time.time())}@stage.com"
         print(f"Attempting to register with email: {email}")
         
         try:

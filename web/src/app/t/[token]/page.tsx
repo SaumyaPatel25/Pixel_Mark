@@ -155,7 +155,7 @@ export default function TesterLanding() {
 
         {/* Brand */}
         <div className="text-center space-y-3">
-          <p className="text-pm-accent font-mono text-[10px] font-black tracking-[0.4em]">PIXELMARK</p>
+          <p className="text-pm-accent font-mono text-[10px] font-black tracking-[0.4em]">STAGE</p>
           <h1 className="text-pm-text text-2xl font-black leading-tight truncate uppercase">{data?.project_name}</h1>
           {data?.project_description && (
             <p className="text-pm-muted text-xs leading-relaxed max-w-xs mx-auto font-bold">{data.project_description}</p>
@@ -190,7 +190,7 @@ export default function TesterLanding() {
           Start Review Session →
         </motion.button>
 
-        <p className="text-pm-muted/60 text-[9px] font-mono text-center">Powered by PixelMark · Visual Feedback Platform</p>
+        <p className="text-pm-muted/60 text-[9px] font-mono text-center">Powered by STAGE · Visual Feedback Platform</p>
       </motion.div>
     </div>
   )

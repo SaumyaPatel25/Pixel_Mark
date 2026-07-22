@@ -19,7 +19,7 @@ from proxy.asset_resolver import resolve_asset_url, get_asset_failure_fallback
 router = APIRouter(prefix="/proxy", tags=["proxy"])
 
 import logging
-logger = logging.getLogger("pixelmark.proxy")
+logger = logging.getLogger("stage.proxy")
 
 # Active IP sessions tracking for fallback resolution
 ACTIVE_IP_SESSIONS = {}
@@ -284,7 +284,7 @@ async def proxy_initial(
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "X-PixelMark-Session": session_id
+            "X-STAGE-Session": session_id
         }
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
             resp = await client.get(base_url, headers=headers)
@@ -331,11 +331,11 @@ async def proxy_initial(
                 )
                 
                 response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
-                response.headers["X-PixelMark-Session"] = session_id
-                response.headers["X-PixelMark-Page"] = base_url
+                response.headers["X-STAGE-Session"] = session_id
+                response.headers["X-STAGE-Page"] = base_url
                 
                 response.set_cookie(
-                    "pixelmark_session_id", 
+                    "stagesessionid", 
                     session_id, 
                     path="/", 
                     httponly=True, 
@@ -402,7 +402,7 @@ async def proxy_page(
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "X-PixelMark-Session": session_id
+            "X-STAGE-Session": session_id
         }
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
             resp = await client.get(url, headers=headers)
@@ -450,11 +450,11 @@ async def proxy_page(
                 )
                 
                 response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
-                response.headers["X-PixelMark-Session"] = session_id
-                response.headers["X-PixelMark-Page"] = url
+                response.headers["X-STAGE-Session"] = session_id
+                response.headers["X-STAGE-Page"] = url
                 
                 response.set_cookie(
-                    "pixelmark_session_id", 
+                    "stagesessionid", 
                     session_id, 
                     path="/", 
                     httponly=True, 
@@ -567,7 +567,7 @@ async def handle_proxy_asset_request(
         logger.warning(f"[ASSET RESOLVER] [DECISION] Asset domain scoping block: {url}. Strategy=blocked, Status=mocked")
         if ".js" in url or "javascript" in url:
             return prepare_proxy_response(Response(
-                content=f'console.warn("PixelMark Warning: Script asset blocked by domain scoping: {url}");'.encode("utf-8"),
+                content=f'console.warn("STAGE Warning: Script asset blocked by domain scoping: {url}");'.encode("utf-8"),
                 media_type="application/javascript"
             ))
         if is_third_party:
@@ -586,14 +586,14 @@ async def handle_proxy_asset_request(
             logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy}, Status=CACHE_HIT")
             response = Response(content=cached_content, media_type=cached_type)
             set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
-            response.headers["X-PixelMark-Cache"] = "HIT"
+            response.headers["X-STAGE-Cache"] = "HIT"
             return prepare_proxy_response(response)
 
     try:
         headers = {
             "User-Agent": request.headers.get("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
             "Accept-Language": request.headers.get("accept-language", "en-US,en;q=0.9"),
-            "X-PixelMark-Session": session_id
+            "X-STAGE-Session": session_id
         }
         
         # Pass along Content-Type for POST requests
@@ -674,7 +674,7 @@ async def handle_proxy_asset_request(
             logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy}, Status={resp.status_code}, Duration={duration:.1f}ms, Bytes={byte_size}")
             response = Response(content=resp.content, status_code=resp.status_code, media_type=content_type)
             set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
-            response.headers["X-PixelMark-Cache"] = "MISS"
+            response.headers["X-STAGE-Cache"] = "MISS"
             return prepare_proxy_response(response)
             
     except Exception as e:
@@ -732,7 +732,7 @@ async def proxy_form(
         
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "X-PixelMark-Session": session_id
+            "X-STAGE-Session": session_id
         }
         
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:

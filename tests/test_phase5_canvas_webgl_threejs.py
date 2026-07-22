@@ -35,7 +35,7 @@ async def override_get_db():
         yield session
 
 async def override_get_current_user():
-    return User(id="mock-canvas-user-id", email="canvas@pixelmark.dev", name="Canvas Tester")
+    return User(id="mock-canvas-user-id", email="canvas@stage.dev", name="Canvas Tester")
 
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user
@@ -58,7 +58,7 @@ async def test_setup():
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
-            email=f"phase5_qa_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+            email=f"phase5_qa_{uuid.uuid4().hex[:6]}@stage.dev",
             hashed_password="$argon2id$v=19$m=65536,t=3,p=4$...",
             name="Phase 5 Canvas QA User"
         )
@@ -77,7 +77,7 @@ async def test_setup():
             id=project_id,
             org_id=org_id,
             name="Phase 5 Canvas/3D Project",
-            url="https://opinvox.pixelmark.com"
+            url="https://opinvox.stage.com"
         )
         db.add(project)
         
@@ -119,7 +119,7 @@ async def test_canvas_webgl_threejs_marker_creation_and_exporters(test_setup):
         dom_payload = {
             "session_id": session.id,
             "title": "DOM Header Error",
-            "page_url": "https://opinvox.pixelmark.com/index",
+            "page_url": "https://opinvox.stage.com/index",
             "page_title": "OpinVox Home",
             "renderer_type": "dom",
             "priority": "low"
@@ -133,7 +133,7 @@ async def test_canvas_webgl_threejs_marker_creation_and_exporters(test_setup):
         canvas2d_payload = {
             "session_id": session.id,
             "title": "Canvas2D Line Rendering Error",
-            "page_url": "https://opinvox.pixelmark.com/canvas-demo",
+            "page_url": "https://opinvox.stage.com/canvas-demo",
             "page_title": "Canvas 2D Playground",
             "renderer_type": "canvas2d",
             "priority": "medium",
@@ -154,7 +154,7 @@ async def test_canvas_webgl_threejs_marker_creation_and_exporters(test_setup):
         webgl_payload = {
             "session_id": session.id,
             "title": "WebGL Context Shader Bug",
-            "page_url": "https://opinvox.pixelmark.com/shaders",
+            "page_url": "https://opinvox.stage.com/shaders",
             "page_title": "Custom Shader Arena",
             "renderer_type": "webgl",
             "priority": "high",
@@ -180,7 +180,7 @@ async def test_canvas_webgl_threejs_marker_creation_and_exporters(test_setup):
         threejs_payload = {
             "session_id": session.id,
             "title": "Three.js Cube Alignment Issue",
-            "page_url": "https://opinvox.pixelmark.com/arena/3d",
+            "page_url": "https://opinvox.stage.com/arena/3d",
             "page_title": "Arena 3D Map",
             "renderer_type": "threejs",
             "priority": "critical",

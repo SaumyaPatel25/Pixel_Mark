@@ -8,7 +8,7 @@ SCREENSHOTS_DIR = Path("C:/Users/saumy/.gemini/antigravity/brain/b6ce7eda-ced7-4
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 def run_responsive_tests():
-    print("🚀 Starting PixelMark Responsive Shell Breakpoint E2E Tests via Playwright", flush=True)
+    print("🚀 Starting STAGE Responsive Shell Breakpoint E2E Tests via Playwright", flush=True)
     base_url = os.environ.get("BASE_URL", "http://localhost:3000").rstrip("/")
     print(f"🌍 Using Base URL: {base_url}", flush=True)
     
@@ -27,7 +27,7 @@ def run_responsive_tests():
         page.goto(f"{base_url}/register")
         time.sleep(2)
         
-        email_addr = f"responsive_test_{int(time.time())}@pixelmark.dev"
+        email_addr = f"responsive_test_{int(time.time())}@stage.dev"
         try:
             print(f"✍️ Registering test user {email_addr}...", flush=True)
             page.fill("input[placeholder='Pro Bro']", "Responsive Tester")

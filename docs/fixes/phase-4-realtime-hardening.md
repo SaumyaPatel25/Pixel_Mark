@@ -3,7 +3,7 @@
 ## Problem Addressed
 The audit revealed two main issues with the WebSocket implementation:
 1. **Missed Updates:** When a client momentarily disconnected, markers created or updated by others during that gap were missed because the reconnect logic did not reconcile state with the server.
-2. **Scale Limitations:** The `ConnectionManager` in `backend/websocket.py` is entirely in-memory. If PixelMark scales horizontally across multiple API workers or edge functions, a WebSocket message broadcasted by Worker A will never reach clients connected to Worker B.
+2. **Scale Limitations:** The `ConnectionManager` in `backend/websocket.py` is entirely in-memory. If STAGE scales horizontally across multiple API workers or edge functions, a WebSocket message broadcasted by Worker A will never reach clients connected to Worker B.
 
 ## Solutions Implemented
 
@@ -29,8 +29,8 @@ class RedisConnectionManager:
         self.pubsub = self.redis.pubsub()
     
     async def listen(self):
-        # Subscribe to a global channel, e.g., "pixelmark_events"
-        await self.pubsub.subscribe("pixelmark_events")
+        # Subscribe to a global channel, e.g., "stage_events"
+        await self.pubsub.subscribe("stage_events")
         async for message in self.pubsub.listen():
             if message["type"] == "message":
                 data = json.loads(message["data"])
@@ -39,7 +39,7 @@ class RedisConnectionManager:
                 
     async def broadcast(self, session_id: str, payload: dict):
         # Instead of sending directly to sockets, publish to Redis
-        await self.redis.publish("pixelmark_events", json.dumps({
+        await self.redis.publish("stage_events", json.dumps({
             "session_id": session_id,
             "payload": payload
         }))

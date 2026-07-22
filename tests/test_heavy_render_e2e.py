@@ -36,7 +36,7 @@ async def override_get_db():
         yield session
 
 async def override_get_current_user():
-    return User(id="mock-heavy-user-id", email="heavy@pixelmark.dev", name="Heavy Tester")
+    return User(id="mock-heavy-user-id", email="heavy@stage.dev", name="Heavy Tester")
 
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user
@@ -51,7 +51,7 @@ async def test_setup():
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
-            email=f"heavy_qa_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+            email=f"heavy_qa_{uuid.uuid4().hex[:6]}@stage.dev",
             hashed_password="mock_password_hash",
             name="Heavy Render QA User"
         )
@@ -166,7 +166,7 @@ async def test_wildcard_asset_proxy_route(test_setup):
             f"/proxy/session/{session.id}/asset/https/cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
         )
         assert resp_hit.status_code == 200
-        assert resp_hit.headers.get("X-PixelMark-Cache") == "HIT"
+        assert resp_hit.headers.get("X-STAGE-Cache") == "HIT"
 
 @pytest.mark.asyncio
 async def test_heavy_marker_canvas_context_saving(test_setup):

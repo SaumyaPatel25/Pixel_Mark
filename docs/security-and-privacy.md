@@ -1,11 +1,11 @@
 # Security and Privacy
 
-This document outlines the security architecture, data isolation practices, SSRF protections, and CORS rules built into PixelMark.
+This document outlines the security architecture, data isolation practices, SSRF protections, and CORS rules built into STAGE.
 
 ---
 
 ## 1. Authentication and Secret Storage
-PixelMark supports multiple security authentication options depending on the client scope:
+STAGE supports multiple security authentication options depending on the client scope:
 
 - **JWT Tokens**: HS256 JWT tokens containing `sub` (User ID) and expiry fields. Signatures are signed using `JWT_SECRET_KEY` on the server and verified by the frontend layout guards.
   - *Evidence: backend/auth.py*

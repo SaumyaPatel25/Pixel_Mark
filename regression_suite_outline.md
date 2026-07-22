@@ -1,6 +1,6 @@
-# PixelMark Release Regression Suite & Release Gate Rules
+# STAGE Release Regression Suite & Release Gate Rules
 
-This document outlines the standard release regression suite for PixelMark. New releases are strictly gated and cannot ship to production unless all critical regression flows defined here are green.
+This document outlines the standard release regression suite for STAGE. New releases are strictly gated and cannot ship to production unless all critical regression flows defined here are green.
 
 ---
 

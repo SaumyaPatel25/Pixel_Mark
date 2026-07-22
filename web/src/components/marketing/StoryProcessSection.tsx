@@ -10,7 +10,7 @@ const steps = [
     badge: 'STAGE 1: GENERATE & SHARE',
     title: 'Input your site & share review links',
     description:
-      'Enter your live staging URL or local development port. PixelMark generates a secure, sandboxed review link in seconds—no dev config or Chrome extensions required.',
+      'Enter your live staging URL or local development port. STAGE generates a secure, sandboxed review link in seconds—no dev config or Chrome extensions required.',
     color: 'from-blue-500/20 to-indigo-500/20 text-indigo-500 dark:text-indigo-400',
     borderColor: 'border-indigo-500/20',
     visual: (
@@ -20,7 +20,7 @@ const steps = [
           <span>review-session-ready</span>
         </div>
         <div className="p-2 rounded bg-pm-surface border border-pm-border text-center truncate">
-          https://pixelmark.io/review/share-abc
+          https://stage.io/review/share-abc
         </div>
       </div>
     )
@@ -31,7 +31,7 @@ const steps = [
     badge: 'STAGE 2: PIN FEEDBACK',
     title: 'Clients click directly to pin comments',
     description:
-      'Reviewers simply click any live element to drop comments. PixelMark records the exact node target—no more guessing what "button on the left" refers to.',
+      'Reviewers simply click any live element to drop comments. STAGE records the exact node target—no more guessing what "button on the left" refers to.',
     color: 'from-emerald-500/20 to-teal-500/20 text-emerald-500 dark:text-emerald-400',
     borderColor: 'border-emerald-500/20',
     visual: (
@@ -49,7 +49,7 @@ const steps = [
     number: '03',
     icon: Database,
     badge: 'STAGE 3: COLLECT CONTEXT',
-    title: 'PixelMark compiles absolute specs',
+    title: 'STAGE compiles absolute specs',
     description:
       'Each pin compiles absolute XPath routes, CSS layout properties (z-index, padding), and JavaScript console traces. Devs get diagnostic data on load.',
     color: 'from-amber-500/20 to-orange-500/20 text-amber-500 dark:text-amber-400',
@@ -103,7 +103,7 @@ export default function StoryProcessSection() {
             Product Walkthrough
           </span>
           <h2 className="font-display text-4xl md:text-5xl lg:text-[3.5rem] font-black tracking-tight text-pm-text leading-[1.05] uppercase italic">
-            How PixelMark transforms<br />
+            How STAGE transforms<br />
             <span className="text-[#1D264F] dark:text-transparent dark:bg-gradient-to-r dark:from-indigo-400 dark:to-emerald-400 dark:bg-clip-text">
               website review cycles.
             </span>

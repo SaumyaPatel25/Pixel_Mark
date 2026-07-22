@@ -4,8 +4,8 @@ import os
 WEB_DIR = r"c:\Users\saumy\OneDrive\Desktop\Entrext\web"
 BACKEND_DIR = r"c:\Users\saumy\OneDrive\Desktop\Entrext\backend"
 
-# 1. Update pixelmark-agent.js
-agent_js_path = os.path.join(BACKEND_DIR, "static", "pixelmark-agent.js")
+# 1. Update stage-agent.js
+agent_js_path = os.path.join(BACKEND_DIR, "static", "stage-agent.js")
 with open(agent_js_path, "r", encoding="utf-8") as f:
     content = f.read()
 
@@ -47,7 +47,7 @@ content = re.sub(
 )
 
 new_normalizePinCoordinates = """export function normalizePinCoordinates(payload: any): { displayX: number; displayY: number; source: string } {
-  console.log('[PixelMark Coordinates] Input payload:', payload);
+  console.log('[STAGE Coordinates] Input payload:', payload);
 
   let displayX = 0;
   let displayY = 0;
@@ -87,7 +87,7 @@ new_normalizePinCoordinates = """export function normalizePinCoordinates(payload
   }
 
   const result = { displayX: Math.round(displayX), displayY: Math.round(displayY), source };
-  console.log('[PixelMark Coordinates] Output:', result);
+  console.log('[STAGE Coordinates] Output:', result);
   return result;
 }"""
 

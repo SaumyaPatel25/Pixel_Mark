@@ -1,6 +1,6 @@
 # Testing and Quality Assurance
 
-This document details the test suites, execution commands, coverage gaps, and manual QA validation steps for PixelMark.
+This document details the test suites, execution commands, coverage gaps, and manual QA validation steps for STAGE.
 
 ---
 
@@ -52,7 +52,7 @@ This document details the test suites, execution commands, coverage gaps, and ma
 1. Clear browser storage (Run `localStorage.clear()` in DevTools Console).
 2. Open the Login page (`http://localhost:3000/login`).
 3. Click "Sign Up" and register a new account with a new email address (e.g. `fresh_dev_5678@test.com`).
-4. **Validation Check**: Upon redirection to the dashboard page `/dashboard`, the "Welcome to PixelMark! 🚀" onboarding tour overlay should automatically open.
+4. **Validation Check**: Upon redirection to the dashboard page `/dashboard`, the "Welcome to STAGE! 🚀" onboarding tour overlay should automatically open.
 
 ### 3.2 Visual Pin-Dropping Playbook
 1. Open the project canvas for an active project.

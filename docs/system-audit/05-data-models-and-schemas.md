@@ -1,6 +1,6 @@
 # 05 Data Models and Schemas
 
-This document maps out the core SQLAlchemy database models and relationships driving the PixelMark backend.
+This document maps out the core SQLAlchemy database models and relationships driving the STAGE backend.
 
 ## Core Models
 

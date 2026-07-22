@@ -40,7 +40,7 @@ export default function SystemCheck() {
 
     try {
       // 2. Check Auth Service (raw fetch to avoid logout interceptors)
-      const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
+      const token = typeof window !== 'undefined' ? localStorage.getItem('stagetoken') : null
       const headers: Record<string, string> = {}
       if (token) {
         headers['Authorization'] = `Bearer ${token}`

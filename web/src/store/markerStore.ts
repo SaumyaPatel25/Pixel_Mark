@@ -108,7 +108,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
         const sessionMatches = !currentSession || markersById[id].session_id === currentSession
         if (sessionMatches && !id.startsWith('temp-') && !newIds.has(id)) {
           if (!markersById[id].is_deleted) {
-            console.log(`PixelMark deleted purged [${id}]`)
+            console.log(`STAGE deleted purged [${id}]`)
           }
           delete markersById[id]
         }
@@ -145,7 +145,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       
       // Stale event guard: ignore incoming version if older than local version
       if (!force && existing && marker.version < existing.version) {
-        console.log(`PixelMark ws duplicate ignored [${marker.id}]`)
+        console.log(`STAGE ws duplicate ignored [${marker.id}]`)
         // Trigger reconciliation since local is ahead of server
         setTimeout(() => {
           const current = get().currentSessionId
@@ -163,7 +163,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       if (marker.is_deleted) {
         // If it's deleted, we either delete it or mark it as deleted in markersById.
         markersById[marker.id] = marker
-        console.log(`PixelMark deleted purged [${marker.id}]`)
+        console.log(`STAGE deleted purged [${marker.id}]`)
       } else {
         markersById[marker.id] = marker
       }
@@ -271,7 +271,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       return created
     } catch (err) {
       // Rollback optimistic write: remove the temporary marker
-      console.log(`PixelMark optimistic rollback [${tempId}]`)
+      console.log(`STAGE optimistic rollback [${tempId}]`)
       set((state) => {
         const markersById = { ...state.markersById }
         delete markersById[tempId]
@@ -307,7 +307,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
     } catch (err) {
       // Rollback on error
       if (original) {
-        console.log(`PixelMark optimistic rollback [${markerId}]`)
+        console.log(`STAGE optimistic rollback [${markerId}]`)
         get().upsertMarkerFromServer(original, true)
       }
       const current = get().currentSessionId
@@ -340,7 +340,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       return updated
     } catch (err) {
       if (original) {
-        console.log(`PixelMark optimistic rollback [${markerId}]`)
+        console.log(`STAGE optimistic rollback [${markerId}]`)
         get().upsertMarkerFromServer(original, true)
       }
       const current = get().currentSessionId
@@ -354,7 +354,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
     if (!existing) return
 
     if (!isPersistedMarker(existing)) {
-      console.log(`PixelMark marker removed local draft [${markerId}]`)
+      console.log(`STAGE marker removed local draft [${markerId}]`)
       get().removeMarkerLocally(markerId)
       return
     }
@@ -368,7 +368,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       // ApiError carries the status code, check for 404
       const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && err.message.includes('404'))
       if (is404) {
-        console.log(`PixelMark delete reconciled stale marker [${markerId}]`)
+        console.log(`STAGE delete reconciled stale marker [${markerId}]`)
         get().removeMarkerLocally(markerId)
         const current = get().currentSessionId
         if (current) {
@@ -377,7 +377,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       } else {
         // Rollback on other errors
         if (existing) {
-          console.log(`PixelMark optimistic rollback [${markerId}]`)
+          console.log(`STAGE optimistic rollback [${markerId}]`)
           get().upsertMarkerFromServer(existing, true)
         }
         const current = get().currentSessionId
@@ -398,7 +398,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
 
   handleRealtimeEvent: (event) => {
     if (['marker_created', 'marker_updated', 'marker_moved', 'marker_resolved', 'marker_deleted'].includes(event.type)) {
-      console.log(`PixelMark ws marker event [${event.type}] [${event.marker_id || ''}] [${event.actor_id || ''}]`)
+      console.log(`STAGE ws marker event [${event.type}] [${event.marker_id || ''}] [${event.actor_id || ''}]`)
     }
     switch (event.type) {
       case 'marker_created':
@@ -442,7 +442,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
     }
     try {
       const serverMarkers = await api.markers.list(sessionId)
-      console.log(`PixelMark reconcile session markers [${serverMarkers.length}]`)
+      console.log(`STAGE reconcile session markers [${serverMarkers.length}]`)
 
       set((state) => {
         const markersById = { ...state.markersById }
@@ -454,7 +454,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
           
           if (serverMarker.is_deleted) {
             if (!localMarker || !localMarker.is_deleted) {
-              console.log(`PixelMark deleted purged [${serverMarker.id}]`)
+              console.log(`STAGE deleted purged [${serverMarker.id}]`)
             }
             markersById[serverMarker.id] = serverMarker
           } else if (!localMarker) {
@@ -476,7 +476,7 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
           const marker = markersById[id]
           if (marker.session_id === sessionId && !id.startsWith('temp-') && !serverIds.has(id)) {
             if (!marker.is_deleted) {
-              console.log(`PixelMark deleted purged [${id}]`)
+              console.log(`STAGE deleted purged [${id}]`)
             }
             delete markersById[id]
           }

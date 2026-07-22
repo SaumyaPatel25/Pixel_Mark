@@ -1,6 +1,6 @@
 # 06 API Inventory
 
-This document maps the major API routes exposed by the PixelMark FastAPI backend.
+This document maps the major API routes exposed by the STAGE FastAPI backend.
 
 ## Core Routers
 
@@ -37,7 +37,7 @@ This document maps the major API routes exposed by the PixelMark FastAPI backend
 - `DELETE /markers/{id}` - Soft/Hard deletes a pin.
 
 ### Proxy (`main.py` fallback)
-- The fallback middleware (`@app.middleware("http")`) catches any unhandled route, extracts the `session_id` from the referer, and proxies the request to the target website, injecting the `pixelmark-agent.js` script. This is highly vulnerable to CORS and framebusting.
+- The fallback middleware (`@app.middleware("http")`) catches any unhandled route, extracts the `session_id` from the referer, and proxies the request to the target website, injecting the `stage-agent.js` script. This is highly vulnerable to CORS and framebusting.
 
 ---
 - **Confidence Level:** Medium-High (Inferred from router lists in `main.py` and typical REST patterns).

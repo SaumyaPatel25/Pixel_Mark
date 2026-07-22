@@ -5,14 +5,14 @@ import PublicHeader from '@/components/marketing/PublicHeader'
 import { seoConfig } from '@/lib/seoConfig'
 
 export const metadata: Metadata = {
-  title: "Developer API Documentation — PixelMark",
-  description: "Integrate PixelMark's visual feedback API into your workflow. REST endpoints for projects, sessions, markers, exports, and webhooks. Built for developers.",
+  title: "Developer API Documentation — STAGE",
+  description: "Integrate STAGE's visual feedback API into your workflow. REST endpoints for projects, sessions, markers, exports, and webhooks. Built for developers.",
   alternates: {
     canonical: `${seoConfig.siteUrl}/docs/api`
   },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Developer API Documentation — PixelMark",
+    title: "Developer API Documentation — STAGE",
     description: "REST endpoints for projects, sessions, markers, exports, and webhooks. Built for developers.",
     type: 'website',
     url: `${seoConfig.siteUrl}/docs/api`,
@@ -57,15 +57,15 @@ export default function ApiDocsPage() {
     {
       '@context': 'https://schema.org',
       '@type': 'WebPage',
-      name: 'Developer API Documentation — PixelMark',
+      name: 'Developer API Documentation — STAGE',
       description:
-        "Integrate PixelMark's visual feedback API into your workflow. REST endpoints for projects, sessions, markers, exports, and webhooks. Built for developers.",
+        "Integrate STAGE's visual feedback API into your workflow. REST endpoints for projects, sessions, markers, exports, and webhooks. Built for developers.",
       url: `${seoConfig.siteUrl}/docs/api`,
     },
     {
       '@context': 'https://schema.org',
       '@type': 'SoftwareApplication',
-      name: 'PixelMark API',
+      name: 'STAGE API',
       applicationCategory: 'DeveloperApplication',
       operatingSystem: 'All',
       description: 'REST API for visual website feedback, markers, sessions, exports, and share links.',
@@ -116,7 +116,7 @@ export default function ApiDocsPage() {
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.05]">
               Build with{' '}
               <span className="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                PixelMark API
+                STAGE API
               </span>
             </h1>
             <p className="text-white/40 text-sm md:text-base leading-relaxed">
@@ -150,7 +150,7 @@ export default function ApiDocsPage() {
               All API requests must be made over HTTPS. HTTP requests will be rejected.
             </p>
             <div className="bg-black/50 border border-white/[0.04] rounded-xl px-4 py-3 font-mono text-xs text-indigo-300 break-all">
-              https://api.pixelmark.io
+              https://api.stage.io
             </div>
           </div>
 
@@ -229,7 +229,7 @@ export default function ApiDocsPage() {
             <pre className="bg-black/50 border border-white/[0.04] rounded-xl p-5 font-mono text-xs text-purple-300 overflow-x-auto leading-relaxed whitespace-pre">
 {`curl \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
-  https://api.pixelmark.io/projects`}
+  https://api.stage.io/projects`}
             </pre>
             <p className="text-[10px] text-white/30 font-bold uppercase tracking-wider">
               Replace <span className="text-purple-400 font-mono">YOUR_TOKEN</span> with the key from your dashboard settings.

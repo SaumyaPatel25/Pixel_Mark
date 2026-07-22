@@ -115,7 +115,7 @@ export default function EntrextSection() {
 
             {/* Body */}
             <p className="text-xs md:text-sm text-pm-muted leading-relaxed max-w-2xl font-sans">
-              PixelMark is developed by Entrext Labs, an engineering group dedicated to creating visual collaboration layers for the modern web. We build workflows that empower designers, developers, QA leads, and clients to align with absolute confidence.
+              STAGE is developed by Entrext Labs, an engineering group dedicated to creating visual collaboration layers for the modern web. We build workflows that empower designers, developers, QA leads, and clients to align with absolute confidence.
             </p>
 
             {/* CTAs */}
@@ -141,7 +141,7 @@ export default function EntrextSection() {
 
             {/* Partnership Badge Strip */}
             <div className="entrext-partnership pt-8 border-t border-pm-border w-full flex items-center justify-center gap-6 md:gap-8 opacity-60 text-pm-muted text-[10px] font-mono select-none">
-              <span className="font-mono font-bold text-[#1D264F] tracking-wider">PIXELMARK</span>
+              <span className="font-mono font-bold text-[#1D264F] tracking-wider">STAGE</span>
               <span className="text-pm-border-bright text-sm font-light">×</span>
               <span className="font-mono font-bold text-[#253B80] tracking-wider">ENTREXT LABS</span>
             </div>

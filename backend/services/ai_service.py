@@ -65,7 +65,7 @@ async def triage_markers(markers: list[dict], session_title: str, target_url: st
     markers = markers[:AI_TRIAGE_MAX_MARKERS]
     
     system_prompt = """
-You are a QA triage assistant for PixelMark, a visual feedback platform.
+You are a QA triage assistant for STAGE, a visual feedback platform.
 You receive a list of UI bug markers captured from a live website review session.
 
 Your job:
@@ -119,7 +119,7 @@ async def summarize_session(markers: list[dict], session_title: str, target_url:
     markers = markers[:AI_TRIAGE_MAX_MARKERS]
     
     system_prompt = """
-You are a QA analyst for PixelMark, a visual feedback platform.
+You are a QA analyst for STAGE, a visual feedback platform.
 You receive a list of UI markers from a review session.
 
 Your job: produce a structured session health summary.

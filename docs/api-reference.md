@@ -1,6 +1,6 @@
 # API Reference
 
-This document maps all discoverable routes, endpoints, request schemas, response formats, and error codes in the PixelMark backend.
+This document maps all discoverable routes, endpoints, request schemas, response formats, and error codes in the STAGE backend.
 
 ---
 
@@ -15,7 +15,7 @@ This document maps all discoverable routes, endpoints, request schemas, response
   ```json
   {
     "email": "fresh_dev_1234@test.com",
-    "password": "pixelmark2026",
+    "password": "stage2026",
     "name": "Test Developer"
   }
   ```
@@ -46,7 +46,7 @@ This document maps all discoverable routes, endpoints, request schemas, response
   ```json
   {
     "email": "fresh_dev_1234@test.com",
-    "password": "pixelmark2026"
+    "password": "stage2026"
   }
   ```
 - **Response (200 OK)**:
@@ -83,7 +83,7 @@ This document maps all discoverable routes, endpoints, request schemas, response
 ---
 
 ### 1.4 POST /auth/firebase-sync
-- **Description**: Receives a verified Firebase ID Token, performs a secure REST lookup verification against the Google Identity API, upserts the corresponding User and UserIdentity database records, and issues a standard signed HS256 access JWT for PixelMark.
+- **Description**: Receives a verified Firebase ID Token, performs a secure REST lookup verification against the Google Identity API, upserts the corresponding User and UserIdentity database records, and issues a standard signed HS256 access JWT for STAGE.
 - **Auth Required**: None
 - **Request Body**:
   ```json
@@ -331,7 +331,7 @@ This document maps all discoverable routes, endpoints, request schemas, response
 - **Description**: Compiles all style overrides in a session into a standard `.css` text asset.
 - **Response (200 OK - Text/CSS)**:
   ```css
-  /* PixelMark DOM Edit Export — Session: Staging Environment Audit */
+  /* STAGE DOM Edit Export — Session: Staging Environment Audit */
   /* Page: https://acme.example.com */
   h1.title {
     font-size: 48px; /* was: 32px */

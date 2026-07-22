@@ -22,7 +22,7 @@ import { NextResponse, type NextRequest } from 'next/server'
  *   /chrome-extension — extension info
  *   /api/*          — backend API routes
  *
- * PROTECTED routes (require pm_token or pmtoken cookie):
+ * PROTECTED routes (require stagetoken or stagetoken cookie):
  *   /projects/*     — developer project list
  *   /project/*      — individual project view
  *   /dashboard/*    — dashboard views
@@ -52,8 +52,11 @@ const AUTH_ONLY_ROUTES = [
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
-  // Read developer auth token from cookies (support both pm_token and pmtoken)
-  const token = request.cookies.get('pm_token')?.value || request.cookies.get('pmtoken')?.value
+  // Read developer auth token from cookies. Supports new 'stagetoken' and fallback to legacy 'pm_token'/'pmtoken'.
+  // TODO: Remove legacy cookie support after migration window.
+  const token = request.cookies.get('stagetoken')?.value || 
+                request.cookies.get('pm_token')?.value || 
+                request.cookies.get('pmtoken')?.value
 
   const isAuthOnlyRoute = AUTH_ONLY_ROUTES.some(r => path === r || path.startsWith(r + '/'))
   const isProtected = PROTECTED_PREFIXES.some(p => path === p || path.startsWith(p + '/'))

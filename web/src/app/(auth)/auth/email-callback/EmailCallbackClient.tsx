@@ -104,7 +104,7 @@ export default function EmailCallbackClient() {
       >
         {/* Header Logo */}
         <div className="flex flex-col items-center justify-center mb-4 space-y-2">
-          <img src="/logo.png" alt="PixelMark" className="h-20 w-auto object-contain" />
+          <img src="/logo.png" alt="STAGE" className="h-20 w-auto object-contain" />
         </div>
 
         {/* Verifying Loader */}
@@ -112,7 +112,7 @@ export default function EmailCallbackClient() {
           <div className="space-y-4 py-8 flex flex-col items-center w-full">
             <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mx-auto" />
             <h2 className="text-xl font-bold">Completing authentication</h2>
-            <p className="text-sm text-white/40">Synchronizing session with PixelMark backend...</p>
+            <p className="text-sm text-white/40">Synchronizing session with STAGE backend...</p>
           </div>
         )}
 

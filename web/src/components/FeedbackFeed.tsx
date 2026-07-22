@@ -46,7 +46,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
     
     // Dispatch message to workspace to navigate and open drawer
     window.postMessage({
-      type: 'PIXELMARK_OPEN_CAPTURE',
+      type: 'STAGE_OPEN_CAPTURE',
       id: item.id,
       pageUrl
     }, '*')

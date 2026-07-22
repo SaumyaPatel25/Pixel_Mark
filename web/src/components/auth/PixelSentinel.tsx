@@ -644,7 +644,7 @@ export default function PixelSentinel({
       {/* VISUAL ADDITION: Animated status text container using AnimatePresence */}
       <div className="text-center font-mono h-6 flex items-center justify-center space-x-1 select-none w-full">
         <span className="text-[10px] tracking-widest text-white/30 font-black uppercase">
-          PixelMark Status:
+          STAGE Status:
         </span>
         <div className="relative overflow-hidden h-4 w-28 flex items-center justify-start">
           <AnimatePresence mode="wait">

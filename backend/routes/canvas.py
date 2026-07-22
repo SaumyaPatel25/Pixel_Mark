@@ -1,13 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
+from typing import List, Optional
 from dependencies import get_db, get_current_user
-from models import CanvasFrame, CanvasFlow, User, OrgMember, Project, Session
+from models import CanvasFrame, CanvasFlow, User, OrgMember, Project, Session, BlueprintMutationModel, BlueprintPublicationModel
 from schemas import (
     CanvasData, CanvasFrameCreate, CanvasFrameUpdate, CanvasFrameRead,
-    CanvasFlowCreate, CanvasFlowRead, CanvasPriorityDistribution
+    CanvasFlowCreate, CanvasFlowRead, CanvasPriorityDistribution,
+    BlueprintMutationCreate, BlueprintMutationRead, BlueprintBatchSaveRequest,
+    BlueprintPublicationCreate, BlueprintPublicationRead
 )
 import uuid
+from datetime import datetime
 
 router = APIRouter(prefix="/canvas", tags=["canvas"])
 
@@ -304,3 +309,380 @@ async def delete_flow(
     await db.delete(flow)
     await db.commit()
     return None
+
+
+# ==========================================
+# BLUEPRINT PROJECT-SCOPED EDITS & PERSISTENCE
+# ==========================================
+
+@router.get("/{project_id}/edits", response_model=List[BlueprintMutationRead])
+async def get_blueprint_edits(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    proj_result = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = proj_result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    res = await db.execute(
+        select(BlueprintMutationModel)
+        .where(BlueprintMutationModel.project_id == project_id)
+        .order_by(BlueprintMutationModel.sort_order.asc(), BlueprintMutationModel.created_at.asc())
+    )
+    mutations = res.scalars().all()
+
+    return [
+        BlueprintMutationRead(
+            id=m.id,
+            project_id=m.project_id,
+            targetSelector=m.target_selector,
+            actionType=m.action_type,
+            presetId=m.preset_id,
+            presetName=m.preset_name,
+            htmlPayload=m.html_payload,
+            timestamp=m.created_at.isoformat() if m.created_at else None,
+            pageUrl=m.page_url,
+            created_at=m.created_at
+        )
+        for m in mutations
+    ]
+
+
+@router.post("/{project_id}/edits", response_model=List[BlueprintMutationRead])
+async def batch_save_blueprint_edits(
+    project_id: str,
+    payload: BlueprintBatchSaveRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    proj_result = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = proj_result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Clear previous persisted mutations for project to sync exact state
+    await db.execute(delete(BlueprintMutationModel).where(BlueprintMutationModel.project_id == project_id))
+
+    new_models = []
+    for idx, item in enumerate(payload.mutations):
+        mut_id = item.id if item.id and len(item.id) > 10 else str(uuid.uuid4())
+        m = BlueprintMutationModel(
+            id=mut_id,
+            project_id=project_id,
+            target_selector=item.targetSelector,
+            action_type=item.actionType,
+            preset_id=item.presetId,
+            preset_name=item.presetName,
+            html_payload=item.htmlPayload,
+            page_url=item.pageUrl,
+            sort_order=idx
+        )
+        db.add(m)
+        new_models.append(m)
+
+    await db.commit()
+
+    return [
+        BlueprintMutationRead(
+            id=m.id,
+            project_id=m.project_id,
+            targetSelector=m.target_selector,
+            actionType=m.action_type,
+            presetId=m.preset_id,
+            presetName=m.preset_name,
+            htmlPayload=m.html_payload,
+            timestamp=m.created_at.isoformat() if m.created_at else None,
+            pageUrl=m.page_url,
+            created_at=m.created_at
+        )
+        for m in new_models
+    ]
+
+
+@router.delete("/{project_id}/edits/{edit_id}")
+async def delete_blueprint_edit(
+    project_id: str,
+    edit_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    await db.execute(
+        delete(BlueprintMutationModel).where(
+            BlueprintMutationModel.id == edit_id,
+            BlueprintMutationModel.project_id == project_id
+        )
+    )
+    await db.commit()
+    return {"message": "Edit deleted", "id": edit_id}
+
+
+@router.delete("/{project_id}/edits")
+async def clear_all_blueprint_edits(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    await db.execute(delete(BlueprintMutationModel).where(BlueprintMutationModel.project_id == project_id))
+    await db.commit()
+    return {"message": "All blueprint edits cleared for project", "project_id": project_id}
+
+
+@router.get("/{project_id}/edits/export/json")
+async def export_blueprint_edits_json(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    res = await db.execute(
+        select(BlueprintMutationModel)
+        .where(BlueprintMutationModel.project_id == project_id)
+        .order_by(BlueprintMutationModel.sort_order.asc())
+    )
+    mutations = res.scalars().all()
+
+    return {
+        "project_id": project_id,
+        "exported_at": datetime.utcnow().isoformat(),
+        "total_edits": len(mutations),
+        "edits": [
+            {
+                "id": m.id,
+                "targetSelector": m.target_selector,
+                "actionType": m.action_type,
+                "presetId": m.preset_id,
+                "presetName": m.preset_name,
+                "htmlPayload": m.html_payload,
+                "pageUrl": m.page_url,
+                "sortOrder": m.sort_order
+            }
+            for m in mutations
+        ]
+    }
+
+
+@router.get("/{project_id}/edits/export/css", response_class=PlainTextResponse)
+async def export_blueprint_edits_css(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    res = await db.execute(
+        select(BlueprintMutationModel)
+        .where(BlueprintMutationModel.project_id == project_id)
+        .order_by(BlueprintMutationModel.sort_order.asc())
+    )
+    mutations = res.scalars().all()
+
+    lines = [
+        "/* STAGE Blueprint Project CSS Export */",
+        f"/* Project ID: {project_id} */",
+        f"/* Generated Edits: {len(mutations)} */",
+        ""
+    ]
+
+    for m in mutations:
+        lines.append(f"/* Edit: {m.preset_name or 'Mutation'} on {m.target_selector} ({m.action_type}) */")
+
+    css_content = "\n".join(lines)
+    return PlainTextResponse(content=css_content, media_type="text/css")
+
+
+@router.get("/{project_id}/edits/export/markdown", response_class=PlainTextResponse)
+async def export_blueprint_edits_markdown(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    proj_res = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = proj_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    res = await db.execute(
+        select(BlueprintMutationModel)
+        .where(BlueprintMutationModel.project_id == project_id)
+        .order_by(BlueprintMutationModel.sort_order.asc())
+    )
+    mutations = res.scalars().all()
+
+    lines = [
+        f"# Blueprint Handoff Summary — {project.name or 'Project'}",
+        f"**Project ID**: `{project_id}`",
+        f"**Export Date**: `{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}`",
+        f"**Total Mutations**: `{len(mutations)}`",
+        "",
+        "## Changeset Breakdown",
+        ""
+    ]
+
+    if not mutations:
+        lines.append("_No mutations found for this project._")
+    else:
+        for idx, m in enumerate(mutations, 1):
+            lines.append(f"### {idx}. {m.preset_name or 'Mutation'} (`{m.action_type}`)")
+            lines.append(f"- **Target Selector**: `{m.target_selector}`")
+            lines.append(f"- **Placement**: `{m.action_type.upper()}`")
+            if m.page_url:
+                lines.append(f"- **Page URL**: `{m.page_url}`")
+            if m.preset_id:
+                lines.append(f"- **Preset ID**: `{m.preset_id}`")
+            lines.append("")
+
+    md_content = "\n".join(lines)
+    return PlainTextResponse(content=md_content, media_type="text/markdown")
+
+
+# ==========================================
+# BLUEPRINT PUBLICATIONS & HANDOFF
+# ==========================================
+
+@router.post("/{project_id}/publications", response_model=BlueprintPublicationRead, status_code=201)
+async def create_blueprint_publication(
+    project_id: str,
+    payload: BlueprintPublicationCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    proj_res = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = proj_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Fetch current mutations to freeze in publication snapshot
+    res = await db.execute(
+        select(BlueprintMutationModel)
+        .where(BlueprintMutationModel.project_id == project_id)
+        .order_by(BlueprintMutationModel.sort_order.asc())
+    )
+    mutations = res.scalars().all()
+
+    # Determine publication version
+    pub_count_res = await db.execute(
+        select(func.count(BlueprintPublicationModel.id)).where(BlueprintPublicationModel.project_id == project_id)
+    )
+    version = (pub_count_res.scalar() or 0) + 1
+
+    share_token = f"bp_pub_{uuid.uuid4().hex[:12]}"
+
+    snapshot_metadata = payload.metadata_json or {}
+    snapshot_metadata["mutations"] = [
+        {
+            "id": m.id,
+            "targetSelector": m.target_selector,
+            "actionType": m.action_type,
+            "presetId": m.preset_id,
+            "presetName": m.preset_name,
+            "htmlPayload": m.html_payload,
+            "pageUrl": m.page_url,
+            "sortOrder": m.sort_order
+        }
+        for m in mutations
+    ]
+    snapshot_metadata["project"] = {
+        "id": project.id,
+        "name": project.name,
+        "url": project.url
+    }
+
+    pub = BlueprintPublicationModel(
+        id=str(uuid.uuid4()),
+        project_id=project_id,
+        name=payload.name,
+        blueprint_version=version,
+        metadata_json=snapshot_metadata,
+        share_token=share_token,
+        created_by=current_user.email
+    )
+    db.add(pub)
+    await db.commit()
+    await db.refresh(pub)
+
+    return pub
+
+
+@router.get("/{project_id}/publications", response_model=List[BlueprintPublicationRead])
+async def list_blueprint_publications(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    res = await db.execute(
+        select(BlueprintPublicationModel)
+        .where(BlueprintPublicationModel.project_id == project_id)
+        .order_by(BlueprintPublicationModel.created_at.desc())
+    )
+    return res.scalars().all()
+
+
+@router.get("/publications/{publication_id}", response_model=BlueprintPublicationRead)
+async def get_blueprint_publication(
+    publication_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(select(BlueprintPublicationModel).where(BlueprintPublicationModel.id == publication_id))
+    pub = res.scalar_one_or_none()
+    if not pub:
+        raise HTTPException(status_code=404, detail="Publication not found")
+    return pub
+
+
+@router.get("/publications/token/{share_token}", response_model=BlueprintPublicationRead)
+async def get_blueprint_publication_by_token(
+    share_token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(select(BlueprintPublicationModel).where(BlueprintPublicationModel.share_token == share_token))
+    pub = res.scalar_one_or_none()
+    if not pub:
+        raise HTTPException(status_code=404, detail="Publication not found for share token")
+    return pub
+
+

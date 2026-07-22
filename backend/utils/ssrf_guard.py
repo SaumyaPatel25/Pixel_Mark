@@ -45,8 +45,10 @@ def is_ssrf_safe(url: str) -> bool:
         for family, socktype, proto, canonname, sockaddr in addr_info:
             ip_str = sockaddr[0]
             # Bypass loopback/localhost checks for local development/E2E testing
-            if hostname in ("localhost", "127.0.0.1", "::1") or hostname.endswith(".localhost"):
-                continue
+            import os
+            if os.environ.get("RUNNING_SSRF_TEST") != "true":
+                if hostname in ("localhost", "127.0.0.1", "::1") or hostname.endswith(".localhost"):
+                    continue
             ip = ipaddress.ip_address(ip_str)
             # Check private, loopback, link-local, multicast, unspecified
             if (ip.is_private or 

@@ -1,4 +1,6 @@
 import pytest
+import os
+os.environ["RUNNING_SSRF_TEST"] = "true"
 from utils.ssrf_guard import is_ssrf_safe, is_domain_allowed
 
 def test_ssrf_guard_ip_blocking():

@@ -21,20 +21,20 @@ export const metadata: Metadata = {
   metadataBase: new URL(seoConfig.siteUrl),
   title: {
     default: seoConfig.title,
-    template: `%s | PixelMark`
+    template: `%s | STAGE`
   },
   description: seoConfig.description,
   openGraph: {
     title: seoConfig.title,
     description: seoConfig.description,
     url: `${seoConfig.siteUrl}/`,
-    siteName: 'PixelMark',
+    siteName: 'STAGE',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'PixelMark - Visual Website Feedback & Bug Reporting Tool',
+        alt: 'STAGE — Share. Review. Approve.',
       },
     ],
     locale: 'en_US',
@@ -93,7 +93,7 @@ export default function RootLayout({
   const websiteJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "PixelMark",
+    "name": "STAGE",
     "url": seoConfig.siteUrl,
     "description": seoConfig.description,
     "keywords": "visual website feedback tool, bug reporting software, QA annotation tool, website review link generator",
@@ -116,7 +116,7 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var savedTheme = localStorage.getItem('pixelmark_theme') || 'system';
+                  var savedTheme = localStorage.getItem('stage_theme') || 'system';
                   var resolved = savedTheme;
                   if (savedTheme === 'system') {
                     resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

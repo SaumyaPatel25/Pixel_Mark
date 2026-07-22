@@ -35,7 +35,7 @@ async def override_get_db():
         yield session
 
 async def override_get_current_user():
-    return User(id="mock-hardening-user-id", email="hardening@pixelmark.dev", name="Hardening Tester")
+    return User(id="mock-hardening-user-id", email="hardening@stage.dev", name="Hardening Tester")
 
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user
@@ -58,7 +58,7 @@ async def test_setup():
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
-            email=f"phase5_hardening_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+            email=f"phase5_hardening_{uuid.uuid4().hex[:6]}@stage.dev",
             hashed_password="$argon2id$v=19$m=65536,t=3,p=4$...",
             name="Phase 5 Hardening QA User"
         )
@@ -77,7 +77,7 @@ async def test_setup():
             id=project_id,
             org_id=org_id,
             name="Hardening Verification Project",
-            url="https://opinvox.pixelmark.com"
+            url="https://opinvox.stage.com"
         )
         db.add(project)
         
@@ -123,12 +123,12 @@ async def test_feedback_hardening_workflow_and_analytics(test_setup):
             "id": marker_id,
             "session_id": session.id,
             "title": "Initial Bug Report",
-            "page_url": "https://opinvox.pixelmark.com/",
+            "page_url": "https://opinvox.stage.com/",
             "page_title": "OpinVox Home",
             "renderer_type": "dom",
             "priority": "high",
             "comment": "Initial draft comment",
-            "screenshot_url": "https://s3.amazonaws.com/pixelmark/sc.png",
+            "screenshot_url": "https://s3.amazonaws.com/stage/sc.png",
             "capturepayload": {
                 "id": marker_id,
                 "note": "Initial draft comment",
@@ -190,7 +190,7 @@ async def test_feedback_hardening_workflow_and_analytics(test_setup):
                 id=str(uuid.uuid4()),
                 session_id=session.id,
                 share_link_id=share_link_id,
-                page_url="https://opinvox.pixelmark.com/review",
+                page_url="https://opinvox.stage.com/review",
                 visited_at=datetime.utcnow()
             )
             db.add(visit)
@@ -212,7 +212,7 @@ async def test_feedback_hardening_workflow_and_analytics(test_setup):
         assert s_metrics["screenshot_attachment_rate"] == 1.0
         assert s_metrics["share_link_usage_count"] == 5
         assert s_metrics["reviewer_visit_count"] == 1
-        assert s_metrics["reviewer_active_pages"][0]["page_url"] == "https://opinvox.pixelmark.com/review"
+        assert s_metrics["reviewer_active_pages"][0]["page_url"] == "https://opinvox.stage.com/review"
         assert s_metrics["marker_deletion_count"] == 0
         
         # 7. Delete marker and verify it is not in the list and audit trail is recorded

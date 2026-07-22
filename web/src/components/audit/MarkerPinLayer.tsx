@@ -58,7 +58,7 @@ export function MarkerPinLayer({
 
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
-      const isDiag = params.get('diagnostic') === 'true' || localStorage.getItem('pixelmark_diagnostic') === 'true'
+      const isDiag = params.get('diagnostic') === 'true' || localStorage.getItem('stage_diagnostic') === 'true'
       setDiagnosticMode(isDiag)
     }
   }, [])
@@ -172,7 +172,7 @@ export function MarkerPinLayer({
         const deltaX = (e.clientX - dragState.startClientX) / scaleX
         const deltaY = (e.clientY - dragState.startClientY) / scaleY
 
-        console.debug(`PixelMark marker drag preview [${dragState.markerId}] deltaX=${deltaX.toFixed(2)} deltaY=${deltaY.toFixed(2)}`)
+        console.debug(`STAGE marker drag preview [${dragState.markerId}] deltaX=${deltaX.toFixed(2)} deltaY=${deltaY.toFixed(2)}`)
         
         setDragState(prev => {
           if (!prev) return null
@@ -192,7 +192,7 @@ export function MarkerPinLayer({
       const finalClientX = e.clientX
       const finalClientY = e.clientY
       
-      console.log(`PixelMark marker drag commit [${pinId}]`)
+      console.log(`STAGE marker drag commit [${pinId}]`)
       setDragState(null)
 
       // Release pointer capture
@@ -222,14 +222,14 @@ export function MarkerPinLayer({
         try {
           await onUpdateMarker(pinId, patch)
         } catch (err) {
-          console.error(`PixelMark marker drag rollback [${pinId}] due to error:`, err)
+          console.error(`STAGE marker drag rollback [${pinId}] due to error:`, err)
         }
       }
     }
 
     const handlePointerCancel = (e: PointerEvent) => {
       if (e.pointerId !== dragState.pointerId) return
-      console.log(`PixelMark marker drag rollback [${dragState.markerId}] due to cancel`)
+      console.log(`STAGE marker drag rollback [${dragState.markerId}] due to cancel`)
       setDragState(null)
       try {
         const target = e.target as HTMLElement
@@ -256,7 +256,7 @@ export function MarkerPinLayer({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        console.log(`PixelMark marker drag rollback [${dragState.markerId}] due to Escape key`)
+        console.log(`STAGE marker drag rollback [${dragState.markerId}] due to Escape key`)
         setDragState(null)
       }
     }
@@ -282,7 +282,7 @@ export function MarkerPinLayer({
         />
       )}
       <div
-        id="pixelmark-pin-layer"
+        id="stage-pin-layer"
         style={{
           position: 'fixed',
           inset: 0,
@@ -308,7 +308,7 @@ export function MarkerPinLayer({
           } else {
             const pos = staticPositions[marker.id]
             if (!pos) {
-              console.warn(`[PixelMark Debug] Skipping render for marker ${marker.id} - no resolved static position`)
+              console.warn(`[STAGE Debug] Skipping render for marker ${marker.id} - no resolved static position`)
               return null
             }
             left = pos.left
@@ -333,7 +333,7 @@ export function MarkerPinLayer({
             offsetTop = rect.top - scrollPos.y * scaleY
 
             // Log overlay metrics
-            console.log(`PixelMark overlay metrics [${scale}, ${offsetLeft}, ${offsetTop}]`)
+            console.log(`STAGE overlay metrics [${scale}, ${offsetLeft}, ${offsetTop}]`)
 
             const metrics: OverlayMetrics = { scale, offsetLeft, offsetTop }
             const overlayPos = toOverlayPosition({ pageLeft: left, pageTop: top }, metrics)
@@ -345,7 +345,7 @@ export function MarkerPinLayer({
           }
 
           // Add temporary debug logs for each marker
-          console.log(`[PixelMark Debug Pin]`, {
+          console.log(`[STAGE Debug Pin]`, {
             id: marker.id,
             rendererType: marker.renderer_type || marker.rendererType || 'dom',
             source,
@@ -369,7 +369,7 @@ export function MarkerPinLayer({
           // Clamp to parent window viewport bounds with 16px safety padding
           const safetyPadding = 16
           if (!Number.isFinite(parentX) || !Number.isFinite(parentY)) {
-            console.warn("PixelMark pin position invalid, falling back to bbox center", marker.id)
+            console.warn("STAGE pin position invalid, falling back to bbox center", marker.id)
             if (marker.boundingBoxAtCapture) {
               const { left: bboxLeft, top: bboxTop, width: bboxWidth, height: bboxHeight } = marker.boundingBoxAtCapture
               const centerX = bboxLeft + bboxWidth / 2
@@ -385,7 +385,7 @@ export function MarkerPinLayer({
               }
             } else {
               // If completely invalid, skip rendering this pin rather than rendering at 0,0
-              console.warn(`PixelMark pin skipped invalid render position [${marker.id}]`)
+              console.warn(`STAGE pin skipped invalid render position [${marker.id}]`)
               return null
             }
           }
@@ -396,7 +396,7 @@ export function MarkerPinLayer({
           }
 
           if (diagnosticMode) {
-            console.log(`[PixelMark Render Test] Render pin id=${marker.id}:`, {
+            console.log(`[STAGE Render Test] Render pin id=${marker.id}:`, {
               storedPageX: left,
               storedPageY: top,
               computedParentX: parentX,
@@ -437,10 +437,10 @@ export function MarkerPinLayer({
                   onDragStart={(id, e) => {
                     const marker = markers.find(m => m.id === id)
                     if (!marker || !canCurrentActorMutateMarker(actor, marker)) {
-                      console.warn('[PixelMark Drag] Drag rejected due to permissions context')
+                      console.warn('[STAGE Drag] Drag rejected due to permissions context')
                       return
                     }
-                    console.log(`PixelMark marker drag start [${id}]`)
+                    console.log(`STAGE marker drag start [${id}]`)
                     try {
                       e.currentTarget.setPointerCapture(e.pointerId)
                     } catch (_) {}

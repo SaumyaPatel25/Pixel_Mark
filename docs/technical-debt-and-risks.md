@@ -1,6 +1,6 @@
 # Technical Debt and Risks
 
-This document catalogs code complexities, scaling bottlenecks, database limitations, and security risks identified in the PixelMark codebase.
+This document catalogs code complexities, scaling bottlenecks, database limitations, and security risks identified in the STAGE codebase.
 
 ---
 

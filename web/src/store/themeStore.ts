@@ -15,7 +15,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
   setTheme: (theme) => {
     set({ theme });
     if (typeof window !== 'undefined') {
-      localStorage.setItem('pixelmark_theme', theme);
+      localStorage.setItem('stage_theme', theme);
     }
   },
   setResolvedTheme: (resolvedTheme) => set({ resolvedTheme }),

@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
 import logging
 
-logger = logging.getLogger("pixelmark.realtime")
+logger = logging.getLogger("stage.realtime")
 
 class ConnectionManager:
     def __init__(self):
@@ -64,7 +64,7 @@ class ConnectionManager:
             payload = EventEnvelope.model_validate(event).model_dump(mode="json")
             evt_type = payload.get("type")
             if evt_type in ["marker_created", "marker_updated", "marker_moved", "marker_resolved", "marker_deleted"]:
-                logger.info(f"PixelMark ws marker event [{evt_type}] [{payload.get('marker_id')}] [{payload.get('actor_id')}]")
+                logger.info(f"STAGE ws marker event [{evt_type}] [{payload.get('marker_id')}] [{payload.get('actor_id')}]")
         except Exception as e:
             logger.error(f"[WS] Event serialization failed during broadcast: {e}")
             return

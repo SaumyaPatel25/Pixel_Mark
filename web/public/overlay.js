@@ -75,7 +75,7 @@
 
   function postUp(data) {
     try {
-      window.parent.postMessage({ source: 'pixelmark-overlay', ...data }, '*')
+      window.parent.postMessage({ source: 'stage-overlay', ...data }, '*')
     } catch(e) {
       console.warn('[Overlay] postMessage failed:', e)
     }
@@ -143,10 +143,10 @@
       threeDetected: threeDetected
     };
 
-    window.__PIXELMARK__ = window.__PIXELMARK__ || {};
-    window.__PIXELMARK__.rendererInfo = info;
+    window.__STAGE__ = window.__STAGE__ || {};
+    window.__STAGE__.rendererInfo = info;
 
-    postUp({ type: 'PIXELMARK_RENDERER_DETECTED', ...info });
+    postUp({ type: 'STAGE_RENDERER_DETECTED', ...info });
     return info;
   }
 
@@ -205,7 +205,7 @@
     var canvasW = null, canvasH = null, dpr = null, glRenderer = null, screenshotUrl = null;
 
     if (isCanvas) {
-      rendererType = window.__PIXELMARK__?.rendererInfo?.rendererType || 'canvas2d'
+      rendererType = window.__STAGE__?.rendererInfo?.rendererType || 'canvas2d'
       if (rendererType === 'dom' || rendererType === 'mixed') rendererType = 'canvas2d' // Override if directly on canvas
       canvasId = el.id || null
       canvasW = el.width
@@ -246,7 +246,7 @@
     if (el) el.classList.remove('ex-highlight')
 
     var payload = {
-      type: 'PIXELMARK_CREATE_MARKER',
+      type: 'STAGE_CREATE_MARKER',
       markerNumber: markerCount,
       projectId: PROJECT_ID,
       anchor_kind: isCanvas ? 'canvas-relative' : 'dom-relative',

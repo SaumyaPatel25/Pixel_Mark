@@ -1,10 +1,10 @@
 import httpx
 import uuid
 
-RAILWAY_URL = "https://pixelmark-production.up.railway.app"
+RAILWAY_URL = "https://stage-production.up.railway.app"
 
 def main():
-    email = f"qatest_{uuid.uuid4().hex[:6]}@pixelmark.dev"
+    email = f"qatest_{uuid.uuid4().hex[:6]}@stage.dev"
     with httpx.Client(timeout=10) as client:
         # Register
         resp = client.post(

@@ -83,7 +83,7 @@ def record_domain_failure(url: str):
     if len(failures) >= 5:
         _tripped_domains[domain] = now
         import logging
-        logger = logging.getLogger("pixelmark.proxy")
+        logger = logging.getLogger("stage.proxy")
         logger.warning(f"[CIRCUIT_BREAKER] [TRIPPED] Too many failures for domain: {domain}. Circuit open for 30 seconds.")
 
 def record_domain_success(url: str):
@@ -100,7 +100,7 @@ def check_navigation_loop(request: Request):
     Blocks deep proxy re-navigation chains (e.g. infinite redirect loops or iframe nests).
     Uses a standard depth header or query parameter threshold.
     """
-    depth_str = request.headers.get("x-pixelmark-depth") or request.query_params.get("depth") or "0"
+    depth_str = request.headers.get("x-stage-depth") or request.query_params.get("depth") or "0"
     try:
         depth = int(depth_str)
     except ValueError:

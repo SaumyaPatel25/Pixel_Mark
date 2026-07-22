@@ -66,7 +66,7 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
         : `${BASE}/export?project_id=${projectId}&format=${format}`
       console.log('[Export] Fetching:', url)
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
+      const token = typeof window !== 'undefined' ? localStorage.getItem('stagetoken') : null
       const headers: Record<string, string> = {}
       if (token) {
         headers['Authorization'] = `Bearer ${token}`
@@ -83,7 +83,7 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
       const downloadUrl = URL.createObjectURL(blob)
       const a        = document.createElement('a')
       a.href         = downloadUrl
-      a.download     = `pixelmark-export-${projectId.slice(0, 8)}.${ext}`
+      a.download     = `stage-export-${projectId.slice(0, 8)}.${ext}`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -99,7 +99,7 @@ export function ExportPanel({ projectId, projectName, commentCount, onClose }: P
 
   const copyMarkdown = async () => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('pm_token') : null
+      const token = typeof window !== 'undefined' ? localStorage.getItem('stagetoken') : null
       const headers: Record<string, string> = {}
       if (token) {
         headers['Authorization'] = `Bearer ${token}`

@@ -9,14 +9,14 @@ from playwright.sync_api import sync_playwright
 import websockets
 
 # Configuration
-RAILWAY_URL = "https://pixelmark-production.up.railway.app"
-VERCEL_URL = "https://web-zeta-sable-82.vercel.app"
+RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
+VERCEL_URL = os.environ.get("VERCEL_URL", "https://web-zeta-sable-82.vercel.app")
 RAILWAY_WS = RAILWAY_URL.replace("https://", "wss://")
 
 # State
 state = {
     "token": None,
-    "email": f"fulltest_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+    "email": f"fulltest_{uuid.uuid4().hex[:6]}@stage.dev",
     "password": "FullTest1234!",
     "project_id": None,
     "session_id": None,
@@ -47,7 +47,7 @@ async def test_03_frontend_root():
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(VERCEL_URL)
         assert resp.status_code == 200
-        assert "pixelmark" in resp.text.lower()
+        assert "stage" in resp.text.lower()
 
 @pytest.mark.asyncio
 async def test_04_cors_headers():
@@ -224,7 +224,7 @@ def test_17_frontend_e2e():
             page = browser.new_page()
             # Login page
             page.goto(f"{VERCEL_URL}/login")
-            assert "Sign in" in page.content() or "Login" in page.content() or "PixelMark" in page.content()
+            assert "Sign in" in page.content() or "Login" in page.content() or "STAGE" in page.content()
             # Register page
             page.goto(f"{VERCEL_URL}/register")
             assert "Account" in page.content() or "Register" in page.content()

@@ -57,7 +57,7 @@ async def test_setup():
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
-            email=f"enhanced_qa_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+            email=f"enhanced_qa_{uuid.uuid4().hex[:6]}@stage.dev",
             hashed_password="$argon2id$v=19$m=65536,t=3,p=4$...",
             name="Enhanced QA User"
         )
@@ -118,8 +118,8 @@ async def test_proxy_initial(test_setup):
         response = await client.get(f"/proxy/session/{session.id}")
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
-        assert "pixelmark-agent.js" in response.text
-        assert "PIXELMARK" in response.text
+        assert "stage-agent.js" in response.text
+        assert "STAGE" in response.text
         
         # Verify page visit was recorded in DB
         async with TestSessionLocal() as db:
@@ -134,7 +134,7 @@ async def test_proxy_navigation(test_setup):
         # Navigate to iana.org/domains/example within the session
         response = await client.get(f"/proxy/session/{session.id}/page?url=https%3A%2F%2Fiana.org%2Fdomains%2Fexample")
         assert response.status_code == 200
-        assert "pixelmark-agent.js" in response.text
+        assert "stage-agent.js" in response.text
         
         # Verify visit was recorded
         async with TestSessionLocal() as db:
@@ -215,7 +215,7 @@ async def test_markers_grouped_by_page(test_setup):
 @pytest.mark.asyncio
 async def test_agent_script_served():
     async with httpx.AsyncClient(app=app, base_url="http://test") as client:
-        response = await client.get("/static/pixelmark-agent.js")
+        response = await client.get("/static/stage-agent.js")
         assert response.status_code == 200
         assert "altKey" in response.text
         assert "THREE" in response.text

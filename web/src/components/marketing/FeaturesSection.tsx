@@ -154,7 +154,7 @@ export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps)
               </div>
 
               <div className="p-3.5 bg-pm-surface-2 border border-pm-border rounded-xl flex items-center justify-between text-[10px] font-mono">
-                <span className="text-pm-accent font-semibold">pixelmark.co/t/294f</span>
+                <span className="text-pm-accent font-semibold">stage.co/t/294f</span>
                 <span className="text-pm-text-faint">Copy</span>
               </div>
             </div>

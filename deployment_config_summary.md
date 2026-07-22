@@ -1,6 +1,6 @@
-# PixelMark Production Deployment Configuration & Observability Audit
+# STAGE Production Deployment Configuration & Observability Audit
 
-This document serves as the central deployment configuration reference, hardening handbook, and observability manual for PixelMark. It details the verified production environment variables, deployment gating checklist, log patterns, trace ID propagation mechanics, and live systems audit results.
+This document serves as the central deployment configuration reference, hardening handbook, and observability manual for STAGE. It details the verified production environment variables, deployment gating checklist, log patterns, trace ID propagation mechanics, and live systems audit results.
 
 ---
 
@@ -12,14 +12,14 @@ To harden the live environments against data leaks and security exposures, the p
 - `ENVIRONMENT`: Must be set to `production` (disables auto-reloads and limits error stack traces in JSON payloads).
 - `DATABASE_URL`: Safe SQLAlchemy async connection string to the production Neon PostgreSQL cluster. SSL connection is forced via URL arguments automatically.
 - `JWT_SECRET_KEY`: High-entropy 256-bit secure key. Auto-generated during deploy (never hardcoded, no development fallbacks allowed).
-- `FRONTEND_URL`: Points strictly to the active frontend host (e.g. `https://pixelmark.app`). Used as single source of truth for CORS checks and CORS headers.
-- `CORS_ORIGINS`: JSON array restricting backend access strictly to the primary domain and certified browser extension IDs: `["https://pixelmark.app", "chrome-extension://..."]`.
-- `API_BASE`: Used by proxy rewriter to inject absolute backend endpoints for assets resolution. Must be `https://api.pixelmark.app`.
+- `FRONTEND_URL`: Points strictly to the active frontend host (e.g. `https://stage.app`). Used as single source of truth for CORS checks and CORS headers.
+- `CORS_ORIGINS`: JSON array restricting backend access strictly to the primary domain and certified browser extension IDs: `["https://stage.app", "chrome-extension://..."]`.
+- `API_BASE`: Used by proxy rewriter to inject absolute backend endpoints for assets resolution. Must be `https://api.stage.app`.
 - `PORT`: Live port allocated by deployment infrastructure (default `8765` is never exposed).
 
 ### 🖥️ Frontend Configuration (`web/.env.local`)
-- `NEXT_PUBLIC_API_URL`: Root URL of the production backend REST/WebSocket API (e.g. `https://api.pixelmark.app`).
-- `NEXT_PUBLIC_LENS_SCRIPT_URL`: Direct link to the compiled, immutable PixelMark overlay injection script. Points to real deployed CDN host.
+- `NEXT_PUBLIC_API_URL`: Root URL of the production backend REST/WebSocket API (e.g. `https://api.stage.app`).
+- `NEXT_PUBLIC_LENS_SCRIPT_URL`: Direct link to the compiled, immutable STAGE overlay injection script. Points to real deployed CDN host.
 - **Zero Localhost References**: Verified via global scanner that no references to `localhost`, `127.0.0.1`, or development test domains exist in public production static bundles.
 
 ---
@@ -28,7 +28,7 @@ To harden the live environments against data leaks and security exposures, the p
 
 ### 🛡️ CORS and Iframe Embedding Headers
 - **SSRF Safe-Guard**: Dynamic Target-Origin resolution blocks target requests to private IP ranges (RFC 1918) and loopbacks.
-- **Header Stripping**: The proxy response rewriter securely strips `X-Frame-Options` and `Content-Security-Policy` headers *only* for the proxied review page. This enables responsive nested iframe previews while keeping the parent PixelMark application shell isolated and protected.
+- **Header Stripping**: The proxy response rewriter securely strips `X-Frame-Options` and `Content-Security-Policy` headers *only* for the proxied review page. This enables responsive nested iframe previews while keeping the parent STAGE application shell isolated and protected.
 - **Strict Headers Preservation**: Next.js static asset loaders, font bundles, and glTF models preserve compression headers (`gzip`, `brotli`) and cache directives, and inject strict `Access-Control-Allow-Origin: *` to prevent CORS load failures inside WebGL renderers.
 
 ### ⏱️ Timeout and Cache Tuning

@@ -35,7 +35,7 @@ async def override_get_db():
         yield session
 
 async def override_get_current_user():
-    return User(id="mock-user-id", email="mock@pixelmark.dev", name="Mock User")
+    return User(id="mock-user-id", email="mock@stage.dev", name="Mock User")
 
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user
@@ -58,7 +58,7 @@ async def test_setup():
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
-            email=f"phase3_qa_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+            email=f"phase3_qa_{uuid.uuid4().hex[:6]}@stage.dev",
             hashed_password="$argon2id$v=19$m=65536,t=3,p=4$...",
             name="Phase 3 QA User"
         )
@@ -77,7 +77,7 @@ async def test_setup():
             id=project_id,
             org_id=org_id,
             name="Phase 3 Multi-Page Project",
-            url="https://opinvox.pixelmark.com"
+            url="https://opinvox.stage.com"
         )
         db.add(project)
         
@@ -119,7 +119,7 @@ async def test_multi_page_marker_creation_and_exporters(test_setup):
         m1_payload = {
             "session_id": session.id,
             "title": "Broken Navbar Links",
-            "page_url": "https://opinvox.pixelmark.com/index",
+            "page_url": "https://opinvox.stage.com/index",
             "page_title": "OpinVox Home",
             "renderer_type": "dom",
             "priority": "critical"
@@ -133,7 +133,7 @@ async def test_multi_page_marker_creation_and_exporters(test_setup):
         m2_payload = {
             "session_id": session.id,
             "title": "3D Sphere Alignment Visual Drift",
-            "page_url": "https://opinvox.pixelmark.com/arena/3d",
+            "page_url": "https://opinvox.stage.com/arena/3d",
             "page_title": "Arena 3D Map",
             "renderer_type": "threejs",
             "canvas_context": {
@@ -154,7 +154,7 @@ async def test_multi_page_marker_creation_and_exporters(test_setup):
         m3_payload = {
             "session_id": session.id,
             "title": "Background Gradient Shifting Error",
-            "page_url": "https://opinvox.pixelmark.com/settings",
+            "page_url": "https://opinvox.stage.com/settings",
             "page_title": "User Dashboard Settings",
             "renderer_type": "webgl",
             "priority": "medium"
@@ -170,9 +170,9 @@ async def test_multi_page_marker_creation_and_exporters(test_setup):
         assert len(pages) == 3
         
         page_urls = [p["page_url"] for p in pages]
-        assert "https://opinvox.pixelmark.com/index" in page_urls
-        assert "https://opinvox.pixelmark.com/arena/3d" in page_urls
-        assert "https://opinvox.pixelmark.com/settings" in page_urls
+        assert "https://opinvox.stage.com/index" in page_urls
+        assert "https://opinvox.stage.com/arena/3d" in page_urls
+        assert "https://opinvox.stage.com/settings" in page_urls
         
         # 2. Get login/token validation context for export headers (auth emulation)
         auth_payload = {

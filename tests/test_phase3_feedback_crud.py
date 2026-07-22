@@ -35,7 +35,7 @@ async def override_get_db():
         yield session
 
 async def override_get_current_user():
-    return User(id="mock-user-id", email="mock@pixelmark.dev", name="Mock User")
+    return User(id="mock-user-id", email="mock@stage.dev", name="Mock User")
 
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user
@@ -58,7 +58,7 @@ async def test_setup():
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
-            email=f"phase3_crud_qa_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+            email=f"phase3_crud_qa_{uuid.uuid4().hex[:6]}@stage.dev",
             hashed_password="$argon2id$v=19$m=65536,t=3,p=4$...",
             name="Phase 3 CRUD QA User"
         )

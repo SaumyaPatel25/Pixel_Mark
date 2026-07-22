@@ -58,7 +58,7 @@ export function GitHubExportPanel({ projectId }: { projectId: string }) {
           <label className="text-[8px] font-black text-white/30 uppercase tracking-widest ml-1">Repository Path</label>
           <input
             value={repo} onChange={e => setRepo(e.target.value)}
-            placeholder="owner/repository (e.g. pixelmark/core)"
+            placeholder="owner/repository (e.g. stage/core)"
             className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 focus:border-purple-500/50 outline-none transition-all font-mono"
           />
         </div>

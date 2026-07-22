@@ -1,5 +1,5 @@
-# PixelMark — Local E2E Test Report
-This report contains the automated E2E testing results for the PixelMark application running on localhost.
+# STAGE — Local E2E Test Report
+This report contains the automated E2E testing results for the STAGE application running on localhost.
 
 ## Test Summary Matrix
 | Section | Test Case | Status | Observations / Notes |
@@ -21,7 +21,7 @@ This report contains the automated E2E testing results for the PixelMark applica
 | Marker Capture | Marker appears in Command Center | PASS | Marker saved. |
 | Marker Capture | Alt+Click creates a marker | PASS | Alt+Click drawer opened. |
 | Export | Export Audit buttons work | PASS | Export panel loaded. |
-| Export | Download starts | PASS | Downloaded: pixelmark-export-b15beb20.json |
+| Export | Download starts | PASS | Downloaded: stage-export-b15beb20.json |
 | Responsive Shell | Mobile layout correct | PASS | Mobile adapts. |
 | Responsive Shell | Tablet layout correct | PASS | Tablet adapts. |
 

@@ -142,7 +142,7 @@ export default function ApiKeysClient({ initialKeys }: ApiKeysClientProps) {
         <div className="flex-1 space-y-1">
           <h4 className="text-xs font-black uppercase tracking-wider text-pm-text">API Credentials Policy</h4>
           <p className="text-[11px] text-pm-muted font-medium leading-relaxed">
-            API keys grant full programmatic access to your PixelMark organization. Keep them secure, never check them into git repositories, and rotate keys regularly.
+            API keys grant full programmatic access to your STAGE organization. Keep them secure, never check them into git repositories, and rotate keys regularly.
           </p>
         </div>
         <a 
@@ -265,7 +265,7 @@ export default function ApiKeysClient({ initialKeys }: ApiKeysClientProps) {
         </p>
         <pre className="bg-pm-bg border border-pm-border rounded-xl p-4 font-mono text-xs text-pm-accent overflow-x-auto leading-relaxed shadow-inner">
 {`curl -H "Authorization: Bearer pm_YOUR_TOKEN_HERE" \\
-     https://api.pixelmark.io/projects`}
+     https://api.stage.io/projects`}
         </pre>
       </section>
 

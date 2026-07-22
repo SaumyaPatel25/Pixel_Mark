@@ -5,17 +5,17 @@ import SystemCheck from '@/components/support/SystemCheck'
 import { seoConfig } from '@/lib/seoConfig'
 
 export const metadata: Metadata = {
-  title: "Diagnostic Support — PixelMark",
+  title: "Diagnostic Support — STAGE",
   description:
-    "Troubleshoot your PixelMark setup. Check proxy connections, review session health, test agent injection, and diagnose common issues with your visual feedback workflow.",
+    "Troubleshoot your STAGE setup. Check proxy connections, review session health, test agent injection, and diagnose common issues with your visual feedback workflow.",
   alternates: {
     canonical: `${seoConfig.siteUrl}/support/diagnostics`,
   },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Diagnostic Support — PixelMark",
+    title: "Diagnostic Support — STAGE",
     description:
-      "Troubleshoot your PixelMark setup. Check proxy connections, review session health, and diagnose common issues.",
+      "Troubleshoot your STAGE setup. Check proxy connections, review session health, and diagnose common issues.",
     type: 'website',
     url: `${seoConfig.siteUrl}/support/diagnostics`,
   },
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 const issues = [
   {
     title: 'Site not loading in review mode',
-    body: 'The target website may be blocking iframe embedding via X-Frame-Options or a strict Content-Security-Policy. Use the PixelMark Chrome Extension to annotate any website directly from your browser tab without iframe restrictions.',
+    body: 'The target website may be blocking iframe embedding via X-Frame-Options or a strict Content-Security-Policy. Use the STAGE Chrome Extension to annotate any website directly from your browser tab without iframe restrictions.',
   },
   {
     title: 'Markers not saving',
@@ -40,7 +40,7 @@ const issues = [
   },
   {
     title: 'Feedback overlay not appearing',
-    body: 'Ensure the PixelMark widget script tag is correctly installed on the target page, or check that the Chrome Extension is toggled on for the current domain in the extension popup.',
+    body: 'Ensure the STAGE widget script tag is correctly installed on the target page, or check that the Chrome Extension is toggled on for the current domain in the extension popup.',
   },
   {
     title: 'Login not working after OAuth',
@@ -53,9 +53,9 @@ export default function DiagnosticsPage() {
     {
       '@context': 'https://schema.org',
       '@type': 'WebPage',
-      name: 'Diagnostic Support — PixelMark',
+      name: 'Diagnostic Support — STAGE',
       description:
-        'Troubleshoot your PixelMark setup. Check proxy connections, review session health, test agent injection, and diagnose common issues with your visual feedback workflow.',
+        'Troubleshoot your STAGE setup. Check proxy connections, review session health, test agent injection, and diagnose common issues with your visual feedback workflow.',
       url: `${seoConfig.siteUrl}/support/diagnostics`,
     },
     {
@@ -101,7 +101,7 @@ export default function DiagnosticsPage() {
             </span>
           </h1>
           <p className="text-white/40 text-sm md:text-base leading-relaxed max-w-2xl">
-            Use this guide to check your PixelMark setup, test your connections, and resolve common issues.
+            Use this guide to check your STAGE setup, test your connections, and resolve common issues.
           </p>
         </section>
 
@@ -152,7 +152,7 @@ export default function DiagnosticsPage() {
             </p>
           </div>
           <a
-            href="mailto:support@pixelmark.io"
+            href="mailto:support@stage.io"
             className="flex-shrink-0 px-7 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs transition-all shadow-lg shadow-purple-950/40 text-center"
           >
             Email Support

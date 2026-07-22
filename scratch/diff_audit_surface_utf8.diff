@@ -63,10 +63,10 @@ index 13a4042..cb45361 100644
 +        severity,
 +        tags,
 +      }
-+      localStorage.setItem('pixelmark_current_draft_form', JSON.stringify(draftState))
++      localStorage.setItem('stage_current_draft_form', JSON.stringify(draftState))
 +      console.log('[OBSERVABILITY] [DRAFT_SAVED] Current open draft form autosaved')
 +    } else if (!selectedCaptureId) {
-+      localStorage.removeItem('pixelmark_current_draft_form')
++      localStorage.removeItem('stage_current_draft_form')
 +    }
 +  }, [selectedCaptureId, issueTitle, noteText, issueType, severity, tags, isSubmitted, isResolved])
 +
@@ -74,7 +74,7 @@ index 13a4042..cb45361 100644
 +  useEffect(() => {
 +    if (typeof window !== 'undefined') {
 +      try {
-+        const saved = localStorage.getItem('pixelmark_current_draft_form')
++        const saved = localStorage.getItem('stage_current_draft_form')
 +        if (saved) {
 +          const parsed = JSON.parse(saved)
 +          if (parsed && parsed.activePinId) {
@@ -108,7 +108,7 @@ index 13a4042..cb45361 100644
            description: noteText.trim(),
 +          status: statusVal,
          }
-         console.log('[PixelMark Submit] updating feedback payload:', patch)
+         console.log('[STAGE Submit] updating feedback payload:', patch)
          const updated = await api.feedback.update(sessionId, activeId, patch, shareToken)
 +        console.log('[OBSERVABILITY] [FEEDBACK_UPDATED] Feedback successfully updated on backend. ID =', updated.id)
          
@@ -124,7 +124,7 @@ index 13a4042..cb45361 100644
            share_token: shareToken || null,
 @@ -1145,6 +1201,7 @@ export function AuditSurface({
  
-         console.log('[PixelMark Submit] sending feedback payload:', feedbackPayload)
+         console.log('[STAGE Submit] sending feedback payload:', feedbackPayload)
          const created = await api.feedback.create(sessionId, feedbackPayload, shareToken)
 +        console.log('[OBSERVABILITY] [FEEDBACK_SUBMITTED] Feedback successfully submitted to backend. ID =', created.id)
  

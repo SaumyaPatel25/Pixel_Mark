@@ -84,7 +84,7 @@ export default function ProfileSettingsPage() {
   }
 
   return (
-    <SettingsShell title="Account Settings" description="Manage your PixelMark identity and service tier.">
+    <SettingsShell title="Account Settings" description="Manage your STAGE identity and service tier.">
       <div className="space-y-6">
         {/* Profile Section */}
         <section className="bg-pm-surface border border-pm-border rounded-3xl p-8 shadow-sm">

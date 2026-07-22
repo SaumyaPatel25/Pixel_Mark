@@ -1,20 +1,20 @@
 # 12 Broken, Missing, and Hardening Needs
 
-This document highlights critical areas of PixelMark that are failing in production, completely absent, or require significant architectural hardening.
+This document highlights critical areas of STAGE that are failing in production, completely absent, or require significant architectural hardening.
 
 ## 1. Currently Broken
 
 ### Coordinate Placement (The Drift Bug)
 - **Symptoms:** Markers placed on a target element often float far away when viewed on a different screen size or when the Canvas window is resized.
-- **Root Cause:** `pixelmark-agent.js` calculates `x` and `y` strictly as viewport percentages (`clientX` / `window.innerWidth`), which inherently assumes all clients share the exact same aspect ratio and DOM layout.
+- **Root Cause:** `stage-agent.js` calculates `x` and `y` strictly as viewport percentages (`clientX` / `window.innerWidth`), which inherently assumes all clients share the exact same aspect ratio and DOM layout.
 - **Severity:** CRITICAL
 - **Fix Direction:** Abandon absolute viewport math. Capture a unique CSS selector for the clicked element (e.g., `#main-cta-button`) and calculate the click's offset relative to the bounding box of that specific element.
 
 ### Cross-Origin (CORS) and Proxy Resilience
-- **Symptoms:** Target websites (like Google) flood the console with 404s and CORS errors, and sometimes refuse to render inside the PixelMark canvas entirely.
+- **Symptoms:** Target websites (like Google) flood the console with 404s and CORS errors, and sometimes refuse to render inside the STAGE canvas entirely.
 - **Root Cause:** Standard proxying fails against `X-Frame-Options`, `Content-Security-Policy`, and internal sub-resource requests that expect to run on their origin domain.
 - **Severity:** HIGH
-- **Fix Direction:** The proxy middleware must actively strip restrictive headers (`X-Frame-Options`) from responses, but for complex sites, a browser extension (like the abandoned `pixelmark-lens`) is the only 100% reliable way to bypass these limits.
+- **Fix Direction:** The proxy middleware must actively strip restrictive headers (`X-Frame-Options`) from responses, but for complex sites, a browser extension (like the abandoned `stage-lens`) is the only 100% reliable way to bypass these limits.
 
 ## 2. Partially Implemented
 
@@ -22,7 +22,7 @@ This document highlights critical areas of PixelMark that are failing in product
 - **Symptoms:** External users get trapped in `/login` loops.
 - **Root Cause:** `middleware.ts` enforces blanket protection over certain paths. The share routing logic is fighting the Next.js edge router.
 - **Severity:** HIGH
-- **Fix Direction:** Explicitly whitelist the `/review/[token]` URL pattern in `middleware.ts`. Ensure the backend provides a valid temporary session object instead of expecting a full `pm_token`.
+- **Fix Direction:** Explicitly whitelist the `/review/[token]` URL pattern in `middleware.ts`. Ensure the backend provides a valid temporary session object instead of expecting a full `stagetoken`.
 
 ### Exports
 - **Symptoms:** Exporting a session throws a 500 error.

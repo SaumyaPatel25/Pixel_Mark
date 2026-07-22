@@ -9,7 +9,7 @@ from redis.exceptions import ConnectionError, TimeoutError
 from config import settings
 from realtime.connection_manager import realtime_manager
 
-logger = logging.getLogger("pixelmark.realtime")
+logger = logging.getLogger("stage.realtime")
 
 class RedisBroadcaster:
     def __init__(self):

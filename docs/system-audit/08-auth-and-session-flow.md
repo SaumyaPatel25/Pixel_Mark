@@ -1,14 +1,14 @@
 # 08 Auth and Session Flow
 
-This document maps the user authentication flows and review session lifecycles within PixelMark.
+This document maps the user authentication flows and review session lifecycles within STAGE.
 
 ## Developer Authentication Path
 - **Registration (`/signup`):** User submits credentials. Backend (`POST /auth/register`) creates a `User` record, hashes the password, and returns a JWT.
 - **Login (`/login`):** User submits credentials. Backend (`POST /auth/login`) verifies hashes and returns a JWT.
 - **Token Storage:**
   - The JWT is stored in two places:
-    1. `localStorage.getItem('pm_token')` (used by the `api.ts` client for Authorization headers).
-    2. A secure cookie (`pm_token`), which is critical for Next.js `middleware.ts` to perform edge routing guards.
+    1. `localStorage.getItem('stagetoken')` (used by the `api.ts` client for Authorization headers).
+    2. A secure cookie (`stagetoken`), which is critical for Next.js `middleware.ts` to perform edge routing guards.
 - **Route Guards:** Next.js middleware forcefully redirects any unauthenticated user attempting to access `/dashboard`, `/projects`, or `/sessions` back to `/login`.
 
 ## Reviewer (Public) Authentication Path
@@ -20,12 +20,12 @@ This document maps the user authentication flows and review session lifecycles w
 ## Session Lifecycle
 1. **Creation:** A developer creates a `Session` under a `Project`. This generates a unique `session_id`.
 2. **Access:** The developer clicks the session, opening the Canvas Command Center. 
-3. **Proxying:** The backend `proxy_fallback_middleware` intercepts the target URL requests, rewrites them, and injects `pixelmark-agent.js`.
+3. **Proxying:** The backend `proxy_fallback_middleware` intercepts the target URL requests, rewrites them, and injects `stage-agent.js`.
 4. **Heartbeats:** The backend recently added `last_heartbeat_at` to the `Session` table to track if a session is actively being reviewed.
 
 ## Known Auth Bugs & Hardening Needs
 1. **Dueling Auth Paradigms:** The repository history reveals a constant struggle between using a fully custom JWT local flow versus NextAuth.js / Supabase. Recent hard-resets stripped out NextAuth, leaving local auth as the dominant but fragile mechanism.
-2. **Cookie vs LocalStorage Desync:** If the `pm_token` cookie expires but `localStorage` persists, the frontend UI might flicker or trap the user in an infinite redirect loop between `/login` and `/dashboard`.
+2. **Cookie vs LocalStorage Desync:** If the `stagetoken` cookie expires but `localStorage` persists, the frontend UI might flicker or trap the user in an infinite redirect loop between `/login` and `/dashboard`.
 3. **Missing OAuth:** Google/GitHub OAuth login pathways are visually present in the UI shells but the backend wiring is largely stubbed out.
 
 ---

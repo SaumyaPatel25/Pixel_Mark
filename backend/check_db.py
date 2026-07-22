@@ -1,5 +1,5 @@
 import sqlite3
-conn = sqlite3.connect('pixelmark.db')
+conn = sqlite3.connect('stage.db')
 cur = conn.cursor()
 cur.execute('SELECT id, session_id FROM markers')
 print(cur.fetchall())

@@ -291,7 +291,7 @@ async def export_blueprint_frame_css(
 
     if not edit_sets:
         return PlainTextResponse(
-            content=f"/* PixelMark Blueprint DOM Export */\n/* Project: {project_id} */\n/* Frame: {frame_id} */\n\n/* No saved edit sets found for this frame. */\n",
+            content=f"/* STAGE Blueprint DOM Export */\n/* Project: {project_id} */\n/* Frame: {frame_id} */\n\n/* No saved edit sets found for this frame. */\n",
             media_type="text/css"
         )
 
@@ -322,7 +322,7 @@ async def export_blueprint_frame_css(
         warning_comment = "/* WARNING: Target selector missing or unresolved; defaulted to 'body'. */"
 
     lines = [
-        "/* PixelMark Blueprint DOM Export */",
+        "/* STAGE Blueprint DOM Export */",
         f"/* Project: {project_id} */",
         f"/* Frame: {frame_id} */",
         f"/* Target: {selector} */",

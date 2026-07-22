@@ -1,6 +1,6 @@
-# PixelMark Marker V2 Rebuild Documentation
+# STAGE Marker V2 Rebuild Documentation
 
-We have successfully rebuilt the PixelMark marker system in a staging, fully isolated V2 architecture. This replaces the legacy, overly complex marker implementation with a decoupled, predictable, and robust contract.
+We have successfully rebuilt the STAGE marker system in a staging, fully isolated V2 architecture. This replaces the legacy, overly complex marker implementation with a decoupled, predictable, and robust contract.
 
 ## Legacy Issues Identified
 1. **Aggressive Cache Invalidation Gaps:** The Next.js Router Cache was dynamically caching GET requests on reload, serving stale marker data even after it was successfully deleted in the DB.

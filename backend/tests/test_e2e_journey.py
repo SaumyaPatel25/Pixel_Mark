@@ -45,7 +45,7 @@ async def developer_token():
 
 @pytest.mark.asyncio
 @patch("markers.router.redis_broadcaster.publish_event", new_callable=AsyncMock)
-async def test_full_pixelmark_journey(mock_publish, async_client, developer_token):
+async def test_full_stage_journey(mock_publish, async_client, developer_token):
     # Setup headers
     dev_headers = {"Authorization": f"Bearer {developer_token}"}
     

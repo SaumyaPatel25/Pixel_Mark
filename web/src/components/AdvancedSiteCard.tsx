@@ -44,8 +44,8 @@ export function AdvancedSiteCard({ url, projectId, reason }: Props) {
           </h3>
           <p className="text-white/40 text-[11px] font-bold uppercase leading-relaxed tracking-[0.15em] px-4">
             {isAdvanced 
-              ? 'This environment leverages WebGL or 3D rendering. Use the PixelMark Lens extension to annotate this high-fidelity interface directly.'
-              : 'External security headers are blocking our proxy safely. Transition to the PixelMark Lens extension for deep-layer inspection.'}
+              ? 'This environment leverages WebGL or 3D rendering. Use the STAGE Lens extension to annotate this high-fidelity interface directly.'
+              : 'External security headers are blocking our proxy safely. Transition to the STAGE Lens extension for deep-layer inspection.'}
           </p>
         </div>
 
@@ -86,7 +86,7 @@ export function AdvancedSiteCard({ url, projectId, reason }: Props) {
                  INSTRUCTIONS
               </p>
               <p className="text-white/10 text-[9px] font-bold leading-relaxed tracking-wider">
-                 1. Open PixelMark Lens on the target site<br/>
+                 1. Open STAGE Lens on the target site<br/>
                  2. Paste Project ID & Sync Session<br/>
                  3. Markers sync back here in real-time
               </p>

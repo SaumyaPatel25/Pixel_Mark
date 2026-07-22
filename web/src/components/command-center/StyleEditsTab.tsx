@@ -43,9 +43,9 @@ export function StyleEditsTab({ sessionId }: StyleEditsTabProps) {
       await deleteEdit(sessionId, editId)
       addToast('Style reverted ✓', 'success')
       // Post message to iframe to refresh edits
-      window.postMessage({ type: 'PIXELMARK_DEACTIVATE_DOM_EDIT' }, '*')
+      window.postMessage({ type: 'STAGE_DEACTIVATE_DOM_EDIT' }, '*')
       setTimeout(() => {
-        window.postMessage({ type: 'PIXELMARK_ACTIVATE_DOM_EDIT' }, '*')
+        window.postMessage({ type: 'STAGE_ACTIVATE_DOM_EDIT' }, '*')
       }, 50)
     } catch (err: any) {
       addToast('Failed to revert style: ' + err.message, 'error')
@@ -59,9 +59,9 @@ export function StyleEditsTab({ sessionId }: StyleEditsTabProps) {
     try {
       await Promise.all(pageEdits.map(edit => deleteEdit(sessionId, edit.id)))
       addToast('Page styles reset ✓', 'success')
-      window.postMessage({ type: 'PIXELMARK_DEACTIVATE_DOM_EDIT' }, '*')
+      window.postMessage({ type: 'STAGE_DEACTIVATE_DOM_EDIT' }, '*')
       setTimeout(() => {
-        window.postMessage({ type: 'PIXELMARK_ACTIVATE_DOM_EDIT' }, '*')
+        window.postMessage({ type: 'STAGE_ACTIVATE_DOM_EDIT' }, '*')
       }, 50)
     } catch (err: any) {
       addToast('Failed to reset styles: ' + err.message, 'error')

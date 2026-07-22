@@ -30,7 +30,7 @@ def test_conservative_mode_html_rewriting():
     # Ensure type="module" is untouched
     assert 'type="module" src="/chunks/main.js"' in rewritten_conservative
     # Ensure shims are injected before </head>
-    assert "<!-- PIXELMARK_BOOTSTRAP_START -->" in rewritten_conservative
+    assert "<!-- STAGE_BOOTSTRAP_START -->" in rewritten_conservative
     assert "</head>" in rewritten_conservative
     
     # 2. Normal Mode (Should inject shims at top of head)
@@ -42,7 +42,7 @@ def test_conservative_mode_html_rewriting():
         api_base="http://localhost:8765",
         conservative_render_mode=False
     )
-    assert "<!-- PIXELMARK_BOOTSTRAP_START -->" in rewritten_normal
+    assert "<!-- STAGE_BOOTSTRAP_START -->" in rewritten_normal
 
 def test_no_rewrite_data_blob_urls():
     # Frontend bootstrap script should not rewrite data: or blob: urls
@@ -77,7 +77,7 @@ def test_third_party_upstream_failure_fallback():
     failed_script_url = "https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/invalid.js"
     fallback = get_failure_fallback_response(failed_script_url, "Connection Timeout")
     assert fallback.status_code == 200
-    assert b"PixelMark Warning: Script failed to load upstream" in fallback.body
+    assert b"STAGE Warning: Script failed to load upstream" in fallback.body
 
 def test_ssrf_safety_guard():
     # Local/private ranges should fail SSRF check (unless explicitly localhost/127.0.0.1 for testing)

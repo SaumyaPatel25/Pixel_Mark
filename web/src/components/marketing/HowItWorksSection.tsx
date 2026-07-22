@@ -201,7 +201,7 @@ function Step4Visual({ accent }: { accent: string }) {
           className="rounded-xl p-3 space-y-0.5 text-[9px] leading-relaxed border"
           style={{ background: 'rgba(0,0,0,0.3)', borderColor: 'rgba(255,255,255,0.06)' }}
         >
-          <div style={{ color: accent }}>{'/* PixelMark Override */'}</div>
+          <div style={{ color: accent }}>{'/* STAGE Override */'}</div>
           <div><span className="text-pink-400">h1</span><span className="opacity-60">.hero-title</span> <span className="opacity-40">{'{'}</span></div>
           <div className="pl-3"><span className="text-blue-300">font-size</span><span className="opacity-40">:</span> <span className="text-amber-300">3.5rem</span><span className="opacity-40">;</span></div>
           <div className="pl-3"><span className="text-blue-300">margin-bottom</span><span className="opacity-40">:</span> <span className="text-amber-300">2rem</span><span className="opacity-40">;</span></div>
@@ -299,7 +299,7 @@ export default function HowItWorksSection() {
               A visual QA pipeline designed by product designers, for product developers.
             </p>
             <p className="mkt-how-desc text-xs md:text-sm text-pm-muted leading-relaxed">
-              Discover how PixelMark accelerates visual reviews.
+              Discover how STAGE accelerates visual reviews.
             </p>
           </div>
         </motion.div>

@@ -12,7 +12,7 @@ ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 LOCAL_FRONTEND = "http://localhost:3000"
 LOCAL_BACKEND = "http://localhost:8765"
-TEST_EMAIL = "realworld_tester@pixelmark.dev"
+TEST_EMAIL = "realworld_tester@stage.dev"
 TEST_PASSWORD = "Password123!"
 
 def run_tests():
@@ -272,7 +272,7 @@ def run_tests():
     # Generate the Markdown report in the artifacts folder
     report_path = ARTIFACTS_DIR / "analysis_results.md"
     with open(report_path, "w", encoding="utf-8") as f:
-        f.write("# PixelMark E2E Test Report\n\n")
+        f.write("# STAGE E2E Test Report\n\n")
         f.write("## E2E Test Results Matrix\n\n")
         f.write("| Test Case | Status | Observations / Notes |\n")
         f.write("|-----------|--------|----------------------|\n")

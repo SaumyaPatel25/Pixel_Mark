@@ -18,7 +18,7 @@ The backend correctly committed the hard-delete to the database, but never calle
 
 On the first page load after a store version upgrade, the cleanup routine called:
 ```js
-localStorage.removeItem('pixelmark_deleted_markers_v3')
+localStorage.removeItem('stage_deleted_markers_v3')
 ```
 This wiped the client's only record of which markers had been deleted. On the next hydration cycle (`hydratePersistedFeedback`), the overlay store would see no tombstone entries and re-add deleted markers to the pin list if they were still in any local draft cache.
 
@@ -43,7 +43,7 @@ The function removed the marker from `usePinStore` optimistically, then called `
 
 ### 2. Frontend — Preserve Tombstone Across Cleanups
 **`web/src/store/overlayStore.ts`, `performOneTimeCleanup`**
-- Removed `localStorage.removeItem('pixelmark_deleted_markers_v3')` from the cleanup routine
+- Removed `localStorage.removeItem('stage_deleted_markers_v3')` from the cleanup routine
 - The v3 tombstone is now the persistent, durable source of truth for deletions that must survive page refreshes
 
 ### 3. Frontend — Full Rollback on Delete Failure

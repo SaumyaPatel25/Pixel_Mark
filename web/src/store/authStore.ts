@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await api.auth.login(email, password)
           const token = res.access_token
-          document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
+          document.cookie = `stagetoken=${token}; path=/; max-age=604800; samesite=lax`
           set({ token, user: res.user })
           // Identify the user in PostHog
           if (typeof window !== 'undefined' && res.user) {
@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await api.auth.register(email, password, name)
           if (res.access_token) {
             const token = res.access_token
-            document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
+            document.cookie = `stagetoken=${token}; path=/; max-age=604800; samesite=lax`
             set({ token, user: res.user })
             if (typeof window !== 'undefined' && res.user) {
               posthog.identify(res.user.id, { email: res.user.email, name: res.user.name ?? undefined })
@@ -81,7 +81,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        document.cookie = 'pm_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        document.cookie = 'stagetoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         set({ user: null, token: null })
         // Reset PostHog — severs link between anonymous and identified session
         if (typeof window !== 'undefined') posthog.reset()
@@ -102,7 +102,7 @@ export const useAuthStore = create<AuthState>()(
       oauthLogin: async (token) => {
         set({ isLoading: true })
         try {
-          document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
+          document.cookie = `stagetoken=${token}; path=/; max-age=604800; samesite=lax`
           set({ token })
           const meRes = await api.auth.me()
           set({ user: meRes })
@@ -119,7 +119,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await api.auth.firebaseSync(idToken, name)
           const token = res.access_token
-          document.cookie = `pm_token=${token}; path=/; max-age=604800; samesite=lax`
+          document.cookie = `stagetoken=${token}; path=/; max-age=604800; samesite=lax`
           set({ token, user: res.user })
           if (typeof window !== 'undefined' && res.user) {
             posthog.identify(res.user.id, { email: res.user.email, name: res.user.name ?? undefined })
@@ -130,7 +130,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'pm_auth',
+      name: 'stage_auth',
       partialize: (state) => ({ user: state.user, token: state.token }),
     }
   )

@@ -8,7 +8,7 @@ import { Loader2, Shield, Lock, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { motion } from 'framer-motion'
-import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
+import { StageLoader } from '@/components/ui/StageLoader'
 import { getStoredReviewerIdentity, clearStoredReviewerIdentity } from '@/lib/reviewerIdentity'
 import { getMarkerColors } from '@/lib/markerColors'
 import { ReviewerIdentity } from '@/types/markers'
@@ -79,7 +79,7 @@ export default function ReviewPage() {
     if (sessionInfo) {
       const stored = getStoredReviewerIdentity(sessionInfo.session_id)
       if (stored) {
-        console.log(`PixelMark reviewer identity restored [${stored.id}]`)
+        console.log(`STAGE reviewer identity restored [${stored.id}]`)
         setReviewerIdentity(stored)
       } else {
         // Show gate to collect reviewer display name
@@ -104,7 +104,7 @@ export default function ReviewPage() {
   if (loading && !verifying) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-pm-bg text-pm-text transition-colors duration-300">
-        <PixelmarkLoader size="md" text="Loading Review Session" />
+        <StageLoader size="md" text="Loading Review Session" />
       </div>
     )
   }
@@ -218,7 +218,7 @@ export default function ReviewPage() {
             <div className="h-4 w-[1px] bg-pm-border" />
             <div className="flex items-center gap-2 text-pm-muted">
               <span className="text-[8px] font-black uppercase tracking-widest">Powered by</span>
-              <strong className="text-[10px] text-pm-text tracking-tighter">PIXELMARK</strong>
+              <strong className="text-[10px] text-pm-text tracking-tighter">STAGE</strong>
             </div>
           </div>
         </header>

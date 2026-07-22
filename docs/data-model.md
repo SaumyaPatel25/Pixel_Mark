@@ -6,7 +6,7 @@ This document details the database architecture, table schemas, entity relations
 
 ## 1. Database Infrastructure & Configuration
 - **Databases**: 
-  - **Local Development**: SQLite (`backend/pixelmark.db` or `backend/test.db`). Enforces foreign key constraints on connection opening (`sqlite_pragma` event listener).
+  - **Local Development**: SQLite (`backend/stage.db` or `backend/test.db`). Enforces foreign key constraints on connection opening (`sqlite_pragma` event listener).
   - **Production**: Neon PostgreSQL (fully serverless connection pooling).
 - **Engine Provider**: `backend/database.py` exports `AsyncSession` context managers, using `create_async_engine` to prevent blocking event loops.
 - **Migrations Engine**: **Alembic** manages version logs under `backend/alembic/versions/`. Migrations apply during startup lifespans in development.

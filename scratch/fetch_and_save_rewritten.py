@@ -24,7 +24,7 @@ async def main():
         print("No session found for webrox.xyz")
         return
         
-    url = f"https://pixelmark-production.up.railway.app/proxy/session/{session_id}"
+    url = f"https://stage-production.up.railway.app/proxy/session/{session_id}"
     print(f"Fetching rewritten HTML from: {url}")
     resp = httpx.get(url, follow_redirects=True, timeout=20.0)
     

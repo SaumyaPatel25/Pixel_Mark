@@ -1,4 +1,4 @@
-# PixelMark — Verification E2E Test Report
+# STAGE — Verification E2E Test Report
 
 | Test Case | Status | Observations / Notes |
 |-----------|--------|----------------------|

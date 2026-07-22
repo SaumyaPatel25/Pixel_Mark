@@ -1,6 +1,6 @@
 # 11 Feature Status Matrix
 
-This matrix maps the intended features of PixelMark against their actual implementation status in the codebase.
+This matrix maps the intended features of STAGE against their actual implementation status in the codebase.
 
 | Feature | Intended Behavior | Backend Status | Frontend Status | Integration Status | Test Coverage | Prod Readiness | Notes |
 |---------|-------------------|----------------|-----------------|--------------------|---------------|----------------|-------|

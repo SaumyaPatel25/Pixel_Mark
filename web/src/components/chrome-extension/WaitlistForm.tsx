@@ -50,7 +50,7 @@ export default function WaitlistForm() {
         <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto" />
         <h4 className="font-bold text-white">You're on the list!</h4>
         <p className="text-xs text-white/50 leading-relaxed uppercase tracking-wider font-bold">
-          We'll email you as soon as the PixelMark Chrome Extension is ready for beta testing.
+          We'll email you as soon as the STAGE Chrome Extension is ready for beta testing.
         </p>
       </div>
     )

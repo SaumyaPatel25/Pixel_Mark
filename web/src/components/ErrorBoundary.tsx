@@ -19,7 +19,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[PixelMark ErrorBoundary]', error, info.componentStack)
+    console.error('[STAGE ErrorBoundary]', error, info.componentStack)
   }
 
   render() {

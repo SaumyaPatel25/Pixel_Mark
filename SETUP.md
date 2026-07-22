@@ -1,4 +1,4 @@
-# PixelMark Setup Guide
+# STAGE Setup Guide
 
 Follow these steps to initialize your local development environment.
 
@@ -87,7 +87,7 @@ ALTER TABLE share_links DISABLE ROW LEVEL SECURITY;
 
 ## 4. Launch
 
-Run from the **root directory** (`PixelMark/`):
+Run from the **root directory** (`STAGE/`):
 
 ```bash
 # Terminal 1 — Backend (Package Mode)

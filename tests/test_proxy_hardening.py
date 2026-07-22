@@ -55,7 +55,7 @@ async def test_setup():
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
-            email=f"hardening_qa_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+            email=f"hardening_qa_{uuid.uuid4().hex[:6]}@stage.dev",
             hashed_password="$argon2id$v=19$m=65536,t=3,p=4$...",
             name="Hardening QA User"
         )
@@ -187,7 +187,7 @@ async def test_third_party_runtime_handling_blocked(test_setup):
         )
         assert response.status_code == 200
         assert "application/javascript" in response.headers["content-type"]
-        assert b"Blocked by PixelMark proxy" in response.content
+        assert b"Blocked by STAGE proxy" in response.content
 
 
 @pytest.mark.asyncio

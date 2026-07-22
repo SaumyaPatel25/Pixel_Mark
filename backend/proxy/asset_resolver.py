@@ -3,7 +3,7 @@ import urllib.parse
 import os
 from fastapi import Response
 
-logger = logging.getLogger("pixelmark.proxy.asset_resolver")
+logger = logging.getLogger("stage.proxy.asset_resolver")
 
 COMMON_ASSET_EXTENSIONS = {
     ".js", ".mjs", ".css", ".woff", ".woff2", ".ttf", ".glb", ".gltf", 

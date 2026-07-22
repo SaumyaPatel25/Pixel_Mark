@@ -401,7 +401,7 @@ export default function ReviewReportPage() {
 
         {/* ================= PRINT BRANDING FOOTER ================= */}
         <div className="hidden print:flex flex-col items-center justify-center pt-16 pb-6 text-center space-y-2 border-t border-gray-100">
-          <span className="text-xs font-mono font-bold tracking-widest text-black">PIXELMARK</span>
+          <span className="text-xs font-mono font-bold tracking-widest text-black">STAGE</span>
           <span className="text-[9px] font-medium text-gray-400">Automated Visual Feedback & UI Review Engine</span>
         </div>
 

@@ -39,7 +39,7 @@ export default function PricingClient() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white">
                 <Layout className="w-6 h-6" />
               </div>
-              <span className="font-black text-2xl tracking-tighter">PixelMark</span>
+              <span className="font-black text-2xl tracking-tighter">STAGE</span>
            </Link>
            <Link href="/dashboard">
               <Button variant="ghost" className="text-white/40 hover:text-white uppercase text-[10px] font-black tracking-widest">

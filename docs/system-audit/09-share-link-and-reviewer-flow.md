@@ -1,6 +1,6 @@
 # 09 Share Link and Reviewer Flow
 
-This document details how external clients and stakeholders access PixelMark sessions to leave feedback.
+This document details how external clients and stakeholders access STAGE sessions to leave feedback.
 
 ## Share Link Architecture
 - **Model:** `ShareLink` (in `backend/models/share_link.py`)
@@ -9,7 +9,7 @@ This document details how external clients and stakeholders access PixelMark ses
   1. Developer opens a Session in the dashboard.
   2. Developer clicks "Share" and the frontend requests a `ShareLink` token from the backend.
   3. The backend generates a unique cryptographic hash/token and binds it to the `session_id`.
-  4. The developer sends the URL (e.g., `https://pixelmark.app/review/{token}`) to a client.
+  4. The developer sends the URL (e.g., `https://stage.app/review/{token}`) to a client.
   5. The client clicks the link and accesses the proxied session Canvas.
 
 ## Current State & Vulnerabilities

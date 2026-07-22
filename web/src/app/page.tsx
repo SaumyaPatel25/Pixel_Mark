@@ -12,13 +12,13 @@ export const metadata: Metadata = {
     title: seoConfig.title,
     description: seoConfig.description,
     url: `${seoConfig.siteUrl}/`,
-    siteName: 'PixelMark',
+    siteName: 'STAGE',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'PixelMark - Visual Website Feedback & Bug Reporting Tool',
+        alt: 'STAGE - Visual Website Feedback & Bug Reporting Tool',
       },
     ],
     locale: 'en_US',
@@ -37,7 +37,7 @@ export default function Home() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "PixelMark",
+    "name": "STAGE",
     "operatingSystem": "Web, Windows, macOS, Linux",
     "applicationCategory": "BusinessApplication",
     "applicationSubCategory": "Bug Tracking Software",

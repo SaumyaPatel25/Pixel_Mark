@@ -5,7 +5,7 @@ This document covers the production hosting setups, CI/CD integrations, build co
 ---
 
 ## 1. Hosting Platforms and Architecture
-PixelMark runs on a split cloud deployment model:
+STAGE runs on a split cloud deployment model:
 
 ```
                   ┌──────────────────────┐
@@ -37,8 +37,8 @@ PixelMark runs on a split cloud deployment model:
 - **Build Command**: `next build`
 - **Output Directory**: `.next`
 - **Vercel Environment Variables**:
-  - `NEXT_PUBLIC_API_URL`: Fully qualified domain URL of the Railway API gateway (e.g. `https://api.pixelmark.io`).
-  - `NEXT_PUBLIC_WS_BASE`: WebSocket server URL (e.g. `wss://api.pixelmark.io`).
+  - `NEXT_PUBLIC_API_URL`: Fully qualified domain URL of the Railway API gateway (e.g. `https://api.stage.io`).
+  - `NEXT_PUBLIC_WS_BASE`: WebSocket server URL (e.g. `wss://api.stage.io`).
   - `NEXT_PUBLIC_POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_HOST`: Product analytics variables.
 
 ---

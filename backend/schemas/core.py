@@ -436,5 +436,57 @@ class BlueprintDomEditSetOut(BaseModel):
         from_attributes = True
 
 
+class BlueprintMutationCreate(BaseModel):
+    id: Optional[str] = None
+    targetSelector: str
+    actionType: str
+    presetId: Optional[str] = None
+    presetName: Optional[str] = None
+    htmlPayload: Optional[str] = None
+    timestamp: Optional[str] = None
+    pageUrl: Optional[str] = None
+
+
+class BlueprintMutationRead(BaseModel):
+    id: str
+    project_id: str
+    targetSelector: str
+    actionType: str
+    presetId: Optional[str] = None
+    presetName: Optional[str] = None
+    htmlPayload: Optional[str] = None
+    timestamp: Optional[str] = None
+    pageUrl: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BlueprintBatchSaveRequest(BaseModel):
+    mutations: List[BlueprintMutationCreate]
+
+
+class BlueprintPublicationCreate(BaseModel):
+    name: str
+    metadata_json: Optional[dict] = None
+
+
+class BlueprintPublicationRead(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    blueprint_version: int
+    metadata_json: Optional[dict] = None
+    share_token: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+
+
 
 

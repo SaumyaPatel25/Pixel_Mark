@@ -30,7 +30,7 @@ def run_heavy_portfolio_validation():
         admin_page.goto(f"{base_url}/register")
         time.sleep(2)
         
-        email_addr = f"heavy_qa_admin_{int(time.time())}@pixelmark.dev"
+        email_addr = f"heavy_qa_admin_{int(time.time())}@stage.dev"
         try:
             print(f"✍️ Registering admin: {email_addr}...", flush=True)
             admin_page.fill("input[placeholder='Pro Bro']", "Heavy QA Admin")
@@ -91,7 +91,7 @@ def run_heavy_portfolio_validation():
         else:
             # Fallback direct generation by extracting active session ID from cookie/URL
             cookies = admin_page.context.cookies()
-            session_cookie = next((c for c in cookies if c['name'] == 'pixelmark_session_id'), None)
+            session_cookie = next((c for c in cookies if c['name'] == 'stagesessionid'), None)
             session_id = session_cookie['value'] if session_cookie else admin_page.url.split("/")[-1]
             # Formulate fallback URL
             public_review_url = f"{base_url}/t/mock-token-{uuid.uuid4().hex[:6]}"

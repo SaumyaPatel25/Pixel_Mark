@@ -4,7 +4,8 @@ import time
 import pytest
 import uuid
 
-RAILWAY_URL = "https://pixelmark-production.up.railway.app"
+import os
+RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
 
 async def test_concurrent_health_checks():
     async with httpx.AsyncClient(timeout=10) as client:

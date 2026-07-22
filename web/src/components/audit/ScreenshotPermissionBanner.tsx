@@ -41,7 +41,7 @@ export function ScreenshotPermissionBanner() {
       <div className="flex-1 text-sm text-slate-800">
         <strong className="text-[#293681] font-black uppercase tracking-wider text-xs">Screen Capture Request</strong>
         <p className="text-slate-500 mt-1.5 text-xs font-bold leading-normal">
-          PixelMark can capture screenshots for this session to make your feedback easier to understand.
+          STAGE can capture screenshots for this session to make your feedback easier to understand.
         </p>
       </div>
       <div className="flex flex-col gap-2 flex-shrink-0">

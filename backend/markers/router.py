@@ -21,7 +21,7 @@ from realtime.connection_manager import realtime_manager
 from realtime.redis_broadcaster import redis_broadcaster
 from realtime.events import build_marker_event, build_marker_deleted_event
 
-logger = logging.getLogger("pixelmark.markers")
+logger = logging.getLogger("stage.markers")
 
 router = APIRouter(tags=["markers"])
 
@@ -50,7 +50,7 @@ async def resolve_actor_context(
                 "role": reviewer.role,
                 "color_token": reviewer.color_token
             }
-            logger.info(f"PixelMark participant resolved [{reviewer.id}] [{reviewer.role}]")
+            logger.info(f"STAGE participant resolved [{reviewer.id}] [{reviewer.role}]")
             print(f"[DEBUG resolve_actor_context] Resolved to reviewer actor: {resolved}")
             return resolved
         else:
@@ -61,7 +61,7 @@ async def resolve_actor_context(
                 "role": "reviewer",
                 "color_token": "#8b5cf6"
             }
-            logger.info(f"PixelMark participant resolved [{resolved['id']}] [reviewer]")
+            logger.info(f"STAGE participant resolved [{resolved['id']}] [reviewer]")
             print(f"[DEBUG resolve_actor_context] Resolved to fallback reviewer actor: {resolved}")
             return resolved
 
@@ -72,7 +72,7 @@ async def resolve_actor_context(
             "role": "developer",
             "color_token": "#4f46e5"
         }
-        logger.info(f"PixelMark participant resolved [{current_user.id}] [developer]")
+        logger.info(f"STAGE participant resolved [{current_user.id}] [developer]")
         print(f"[DEBUG resolve_actor_context] Resolved to developer actor: {resolved}")
         return resolved
 
@@ -83,7 +83,7 @@ async def resolve_actor_context(
         "role": "reviewer",
         "color_token": "#8b5cf6"
     }
-    logger.info(f"PixelMark participant resolved [anonymous-guest] [reviewer]")
+    logger.info(f"STAGE participant resolved [anonymous-guest] [reviewer]")
     return resolved
 
 # Dependency wrapper for session-scoped actor retrieval
@@ -152,7 +152,7 @@ async def create_reviewer_identity(
     await db.refresh(reviewer)
     
     # Log resolved participant:
-    logger.info(f"PixelMark participant resolved [{reviewer.id}] [reviewer]")
+    logger.info(f"STAGE participant resolved [{reviewer.id}] [reviewer]")
     return reviewer
 
 
@@ -185,7 +185,7 @@ async def create_marker(
     await db.commit()
     await db.refresh(marker)
 
-    logger.info(f"PixelMark marker author attached [{marker.id}] [{marker.creator_id}]")
+    logger.info(f"STAGE marker author attached [{marker.id}] [{marker.creator_id}]")
 
     # Autoritative realtime sync: Broadcast created event after successful REST commit
     try:

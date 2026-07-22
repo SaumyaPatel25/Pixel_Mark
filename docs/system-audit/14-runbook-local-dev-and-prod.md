@@ -1,6 +1,6 @@
 # 14 Runbook: Local Dev & Production
 
-This document serves as the operational runbook for compiling, running, and diagnosing PixelMark locally and in production.
+This document serves as the operational runbook for compiling, running, and diagnosing STAGE locally and in production.
 
 ## 1. Local Development Setup
 
@@ -33,16 +33,16 @@ This document serves as the operational runbook for compiling, running, and diag
 - **Env Vars Required:**
   - `DATABASE_URL` (Neon Postgres)
   - `JWT_SECRET`
-  - `FRONTEND_URL` (e.g., `https://pixelmark.app`)
+  - `FRONTEND_URL` (e.g., `https://stage.app`)
 
 ### Frontend (Vercel)
 - **Framework:** Next.js Serverless Edge
 - **Env Vars Required:**
-  - `NEXT_PUBLIC_API_URL` (e.g., `https://pixelmark-production.up.railway.app`)
+  - `NEXT_PUBLIC_API_URL` (e.g., `https://stage-production.up.railway.app`)
 
 ## 3. Common Failure Points & Quick Smokes
 - **Symptom:** App hangs on login or shows 401s constantly.
-  - *Fix:* Clear your browser's Local Storage and Cookies. The desync between `pm_token` and JWT cache is a known issue.
+  - *Fix:* Clear your browser's Local Storage and Cookies. The desync between `stagetoken` and JWT cache is a known issue.
 - **Symptom:** Dashboard 500 error when clicking a project.
   - *Fix:* The backend schema is likely out of sync with the DB model. Run a quick check on the `/projects/` endpoint via the Swagger `/docs` to see exactly which field is causing the `AttributeError`.
 - **Symptom:** Markers drop but don't show up for other users.

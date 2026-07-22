@@ -7,7 +7,7 @@ from auth import hash_password
 async def run():
     async with AsyncSessionLocal() as db:
         user_id = str(uuid.uuid4())
-        email = "developer@pixelmark.com"
+        email = "developer@stage.com"
         
         # Create user
         user = User(

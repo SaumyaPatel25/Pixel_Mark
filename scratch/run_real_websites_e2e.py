@@ -11,7 +11,7 @@ ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 LOCAL_FRONTEND = "http://localhost:3000"
 LOCAL_BACKEND = "http://localhost:8765"
-TEST_EMAIL = "real_websites_tester@pixelmark.dev"
+TEST_EMAIL = "real_websites_tester@stage.dev"
 TEST_PASSWORD = "Password123!"
 
 SITES = [
@@ -108,12 +108,12 @@ def run_tests():
                 if not iframe_src or "/proxy/session/" not in iframe_src:
                     site_result["initial_render"] = "FAIL"
                     site_result["status"] = "FAIL"
-                    site_result["root_cause"] = "PixelMark shell / Target site"
+                    site_result["root_cause"] = "STAGE shell / Target site"
                     site_result["recommendation"] = "Session negotiation or iframe binding failed."
             except Exception as e:
                 site_result["initial_render"] = f"FAIL ({str(e)})"
                 site_result["status"] = "FAIL"
-                site_result["root_cause"] = "PixelMark shell"
+                site_result["root_cause"] = "STAGE shell"
                 site_result["recommendation"] = "Ensure local server is responsive and DB connection is active."
                 context.close()
                 report_data.append(site_result)
@@ -221,7 +221,7 @@ def run_tests():
                 if not share_url:
                     site_result["share_link"] = "FAIL"
                     site_result["status"] = "FAIL"
-                    site_result["root_cause"] = "PixelMark shell"
+                    site_result["root_cause"] = "STAGE shell"
                     site_result["recommendation"] = "Share link generation UI/API failed to return a link."
             except Exception as e:
                 site_result["share_link"] = f"FAIL ({str(e)})"
@@ -277,7 +277,7 @@ def run_tests():
                     if markers_dropped < 3:
                         site_result["markers"] = "FAIL"
                         site_result["status"] = "FAIL"
-                        site_result["root_cause"] = "PixelMark shell / HTML rewrite"
+                        site_result["root_cause"] = "STAGE shell / HTML rewrite"
                         site_result["recommendation"] = "Feedback placement click intercept or drawer input failed to submit."
                         
                     public_context.close()
@@ -294,7 +294,7 @@ def run_tests():
     # Build final Markdown Report
     report_path = ARTIFACTS_DIR / "real_websites_audit_report.md"
     with open(report_path, "w", encoding="utf-8") as f:
-        f.write("# PixelMark Deployed Sites E2E Audit Report\n\n")
+        f.write("# STAGE Deployed Sites E2E Audit Report\n\n")
         f.write("## 1. Overall Summary\n\n")
         
         passes = sum(1 for r in report_data if r["status"] == "PASS")

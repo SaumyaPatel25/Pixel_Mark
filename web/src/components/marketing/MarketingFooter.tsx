@@ -26,7 +26,7 @@ export default function MarketingFooter() {
           {/* Column 1: Brand */}
           <div className="lg:col-span-4 space-y-4 text-left">
             <Link href="/" className="block">
-              <img src="/logo.png" alt="PixelMark" className="h-24 w-auto object-contain dark-theme-logo" />
+              <img src="/logo.png" alt="STAGE" className="h-24 w-auto object-contain dark-theme-logo" />
             </Link>
             <p className="text-xs text-pm-muted leading-relaxed max-w-sm font-sans">
               Precision visual feedback and website reviews built for designers, developers, QA teams, and agencies. Bridge the gap between UI revisions and codebase fixes.
@@ -75,7 +75,7 @@ export default function MarketingFooter() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-pm-border/30 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-[10px] text-pm-muted leading-relaxed text-center md:text-left font-mono">
-            <span>© 2026 PixelMark. All rights protected. Built for the developer community.</span>
+            <span>© 2026 STAGE. All rights protected. Built for the developer community.</span>
           </div>
           
           <div className="flex gap-6 text-[10px] font-mono font-bold uppercase tracking-wider text-pm-muted">

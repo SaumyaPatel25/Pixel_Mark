@@ -17,7 +17,7 @@ import { AuditSurface } from '@/components/audit/AuditSurface'
 import { api } from '@/lib/api'
 import { Suspense } from 'react'
 import { ObservationDetails } from '@/components/audit/ObservationDetails'
-import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
+import { StageLoader } from '@/components/ui/StageLoader'
 
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { useSessionSocket } from '@/lib/useSessionSocket'
@@ -303,7 +303,7 @@ function ProjectPageContent() {
 
   if (isProjectLoading) return (
     <div className="h-screen bg-pm-bg flex flex-col items-center justify-center overflow-hidden font-sans selection:bg-pm-cyan/20 transition-colors duration-300">
-      <PixelmarkLoader size="md" text="Hydrating Project Surface" />
+      <StageLoader size="md" text="Hydrating Project Surface" />
     </div>
   )
 
@@ -544,7 +544,7 @@ function ProjectPageContent() {
                     <button
                       onClick={() => {
                         setIsMoreMenuOpen(false)
-                        window.postMessage({ type: 'PIXELMARK_TRIGGER_FRAME_CAPTURE_GLOBAL' }, '*')
+                        window.postMessage({ type: 'STAGE_TRIGGER_FRAME_CAPTURE_GLOBAL' }, '*')
                       }}
                       className="flex items-center gap-2.5 px-4.5 py-2 text-xs font-bold uppercase tracking-wider text-left transition-colors hover:bg-pm-surface-2 text-pm-muted"
                     >
@@ -611,7 +611,7 @@ function ProjectPageContent() {
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-pm-bg">
-                 <PixelmarkLoader size="md" text="Negotiating Review Session" />
+                 <StageLoader size="md" text="Negotiating Review Session" />
               </div>
             )
           ) : (
@@ -714,7 +714,7 @@ function ProjectPageContent() {
                           />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-pm-bg">
-                             <PixelmarkLoader size="md" text="Negotiating Review Session" />
+                             <StageLoader size="md" text="Negotiating Review Session" />
                           </div>
                         )}
                       </div>
@@ -804,7 +804,7 @@ export default function ProjectPage() {
   return (
     <Suspense fallback={
       <div className="h-screen bg-pm-bg flex flex-col items-center justify-center overflow-hidden font-sans">
-        <PixelmarkLoader size="lg" text="Hydrating Project Surface" />
+        <StageLoader size="lg" text="Hydrating Project Surface" />
       </div>
     }>
       <ProjectPageContent />

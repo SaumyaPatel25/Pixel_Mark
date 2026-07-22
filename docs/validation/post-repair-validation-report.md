@@ -1,4 +1,4 @@
-# PixelMark Post-Repair Validation Report
+# STAGE Post-Repair Validation Report
 
 **Date:** July 1, 2026
 **Scope:** Validation of Repair Phases 0-5
@@ -9,7 +9,7 @@
 ## 1. Phase 0: Auth & Environment
 **Claimed Fix:** Removed duplicate localStorage auth; aligned frontend and middleware to use standard cookie-based authentication, governed by a single `NEXT_PUBLIC_API_URL`.
 **Evidence:** 
-- `middleware.ts` now exclusively guards routes using the `pm_token` cookie.
+- `middleware.ts` now exclusively guards routes using the `stagetoken` cookie.
 - Codebase searches confirm API clients do not read `localStorage.getItem('token')`.
 **Result:** ✅ **PASS**
 **Residual Risk:** The transition to purely cookie-based auth requires that third-party cookie restrictions (in strict Safari/Brave modes) don't block the backend cookie if deployed on disparate domains.

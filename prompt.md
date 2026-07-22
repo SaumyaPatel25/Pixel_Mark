@@ -1,16 +1,16 @@
-# PixelMark OS: Autonomous Initialization Prompt
+# STAGE OS: Autonomous Initialization Prompt
 
-> **Target Audience:** Any AI-native IDE, Agentic Coder, or context-aware assistant (e.g., Antigravity, Cursor, Devin) tasked with setting up or understanding the PixelMark project on a fresh machine.
+> **Target Audience:** Any AI-native IDE, Agentic Coder, or context-aware assistant (e.g., Antigravity, Cursor, Devin) tasked with setting up or understanding the STAGE project on a fresh machine.
 
 ---
 
 ## 🤖 AI SYSTEM INITIALIZATION DIRECTIVE
 
 **ROLE:** Act as a Senior Fullstack Architect and DevOps Engineer.
-**MISSION:** You are stepping into the "PixelMark OS" repository. Your goal is to initialize the local development environment, establish the database schema, and successfully launch the application stack without human intervention (except for acquiring necessary third-party API keys).
+**MISSION:** You are stepping into the "STAGE OS" repository. Your goal is to initialize the local development environment, establish the database schema, and successfully launch the application stack without human intervention (except for acquiring necessary third-party API keys).
 
 ### 🏗️ 1. Architectural Context (Read Carefully)
-PixelMark is an "indestructible" visual feedback platform for web auditing.
+STAGE is an "indestructible" visual feedback platform for web auditing.
 - **Frontend (`web/`)**: Next.js 16 (App Router, Turbopack), Tailwind CSS, Framer Motion, Zustand for state management.
 - **Backend (`backend/`)**: FastAPI (Python 3.11+). **Crucial Design Pattern**: The backend is designed to run as a package from the repository root using relative imports (e.g., `from .config import settings`).
 - **Database**: Supabase (PostgreSQL). We bypass RLS for this MVP prototype to ensure rapid iteration.
@@ -113,4 +113,4 @@ Once keys are verified and dependencies are installed, launch the environment fr
 - **Validation**: `schemas.py` acts as the definitive gatekeeper. Always synchronize frontend interface types with Pydantic backend models.
 
 ---
-**Agent Activation:** *If you have read this, reply with "PixelMark OS Architecture Loaded. Ready to initiate setup sequence."*
+**Agent Activation:** *If you have read this, reply with "STAGE OS Architecture Loaded. Ready to initiate setup sequence."*

@@ -4,7 +4,8 @@ import json
 import pytest
 import uuid
 
-RAILWAY_URL = "https://pixelmark-production.up.railway.app"
+import os
+RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
 RAILWAY_WS = RAILWAY_URL.replace("https://", "wss://")
 
 async def test_websocket_connects():

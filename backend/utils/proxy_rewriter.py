@@ -4,7 +4,7 @@ import os
 import logging
 import json
 
-logger = logging.getLogger("pixelmark.proxy_rewriter")
+logger = logging.getLogger("stage.proxy_rewriter")
 
 
 # ── STEP 1 ────────────────────────────────────────────────────────────────────
@@ -12,8 +12,8 @@ def inject_bootstrap(html: str, page_url: str, session_id: str, proxy_base_url: 
     """
     Injects a bootstrap script as the FIRST <script> inside <head>.
     If <head> exists, prepend to head. If missing, create one.
-    Exposes __PIXELMARK_SESSION_ID__, __PIXELMARK_PROXY_ORIGIN__, __PIXELMARK_TRANSPORT_URL__,
-    __PIXELMARK_TARGET_URL__ and window.PIXELMARK globals.
+    Exposes __STAGE_SESSION_ID__, __STAGE_PROXY_ORIGIN__, __STAGE_TRANSPORT_URL__,
+    __STAGE_TARGET_URL__ and window.STAGE globals.
     """
     # Safe JSON serializations to prevent injection/syntax errors
     escaped_session = json.dumps(str(session_id))
@@ -23,19 +23,19 @@ def inject_bootstrap(html: str, page_url: str, session_id: str, proxy_base_url: 
     transport_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/page?url={urllib.parse.quote(page_url)}"
     escaped_transport_url = json.dumps(transport_url)
     
-    bootstrap = f"""<!-- PIXELMARK_BOOTSTRAP_START -->
+    bootstrap = f"""<!-- STAGE_BOOTSTRAP_START -->
 <script>
-window.__PIXELMARK_SESSION_ID__ = {escaped_session};
-window.__PIXELMARK_PROXY_ORIGIN__ = {escaped_proxy_origin};
-window.__PIXELMARK_TRANSPORT_URL__ = {escaped_transport_url};
-window.__PIXELMARK_TARGET_URL__ = {escaped_logical_target_url};
-window.__PIXELMARK_BASE__ = window.__PIXELMARK_PROXY_ORIGIN__ + '/proxy/session/' + window.__PIXELMARK_SESSION_ID__;
+window.__STAGE_SESSION_ID__ = {escaped_session};
+window.__STAGE_PROXY_ORIGIN__ = {escaped_proxy_origin};
+window.__STAGE_TRANSPORT_URL__ = {escaped_transport_url};
+window.__STAGE_TARGET_URL__ = {escaped_logical_target_url};
+window.__STAGE_BASE__ = window.__STAGE_PROXY_ORIGIN__ + '/proxy/session/' + window.__STAGE_SESSION_ID__;
 
-window.PIXELMARK = window.PIXELMARK || {{}};
-window.PIXELMARK.sessionId = window.__PIXELMARK_SESSION_ID__;
-window.PIXELMARK.pageUrl = window.__PIXELMARK_TARGET_URL__;
-window.PIXELMARK.transportUrl = window.__PIXELMARK_TRANSPORT_URL__;
-window.PIXELMARK.targetUrl = window.__PIXELMARK_TARGET_URL__;
+window.STAGE = window.STAGE || {{}};
+window.STAGE.sessionId = window.__STAGE_SESSION_ID__;
+window.STAGE.pageUrl = window.__STAGE_TARGET_URL__;
+window.STAGE.transportUrl = window.__STAGE_TRANSPORT_URL__;
+window.STAGE.targetUrl = window.__STAGE_TARGET_URL__;
 
 window.__PM__ = {{
   domEditMode: false,
@@ -54,7 +54,7 @@ window.addEventListener('message', function(e) {{
   
   var type = e.data.type;
   
-  if (type === 'PIXELMARK_ACTIVATE_DOM_EDIT') {{
+  if (type === 'STAGE_ACTIVATE_DOM_EDIT') {{
     window.__PM__.domEditMode = true;
     if (window.__PM__.ready) {{
       window.__PM__.activate();
@@ -62,16 +62,16 @@ window.addEventListener('message', function(e) {{
       window.__PM__.pendingActivate = true;
     }}
     // Confirm receipt
-    window.parent.postMessage({{ type: 'PIXELMARK_AGENT_ACK', action: 'activate_dom_edit' }}, '*');
+    window.parent.postMessage({{ type: 'STAGE_AGENT_ACK', action: 'activate_dom_edit' }}, '*');
   }}
   
-  if (type === 'PIXELMARK_DEACTIVATE_DOM_EDIT') {{
+  if (type === 'STAGE_DEACTIVATE_DOM_EDIT') {{
     window.__PM__.domEditMode = false;
     if (window.__PM__.deactivate) window.__PM__.deactivate();
-    window.parent.postMessage({{ type: 'PIXELMARK_AGENT_ACK', action: 'deactivate_dom_edit' }}, '*');
+    window.parent.postMessage({{ type: 'STAGE_AGENT_ACK', action: 'deactivate_dom_edit' }}, '*');
   }}
   
-  if (type === 'PIXELMARK_REPLAY_EDITS') {{
+  if (type === 'STAGE_REPLAY_EDITS') {{
     var edits = e.data.edits || [];
     edits.forEach(function(edit) {{
       try {{
@@ -82,11 +82,11 @@ window.addEventListener('message', function(e) {{
   }}
 }});
 
-console.debug("[PixelMark URL Model] targetUrl=" + window.__PIXELMARK_TARGET_URL__);
-console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPORT_URL__);
+console.debug("[STAGE URL Model] targetUrl=" + window.__STAGE_TARGET_URL__);
+console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__);
 
 (function() {{
-  const proxyBase = window.__PIXELMARK_PROXY_ORIGIN__ + '/proxy/session/' + window.__PIXELMARK_SESSION_ID__;
+  const proxyBase = window.__STAGE_PROXY_ORIGIN__ + '/proxy/session/' + window.__STAGE_SESSION_ID__;
 
   function rewriteUrl(url) {{
     if (!url || typeof url !== 'string') return url;
@@ -100,7 +100,7 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
     
     let absoluteUrl = url;
     try {{
-      absoluteUrl = new URL(url, window.__PIXELMARK_TARGET_URL__).href;
+      absoluteUrl = new URL(url, window.__STAGE_TARGET_URL__).href;
     }} catch(e) {{
       return url;
     }}
@@ -222,12 +222,12 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
         return new URL(urlParam).href;
       }}
     }} catch (_) {{}}
-    return window.__PIXELMARK_TARGET_URL__;
+    return window.__STAGE_TARGET_URL__;
   }}
 
   function resolveLogicalTargetUrl(inputUrl) {{
     try {{
-      if (!inputUrl) return window.__PIXELMARK_TARGET_URL__;
+      if (!inputUrl) return window.__STAGE_TARGET_URL__;
       const str = String(inputUrl);
       if (str.includes('/proxy/session/')) {{
         try {{
@@ -236,16 +236,16 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
           if (urlParam) {{
             return new URL(urlParam).href;
           }}
-          const baseOrigin = new URL(window.__PIXELMARK_TARGET_URL__).origin;
+          const baseOrigin = new URL(window.__STAGE_TARGET_URL__).origin;
           return baseOrigin + '/';
         }} catch (e) {{
-          return window.__PIXELMARK_TARGET_URL__;
+          return window.__STAGE_TARGET_URL__;
         }}
       }}
-      const resolved = new URL(str, window.__PIXELMARK_TARGET_URL__);
+      const resolved = new URL(str, window.__STAGE_TARGET_URL__);
       return resolved.href;
     }} catch (e) {{
-      return window.__PIXELMARK_TARGET_URL__;
+      return window.__STAGE_TARGET_URL__;
     }}
   }}
 
@@ -260,16 +260,16 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
       }}
       try {{
         const parsedProxy = new URL(str);
-        if (parsedProxy.origin === window.__PIXELMARK_PROXY_ORIGIN__ && parsedProxy.pathname.startsWith('/proxy/session/')) {{
+        if (parsedProxy.origin === window.__STAGE_PROXY_ORIGIN__ && parsedProxy.pathname.startsWith('/proxy/session/')) {{
           return parsedProxy.pathname + parsedProxy.search + parsedProxy.hash;
         }}
       }} catch (_) {{}}
 
-      const resolved = new URL(str, window.__PIXELMARK_TARGET_URL__);
-      const targetOrigin = new URL(window.__PIXELMARK_TARGET_URL__).origin;
+      const resolved = new URL(str, window.__STAGE_TARGET_URL__);
+      const targetOrigin = new URL(window.__STAGE_TARGET_URL__).origin;
 
       if (resolved.origin === targetOrigin) {{
-        return '/proxy/session/' + window.__PIXELMARK_SESSION_ID__ + '/page?url=' + encodeURIComponent(resolved.href);
+        return '/proxy/session/' + window.__STAGE_SESSION_ID__ + '/page?url=' + encodeURIComponent(resolved.href);
       }} else {{
         return window.location.pathname + window.location.search + window.location.hash;
       }}
@@ -289,7 +289,7 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
     try {{
       nativeMethod.call(this, state, unused || '', safeTransportUrl);
     }} catch (err) {{
-      console.warn("[PixelMark History Shim] Failed native call", err);
+      console.warn("[STAGE History Shim] Failed native call", err);
       try {{
         nativeMethod.call(this, state, unused || '', window.location.pathname + window.location.search);
       }} catch (_) {{}}
@@ -303,12 +303,12 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
   History.prototype.pushState = function(state, unused, url) {{
     const logicalTargetUrl = resolveLogicalTargetUrl(url);
     const safeTransportUrl = normalizeToTransportUrl(url);
-    console.debug("[PixelMark History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=pushState");
+    console.debug("[STAGE History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=pushState");
     safeCallNativePushReplace.call(this, nativePushState, state, unused, safeTransportUrl);
-    window.__PIXELMARK_TARGET_URL__ = logicalTargetUrl;
-    if (window.PIXELMARK) {{
-      window.PIXELMARK.pageUrl = logicalTargetUrl;
-      window.PIXELMARK.targetUrl = logicalTargetUrl;
+    window.__STAGE_TARGET_URL__ = logicalTargetUrl;
+    if (window.STAGE) {{
+      window.STAGE.pageUrl = logicalTargetUrl;
+      window.STAGE.targetUrl = logicalTargetUrl;
     }}
     try {{
       const baseTag = document.querySelector('base');
@@ -316,7 +316,7 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
         baseTag.setAttribute('href', logicalTargetUrl);
       }}
     }} catch (_) {{}}
-    window.dispatchEvent(new CustomEvent('pixelmark:navigation', {{
+    window.dispatchEvent(new CustomEvent('stage:navigation', {{
       detail: {{
         type: 'pushState',
         logicalTargetUrl: logicalTargetUrl,
@@ -328,12 +328,12 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
   History.prototype.replaceState = function(state, unused, url) {{
     const logicalTargetUrl = resolveLogicalTargetUrl(url);
     const safeTransportUrl = normalizeToTransportUrl(url);
-    console.debug("[PixelMark History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=replaceState");
+    console.debug("[STAGE History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=replaceState");
     safeCallNativePushReplace.call(this, nativeReplaceState, state, unused, safeTransportUrl);
-    window.__PIXELMARK_TARGET_URL__ = logicalTargetUrl;
-    if (window.PIXELMARK) {{
-      window.PIXELMARK.pageUrl = logicalTargetUrl;
-      window.PIXELMARK.targetUrl = logicalTargetUrl;
+    window.__STAGE_TARGET_URL__ = logicalTargetUrl;
+    if (window.STAGE) {{
+      window.STAGE.pageUrl = logicalTargetUrl;
+      window.STAGE.targetUrl = logicalTargetUrl;
     }}
     try {{
       const baseTag = document.querySelector('base');
@@ -341,7 +341,7 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
         baseTag.setAttribute('href', logicalTargetUrl);
       }}
     }} catch (_) {{}}
-    window.dispatchEvent(new CustomEvent('pixelmark:navigation', {{
+    window.dispatchEvent(new CustomEvent('stage:navigation', {{
       detail: {{
         type: 'replaceState',
         logicalTargetUrl: logicalTargetUrl,
@@ -356,10 +356,10 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
   window.addEventListener('popstate', function() {{
     const logicalTargetUrl = getCurrentLogicalUrl();
     const transportUrl = window.location.pathname + window.location.search + window.location.hash;
-    window.__PIXELMARK_TARGET_URL__ = logicalTargetUrl;
-    if (window.PIXELMARK) {{
-      window.PIXELMARK.pageUrl = logicalTargetUrl;
-      window.PIXELMARK.targetUrl = logicalTargetUrl;
+    window.__STAGE_TARGET_URL__ = logicalTargetUrl;
+    if (window.STAGE) {{
+      window.STAGE.pageUrl = logicalTargetUrl;
+      window.STAGE.targetUrl = logicalTargetUrl;
     }}
     try {{
       const baseTag = document.querySelector('base');
@@ -367,8 +367,8 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
         baseTag.setAttribute('href', logicalTargetUrl);
       }}
     }} catch (_) {{}}
-    console.debug("[PixelMark History Shim] input=" + window.location.href + " logical=" + logicalTargetUrl + " transport=" + transportUrl + " type=popstate");
-    window.dispatchEvent(new CustomEvent('pixelmark:navigation', {{
+    console.debug("[STAGE History Shim] input=" + window.location.href + " logical=" + logicalTargetUrl + " transport=" + transportUrl + " type=popstate");
+    window.dispatchEvent(new CustomEvent('stage:navigation', {{
       detail: {{
         type: 'popstate',
         logicalTargetUrl: logicalTargetUrl,
@@ -382,10 +382,10 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
       return new URL(getCurrentLogicalUrl());
     }} catch (e) {{
       try {{
-        return new URL(window.__PIXELMARK_TARGET_URL__);
+        return new URL(window.__STAGE_TARGET_URL__);
       }} catch (_) {{
         return {{
-          href: window.__PIXELMARK_TARGET_URL__,
+          href: window.__STAGE_TARGET_URL__,
           origin: '',
           protocol: '',
           host: '',
@@ -416,7 +416,7 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
   define(window.location, 'search', () => getLogicalUrlObject().search);
   define(window.location, 'hash', () => getLogicalUrlObject().hash);
 
-  window.__PIXELMARK_LOGICAL_LOCATION__ = {{
+  window.__STAGE_LOGICAL_LOCATION__ = {{
     get href() {{ return getLogicalUrlObject().href; }},
     get origin() {{ return getLogicalUrlObject().origin; }},
     get host() {{ return getLogicalUrlObject().host; }},
@@ -431,15 +431,15 @@ console.debug("[PixelMark URL Model] transportUrl=" + window.__PIXELMARK_TRANSPO
     toString: function() {{ return getLogicalUrlObject().href; }}
   }};
 
-  window.__PIXELMARK_GET_LOGICAL_URL__ = function() {{
+  window.__STAGE_GET_LOGICAL_URL__ = function() {{
     return getLogicalUrlObject().href;
   }};
   
   // Ensure window.lastpageurl is set initially
-  window.lastpageurl = window.__PIXELMARK_TARGET_URL__;
+  window.lastpageurl = window.__STAGE_TARGET_URL__;
 }})();
 </script>
-<!-- PIXELMARK_BOOTSTRAP_END -->"""
+<!-- STAGE_BOOTSTRAP_END -->"""
 
     head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
     if head_match:
@@ -469,7 +469,7 @@ def inject_cursor_relay_bridge(html: str) -> str:
        an initial physical mouse move.
 
     This script must run BEFORE any site scripts, so it is injected as the
-    first child of <head> (right after the PixelMark bootstrap).
+    first child of <head> (right after the STAGE bootstrap).
     """
     bridge = """\
 <script>
@@ -511,11 +511,11 @@ def inject_cursor_relay_bridge(html: str) -> str:
 
   // ─── 2. Patch addEventListener to detect cursor-reactive listeners ────────
   // If a site attaches mousemove/pointermove to window, document or body,
-  // flag the page so the PixelMark agent can optimise cursor relay frequency.
+  // flag the page so the STAGE agent can optimise cursor relay frequency.
   var _origAdd = EventTarget.prototype.addEventListener;
   EventTarget.prototype.addEventListener = function(type, listener, opts) {
     if (type === 'mousemove' || type === 'pointermove') {
-      try { window.__PIXELMARK_HAS_CURSOR_EFFECTS__ = true; } catch(_) {}
+      try { window.__STAGE_HAS_CURSOR_EFFECTS__ = true; } catch(_) {}
     }
     return _origAdd.call(this, type, listener, opts);
   };
@@ -577,7 +577,7 @@ def inject_webgl_patch(html: str) -> str:
   try {
     var _origGetContext = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function(type, attribs) {
-      try { this.__pixelmark_context_type = type; } catch(_) {}
+      try { this.__stage_context_type = type; } catch(_) {}
       var rest = Array.prototype.slice.call(arguments, 2);
       if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
         var newAttribs = Object.assign({}, attribs || {}, { preserveDrawingBuffer: true });
@@ -610,7 +610,7 @@ def inject_sw_killer(html: str) -> str:
       }).catch(function() {});
       var _origRegister = navigator.serviceWorker.register;
       navigator.serviceWorker.register = function(scriptURL, options) {
-        console.log('[PixelMark] Service Worker registration blocked:', scriptURL);
+        console.log('[STAGE] Service Worker registration blocked:', scriptURL);
         return Promise.resolve({
           scope: options && options.scope ? options.scope : '/',
           active: null, installing: null, waiting: null,
@@ -695,7 +695,7 @@ def inject_chunk_guard(html: str) -> str:
 # ── STEP 6 ────────────────────────────────────────────────────────────────────
 def inject_agent(html: str, agent_url: str) -> str:
     """
-    Appends the PixelMark agent script tag just before </body>.
+    Appends the STAGE agent script tag just before </body>.
     """
     if not agent_url:
         return html
@@ -743,17 +743,17 @@ def rewrite_html(
     # Agent script URL — env override or default to /static/ path
     agent_script_url = os.getenv(
         "PROXY_AGENT_SCRIPT_URL",
-        f"{api_base.rstrip('/')}/static/pixelmark-agent.js",
+        f"{api_base.rstrip('/')}/static/stage-agent.js",
     )
 
-    # 1. Bootstrap — window.__PIXELMARK_TARGET_URL__, SESSION_ID, BASE
+    # 1. Bootstrap — window.__STAGE_TARGET_URL__, SESSION_ID, BASE
     if conservative_render_mode:
         logger.info("[PROXY_REWRITE] Conservative Render Mode Active - injecting scripts at the end of <head>")
         
         # Inject base tag first (still early)
         html = inject_base_tag(html, page_url)
         
-        # Build the combined script block of all pixelmark shims
+        # Build the combined script block of all stage shims
         # We extract the script inner contents or just concatenate the tags
         bootstrap_script = inject_bootstrap("<html><head></head></html>", page_url, str(session_id), proxy_base_url, api_base)
         cursor_script = inject_cursor_relay_bridge("<html><head></head></html>")

@@ -1,4 +1,4 @@
-// Controller for PixelMark Extension Popup
+// Controller for STAGE Extension Popup
 document.addEventListener('DOMContentLoaded', async () => {
   const projectIdInput = document.getElementById('projectId');
   const activateBtn = document.getElementById('activateBtn');

@@ -1,6 +1,6 @@
 # Architectural Decision Records (ADR)
 
-This directory contains records of key architectural decisions made in the PixelMark codebase.
+This directory contains records of key architectural decisions made in the STAGE codebase.
 
 ---
 

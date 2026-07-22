@@ -32,7 +32,7 @@ async def get_test_db():
         yield session
 
 MOCK_USER_ID = str(uuid.uuid4())
-MOCK_USER_EMAIL = "owner@pixelmark.dev"
+MOCK_USER_EMAIL = "owner@stage.dev"
 MOCK_ORG_ID = str(uuid.uuid4())
 MOCK_MEMBER_ID = str(uuid.uuid4())
 MOCK_PROJECT_ID = str(uuid.uuid4())
@@ -65,7 +65,7 @@ async def setup_db():
         member = OrgMember(id=MOCK_MEMBER_ID, org_id=MOCK_ORG_ID, user_id=MOCK_USER_ID, role="owner")
         session.add(member)
         
-        proj = Project(id=MOCK_PROJECT_ID, org_id=MOCK_ORG_ID, name="My Proj", url="https://pixelmark.dev")
+        proj = Project(id=MOCK_PROJECT_ID, org_id=MOCK_ORG_ID, name="My Proj", url="https://stage.dev")
         session.add(proj)
         
         sess = DbSession(id=MOCK_SESSION_ID, project_id=MOCK_PROJECT_ID, title="Audit Session")
@@ -125,7 +125,7 @@ async def test_create_dom_edit_unauthenticated():
             "old_value": "red",
             "new_value": "blue",
             "element_tag": "BUTTON",
-            "page_url": "https://pixelmark.dev/checkout"
+            "page_url": "https://stage.dev/checkout"
         }
     )
     assert resp.status_code == 401
@@ -145,7 +145,7 @@ async def test_create_dom_edit_as_owner():
             "new_value": "blue",
             "element_tag": "BUTTON",
             "element_text": "Submit Button",
-            "page_url": "https://pixelmark.dev/checkout"
+            "page_url": "https://stage.dev/checkout"
         }
     )
     assert resp.status_code == 200
@@ -168,7 +168,7 @@ async def test_create_dom_edit_with_active_share_token():
             "old_value": "red",
             "new_value": "blue",
             "element_tag": "BUTTON",
-            "page_url": "https://pixelmark.dev/checkout"
+            "page_url": "https://stage.dev/checkout"
         }
     )
     assert resp.status_code == 200
@@ -188,7 +188,7 @@ async def test_create_dom_edit_with_no_comment_share_token():
             "old_value": "red",
             "new_value": "blue",
             "element_tag": "BUTTON",
-            "page_url": "https://pixelmark.dev/checkout"
+            "page_url": "https://stage.dev/checkout"
         }
     )
     assert resp.status_code == 403
@@ -205,7 +205,7 @@ async def test_create_dom_edit_with_inactive_share_token():
             "old_value": "red",
             "new_value": "blue",
             "element_tag": "BUTTON",
-            "page_url": "https://pixelmark.dev/checkout"
+            "page_url": "https://stage.dev/checkout"
         }
     )
     assert resp.status_code == 403
@@ -227,7 +227,7 @@ async def test_create_bulk_and_list_dom_edits():
                 "old_value": "red",
                 "new_value": "blue",
                 "element_tag": "BUTTON",
-                "page_url": "https://pixelmark.dev/checkout"
+                "page_url": "https://stage.dev/checkout"
             },
             {
                 "session_id": MOCK_SESSION_ID,
@@ -236,7 +236,7 @@ async def test_create_bulk_and_list_dom_edits():
                 "old_value": "16px",
                 "new_value": "24px",
                 "element_tag": "H1",
-                "page_url": "https://pixelmark.dev/landing"
+                "page_url": "https://stage.dev/landing"
             }
         ]
     )
@@ -253,10 +253,10 @@ async def test_create_bulk_and_list_dom_edits():
     )
     assert resp_list.status_code == 200
     grouped_data = resp_list.json()
-    assert "https://pixelmark.dev/checkout" in grouped_data
-    assert "https://pixelmark.dev/landing" in grouped_data
-    assert len(grouped_data["https://pixelmark.dev/checkout"]) == 1
-    assert len(grouped_data["https://pixelmark.dev/landing"]) == 1
+    assert "https://stage.dev/checkout" in grouped_data
+    assert "https://stage.dev/landing" in grouped_data
+    assert len(grouped_data["https://stage.dev/checkout"]) == 1
+    assert len(grouped_data["https://stage.dev/landing"]) == 1
 
 
 @pytest.mark.anyio
@@ -274,7 +274,7 @@ async def test_delete_endpoints():
             "old_value": "black",
             "new_value": "white",
             "element_tag": "BUTTON",
-            "page_url": "https://pixelmark.dev/test"
+            "page_url": "https://stage.dev/test"
         }
     )
     assert resp_create.status_code == 200
@@ -319,7 +319,7 @@ async def test_delete_all_dom_edits():
                 "old_value": "red",
                 "new_value": "blue",
                 "element_tag": "BUTTON",
-                "page_url": "https://pixelmark.dev/checkout"
+                "page_url": "https://stage.dev/checkout"
             },
             {
                 "session_id": MOCK_SESSION_ID,
@@ -328,7 +328,7 @@ async def test_delete_all_dom_edits():
                 "old_value": "16px",
                 "new_value": "24px",
                 "element_tag": "H1",
-                "page_url": "https://pixelmark.dev/landing"
+                "page_url": "https://stage.dev/landing"
             }
         ]
     )
@@ -366,7 +366,7 @@ async def test_export_css():
                 "old_value": "red",
                 "new_value": "blue",
                 "element_tag": "BUTTON",
-                "page_url": "https://pixelmark.dev/checkout"
+                "page_url": "https://stage.dev/checkout"
             },
             {
                 "session_id": MOCK_SESSION_ID,
@@ -375,7 +375,7 @@ async def test_export_css():
                 "old_value": "16px",
                 "new_value": "24px",
                 "element_tag": "H1",
-                "page_url": "https://pixelmark.dev/landing"
+                "page_url": "https://stage.dev/landing"
             }
         ]
     )
@@ -396,19 +396,19 @@ async def test_export_css():
     
     css = resp_export.text
     # Expected format:
-    # /* PixelMark DOM Edit Export — Session: Audit Session */
-    # /* Page: https://pixelmark.dev/checkout */
+    # /* STAGE DOM Edit Export — Session: Audit Session */
+    # /* Page: https://stage.dev/checkout */
     # .button-submit {
     #   background-color: blue; /* was: red */
     # }
-    # /* Page: https://pixelmark.dev/landing */
+    # /* Page: https://stage.dev/landing */
     # h1 {
     #   font-size: 24px; /* was: 16px */
     # }
-    assert "/* PixelMark DOM Edit Export — Session: Audit Session */" in css
-    assert "/* Page: https://pixelmark.dev/checkout */" in css
+    assert "/* STAGE DOM Edit Export — Session: Audit Session */" in css
+    assert "/* Page: https://stage.dev/checkout */" in css
     assert ".button-submit {" in css
     assert "  background-color: blue; /* was: red */" in css
-    assert "/* Page: https://pixelmark.dev/landing */" in css
+    assert "/* Page: https://stage.dev/landing */" in css
     assert "h1 {" in css
     assert "  font-size: 24px; /* was: 16px */" in css

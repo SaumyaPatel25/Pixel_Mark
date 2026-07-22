@@ -1,4 +1,4 @@
-// Service worker for PixelMark Extension Fallback
+// Service worker for STAGE Extension Fallback
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'ACTIVATE_FEEDBACK') {
     // Forward the activation to the content script in the active tab

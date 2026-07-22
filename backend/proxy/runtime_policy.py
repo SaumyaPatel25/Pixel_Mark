@@ -3,7 +3,7 @@ import urllib.parse
 from fastapi import Response
 from fastapi.responses import JSONResponse
 
-logger = logging.getLogger("pixelmark.proxy.runtime_policy")
+logger = logging.getLogger("stage.proxy.runtime_policy")
 
 BLOCKED_THIRD_PARTY_DOMAINS = [
     "firebase.googleapis.com",
@@ -53,7 +53,7 @@ def check_third_party_policy(url: str) -> tuple[bool, Response | None]:
             # Graceful fallbacks
             if ".js" in path or "javascript" in path or "analytics" in path:
                 return True, Response(
-                    content=f'console.warn("Blocked by PixelMark proxy: {url}");'.encode("utf-8"),
+                    content=f'console.warn("Blocked by STAGE proxy: {url}");'.encode("utf-8"),
                     media_type="application/javascript",
                     status_code=200
                 )
@@ -61,9 +61,9 @@ def check_third_party_policy(url: str) -> tuple[bool, Response | None]:
             # JSON config requests
             if "json" in path or "config" in path or "google.com" in hostname or "googleapis.com" in hostname:
                 return True, JSONResponse({
-                    "error": "blocked_by_pixelmark_proxy",
+                    "error": "blocked_by_stage_proxy",
                     "status": "mocked",
-                    "projectId": "pixelmark-mock",
+                    "projectId": "stage-mock",
                     "state": "inactive"
                 }, status_code=200)
                 
@@ -92,7 +92,7 @@ def get_failure_fallback_response(url: str, error_message: str) -> Response:
     
     if ".js" in path or "javascript" in path:
         return Response(
-            content=f'console.warn("PixelMark Warning: Script failed to load upstream: {url} ({error_message})");'.encode("utf-8"),
+            content=f'console.warn("STAGE Warning: Script failed to load upstream: {url} ({error_message})");'.encode("utf-8"),
             media_type="application/javascript",
             status_code=200
         )

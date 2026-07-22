@@ -54,7 +54,7 @@ export default function MarketingNav() {
           <Link href="/" className="flex items-center gap-2">
             <img 
               src="/logo.png" 
-              alt="PixelMark Logo" 
+              alt="STAGE Logo" 
               className="h-28 w-auto object-contain dark-theme-logo" 
             />
           </Link>
@@ -143,7 +143,7 @@ export default function MarketingNav() {
             className="fixed inset-0 z-[100] bg-pm-surface/98 backdrop-blur-xl flex flex-col p-6 text-pm-text"
           >
             <div className="flex items-center justify-between h-[64px] border-b border-pm-border">
-              <span className="font-display font-extrabold text-lg text-pm-text">PixelMark</span>
+              <span className="font-display font-extrabold text-lg text-pm-text">STAGE</span>
               <div className="flex items-center gap-2">
                 <ThemeToggle />
                 <button

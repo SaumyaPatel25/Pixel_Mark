@@ -31,7 +31,7 @@ function buildColorTable(styles) {
 
 export function buildReport(elementData, pipelineOutput) {
     return {
-        filename: `pixelmark-lens_${elementData.tagName.toLowerCase()}_${Date.now()}.md`,
+        filename: `stage-lens_${elementData.tagName.toLowerCase()}_${Date.now()}.md`,
         content: `
 # Component Analysis: ${elementData.tagName.toLowerCase()}${elementData.id ? '#' + elementData.id : ''}
 > Captured from: ${elementData.pageUrl}

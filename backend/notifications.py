@@ -4,7 +4,7 @@ from typing import Optional
 
 RESEND_KEY = os.environ.get("RESEND_API_KEY", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
-FROM_EMAIL = "PixelMark <noreply@pixelmark.dev>"
+FROM_EMAIL = "STAGE <noreply@stage.dev>"
 
 async def send_email(to: str, subject: str, html: str):
     if not RESEND_KEY:
@@ -43,7 +43,7 @@ def new_comment_html(project: dict, comment: dict, dashboard_url: str) -> str:
     <body style="background:#0a0a0c;color:#ffffff;font-family:system-ui,sans-serif;margin:0;padding:40px 20px;">
       <div style="max-width:560px;margin:0 auto;">
         <div style="font-family:monospace;font-size:20px;font-weight:bold;letter-spacing:4px;color:#ffffff;margin-bottom:24px;">
-          PIXELMARK
+          STAGE
         </div>
         <div style="background:#0f0f14;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;margin-bottom:20px;">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
@@ -92,7 +92,7 @@ async def weekly_digest(owner_email: str, projects_summary: list[dict]):
     html = f"""
     <!DOCTYPE html><html><body style="background:#0a0a0c;color:white;font-family:system-ui;padding:40px 20px;">
     <div style="max-width:560px;margin:0 auto;">
-      <div style="font-family:monospace;font-size:20px;font-weight:bold;letter-spacing:4px;margin-bottom:24px;">PIXELMARK</div>
+      <div style="font-family:monospace;font-size:20px;font-weight:bold;letter-spacing:4px;margin-bottom:24px;">STAGE</div>
       <h2 style="color:white;margin-bottom:16px;">Your Weekly Audit Summary</h2>
       <table style="width:100%;border-collapse:collapse;background:#0f0f14;border-radius:12px;overflow:hidden;">
         <thead><tr style="background:rgba(255,255,255,0.05);">
@@ -107,4 +107,4 @@ async def weekly_digest(owner_email: str, projects_summary: list[dict]):
       </a>
     </div></body></html>
     """
-    await send_email(owner_email, "Your PixelMark Weekly Summary", html)
+    await send_email(owner_email, "Your STAGE Weekly Summary", html)

@@ -31,10 +31,10 @@ async def get_test_db():
         yield session
 
 MOCK_USER_ID = "user-123"
-MOCK_USER_EMAIL = "user123@pixelmark.dev"
+MOCK_USER_EMAIL = "user123@stage.dev"
 
 MOCK_OTHER_USER_ID = "user-456"
-MOCK_OTHER_USER_EMAIL = "user456@pixelmark.dev"
+MOCK_OTHER_USER_EMAIL = "user456@stage.dev"
 
 current_test_user_id = MOCK_USER_ID
 

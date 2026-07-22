@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
-import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
-import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play } from 'lucide-react'
+import { StageLoader } from '@/components/ui/StageLoader'
+import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useOnboardingStore } from '@/store/onboardingStore'
 import { useProjectStore } from '@/store/projectStore'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
@@ -19,6 +19,15 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   const logout = useAuthStore(s => s.logout)
   const fetchMe = useAuthStore(s => s.fetchMe)
   const isLoading = useAuthStore(s => s.isLoading)
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(pathname.startsWith('/canvas'))
+
+  // Auto-collapse sidebar when entering canvas route
+  useEffect(() => {
+    if (pathname.startsWith('/canvas')) {
+      setIsSidebarCollapsed(true)
+    }
+  }, [pathname])
   const { 
     startOnboarding, 
     hydrateFromLocalStorage,
@@ -93,9 +102,9 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     const getCookieToken = () => {
       if (typeof document === 'undefined') return null
       const value = `; ${document.cookie}`
-      const parts = value.split(`; pm_token=`)
+      const parts = value.split(`; stagetoken=`)
       if (parts.length === 2) return parts.pop()?.split(';').shift()
-      const parts2 = value.split(`; pmtoken=`)
+      const parts2 = value.split(`; stagetoken=`)
       if (parts2.length === 2) return parts2.pop()?.split(';').shift()
       return null
     }
@@ -103,7 +112,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     const getPersistedToken = () => {
       if (typeof window === 'undefined') return null
       try {
-        const raw = localStorage.getItem('pm_auth')
+        const raw = localStorage.getItem('stage_auth')
         if (raw) {
           const parsed = JSON.parse(raw)
           return parsed.state?.token || null
@@ -131,22 +140,46 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   if (!mounted || (isLoading && !user)) {
     return (
       <div className="flex h-screen items-center justify-center bg-pm-bg text-pm-text transition-colors duration-300">
-        <PixelmarkLoader size="md" text="Restoring Session..." />
+        <StageLoader size="md" text="Restoring Session..." />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-pm-bg text-pm-text flex overflow-hidden transition-colors duration-300">
-      {/* Fixed Left Sidebar */}
-      <aside className="w-56 fixed left-0 top-0 bottom-0 bg-pm-surface border-r border-pm-border flex flex-col justify-between p-6 z-30 transition-all duration-300">
+    <div className="min-h-screen bg-pm-bg text-pm-text flex overflow-hidden transition-colors duration-300 relative">
+      {/* Floating Toggle Button when Sidebar is Collapsed */}
+      {isSidebarCollapsed && (
+        <button
+          onClick={() => setIsSidebarCollapsed(false)}
+          className="fixed top-3 left-3 z-50 bg-[#0d1322]/90 border border-cyan-500/30 p-2 rounded-xl text-cyan-400 hover:text-white hover:bg-slate-800 shadow-xl backdrop-blur-md transition-all hover:scale-105 cursor-pointer"
+          title="Open Navigation Menu"
+        >
+          <PanelLeftOpen className="w-4 h-4" />
+        </button>
+      )}
+
+      {/* Fixed Left Sidebar (Slidable) */}
+      <aside
+        className={`w-56 fixed left-0 top-0 bottom-0 bg-pm-surface border-r border-pm-border flex flex-col justify-between p-6 z-40 transition-transform duration-300 ease-in-out ${
+          isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
+        }`}
+      >
         <div className="space-y-8">
-          {/* Brand header */}
-          <div className="space-y-1">
-            <Link href="/dashboard" className="block">
-              <img src="/logo.png" alt="PixelMark" className="h-20 w-auto object-contain dark-theme-logo" />
-            </Link>
-            <span className="text-[9px] font-mono tracking-widest text-pm-muted uppercase block leading-none pl-1">Visual QA OS</span>
+          {/* Brand header + Collapse trigger */}
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <Link href="/dashboard" className="block">
+                <img src="/logo.png" alt="STAGE" className="h-16 w-auto object-contain dark-theme-logo" />
+              </Link>
+              <span className="text-[9px] font-mono tracking-widest text-pm-muted uppercase block leading-none pl-1">Visual QA OS</span>
+            </div>
+            <button
+              onClick={() => setIsSidebarCollapsed(true)}
+              className="p-1 rounded-lg text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-colors cursor-pointer"
+              title="Collapse Menu to Left"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Navigation Links */}
@@ -248,7 +281,11 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       </aside>
 
       {/* Main Content Pane */}
-      <main className="flex-1 ml-56 min-h-screen relative overflow-y-auto">
+      <main
+        className={`flex-1 min-h-screen relative overflow-y-auto transition-all duration-300 ease-in-out ${
+          isSidebarCollapsed ? 'ml-0' : 'ml-56'
+        }`}
+      >
         {children}
       </main>
 

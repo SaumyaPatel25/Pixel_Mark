@@ -8,7 +8,7 @@ BASE_URL = "http://localhost:8765"
 
 # Shared state to flow between classes
 class SharedState:
-    email = f"tester_{random.randint(1000, 9999)}@pixelmark.dev"
+    email = f"tester_{random.randint(1000, 9999)}@stage.dev"
     password = "SecurePassword123"
     token = None
     project_id = None
@@ -108,7 +108,7 @@ class TestProjects:
             headers = {"Authorization": f"Bearer {SharedState.token}"}
             r = client.post("/projects/", headers=headers, json={
                 "name": "Integration Observation Project",
-                "url": "https://pixelmark.dev"
+                "url": "https://stage.dev"
             })
             assert r.status_code == 201
             data = r.json()
@@ -154,7 +154,7 @@ class TestProjects:
             headers = {"Authorization": f"Bearer {SharedState.token}"}
             r = client.post(f"/projects/{SharedState.project_id}/environments", headers=headers, json={
                 "name": "Staging",
-                "base_url": "https://staging.pixelmark.dev"
+                "base_url": "https://staging.stage.dev"
             })
             assert r.status_code == 200
             assert r.json()["name"] == "Staging"
@@ -361,7 +361,7 @@ class TestCleanup:
 
 def run_all():
     print("==========================================================")
-    print("  PixelMark - Full Test Suite")
+    print("  STAGE - Full Test Suite")
     print("  Backend: http://localhost:8765")
     print("==========================================================")
 

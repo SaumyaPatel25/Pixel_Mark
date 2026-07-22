@@ -49,8 +49,8 @@ export const developerSteps: OnboardingStep[] = [
   {
     target: 'body',
     placement: 'center',
-    title: 'Welcome to PixelMark! 🚀',
-    content: 'PixelMark is a premium visual QA and bug-reporting tool. Let\'s show you how to review your website, leave feedback, and invite clients step-by-step.',
+    title: 'Welcome to STAGE! 🚀',
+    content: 'STAGE is a premium visual QA and bug-reporting tool. Let\'s show you how to review your website, leave feedback, and invite clients step-by-step.',
     route: '/dashboard'
   },
   {
@@ -108,7 +108,7 @@ export const developerSteps: OnboardingStep[] = [
     target: '#onboarding-allow-capture-btn',
     placement: 'bottom',
     title: 'Enable Screen Capture',
-    content: 'Click "Allow" to grant screen capture permission. This allows PixelMark to automatically attach screenshots to your feedback pins for premium bug reporting!',
+    content: 'Click "Allow" to grant screen capture permission. This allows STAGE to automatically attach screenshots to your feedback pins for premium bug reporting!',
     route: '/project',
     requiresInteraction: true,
     autoAdvanceOnInteraction: true
@@ -151,7 +151,7 @@ export const reviewerSteps: OnboardingStep[] = [
   {
     target: 'body',
     placement: 'center',
-    title: 'Welcome to PixelMark Review Mode 🎨',
+    title: 'Welcome to STAGE Review Mode 🎨',
     content: 'You\'ve been invited to review this page. Let\'s quickly show you how to leave visual feedback and collaborate.',
     route: '/review'
   },

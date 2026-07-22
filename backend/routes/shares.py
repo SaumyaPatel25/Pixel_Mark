@@ -12,7 +12,7 @@ import secrets
 import os
 import logging
 
-logger = logging.getLogger("pixelmark.shares")
+logger = logging.getLogger("stage.shares")
 
 class LegacyShareLinkAccess(BaseModel):
     password: Optional[str] = None

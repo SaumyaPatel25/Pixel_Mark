@@ -30,7 +30,7 @@ async def get_test_db():
         yield session
 
 MOCK_USER_ID = str(uuid.uuid4())
-MOCK_USER_EMAIL = "user123@pixelmark.dev"
+MOCK_USER_EMAIL = "user123@stage.dev"
 MOCK_ORG_ID = str(uuid.uuid4())
 MOCK_MEMBER_ID = str(uuid.uuid4())
 MOCK_PROJECT_ID = str(uuid.uuid4())
@@ -66,7 +66,7 @@ async def setup_db():
         member = OrgMember(id=MOCK_MEMBER_ID, org_id=MOCK_ORG_ID, user_id=MOCK_USER_ID, role="member")
         session.add(member)
         
-        proj = Project(id=MOCK_PROJECT_ID, org_id=MOCK_ORG_ID, name="My Proj", url="https://pixelmark.dev")
+        proj = Project(id=MOCK_PROJECT_ID, org_id=MOCK_ORG_ID, name="My Proj", url="https://stage.dev")
         session.add(proj)
         
         # Session 1
@@ -170,7 +170,7 @@ async def test_create_flow_different_projects_error():
 
     # Setup second project and a frame in it
     async with TestingSessionLocal() as session:
-        proj2 = Project(id=MOCK_PROJECT2_ID, org_id=MOCK_ORG_ID, name="Proj 2", url="https://pixelmark.dev")
+        proj2 = Project(id=MOCK_PROJECT2_ID, org_id=MOCK_ORG_ID, name="Proj 2", url="https://stage.dev")
         session.add(proj2)
         
         f1 = CanvasFrame(id=MOCK_FRAME1_ID, project_id=MOCK_PROJECT_ID, title="Frame 1")

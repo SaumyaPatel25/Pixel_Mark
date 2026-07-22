@@ -30,7 +30,7 @@ This document outlines the current testing footprint and identifies the most cri
 - **Required:** `pytest-asyncio` tests that connect two simulated clients to the same session, send a marker update from Client A, and assert Client B receives the exact JSON payload.
 
 ### 4. Regression Tests for Marker Math
-- **Gap:** No tests for `pixelmark-agent.js` coordinate functions.
+- **Gap:** No tests for `stage-agent.js` coordinate functions.
 - **Risk:** Every attempt to fix coordinate drift breaks a different edge case.
 - **Required:** Unit tests specifically for `normalizeMarkerCoordinates` feeding in various mock screen sizes and scrolling offsets.
 

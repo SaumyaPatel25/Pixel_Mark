@@ -359,7 +359,7 @@ async def github_callback(request: Request, code: str, state: str, db: AsyncSess
             return RedirectResponse(url=f"{settings.frontend_url}/auth/oauth-callback?error=missing_access_token")
             
         profile_url = "https://api.github.com/user"
-        headers_auth = {"Authorization": f"Bearer {access_token}", "User-Agent": "PixelMark"}
+        headers_auth = {"Authorization": f"Bearer {access_token}", "User-Agent": "STAGE"}
         profile_response = await client.get(profile_url, headers=headers_auth)
         if profile_response.status_code != 200:
             return RedirectResponse(url=f"{settings.frontend_url}/auth/oauth-callback?error=profile_fetch_failed")

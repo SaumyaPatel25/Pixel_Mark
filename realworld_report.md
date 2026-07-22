@@ -1,4 +1,4 @@
-# PixelMark — Real-World Sites E2E Test Report
+# STAGE — Real-World Sites E2E Test Report
 
 | Test Case | Status | Observations / Notes |
 |-----------|--------|----------------------|

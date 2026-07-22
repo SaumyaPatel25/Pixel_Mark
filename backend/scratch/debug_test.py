@@ -17,7 +17,7 @@ async def override_get_db():
         yield session
 
 async def override_get_current_user():
-    return User(id="mock-shadow-user-id", email="shadow@pixelmark.dev", name="Shadow User")
+    return User(id="mock-shadow-user-id", email="shadow@stage.dev", name="Shadow User")
 
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user
@@ -31,7 +31,7 @@ async def run_debug():
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
-            email=f"phase4_qa_debug_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+            email=f"phase4_qa_debug_{uuid.uuid4().hex[:6]}@stage.dev",
             hashed_password="$argon2id$v=19$m=65536,t=3,p=4$...",
             name="Phase 4 Shadow QA Debug User"
         )
@@ -50,7 +50,7 @@ async def run_debug():
             id=project_id,
             org_id=org_id,
             name="Phase 4 WebComponents Project Debug",
-            url="https://opinvox.pixelmark.com"
+            url="https://opinvox.stage.com"
         )
         db.add(project)
         
@@ -72,7 +72,7 @@ async def run_debug():
             dom_payload = {
                 "session_id": session_id,
                 "title": "Main DOM Element Error",
-                "page_url": "https://opinvox.pixelmark.com/index",
+                "page_url": "https://opinvox.stage.com/index",
                 "page_title": "OpinVox Home",
                 "renderer_type": "dom",
                 "priority": "low"
@@ -86,7 +86,7 @@ async def run_debug():
             shadow_payload = {
                 "session_id": session_id,
                 "title": "Visual Shift inside Custom Shadow Element",
-                "page_url": "https://opinvox.pixelmark.com/arena/3d",
+                "page_url": "https://opinvox.stage.com/arena/3d",
                 "page_title": "Arena 3D Map",
                 "renderer_type": "shadow_dom",
                 "priority": "critical",

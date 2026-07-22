@@ -350,7 +350,7 @@ export function AuditSurface({
 
   useEffect(() => {
     const handleGlobalMessage = (e: MessageEvent) => {
-      if (e.data && e.data.type === 'PIXELMARK_TRIGGER_FRAME_CAPTURE_GLOBAL') {
+      if (e.data && e.data.type === 'STAGE_TRIGGER_FRAME_CAPTURE_GLOBAL') {
         handleCaptureFrame()
       }
     }
@@ -403,7 +403,7 @@ export function AuditSurface({
 
   useEffect(() => {
     if (actor && actor.id !== 'anon' && actor.id !== 'anon_dev') {
-      console.log(`PixelMark participant resolved [${actor.id}] [${actor.role}]`)
+      console.log(`STAGE participant resolved [${actor.id}] [${actor.role}]`)
     }
   }, [actor.id, actor.role])
 
@@ -479,7 +479,7 @@ export function AuditSurface({
       return
     }
 
-    console.log(`[PixelMark Recapture] triggering screenshot recapture for marker id=${markerId} mode=${screenshotMode}`)
+    console.log(`[STAGE Recapture] triggering screenshot recapture for marker id=${markerId} mode=${screenshotMode}`)
     needsRecaptureMap.current[markerId] = true
     setIsRecapturing(prev => ({ ...prev, [markerId]: true }))
 
@@ -510,7 +510,7 @@ export function AuditSurface({
       )
 
       if (res && res.dataUrl) {
-        console.log(`[PixelMark Recapture] recapture successful for marker id=${markerId}`)
+        console.log(`[STAGE Recapture] recapture successful for marker id=${markerId}`)
         await updateMarkerViaApi(markerId, { screenshot_url: res.dataUrl }, reviewerIdentity?.id)
         needsRecaptureMap.current[markerId] = false
 
@@ -522,7 +522,7 @@ export function AuditSurface({
         }
       }
     } catch (err: any) {
-      console.error('[PixelMark Recapture] recapture failed:', err)
+      console.error('[STAGE Recapture] recapture failed:', err)
     } finally {
       setIsRecapturing(prev => ({ ...prev, [markerId]: false }))
     }
@@ -625,7 +625,7 @@ export function AuditSurface({
     import('@/utils/captureOrchestrator').then(({ orchestrateScreenshot }) => {
       orchestrateScreenshot(sessionId, currentUrl, 'region', rect, shareToken, iframeRef.current).then((res) => {
         window.postMessage({
-          type: 'PIXELMARK_UPDATE_SCREENSHOT',
+          type: 'STAGE_UPDATE_SCREENSHOT',
           id: captureId,
           screenshotdataurl: res.dataUrl,
           screenshotsource: res.source,
@@ -723,10 +723,10 @@ export function AuditSurface({
         severity,
         tags,
       }
-      localStorage.setItem('pixelmark_current_draft_form', JSON.stringify(draftState))
+      localStorage.setItem('stage_current_draft_form', JSON.stringify(draftState))
       console.log('[OBSERVABILITY] [DRAFT_SAVED] Current open draft form autosaved')
     } else if (!selectedMarkerId) {
-      localStorage.removeItem('pixelmark_current_draft_form')
+      localStorage.removeItem('stage_current_draft_form')
     }
   }, [selectedMarkerId, issueTitle, noteText, issueType, severity, tags, isSubmitted, isResolved])
 
@@ -734,7 +734,7 @@ export function AuditSurface({
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem('pixelmark_current_draft_form')
+        const saved = localStorage.getItem('stage_current_draft_form')
         if (saved) {
           const parsed = JSON.parse(saved)
           if (parsed && parsed.activePinId) {
@@ -938,7 +938,7 @@ export function AuditSurface({
   const notifyAgent = useCallback((active: boolean) => {
     if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.postMessage(
-        { type: 'PIXELMARK_TOGGLE_MARKER_MODE', active },
+        { type: 'STAGE_TOGGLE_MARKER_MODE', active },
         '*'
       )
     }
@@ -948,7 +948,7 @@ export function AuditSurface({
   const notifyEditMode = useCallback((active: boolean) => {
     if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.postMessage(
-        { type: 'PIXELMARK_SET_EDIT_MODE', active },
+        { type: 'STAGE_SET_EDIT_MODE', active },
         '*'
       )
     }
@@ -964,7 +964,7 @@ export function AuditSurface({
 
     // 1. Live DOM Reversion via postMessage
     iframeRef.current?.contentWindow?.postMessage({
-      type: 'PIXELMARK_PREVIEW_STYLE_MUTATION',
+      type: 'STAGE_PREVIEW_STYLE_MUTATION',
       selector: action.selector,
       property: action.property,
       value: action.oldValue || ''
@@ -991,7 +991,7 @@ export function AuditSurface({
 
     // 1. Live DOM Re-application via postMessage
     iframeRef.current?.contentWindow?.postMessage({
-      type: 'PIXELMARK_PREVIEW_STYLE_MUTATION',
+      type: 'STAGE_PREVIEW_STYLE_MUTATION',
       selector: action.selector,
       property: action.property,
       value: action.newValue
@@ -1043,7 +1043,7 @@ export function AuditSurface({
   const handleResetSection = useCallback((selector: string, sectionProperties: string[]) => {
     // 1. Single batched live DOM reset via postMessage
     iframeRef.current?.contentWindow?.postMessage({
-      type: 'PIXELMARK_RESET_SECTION_STYLES',
+      type: 'STAGE_RESET_SECTION_STYLES',
       selector,
       sectionProperties
     }, '*')
@@ -1062,7 +1062,7 @@ export function AuditSurface({
   const handleResetElementAll = useCallback((selector: string) => {
     // 1. Single batched live DOM reset via postMessage
     iframeRef.current?.contentWindow?.postMessage({
-      type: 'PIXELMARK_RESET_ELEMENT_STYLES',
+      type: 'STAGE_RESET_ELEMENT_STYLES',
       selector
     }, '*')
 
@@ -1083,7 +1083,7 @@ export function AuditSurface({
     if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.postMessage(
         {
-          type: 'PIXELMARK_PREVIEW_STYLE_MUTATION',
+          type: 'STAGE_PREVIEW_STYLE_MUTATION',
           selector,
           property,
           value: valueStr
@@ -1161,14 +1161,14 @@ export function AuditSurface({
       if (!data || typeof data !== 'object') return
 
       switch (data.type) {
-        case 'PIXELMARK_EDIT_ELEMENT_SELECTED':
+        case 'STAGE_EDIT_ELEMENT_SELECTED':
           setSelectedEditElement({ tag: data.tag || '', selector: data.selector || '' })
           break
 
-        case 'PIXELMARK_EDIT_ELEMENT_DESELECTED':
+        case 'STAGE_EDIT_ELEMENT_DESELECTED':
           setSelectedEditElement(null)
           break
-        case 'PIXELMARK_PAGE_LOAD':
+        case 'STAGE_PAGE_LOAD':
           setCurrentUrl(data.url)
           setCurrentTitle(data.title || '')
           setScrollPos({ x: data.scrollX || 0, y: data.scrollY || 0 })
@@ -1183,16 +1183,16 @@ export function AuditSurface({
           if (onPageChanged) onPageChanged(data.url, data.title || '')
           break
 
-        case 'PIXELMARK_PERFORMANCE_UPDATE':
+        case 'STAGE_PERFORMANCE_UPDATE':
           setFps(data.fps)
           break
 
-        case 'PIXELMARK_RENDERER_CHANGED':
+        case 'STAGE_RENDERER_CHANGED':
           setRendererType(data.rendererType || 'dom')
           useSessionStore.getState().setRendererType(data.rendererType || 'dom')
           break
 
-        case 'PIXELMARK_RENDERER_DETECTED': {
+        case 'STAGE_RENDERER_DETECTED': {
           const rType = data.rendererType || data.renderer_type || 'dom'
           const hCanvas = data.hasCanvas !== undefined ? data.hasCanvas : !!data.has_canvas
           const cCount = data.canvasCount !== undefined ? data.canvasCount : Number(data.canvas_count || 0)
@@ -1242,7 +1242,7 @@ export function AuditSurface({
           break
         }
 
-        case 'PIXELMARK_NAV':
+        case 'STAGE_NAV':
           try {
             api.sessions.recordVisit(
               sessionId,
@@ -1266,18 +1266,18 @@ export function AuditSurface({
             })
             if (onPageChanged) onPageChanged(data.page_url, data.page_title || '')
           } catch (err) {
-            console.error('[AuditSurface] PIXELMARK_NAV failed:', err)
+            console.error('[AuditSurface] STAGE_NAV failed:', err)
           }
           break
 
-        case 'PIXELMARK_PAGE_UNLOAD':
+        case 'STAGE_PAGE_UNLOAD':
           setIsLoading(true)
           setIframeReady(false)
           setFailedAssets([])
           setScrollPos({ x: 0, y: 0 })
           break
 
-        case 'PIXELMARK_ASSET_ERROR':
+        case 'STAGE_ASSET_ERROR':
           if (data.url) {
             setFailedAssets(prev => {
               if (prev.some(a => a.url === data.url)) return prev
@@ -1286,7 +1286,7 @@ export function AuditSurface({
           }
           break
 
-        case 'PIXELMARK_ASSET_DEGRADED':
+        case 'STAGE_ASSET_DEGRADED':
           if (data.url) {
             setDegradedAssets(prev => {
               if (prev.some(a => a.url === data.url)) return prev
@@ -1296,8 +1296,8 @@ export function AuditSurface({
           break
 
         // ── Open feedback drawer — canonical handler (normalizes payload) ───
-        case 'PIXELMARKOPENFEEDBACKDRAWER':
-        case 'PIXELMARK_OPEN_FEEDBACK_DRAWER': {
+        case 'STAGEOPENFEEDBACKDRAWER':
+        case 'STAGE_OPEN_FEEDBACK_DRAWER': {
           const rawData = data.payload ? { ...data, ...data.payload } : data
           const normalized = normalizeCapturePayload(rawData, currentUrl, currentTitle)
 
@@ -1319,7 +1319,7 @@ export function AuditSurface({
           normalized.pageY = coords.pageY
 
           console.log(`[Markers] creating marker id=${normalized.id} x=${normalized.displayX} y=${normalized.displayY}`)
-          console.log(`[PixelMark Click Test] Click at known location:`, {
+          console.log(`[STAGE Click Test] Click at known location:`, {
             inputX: normalized.displayX,
             inputY: normalized.displayY,
             storedPageX: normalized.pageX,
@@ -1423,7 +1423,7 @@ export function AuditSurface({
                       updateMarkerViaApi(markerId, { screenshot_url: res.dataUrl }, reviewerIdentity?.id)
                     })
                     .catch((err) => {
-                      console.error('[PixelMark Screenshot] background capture failed:', err);
+                      console.error('[STAGE Screenshot] background capture failed:', err);
                       const fallbackPng = createDetailedPlaceholderScreenshot({
                         url: pageUrl,
                         title: normalized.pageTitle || currentTitle,
@@ -1437,7 +1437,7 @@ export function AuditSurface({
                       updateMarkerViaApi(markerId, { screenshot_url: fallbackPng }, reviewerIdentity?.id)
                     });
                 }).catch((err) => {
-                  console.error('[PixelMark Screenshot] failed to import orchestrator:', err);
+                  console.error('[STAGE Screenshot] failed to import orchestrator:', err);
                 });
               };
 
@@ -1456,7 +1456,7 @@ export function AuditSurface({
           break
         }
 
-        case 'PIXELMARK_CREATE_MARKER': {
+        case 'STAGE_CREATE_MARKER': {
           if (isReviewerGateOpen) return
           if (!!shareToken && !reviewerIdentity) {
             console.warn('[AuditSurface] Cannot create marker without reviewer identity')
@@ -1504,7 +1504,7 @@ export function AuditSurface({
           break
         }
 
-        case 'PIXELMARK_UPDATE_SCREENSHOT': {
+        case 'STAGE_UPDATE_SCREENSHOT': {
           if (data.id) {
             setIsRecapturing(prev => ({ ...prev, [data.id]: false }))
             const existing = useMarkerStore.getState().markersById[data.id]
@@ -1525,16 +1525,16 @@ export function AuditSurface({
           break
         }
 
-        case 'PIXELMARK_SCROLL':
+        case 'STAGE_SCROLL':
           setScrollPos({ x: data.scrollX || 0, y: data.scrollY || 0 })
           break
 
-        case 'PIXELMARK_RESIZE':
-          console.log(`[PixelMark Frame] Resize event: ${data.width}x${data.height}`)
+        case 'STAGE_RESIZE':
+          console.log(`[STAGE Frame] Resize event: ${data.width}x${data.height}`)
           break
 
-        case 'PIXELMARK_PINS_RESOLVED': {
-          console.log(`[PixelMark Pin] recomputed ${data.resolvedPins?.length} markers`)
+        case 'STAGE_PINS_RESOLVED': {
+          console.log(`[STAGE Pin] recomputed ${data.resolvedPins?.length} markers`)
           
           data.resolvedPins?.forEach((p: any) => {
             if (needsRecaptureMap.current[p.id]) {
@@ -1560,12 +1560,12 @@ export function AuditSurface({
           break
         }
 
-        case 'PIXELMARK_UNDO_LAST':
+        case 'STAGE_UNDO_LAST':
           console.log('Undo not supported in canonical marker store')
           break
 
         // ── Open specific existing capture ────────────────────────────────
-        case 'PIXELMARK_OPEN_CAPTURE': {
+        case 'STAGE_OPEN_CAPTURE': {
           if (data.id) {
             if (data.pageUrl && data.pageUrl !== currentUrl) {
               handleSelectPage(data.pageUrl)
@@ -1576,7 +1576,7 @@ export function AuditSurface({
           break
         }
 
-        case 'PIXELMARK_DOM_EDIT_SAVE': {
+        case 'STAGE_DOM_EDIT_SAVE': {
           const { selector, xpath, property, old_value, new_value, element_tag, element_text, page_url } = data
           createEdit(sessionId, {
             session_id: sessionId,
@@ -1608,17 +1608,17 @@ export function AuditSurface({
       const customEvent = e as CustomEvent
       const payload = customEvent.detail
       if (payload && payload.id) {
-        console.log(`[PixelMark Pins] CustomEvent PIXELMARKOPENFEEDBACKDRAWER received for id=${payload.id}`)
+        console.log(`[STAGE Pins] CustomEvent STAGEOPENFEEDBACKDRAWER received for id=${payload.id}`)
         selectMarker(payload.id)
         setIsDrawerOpen(true)
         useUIStore.getState().toggleCommandCenter(true)
       }
     }
-    window.addEventListener('PIXELMARKOPENFEEDBACKDRAWER', handleCustomOpen)
+    window.addEventListener('STAGEOPENFEEDBACKDRAWER', handleCustomOpen)
 
     return () => {
       window.removeEventListener('message', handleAgentMessage)
-      window.removeEventListener('PIXELMARKOPENFEEDBACKDRAWER', handleCustomOpen)
+      window.removeEventListener('STAGEOPENFEEDBACKDRAWER', handleCustomOpen)
     }
   }, [sessionId, projectId, shareToken, onMarkerCreated, onPageChanged, openFeedbackDrawer, currentUrl, handleSelectPage, reviewerIdentity])
 
@@ -1647,7 +1647,7 @@ export function AuditSurface({
       })
 
       iframeRef.current?.contentWindow?.postMessage({
-        type: 'PIXELMARK_REPLAY_EDITS',
+        type: 'STAGE_REPLAY_EDITS',
         edits: filteredEdits
       }, '*')
     })
@@ -1685,9 +1685,9 @@ export function AuditSurface({
 
     const pins = JSON.parse(pinsSignature)
 
-    console.log(`[PixelMark Pin] tracking ${pins.length} pins`)
+    console.log(`[STAGE Pin] tracking ${pins.length} pins`)
     iframeRef.current.contentWindow.postMessage({
-      type: 'PIXELMARK_TRACK_PINS',
+      type: 'STAGE_TRACK_PINS',
       pins
     }, '*')
   }, [pinsSignature, currentUrl, isLoading])
@@ -1715,25 +1715,25 @@ export function AuditSurface({
 
   // ─── Cursor relay: forward cursor coords to iframe so cursor-reactive
   //     backgrounds (spotlight/glow/WebGL mouse effects) keep working when
-  //     the PixelMark overlay captures pointer events in feedback mode.
+  //     the STAGE overlay captures pointer events in feedback mode.
   //
-  //  • When feedback mode is OFF the parent echoes PIXELMARK_IFRAME_MOUSEMOVE
-  //    messages (sent by the agent) straight back as PIXELMARK_CURSOR_MOVE so
+  //  • When feedback mode is OFF the parent echoes STAGE_IFRAME_MOUSEMOVE
+  //    messages (sent by the agent) straight back as STAGE_CURSOR_MOVE so
   //    the relay loop is self-sustaining while the pointer is inside the iframe.
   //  • When feedback mode is ON the manual overlay's onMouseMove (see below)
-  //    sends PIXELMARK_CURSOR_MOVE directly, keeping effects live even though
+  //    sends STAGE_CURSOR_MOVE directly, keeping effects live even though
   //    the overlay intercepts native pointer events.
   useEffect(() => {
     const handleIframeMouseMove = (event: MessageEvent) => {
       const data = event.data
-      if (!data || data.type !== 'PIXELMARK_IFRAME_MOUSEMOVE') return
+      if (!data || data.type !== 'STAGE_IFRAME_MOUSEMOVE') return
       // Echo back to iframe only when feedback mode is OFF — in that case the
       // parent overlay is NOT intercepting events so no relay is needed for native
       // events, but we still forward to keep WebGL global-state cursors updated.
       if (feedbackModeActive) return
       if (iframeRef.current?.contentWindow) {
         iframeRef.current.contentWindow.postMessage(
-          { type: 'PIXELMARK_CURSOR_MOVE', x: data.x, y: data.y },
+          { type: 'STAGE_CURSOR_MOVE', x: data.x, y: data.y },
           '*'
         )
       }
@@ -1759,7 +1759,7 @@ export function AuditSurface({
   const handleCaptureFrame = () => {
     if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.postMessage(
-        { type: 'PIXELMARK_TRIGGER_FRAME_CAPTURE' },
+        { type: 'STAGE_TRIGGER_FRAME_CAPTURE' },
         '*'
       )
     }
@@ -1842,7 +1842,7 @@ export function AuditSurface({
     // intercepting pointer events in feedback / manual-placement mode.
     if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.postMessage(
-        { type: 'PIXELMARK_CURSOR_MOVE', x: localX, y: localY },
+        { type: 'STAGE_CURSOR_MOVE', x: localX, y: localY },
         '*'
       )
     }
@@ -1887,7 +1887,7 @@ export function AuditSurface({
           renderer_type: rendererType,
           screenshot_url: annotatedScreenshotUrl || captureCtx.screenshot_data_url || null
         }
-        console.log('[PixelMark Submit] creating new canonical marker:', newPayload)
+        console.log('[STAGE Submit] creating new canonical marker:', newPayload)
         resolvedMarker = await createMarkerViaApi(sessionId, newPayload, reviewerIdentity?.id)
         console.log('[OBSERVABILITY] [MARKER_CREATED] Marker successfully created on backend. ID =', resolvedMarker.id)
       } else {
@@ -1898,7 +1898,7 @@ export function AuditSurface({
           status: statusVal,
           screenshot_url: annotatedScreenshotUrl || activeMarker?.screenshot_url || null
         }
-        console.log('[PixelMark Submit] updating canonical marker:', activeId, patch)
+        console.log('[STAGE Submit] updating canonical marker:', activeId, patch)
         resolvedMarker = await updateMarkerViaApi(activeId, patch, reviewerIdentity?.id)
         console.log('[OBSERVABILITY] [MARKER_UPDATED] Marker successfully updated on backend. ID =', resolvedMarker.id)
       }

@@ -30,7 +30,7 @@ def run_test():
         print("📸 Saved 01_register_page.png", flush=True)
         
         # Fill register form
-        email_addr = f"webgl_test_auditor_{int(time.time())}@pixelmark.dev"
+        email_addr = f"webgl_test_auditor_{int(time.time())}@stage.dev"
         try:
             print(f"✍️ Filling out registration form for {email_addr}...", flush=True)
             page.fill("input[placeholder='Pro Bro']", "WebGL Auditor")

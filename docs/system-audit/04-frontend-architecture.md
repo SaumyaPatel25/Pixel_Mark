@@ -1,6 +1,6 @@
 # 04 Frontend Architecture
 
-This document describes the structure and state of the PixelMark frontend.
+This document describes the structure and state of the STAGE frontend.
 
 ## Next.js App Router Structure
 - **Framework:** Next.js (App Router, `src/app/`)
@@ -13,10 +13,10 @@ This document describes the structure and state of the PixelMark frontend.
 ## App Layouts & Auth Guarding
 - **Edge Middleware (`src/middleware.ts`):** 
   - Enforces route protection natively at the Edge.
-  - Checks for the presence of the `pm_token` cookie.
+  - Checks for the presence of the `stagetoken` cookie.
   - Protects: `/projects`, `/project`, `/dashboard`, `/settings`, `/sessions`.
   - Redirects authenticated users away from `/login` and `/signup` to `/projects`.
-- **Client Auth:** The frontend predominantly relies on checking `localStorage.getItem('pm_token')` manually in client components (`'use client'`).
+- **Client Auth:** The frontend predominantly relies on checking `localStorage.getItem('stagetoken')` manually in client components (`'use client'`).
 
 ## State & API Architecture
 - **API Client (`src/lib/api.ts`):**
@@ -28,7 +28,7 @@ This document describes the structure and state of the PixelMark frontend.
   - Zustand is intended to be used for global state (e.g., marker data, UI toggles).
 
 ## WebSocket Subscription Model
-- The frontend connects to the FastAPI websocket route (e.g., `wss://pixelmark-production.up.railway.app/websocket/...`).
+- The frontend connects to the FastAPI websocket route (e.g., `wss://stage-production.up.railway.app/websocket/...`).
 - Client-side hooks manage reconnection logic and parse incoming JSON broadcast messages to update marker positions and statuses in real-time.
 
 ## Areas of Shell-only UI

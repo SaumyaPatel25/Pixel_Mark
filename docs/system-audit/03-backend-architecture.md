@@ -1,6 +1,6 @@
 # 03 Backend Architecture
 
-This document describes the current architecture of the PixelMark backend.
+This document describes the current architecture of the STAGE backend.
 
 ## Backend Entrypoint
 - **File:** `backend/main.py`

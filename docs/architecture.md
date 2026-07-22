@@ -1,7 +1,7 @@
 # System Architecture
 
 ## 1. Technical Architecture Stack
-PixelMark is partitioned into a decoupled frontend client app and a Python backend server.
+STAGE is partitioned into a decoupled frontend client app and a Python backend server.
 
 ```mermaid
 graph LR
@@ -48,7 +48,7 @@ The backend is a **FastAPI** web framework running on **Uvicorn**.
 ---
 
 ## 4. Authentication and Authorization Flow
-Reviewers use secure query-string tokens (`share_token`), whereas developers authenticate using Firebase identity verification synchronized with the PixelMark backend.
+Reviewers use secure query-string tokens (`share_token`), whereas developers authenticate using Firebase identity verification synchronized with the STAGE backend.
 
 ```mermaid
 sequenceDiagram
@@ -75,13 +75,13 @@ sequenceDiagram
     Auth->>Auth: REST accounts:lookup call to Google Identity API
     Auth->>DB: Upsert User profile & link UserIdentity
     DB-->>Auth: Saved User record
-    Auth->>Auth: Sign PixelMark Access Token (JWT HS256)
+    Auth->>Auth: Sign STAGE Access Token (JWT HS256)
     Auth-->>App: Access Token + User Details
-    App->>App: Write Cookie (pm_token) & Store State
+    App->>App: Write Cookie (stagetoken) & Store State
     App->>User: Redirect to Dashboard
 ```
 
-- **Firebase Sync**: The client receives a Firebase ID Token, which is sent to the backend `/auth/firebase-sync` endpoint. The backend validates it securely via REST and upserts the `User` and `UserIdentity` records before issuing a standard `pm_token` session token.
+- **Firebase Sync**: The client receives a Firebase ID Token, which is sent to the backend `/auth/firebase-sync` endpoint. The backend validates it securely via REST and upserts the `User` and `UserIdentity` records before issuing a standard `stagetoken` session token.
 - **API Key Flow**: If the header token prefix is `pm_`, the system hashes the key (`services.crypto.hash_token`) and validates it against `api_keys` in the database.
 - **Role Scoping**: Access is gated using `require_role(minimum_role)` dependencies, matching Guest, Member, Admin, and Owner to membership schemas.
 
@@ -118,7 +118,7 @@ graph TD
 ---
 
 ## 6. Realtime Synchronization Topology
-PixelMark utilizes **Redis Pub/Sub** to link multiple instances horizontally.
+STAGE utilizes **Redis Pub/Sub** to link multiple instances horizontally.
 
 ```mermaid
 graph TD

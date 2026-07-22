@@ -51,7 +51,7 @@ def override_dependencies():
     app.dependency_overrides.clear()
 
 MOCK_USER_ID = str(uuid.uuid4())
-MOCK_USER_EMAIL = "dev@pixelmark.dev"
+MOCK_USER_EMAIL = "dev@stage.dev"
 MOCK_ORG_ID = str(uuid.uuid4())
 MOCK_PROJECT_ID = str(uuid.uuid4())
 MOCK_SESSION_ID = str(uuid.uuid4())
@@ -68,7 +68,7 @@ async def setup_db():
         org = Organization(id=MOCK_ORG_ID, name="My Org", slug="my-org")
         session.add(org)
         
-        proj = Project(id=MOCK_PROJECT_ID, org_id=MOCK_ORG_ID, name="My Proj", url="https://pixelmark.dev")
+        proj = Project(id=MOCK_PROJECT_ID, org_id=MOCK_ORG_ID, name="My Proj", url="https://stage.dev")
         session.add(proj)
         
         sess = DbSession(id=MOCK_SESSION_ID, project_id=MOCK_PROJECT_ID, title="Session 1")

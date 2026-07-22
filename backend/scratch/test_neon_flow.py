@@ -5,7 +5,7 @@ import sys
 BASE_URL = "http://localhost:8765"
 
 def test_integration():
-    email = f"tester_{random.randint(1000, 9999)}@pixelmark.dev"
+    email = f"tester_{random.randint(1000, 9999)}@stage.dev"
     password = "SecurePassword123"
     name = "Neon QA Tester"
 
@@ -44,7 +44,7 @@ def test_integration():
 
     # 4. Create Project
     print("\n--- Phase 4: Creating Project ---")
-    r = client.post("/projects/", headers=headers, json={"name": "Neon Test Project", "url": "https://pixelmark.dev"})
+    r = client.post("/projects/", headers=headers, json={"name": "Neon Test Project", "url": "https://stage.dev"})
     print(f"Create project status: {r.status_code}")
     print(f"Create project response: {r.text}")
     assert r.status_code == 200, "Project creation failed"
@@ -72,7 +72,7 @@ def test_integration():
         "session_id": session_id,
         "title": "Broken CSS Button Alignment",
         "description": "The login button is shifted to the left by 10px on small screens.",
-        "url": "https://pixelmark.dev/login",
+        "url": "https://stage.dev/login",
         "xpath": "//button[@id='login']",
         "css_selector": "#login",
         "inner_text": "Sign In",

@@ -35,15 +35,15 @@ export default function GettingStartedPage() {
   const faqs = [
     {
       q: 'Why is my target website not loading in the review frame?',
-      a: 'Some websites send "X-Frame-Options: DENY" or "Content-Security-Policy: frame-ancestors" headers, which block them from being loaded inside an iframe. PixelMark uses a secure diagnostic proxy to bypass these, but if it fails, make sure your dev server is active and accessible.'
+      a: 'Some websites send "X-Frame-Options: DENY" or "Content-Security-Policy: frame-ancestors" headers, which block them from being loaded inside an iframe. STAGE uses a secure diagnostic proxy to bypass these, but if it fails, make sure your dev server is active and accessible.'
     },
     {
-      q: 'Do my clients/reviewers need to sign up for PixelMark?',
+      q: 'Do my clients/reviewers need to sign up for STAGE?',
       a: 'No! Reviewers do not need an account or password to leave feedback. When you generate a secure review link, they can click it, enter their display name (for marker identification), and immediately start pinning feedback.'
     },
     {
       q: 'How does live synchronization work?',
-      a: 'PixelMark uses real-time WebSockets. When a developer or reviewer places a pin or replies to a comment, it instantly syncs across all open browsers. You don\'t need to refresh the page to see new observations.'
+      a: 'STAGE uses real-time WebSockets. When a developer or reviewer places a pin or replies to a comment, it instantly syncs across all open browsers. You don\'t need to refresh the page to see new observations.'
     },
     {
       q: 'What is the diagnostic support panel?',
@@ -83,7 +83,7 @@ export default function GettingStartedPage() {
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-pm-accent-subtle border border-pm-border text-[10px] font-black text-pm-accent uppercase tracking-widest"
         >
           <Sparkles className="w-3.5 h-3.5" />
-          PixelMark Guided Center
+          STAGE Guided Center
         </motion.div>
         
         <motion.h2 
@@ -153,7 +153,7 @@ export default function GettingStartedPage() {
                   <div className="space-y-6">
                     {[
                       { step: '01', title: 'Create a Project & Add URL', desc: 'Initialize a project and define the target URL you want to audit (e.g. staging or dev environment).' },
-                      { step: '02', title: 'Launch Audit Canvas', desc: 'Enter the review session. PixelMark secures your site inside our canvas, injecting visual QA hooks.' },
+                      { step: '02', title: 'Launch Audit Canvas', desc: 'Enter the review session. STAGE secures your site inside our canvas, injecting visual QA hooks.' },
                       { step: '03', title: 'Pin Issues and Bugs', desc: 'Click any visual element to report layout bugs, edit copies, or log rendering errors automatically.' },
                       { step: '04', title: 'Generate Review Links', desc: 'Copy a secure share link to invite reviewers or clients to view observations or drop their own comments.' }
                     ].map((step, idx) => (
@@ -268,7 +268,7 @@ export default function GettingStartedPage() {
                   
                   <div className="space-y-6">
                     {[
-                      { step: '01', title: 'Open the Review Link', desc: 'Click the secure PixelMark review link shared by your developer. No registration is required.' },
+                      { step: '01', title: 'Open the Review Link', desc: 'Click the secure STAGE review link shared by your developer. No registration is required.' },
                       { step: '02', title: 'Enter Your Display Name', desc: 'Choose a name so developers can identify who left each comment. Pick a signature marker color.' },
                       { step: '03', title: 'Double Click to Pin Feedback', desc: 'See something that needs fixing? Click "Leave Feedback", then click directly on the canvas to place a pin.' },
                       { step: '04', title: 'Review & Confirm Comments', desc: 'Submit observations. You can edit your comments, attach screenshots, or review tags left by others in real-time.' }

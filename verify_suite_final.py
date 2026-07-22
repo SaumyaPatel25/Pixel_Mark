@@ -141,7 +141,7 @@ class E2EVerifier:
 
             # 1. Register QA user
             timestamp = int(time.time())
-            test_email = f"qa_verifier_{timestamp}@pixelmark.com"
+            test_email = f"qa_verifier_{timestamp}@stage.com"
             test_password = "Password123!"
             
             print(f"--- Creating owner account: {test_email} ---")
@@ -466,7 +466,7 @@ class E2EVerifier:
             browser.close()
 
     def generate_report(self):
-        report_path = "C:/Users/saumy/OneDrive/Desktop/Entrext/pixelmark_site_verification_report.md"
+        report_path = "C:/Users/saumy/OneDrive/Desktop/Entrext/stage_site_verification_report.md"
         
         total_pass = sum(1 for s in self.results.values() if s["status"] == "PASS")
         total_warn = sum(1 for s in self.results.values() if s["status"] == "PASS WITH WARNINGS")
@@ -497,7 +497,7 @@ class E2EVerifier:
             top_systemic.append("N/A")
 
         with open(report_path, "w", encoding="utf-8") as f:
-            f.write("# PixelMark Browser E2E Verification Report\n\n")
+            f.write("# STAGE Browser E2E Verification Report\n\n")
             f.write(f"**Execution Timestamp**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %z')}\n")
             f.write(f"**Environment**: Local (Next.js @ http://localhost:3000, FastAPI @ http://localhost:8765)\n\n")
             

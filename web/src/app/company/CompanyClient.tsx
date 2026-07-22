@@ -49,7 +49,7 @@ export default function CompanyClient() {
     e.preventDefault();
 
     const recipient = 'saumyavishwam@gmail.com';
-    const subject = encodeURIComponent(`PixelMark Inquiry - ${formData.name} (${formData.role})`);
+    const subject = encodeURIComponent(`STAGE Inquiry - ${formData.name} (${formData.role})`);
     
     const bodyText = `Name: ${formData.name}
 Email: ${formData.email}
@@ -89,16 +89,16 @@ ${formData.message}`;
   // FAQ Items - Rich in search terms for SEO
   const faqItems = [
     {
-      q: 'What is PixelMark and how does it help website review?',
-      a: 'PixelMark is a visual website feedback and QA bug reporting platform. It allows users to create secure review sessions on live web pages where team members and clients can pin annotations, share mockups, and review website changes in real-time, drastically reducing visual iteration cycles.'
+      q: 'What is STAGE and how does it help website review?',
+      a: 'STAGE is a visual website feedback and QA bug reporting platform. It allows users to create secure review sessions on live web pages where team members and clients can pin annotations, share mockups, and review website changes in real-time, drastically reducing visual iteration cycles.'
     },
     {
       q: 'How does the collaborative visual feedback layer work?',
-      a: 'PixelMark overlays a lightweight interaction layer over your target website. Reviewers can click directly on any element to leave comment pins. This visual feedback captures precise DOM coordinates, device details, and viewport sizes, presenting it inside a structured review session.'
+      a: 'STAGE overlays a lightweight interaction layer over your target website. Reviewers can click directly on any element to leave comment pins. This visual feedback captures precise DOM coordinates, device details, and viewport sizes, presenting it inside a structured review session.'
     },
     {
-      q: 'Can I use PixelMark for client reviews and website sign-offs?',
-      a: 'Yes, PixelMark is built specifically for agencies, designers, and developer teams who need clear client approvals. You can generate secure, shareable client review links that do not require your clients to install extensions or log in to leave annotations.'
+      q: 'Can I use STAGE for client reviews and website sign-offs?',
+      a: 'Yes, STAGE is built specifically for agencies, designers, and developer teams who need clear client approvals. You can generate secure, shareable client review links that do not require your clients to install extensions or log in to leave annotations.'
     }
   ];
 
@@ -122,7 +122,7 @@ ${formData.message}`;
               Entrext Labs presents
             </span>
             <h1 className="font-display font-extrabold text-4xl md:text-6xl tracking-tight text-[#1D264F] max-w-4xl mx-auto leading-[1.1]">
-              About PixelMark &amp; the Future of Visual Collaboration
+              About STAGE &amp; the Future of Visual Collaboration
             </h1>
             <p className="text-base md:text-lg text-pm-muted max-w-2xl mx-auto font-sans leading-relaxed">
               We build precise, lightweight tools that bridge the gap between design revisions and codebase deployment. Making website review simple, fast, and collaborative.
@@ -160,7 +160,7 @@ ${formData.message}`;
             <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-4">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80]">Origin Narrative</span>
               <h2 className="font-display font-extrabold text-3xl tracking-tight text-[#1D264F]">
-                How PixelMark Started
+                How STAGE Started
               </h2>
               <p className="text-xs text-pm-muted font-mono leading-relaxed">
                 The journey from fragmented screenshots to a precise visual collaboration layer.
@@ -175,7 +175,7 @@ ${formData.message}`;
                 "The core insight was simple: why capture static mockups when the feedback belongs directly on the live DOM of the web page?"
               </p>
               <p>
-                PixelMark was born to resolve this disconnect. Instead of static mockups or complex setup pipelines, PixelMark lets product teams instantly launch a secure review session. Anyone can click, point, and leave a visual feedback pin directly on the live website. It captures element-level context, screen size, and system metadata automatically.
+                STAGE was born to resolve this disconnect. Instead of static mockups or complex setup pipelines, STAGE lets product teams instantly launch a secure review session. Anyone can click, point, and leave a visual feedback pin directly on the live website. It captures element-level context, screen size, and system metadata automatically.
               </p>
               <p>
                 Today, the platform is crafted and maintained by a **solo developer** focused on stability, layout safety, and visual speed. By removing organizational overhead, we ensure every update is designed with strict performance guidelines.
@@ -192,7 +192,7 @@ ${formData.message}`;
           <div className="space-y-4 mb-12">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80]">Platform Principles</span>
             <h2 className="font-display font-extrabold text-3xl tracking-tight text-[#1D264F]">
-              The PixelMark Philosophy
+              The STAGE Philosophy
             </h2>
           </div>
           
@@ -290,7 +290,7 @@ ${formData.message}`;
               </div>
 
               <h2 className="font-display font-extrabold text-3xl tracking-tight text-[#1D264F]">
-                Careers at PixelMark
+                Careers at STAGE
               </h2>
               <p className="text-xs text-pm-muted leading-relaxed font-sans">
                 We believe in strict focus, visual craftsmanship, and minimal team structures.
@@ -301,7 +301,7 @@ ${formData.message}`;
               <div className="space-y-4">
                 <h3 className="font-display font-bold text-lg text-[#1D264F]">Current Team Model</h3>
                 <p className="text-xs text-pm-muted leading-relaxed font-sans">
-                  PixelMark is currently designed, built, and optimized by a **solo developer**. We focus heavily on keeping the development lifecycle efficient, the product lightweight, and features deeply validated.
+                  STAGE is currently designed, built, and optimized by a **solo developer**. We focus heavily on keeping the development lifecycle efficient, the product lightweight, and features deeply validated.
                 </p>
               </div>
 
@@ -432,7 +432,7 @@ ${formData.message}`;
           <div className="space-y-4 mb-10 text-center">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80]">Inquire &amp; Connect</span>
             <h2 className="font-display font-extrabold text-3xl tracking-tight text-[#1D264F]">
-              Connect with PixelMark
+              Connect with STAGE
             </h2>
             <p className="text-xs text-pm-muted leading-relaxed max-w-md mx-auto font-sans">
               Have questions, investment proposals, or feedback? Send us a message and it will compile into your mail application.

@@ -113,10 +113,10 @@ class E2EVerifier:
             page.on("response", handle_response)
 
             # -----------------------------------------------------------------
-            # 1. REGISTER NEW USER (pixelmark credentials flow)
+            # 1. REGISTER NEW USER (stage credentials flow)
             # -----------------------------------------------------------------
             timestamp = int(time.time())
-            test_email = f"qa_tester_{timestamp}@pixelmark.com"
+            test_email = f"qa_tester_{timestamp}@stage.com"
             test_password = "Password123!"
             
             try:
@@ -403,7 +403,7 @@ class E2EVerifier:
             browser.close()
 
     def generate_report(self):
-        report_path = "C:/Users/saumy/OneDrive/Desktop/Entrext/pixelmark_site_verification_report.md"
+        report_path = "C:/Users/saumy/OneDrive/Desktop/Entrext/stage_site_verification_report.md"
         
         # Analyze collected issues
         hydration_issues_count = len(self.hydration_warnings)
@@ -424,7 +424,7 @@ class E2EVerifier:
                 site_statuses[site] = "FAIL"
 
         with open(report_path, "w", encoding="utf-8") as f:
-            f.write("# PixelMark Browser E2E Verification Report\n\n")
+            f.write("# STAGE Browser E2E Verification Report\n\n")
             f.write(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
             
             f.write("## 1. Executive Summary\n")

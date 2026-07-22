@@ -19,7 +19,7 @@ class SecretFilter(logging.Filter):
         return True
 
 def setup_logger():
-    logger = logging.getLogger("pixelmark")
+    logger = logging.getLogger("stage")
     logger.setLevel(logging.INFO)
     
     handler = logging.StreamHandler(sys.stdout)

@@ -1,7 +1,7 @@
-# PixelMark Production Test Plan
+# STAGE Production Test Plan
 
 ## Scope
-This document is a production-grade end-to-end test suite for PixelMark covering backend APIs, frontend user actions, and shared state across both layers.
+This document is a production-grade end-to-end test suite for STAGE covering backend APIs, frontend user actions, and shared state across both layers.
 
 ## Coverage Summary
 

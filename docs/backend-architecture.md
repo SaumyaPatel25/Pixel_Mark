@@ -44,7 +44,7 @@ The FastAPI backend follows a clean layering model separating HTTP routes, busin
 The proxy engine interceptor is implemented as a custom HTTP middleware (`proxy_fallback_middleware` in `main.py`).
 - **Reserved Prefix Routing**: If a path starts with reserved routes (e.g. `/auth`, `/projects`, `/sessions`, `/markers`), it forwards directly to the routers.
 - **Unreserved Path Fallback**:
-  - Resolves `session_id` using the request `Referer` header matching `/proxy/session/([a-f0-9\-]{36})`. If missing, it extracts it from the `pixelmark_session_id` cookie, and finally falls back to mapping the client's host IP in `ACTIVE_IP_SESSIONS`.
+  - Resolves `session_id` using the request `Referer` header matching `/proxy/session/([a-f0-9\-]{36})`. If missing, it extracts it from the `stagesessionid` cookie, and finally falls back to mapping the client's host IP in `ACTIVE_IP_SESSIONS`.
   - Queries the project's base URL domain.
   - Passes the target domain through the SSRF safeguard (`is_ssrf_safe`) and checks domain-scoping constraints (`is_domain_allowed`).
   - Fetches the site. If HTML is returned, it rewrites relative URLs, injects cookies, and rewrites Next.js RSC requests. Non-HTML assets are cached locally.
@@ -54,7 +54,7 @@ The proxy engine interceptor is implemented as a custom HTTP middleware (`proxy_
 ---
 
 ## 4. Realtime Synchronization Architecture
-PixelMark coordinates collaboration using a combination of WebSockets and **Redis Pub/Sub**:
+STAGE coordinates collaboration using a combination of WebSockets and **Redis Pub/Sub**:
 - **Socket Routes**: `/ws/sessions/{session_id}` and `/ws/session/{session_id}` (legacy).
 - **Manager**: `realtime_manager` (`backend/realtime/connection_manager.py`) tracks active connections locally.
 - **Redis Broadcaster (`backend/realtime/redis_broadcaster.py`)**:

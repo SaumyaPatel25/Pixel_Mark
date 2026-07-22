@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="font-black text-2xl tracking-tighter bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">PixelMark</span>
+          <span className="font-black text-2xl tracking-tighter bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">STAGE</span>
         </div>
 
         {status === 'success' ? (

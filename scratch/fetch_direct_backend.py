@@ -2,7 +2,7 @@ import httpx
 
 def main():
     session_id = "6ba1f9ed-13e7-4056-a54c-c101bdeefc3e"
-    url = f"https://pixelmark-production.up.railway.app/proxy/session/{session_id}"
+    url = f"https://stage-production.up.railway.app/proxy/session/{session_id}"
     print(f"Fetching from {url}...")
     headers = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
     resp = httpx.get(url, headers=headers, follow_redirects=True)

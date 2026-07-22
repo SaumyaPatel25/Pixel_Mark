@@ -1,11 +1,11 @@
 # Business Logic and Rules
 
-This document outlines the validation rules, security gates, anchor specifications, and permission matrices that govern the PixelMark workspace.
+This document outlines the validation rules, security gates, anchor specifications, and permission matrices that govern the STAGE workspace.
 
 ---
 
 ## 1. Permission and Role Authorization Matrix
-PixelMark secures resources using membership roles inside organizations. In addition, review sessions support token-based URL access (`share_token`).
+STAGE secures resources using membership roles inside organizations. In addition, review sessions support token-based URL access (`share_token`).
 
 | Action | Developer (Owner/Admin) | Reviewer (Auth Token) | Anonymous Client | Code Reference |
 | --- | --- | --- | --- | --- |

@@ -1,9 +1,9 @@
 # System Overview
 
 ## 1. What the Product Does
-PixelMark is a visual QA and collaboration suite designed to simplify website audits. Instead of taking manual screenshots and typing descriptive reports, developers can load target sites inside PixelMark. 
+STAGE is a visual QA and collaboration suite designed to simplify website audits. Instead of taking manual screenshots and typing descriptive reports, developers can load target sites inside STAGE. 
 
-PixelMark launches a sandboxed proxy runner that acts as a secure intermediary, stripping blocking security headers (like frame options) and rewriting URLs. Reviewers and clients can then view the target site directly inside an overlay, point and click anywhere (DOM nodes, HTML5 Canvas, WebGL scenes) to drop pins, write feedback, annotate screenshots, record DOM style modifications, and sync with developers in real time.
+STAGE launches a sandboxed proxy runner that acts as a secure intermediary, stripping blocking security headers (like frame options) and rewriting URLs. Reviewers and clients can then view the target site directly inside an overlay, point and click anywhere (DOM nodes, HTML5 Canvas, WebGL scenes) to drop pins, write feedback, annotate screenshots, record DOM style modifications, and sync with developers in real time.
 
 ---
 
@@ -18,8 +18,8 @@ PixelMark launches a sandboxed proxy runner that acts as a secure intermediary, 
 ---
 
 ## 3. High-Level Architectural Style
-PixelMark follows a **hybrid Client-Server and Event-Driven Realtime** architectural style:
-1. **Proxy-based Sandboxing**: Fallback middleware intercepts HTTP traffic and rewrites it dynamically, allowing third-party sites to run cleanly inside PixelMark's iframe overlays without header violations.
+STAGE follows a **hybrid Client-Server and Event-Driven Realtime** architectural style:
+1. **Proxy-based Sandboxing**: Fallback middleware intercepts HTTP traffic and rewrites it dynamically, allowing third-party sites to run cleanly inside STAGE's iframe overlays without header violations.
 2. **REST API**: Standard CRUD operations (auth, project creation, keys management) are handled via FastAPI routes.
 3. **WebSockets + Redis Pub/Sub**: Real-time cursor coordinates and marker mutations are broadcasted across server instances using a Redis Pub/Sub backbone, scaling horizontally. If Redis is unavailable, it gracefully falls back to local single-instance WebSocket broadcasting.
 
@@ -62,5 +62,5 @@ graph TD
 - Real-time connection management and Redis Pub/Sub loops (`backend/realtime/connection_manager.py`, `backend/realtime/redis_broadcaster.py`).
 
 ### INFERRED
-- Local E2E testing using local SQLite databases (`backend/test.db` / `backend/pixelmark.db`).
+- Local E2E testing using local SQLite databases (`backend/test.db` / `backend/stage.db`).
 - Build pipeline assumptions via `nixpacks.toml` and `railway.toml`.

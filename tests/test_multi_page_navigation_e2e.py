@@ -38,7 +38,7 @@ def test_multi_page_proxy_navigation_e2e():
         page.fill('input[placeholder="Project Observation Name (e.g. Acme Web)"]', "E2E Navigation Audit Proj")
         
         # Use our built-in next.js sample target or example.com (which has subpages/nav links)
-        # Note: PixelMark includes a sample-target page! Let's check if we can inspect a subpath
+        # Note: STAGE includes a sample-target page! Let's check if we can inspect a subpath
         page.fill('input[placeholder="Target URL (e.g. https://acme.com)"]', "https://example.com")
         page.get_by_role("button", name="Create Project").click()
         
@@ -64,13 +64,13 @@ def test_multi_page_proxy_navigation_e2e():
         
         # 4. Simulate a page load transition
         # We can trigger a manual pushState/navigation to verify contract bridge or test tab additions
-        # Let's post a simulated PIXELMARK_NAV or PIXELMARK_PAGE_LOAD message directly to the page window
+        # Let's post a simulated STAGE_NAV or STAGE_PAGE_LOAD message directly to the page window
         # to replicate in-iframe SPA transitions safely in headless mode.
         print("[E2E] Simulating dynamic multi-page transitions...")
         
         page.evaluate("""() => {
             window.postMessage({
-                type: 'PIXELMARK_NAV',
+                type: 'STAGE_NAV',
                 page_url: 'https://example.com/about',
                 page_title: 'About Us',
                 session_id: window.location.pathname.split('/').pop(),
@@ -89,7 +89,7 @@ def test_multi_page_proxy_navigation_e2e():
         # 5. Simulate third page transition
         page.evaluate("""() => {
             window.postMessage({
-                type: 'PIXELMARK_NAV',
+                type: 'STAGE_NAV',
                 page_url: 'https://example.com/contact',
                 page_title: 'Contact Support',
                 session_id: window.location.pathname.split('/').pop(),

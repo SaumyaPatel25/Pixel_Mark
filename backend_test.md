@@ -19,7 +19,7 @@ Reliability, CORS, rate limits, and error handling.
 Prompt 1
 Use this as your first implementation prompt for the AI dev agent:
 
-Act as a senior full-stack/backend engineer hardening a FastAPI + Supabase production system. Your task is to test the current PixelMark backend end to end, only for backend logic and API behavior, not UI styling.
+Act as a senior full-stack/backend engineer hardening a FastAPI + Supabase production system. Your task is to test the current STAGE backend end to end, only for backend logic and API behavior, not UI styling.
 
 System context:
 The backend is a hardened FastAPI service with authenticated CRUD, Supabase-backed ownership checks, public tester comment insertion, owner-restricted Markdown export, SSRF-safe proxying, UUID-based records, and CORS fixes for localhost development. The verified endpoints include authenticated project creation/listing, public tester token resolution, public comment submission, authenticated export, and a proxy endpoint that blocks internal targets.
@@ -81,7 +81,7 @@ Also include exact expected results for each test, including status code, respon
 Prompt 2
 After Phase 1 passes, use this for auth and ownership:
 
-Continue the PixelMark backend production test plan. Create Phase 2 only: Auth, JWT enforcement, ownership boundaries, and project visibility.
+Continue the STAGE backend production test plan. Create Phase 2 only: Auth, JWT enforcement, ownership boundaries, and project visibility.
 
 Known system behavior:
 Sensitive endpoints use bearer-auth style ownership enforcement, authenticated project creation/listing is implemented, and anonymous users must not create projects. Owner-only access is a core security rule.
@@ -118,7 +118,7 @@ Preconditions, exact request, expected status code, expected JSON body shape, ex
 Prompt 3
 Then test project CRUD and lifecycle:
 
-Create Phase 3 only: Project CRUD, schema validation, UUID integrity, and lifecycle transitions for PixelMark backend.
+Create Phase 3 only: Project CRUD, schema validation, UUID integrity, and lifecycle transitions for STAGE backend.
 
 Known system behavior:
 Projects use UUID primary keys, typed models, authenticated CRUD, and ownership-scoped responses.
@@ -190,7 +190,7 @@ For each test include expected JSON fields that must exist and fields that must 
 Prompt 5
 Then comments and issue flow:
 
-Create Phase 5 only: Comment creation, public feedback insertion, metadata integrity, and owner-side issue resolution in PixelMark backend.
+Create Phase 5 only: Comment creation, public feedback insertion, metadata integrity, and owner-side issue resolution in STAGE backend.
 
 Known system behavior:
 Public testers can post comments without auth, comments include text, component reference, timestamp, page URL, tester metadata, and are stored against a project. Owners can later view and resolve them.
@@ -234,7 +234,7 @@ Every test must include expected API code, persisted field expectation, and whet
 Prompt 6
 Then proxy hardening:
 
-Create Phase 6 only: SSRF-safe proxy engine verification for PixelMark backend.
+Create Phase 6 only: SSRF-safe proxy engine verification for STAGE backend.
 
 Known system behavior:
 The proxy endpoint is a critical security component. It resolves hostnames before request, blocks internal/local/private targets, strips sensitive headers, rewrites relative links, injects overlay bridge script, uses timeouts, and prevents internal network scans. Verified behavior already includes blocking localhost targets.
@@ -272,7 +272,7 @@ Expected results must include status code, safe error text, and response headers
 Prompt 7
 Then export correctness:
 
-Create Phase 7 only: Owner-restricted export, Markdown correctness, and data completeness tests for PixelMark backend.
+Create Phase 7 only: Owner-restricted export, Markdown correctness, and data completeness tests for STAGE backend.
 
 Known system behavior:
 Export is owner-restricted and Markdown generation is a core product value. The backend already validates that unauthenticated users cannot access owner-restricted export output.
@@ -310,7 +310,7 @@ Expected results must explicitly say what markdown lines or sections must appear
 Prompt 8
 Then realtime and websocket backend:
 
-Create Phase 8 only: WebSocket room behavior, connect/disconnect lifecycle, and realtime event consistency for PixelMark backend.
+Create Phase 8 only: WebSocket room behavior, connect/disconnect lifecycle, and realtime event consistency for STAGE backend.
 
 Known system behavior:
 A websocket room per project exists, connection manager handles connect/disconnect/broadcast, and realtime feedback capability is part of the backend architecture.
@@ -342,7 +342,7 @@ For each test specify transport-level expected outcome plus in-memory room-state
 Prompt 9
 Then resilience and abuse:
 
-Create Phase 9 only: Rate limits, structured errors, retries, concurrency, and production abuse-resistance for PixelMark backend.
+Create Phase 9 only: Rate limits, structured errors, retries, concurrency, and production abuse-resistance for STAGE backend.
 
 Known system behavior:
 The backend has been hardened for security and reliability, and explicit validation plus ownership controls are already important design goals.
@@ -378,7 +378,7 @@ Expected result must separate client-visible behavior, DB side effects, and requ
 Prompt 10
 Final signoff pass:
 
-Create Phase 10 only: Production-grade backend release gate for PixelMark.
+Create Phase 10 only: Production-grade backend release gate for STAGE.
 
 Summarize all previous backend test phases into a strict release checklist with these columns:
 

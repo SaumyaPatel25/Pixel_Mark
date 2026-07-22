@@ -2,8 +2,8 @@ import httpx
 import time
 
 def main():
-    base_url = "https://pixelmark-production.up.railway.app"
-    email = f"analytics_test_{int(time.time())}@pixelmark.dev"
+    base_url = "https://stage-production.up.railway.app"
+    email = f"analytics_test_{int(time.time())}@stage.dev"
     password = "Password123!"
     
     print(f"Registering user {email}...")

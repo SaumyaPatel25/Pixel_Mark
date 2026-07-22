@@ -64,7 +64,12 @@ async def lifespan(app: FastAPI):
             delay *= 1.5
     yield
 
-app = FastAPI(title="PixelMark API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="STAGE API",
+    description="The Collaboration Layer Between Clients & Developers",
+    version="2.0.0",
+    lifespan=lifespan
+)
 
 from errors import AppError, app_error_handler, validation_error_handler, unhandled_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -98,7 +103,7 @@ from models import Session, Project, Environment
 async def proxy_fallback_middleware(request: Request, call_next):
     path = request.url.path
     
-    # 1. Determine if this path is reserved for the primary PixelMark backend API and static folders
+    # 1. Determine if this path is reserved for the primary STAGE backend API and static folders
     reserved_prefixes = (
         "/auth", "/projects", "/sessions", "/markers", "/canvas", "/shares", 
         "/proxy", "/export", "/websocket", "/health", "/metrics", "/static", "/docs", "/openapi.json",
@@ -106,7 +111,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
     )
     is_reserved = any(path.startswith(prefix) for prefix in reserved_prefixes)
     
-    # 2. Trigger fallback proxy if the path is NOT reserved for PixelMark backend (so it's a website subpage/asset route)
+    # 2. Trigger fallback proxy if the path is NOT reserved for STAGE backend (so it's a website subpage/asset route)
     if not is_reserved:
         referer = request.headers.get("referer", "")
         session_id = None
@@ -119,7 +124,8 @@ async def proxy_fallback_middleware(request: Request, call_next):
             session_id = match.group(1)
         else:
             # Fall back to session cookie
-            session_id = request.cookies.get("pixelmark_session_id")
+            # Dual-read migration shim: supports stagesessionid and legacy pixelmark_session_id
+            session_id = request.cookies.get("stagesessionid") or request.cookies.get("pixelmark_session_id")
             
         if not session_id:
             # Fall back to active IP session mapping
@@ -160,7 +166,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                 
                             from utils.ssrf_guard import is_ssrf_safe, is_domain_allowed
                             import logging
-                            logger = logging.getLogger("pixelmark.proxy")
+                            logger = logging.getLogger("stage.proxy")
                             
                             # Enforce SSRF safety
                             if not is_ssrf_safe(target_url):
@@ -180,7 +186,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                         if k.lower() not in ("host", "connection", "accept-encoding")
                                     }
                                     headers["Host"] = parsed_base.netloc
-                                    headers["X-PixelMark-Session"] = session_id
+                                    headers["X-STAGE-Session"] = session_id
                                     
                                     req = client.build_request(
                                         request.method,
@@ -245,9 +251,9 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                         response = FAResponse(content=cached_content, media_type=cached_type)
                                         from routes.proxy import set_cache_headers
                                         set_cache_headers(response, urllib.parse.urlparse(target_url).path, request.url.query)
-                                        response.headers["X-PixelMark-Cache"] = "HIT"
+                                        response.headers["X-STAGE-Cache"] = "HIT"
                                         response.set_cookie(
-                                            "pixelmark_session_id", 
+                                            "stagesessionid", 
                                             session_id, 
                                             path="/", 
                                             httponly=True, 
@@ -259,7 +265,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                         
                                 headers = {
                                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                                    "X-PixelMark-Session": session_id
+                                    "X-STAGE-Session": session_id
                                 }
                                 start_time = datetime.utcnow()
                                 async with httpx.AsyncClient(follow_redirects=False, timeout=10.0, verify=False) as client:
@@ -345,7 +351,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                     
                                     # Set/Refresh session cookie
                                     response.set_cookie(
-                                        "pixelmark_session_id", 
+                                        "stagesessionid", 
                                         session_id, 
                                         path="/", 
                                         httponly=True, 

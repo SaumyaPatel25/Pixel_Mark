@@ -14,7 +14,7 @@ class Settings:
     environment: str = "development"
     jwt_secret_key: str = "dev_secret_key_123"
     resend_api_key: str = ""
-    resend_from_email: str = "PixelMark <onboarding@resend.dev>"
+    resend_from_email: str = "STAGE <onboarding@resend.dev>"
     app_public_url: str = "http://localhost:3000"
     google_client_id: str = ""
     google_client_secret: str = ""
@@ -32,7 +32,7 @@ def load_config() -> Settings:
     env_name = os.environ.get("ENVIRONMENT", "development")
     jwt_secret = os.environ.get("JWT_SECRET_KEY", "dev_secret_key_123")
     resend_key = os.environ.get("RESEND_API_KEY", "")
-    resend_from = os.environ.get("RESEND_FROM_EMAIL", "PixelMark <onboarding@resend.dev>")
+    resend_from = os.environ.get("RESEND_FROM_EMAIL", "STAGE <onboarding@resend.dev>")
     app_url = os.environ.get("APP_PUBLIC_URL", frontend)
     google_id = os.environ.get("GOOGLE_CLIENT_ID", "")
     google_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")

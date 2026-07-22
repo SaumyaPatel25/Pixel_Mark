@@ -37,7 +37,7 @@ export function useOverlay({
 }: UseOverlayOptions) {
 
   const handleMessage = useCallback(async (event: MessageEvent) => {
-    if (!event.data || event.data.source !== 'pixelmark-overlay') return
+    if (!event.data || event.data.source !== 'stage-overlay') return
     if (event.data.type !== 'MARKER_DROPPED') return
     if (event.data.projectId !== projectId) return
 

@@ -10,7 +10,7 @@ export function ThemeInitializer() {
   // 1. Sync Zustand state from localStorage on first mount
   // We use setState directly to avoid triggering a redundant localStorage write
   useEffect(() => {
-    const savedTheme = (localStorage.getItem('pixelmark_theme') as ThemeMode) || 'system';
+    const savedTheme = (localStorage.getItem('stage_theme') as ThemeMode) || 'system';
     useThemeStore.setState({ theme: savedTheme });
   }, []);
 

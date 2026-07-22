@@ -3,22 +3,22 @@ import LoginClient from './LoginClient';
 import { seoConfig } from '@/lib/seoConfig';
 
 export const metadata: Metadata = {
-  title: 'Sign In | PixelMark Dashboard',
-  description: 'Access your secure PixelMark QA workspace to track website feedback, review comments, and analyze site metrics.',
+  title: 'Sign In | STAGE Dashboard',
+  description: 'Access your secure STAGE QA workspace to track website feedback, review comments, and analyze site metrics.',
   alternates: {
     canonical: `${seoConfig.siteUrl}/login`,
   },
   openGraph: {
-    title: 'Sign In | PixelMark Dashboard',
-    description: 'Access your secure PixelMark QA workspace to track website feedback, review comments, and analyze site metrics.',
+    title: 'Sign In | STAGE Dashboard',
+    description: 'Access your secure STAGE QA workspace to track website feedback, review comments, and analyze site metrics.',
     url: `${seoConfig.siteUrl}/login`,
-    siteName: 'PixelMark',
+    siteName: 'STAGE',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'PixelMark - Sign In',
+        alt: 'STAGE - Sign In',
       },
     ],
     locale: 'en_US',
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Sign In | PixelMark Dashboard',
-    description: 'Access your secure PixelMark QA workspace to track website feedback, review comments, and analyze site metrics.',
+    title: 'Sign In | STAGE Dashboard',
+    description: 'Access your secure STAGE QA workspace to track website feedback, review comments, and analyze site metrics.',
     images: ['/og-image.png'],
     creator: seoConfig.twitterHandle,
   },

@@ -168,7 +168,7 @@ export async function captureFullPage(
   // Get the iframe's bounding rect inside the parent window.
   const iframeRect = iframeNode.getBoundingClientRect();
 
-  console.log(`[PixelMark Screenshot] full-page stitch height=${docHeight} viewportHeight=${viewportHeight}`);
+  console.log(`[STAGE Screenshot] full-page stitch height=${docHeight} viewportHeight=${viewportHeight}`);
 
   // Prepare final stitched canvas
   const stitchedCanvas = document.createElement('canvas');
@@ -184,7 +184,7 @@ export async function captureFullPage(
   // Constrain max memory usage (e.g. maximum height of 8000px)
   const MAX_STITCH_HEIGHT = 8000;
   if (stitchedCanvas.height > MAX_STITCH_HEIGHT) {
-    console.warn(`[PixelMark Screenshot] height ${stitchedCanvas.height} exceeds max ${MAX_STITCH_HEIGHT}. Clamping.`);
+    console.warn(`[STAGE Screenshot] height ${stitchedCanvas.height} exceeds max ${MAX_STITCH_HEIGHT}. Clamping.`);
     stitchedCanvas.height = MAX_STITCH_HEIGHT;
   }
 
@@ -247,14 +247,14 @@ export async function captureFullPage(
         0, destY, viewportWidth, destH
       );
 
-      console.log(`[PixelMark Screenshot] stitched frame=${frameIndex} yOffset=${destY}`);
+      console.log(`[STAGE Screenshot] stitched frame=${frameIndex} yOffset=${destY}`);
       
       currentY += viewportHeight;
       frameIndex++;
 
       // Safety break to prevent infinite loops / excessive memory
       if (frameIndex > 15) {
-        console.warn('[PixelMark Screenshot] reached maximum full-page scroll steps');
+        console.warn('[STAGE Screenshot] reached maximum full-page scroll steps');
         break;
       }
     }
@@ -267,11 +267,11 @@ export async function captureFullPage(
     video.pause();
     video.srcObject = null;
 
-    console.log(`[PixelMark Screenshot] stitched frames=${frameIndex}`);
+    console.log(`[STAGE Screenshot] stitched frames=${frameIndex}`);
     return stitchedCanvas.toDataURL('image/png');
 
   } catch (error) {
-    console.error('[PixelMark Screenshot] Stitching failed, using single viewport fallback:', error);
+    console.error('[STAGE Screenshot] Stitching failed, using single viewport fallback:', error);
     // Restore scroll and scrollbar in case of error
     try {
       iframeWin.scrollTo(originalScrollX, originalScrollY);
@@ -356,19 +356,19 @@ export async function captureScreenshotForTarget(
   }
 
   const markerId = target.id || 'unknown';
-  console.time("PixelMark recapture " + markerId);
+  console.time("STAGE recapture " + markerId);
 
   // Tier 1: Canvas-Native Capture
   if (target instanceof HTMLCanvasElement || target.tagName === 'CANVAS') {
     try {
       const dataUrl = (target as HTMLCanvasElement).toDataURL('image/png');
       if (dataUrl && dataUrl !== 'data:,') {
-        console.log('[PixelMark Capture] Canvas-Native capture successful');
-        console.timeEnd("PixelMark recapture " + markerId);
+        console.log('[STAGE Capture] Canvas-Native capture successful');
+        console.timeEnd("STAGE recapture " + markerId);
         return { dataUrl, method: 'canvas-native' };
       }
     } catch (err) {
-      console.warn('[PixelMark Capture] Canvas-Native capture failed:', err);
+      console.warn('[STAGE Capture] Canvas-Native capture failed:', err);
     }
   }
 
@@ -387,8 +387,8 @@ export async function captureScreenshotForTarget(
   if (USE_FAST_RENDERER) {
     const fastDataUrl = await captureWithFastRenderer(target as HTMLElement, rect, win);
     if (fastDataUrl) {
-      console.log('[PixelMark Capture] Fast native SVG capture successful');
-      console.timeEnd("PixelMark recapture " + markerId);
+      console.log('[STAGE Capture] Fast native SVG capture successful');
+      console.timeEnd("STAGE recapture " + markerId);
       return { dataUrl: fastDataUrl, method: 'html2canvas-crop' };
     }
   }
@@ -415,13 +415,13 @@ export async function captureScreenshotForTarget(
     const elementCanvas = await withTimeout(canvasPromise, 1800);
     if (elementCanvas && elementCanvas.width > 0 && elementCanvas.height > 0 && !isCanvasTransparent(elementCanvas)) {
       const dataUrl = elementCanvas.toDataURL('image/png');
-      console.log('[PixelMark Capture] html2canvas element crop successful');
-      console.timeEnd("PixelMark recapture " + markerId);
+      console.log('[STAGE Capture] html2canvas element crop successful');
+      console.timeEnd("STAGE recapture " + markerId);
       return { dataUrl, method: 'html2canvas-crop' };
     }
-    console.warn('[PixelMark Capture] html2canvas element crop timed out or returned empty, falling back to full-page');
+    console.warn('[STAGE Capture] html2canvas element crop timed out or returned empty, falling back to full-page');
   } catch (err) {
-    console.warn('[PixelMark Capture] html2canvas element crop failed:', err);
+    console.warn('[STAGE Capture] html2canvas element crop failed:', err);
   }
 
   // Tier 2b: html2canvas on doc.body as full-page fallback, then crop
@@ -450,15 +450,15 @@ export async function captureScreenshotForTarget(
           0, 0, rect.width || 100, rect.height || 100
         );
         const dataUrl = cropCanvas.toDataURL('image/png');
-        console.log('[PixelMark Capture] html2canvas full-page fallback crop successful');
-        console.timeEnd("PixelMark recapture " + markerId);
+        console.log('[STAGE Capture] html2canvas full-page fallback crop successful');
+        console.timeEnd("STAGE recapture " + markerId);
         return { dataUrl, method: 'html2canvas-full-fallback' };
       }
     }
   } catch (err) {
-    console.error('[PixelMark Capture] html2canvas full-page fallback failed:', err);
+    console.error('[STAGE Capture] html2canvas full-page fallback failed:', err);
   }
 
-  console.timeEnd("PixelMark recapture " + markerId);
+  console.timeEnd("STAGE recapture " + markerId);
   return { dataUrl: null, method: 'none' };
 }

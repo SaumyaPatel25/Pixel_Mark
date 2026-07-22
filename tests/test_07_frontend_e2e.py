@@ -3,7 +3,8 @@ import pytest
 import uuid
 import time
 
-VERCEL_URL = "https://web-zeta-sable-82.vercel.app"
+import os
+VERCEL_URL = os.environ.get("VERCEL_URL", "https://web-zeta-sable-82.vercel.app")
 state = {
     "email": f"e2e_{uuid.uuid4().hex[:6]}@test.com",
     "password": "E2eTest1234!"
@@ -14,7 +15,7 @@ def test_login_page_renders():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(f"{VERCEL_URL}/login")
-        assert "PixelMark" in page.title() or "Sign in" in page.content()
+        assert "STAGE" in page.title() or "Sign in" in page.content()
         # Look for inputs by type
         assert page.locator('input[type="email"]').is_visible()
         assert page.locator('input[type="password"]').is_visible()

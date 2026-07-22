@@ -5,7 +5,7 @@
 # 01 System Overview
 
 ## Product Vision
-PixelMark is intended to be a visual feedback and developer-collaboration platform designed for website QA/UAT. The platform aims to allow developers to create projects, spawn review sessions, and share public links with reviewers who can leave rich, coordinate-mapped visual feedback (markers) directly on target websites. 
+STAGE is intended to be a visual feedback and developer-collaboration platform designed for website QA/UAT. The platform aims to allow developers to create projects, spawn review sessions, and share public links with reviewers who can leave rich, coordinate-mapped visual feedback (markers) directly on target websites. 
 
 ## Current Architecture Summary
 The application follows a decoupled client-server architecture:
@@ -24,7 +24,7 @@ The application follows a decoupled client-server architecture:
 
 ## Major Subsystems
 1. **Core API Engine (FastAPI):** Handles Auth, Project management, and Session tracking.
-2. **Proxy/Canvas Injector:** Proxies external target websites so they can be injected with the `pixelmark-agent.js` review script, bypassing cross-origin restrictions.
+2. **Proxy/Canvas Injector:** Proxies external target websites so they can be injected with the `stage-agent.js` review script, bypassing cross-origin restrictions.
 3. **Collaboration Sync (WebSockets):** Handles real-time transmission of marker coordinates and status changes between reviewers and developers.
 4. **Web Dashboard (Next.js):** The primary command center for developers.
 
@@ -50,12 +50,12 @@ The repository is a fast-moving, heavily prototyped MVP. While the foundation is
 
 # 02 Repo File Map
 
-This document maps the critical directories and files within the PixelMark repository, identifying their purpose and current state of usability.
+This document maps the critical directories and files within the STAGE repository, identifying their purpose and current state of usability.
 
 ## Root Level
 - `backend/` - Python/FastAPI source code and migration scripts.
 - `web/` - TypeScript/Next.js frontend application.
-- `pixelmark-lens/` - Suspicious/experimental directory (likely a browser extension prototype or alternate injector).
+- `stage-lens/` - Suspicious/experimental directory (likely a browser extension prototype or alternate injector).
 - `docs/` - System audit and documentation files.
 - `tests/` - Standalone test scripts (Python `verify_suite.py`, `e2e_test.py`).
 - `.github/` & `.vercel/` - CI/CD and deployment configurations.
@@ -126,7 +126,7 @@ This document maps the critical directories and files within the PixelMark repos
 
 # 03 Backend Architecture
 
-This document describes the current architecture of the PixelMark backend.
+This document describes the current architecture of the STAGE backend.
 
 ## Backend Entrypoint
 - **File:** `backend/main.py`
@@ -185,7 +185,7 @@ This document describes the current architecture of the PixelMark backend.
 
 # 04 Frontend Architecture
 
-This document describes the structure and state of the PixelMark frontend.
+This document describes the structure and state of the STAGE frontend.
 
 ## Next.js App Router Structure
 - **Framework:** Next.js (App Router, `src/app/`)
@@ -198,10 +198,10 @@ This document describes the structure and state of the PixelMark frontend.
 ## App Layouts & Auth Guarding
 - **Edge Middleware (`src/middleware.ts`):** 
   - Enforces route protection natively at the Edge.
-  - Checks for the presence of the `pm_token` cookie.
+  - Checks for the presence of the `stagetoken` cookie.
   - Protects: `/projects`, `/project`, `/dashboard`, `/settings`, `/sessions`.
   - Redirects authenticated users away from `/login` and `/signup` to `/projects`.
-- **Client Auth:** The frontend predominantly relies on checking `localStorage.getItem('pm_token')` manually in client components (`'use client'`).
+- **Client Auth:** The frontend predominantly relies on checking `localStorage.getItem('stagetoken')` manually in client components (`'use client'`).
 
 ## State & API Architecture
 - **API Client (`src/lib/api.ts`):**
@@ -213,7 +213,7 @@ This document describes the structure and state of the PixelMark frontend.
   - Zustand is intended to be used for global state (e.g., marker data, UI toggles).
 
 ## WebSocket Subscription Model
-- The frontend connects to the FastAPI websocket route (e.g., `wss://pixelmark-production.up.railway.app/websocket/...`).
+- The frontend connects to the FastAPI websocket route (e.g., `wss://stage-production.up.railway.app/websocket/...`).
 - Client-side hooks manage reconnection logic and parse incoming JSON broadcast messages to update marker positions and statuses in real-time.
 
 ## Areas of Shell-only UI
@@ -234,7 +234,7 @@ This document describes the structure and state of the PixelMark frontend.
 
 # 05 Data Models and Schemas
 
-This document maps out the core SQLAlchemy database models and relationships driving the PixelMark backend.
+This document maps out the core SQLAlchemy database models and relationships driving the STAGE backend.
 
 ## Core Models
 
@@ -299,7 +299,7 @@ This document maps out the core SQLAlchemy database models and relationships dri
 
 # 06 API Inventory
 
-This document maps the major API routes exposed by the PixelMark FastAPI backend.
+This document maps the major API routes exposed by the STAGE FastAPI backend.
 
 ## Core Routers
 
@@ -336,7 +336,7 @@ This document maps the major API routes exposed by the PixelMark FastAPI backend
 - `DELETE /markers/{id}` - Soft/Hard deletes a pin.
 
 ### Proxy (`main.py` fallback)
-- The fallback middleware (`@app.middleware("http")`) catches any unhandled route, extracts the `session_id` from the referer, and proxies the request to the target website, injecting the `pixelmark-agent.js` script. This is highly vulnerable to CORS and framebusting.
+- The fallback middleware (`@app.middleware("http")`) catches any unhandled route, extracts the `session_id` from the referer, and proxies the request to the target website, injecting the `stage-agent.js` script. This is highly vulnerable to CORS and framebusting.
 
 ---
 - **Confidence Level:** Medium-High (Inferred from router lists in `main.py` and typical REST patterns).
@@ -351,7 +351,7 @@ This document maps the major API routes exposed by the PixelMark FastAPI backend
 
 # 07 Realtime and Sync
 
-This document outlines the real-time collaboration architecture of PixelMark.
+This document outlines the real-time collaboration architecture of STAGE.
 
 ## WebSocket Architecture
 - **Endpoint:** `wss://{API_URL}/websocket/session/{session_id}`
@@ -389,15 +389,15 @@ This document outlines the real-time collaboration architecture of PixelMark.
 
 # 08 Auth and Session Flow
 
-This document maps the user authentication flows and review session lifecycles within PixelMark.
+This document maps the user authentication flows and review session lifecycles within STAGE.
 
 ## Developer Authentication Path
 - **Registration (`/signup`):** User submits credentials. Backend (`POST /auth/register`) creates a `User` record, hashes the password, and returns a JWT.
 - **Login (`/login`):** User submits credentials. Backend (`POST /auth/login`) verifies hashes and returns a JWT.
 - **Token Storage:**
   - The JWT is stored in two places:
-    1. `localStorage.getItem('pm_token')` (used by the `api.ts` client for Authorization headers).
-    2. A secure cookie (`pm_token`), which is critical for Next.js `middleware.ts` to perform edge routing guards.
+    1. `localStorage.getItem('stagetoken')` (used by the `api.ts` client for Authorization headers).
+    2. A secure cookie (`stagetoken`), which is critical for Next.js `middleware.ts` to perform edge routing guards.
 - **Route Guards:** Next.js middleware forcefully redirects any unauthenticated user attempting to access `/dashboard`, `/projects`, or `/sessions` back to `/login`.
 
 ## Reviewer (Public) Authentication Path
@@ -409,12 +409,12 @@ This document maps the user authentication flows and review session lifecycles w
 ## Session Lifecycle
 1. **Creation:** A developer creates a `Session` under a `Project`. This generates a unique `session_id`.
 2. **Access:** The developer clicks the session, opening the Canvas Command Center. 
-3. **Proxying:** The backend `proxy_fallback_middleware` intercepts the target URL requests, rewrites them, and injects `pixelmark-agent.js`.
+3. **Proxying:** The backend `proxy_fallback_middleware` intercepts the target URL requests, rewrites them, and injects `stage-agent.js`.
 4. **Heartbeats:** The backend recently added `last_heartbeat_at` to the `Session` table to track if a session is actively being reviewed.
 
 ## Known Auth Bugs & Hardening Needs
 1. **Dueling Auth Paradigms:** The repository history reveals a constant struggle between using a fully custom JWT local flow versus NextAuth.js / Supabase. Recent hard-resets stripped out NextAuth, leaving local auth as the dominant but fragile mechanism.
-2. **Cookie vs LocalStorage Desync:** If the `pm_token` cookie expires but `localStorage` persists, the frontend UI might flicker or trap the user in an infinite redirect loop between `/login` and `/dashboard`.
+2. **Cookie vs LocalStorage Desync:** If the `stagetoken` cookie expires but `localStorage` persists, the frontend UI might flicker or trap the user in an infinite redirect loop between `/login` and `/dashboard`.
 3. **Missing OAuth:** Google/GitHub OAuth login pathways are visually present in the UI shells but the backend wiring is largely stubbed out.
 
 ---
@@ -430,7 +430,7 @@ This document maps the user authentication flows and review session lifecycles w
 
 # 09 Share Link and Reviewer Flow
 
-This document details how external clients and stakeholders access PixelMark sessions to leave feedback.
+This document details how external clients and stakeholders access STAGE sessions to leave feedback.
 
 ## Share Link Architecture
 - **Model:** `ShareLink` (in `backend/models/share_link.py`)
@@ -439,7 +439,7 @@ This document details how external clients and stakeholders access PixelMark ses
   1. Developer opens a Session in the dashboard.
   2. Developer clicks "Share" and the frontend requests a `ShareLink` token from the backend.
   3. The backend generates a unique cryptographic hash/token and binds it to the `session_id`.
-  4. The developer sends the URL (e.g., `https://pixelmark.app/review/{token}`) to a client.
+  4. The developer sends the URL (e.g., `https://stage.app/review/{token}`) to a client.
   5. The client clicks the link and accesses the proxied session Canvas.
 
 ## Current State & Vulnerabilities
@@ -463,16 +463,16 @@ This document details how external clients and stakeholders access PixelMark ses
 
 # 10 Canvas Marker Coordinate Model
 
-This document explains how PixelMark captures and places visual markers across disparate browser windows and iframe contexts.
+This document explains how STAGE captures and places visual markers across disparate browser windows and iframe contexts.
 
 ## How Markers are Captured
-- The proxy server injects a script (`pixelmark-agent.js`) into the target website.
+- The proxy server injects a script (`stage-agent.js`) into the target website.
 - When a reviewer clicks on the injected overlay, the agent records the `clientX`/`clientY` or `pageX`/`pageY` coordinates of the click event relative to the current viewport and document.
 
 ## The Coordinate System Challenge
 - **Responsive Fluidity:** Web pages are inherently fluid. A pin dropped at `x: 500, y: 300` on a 1920x1080 screen will not physically point to the same DOM element when viewed on a 1280x720 screen or when the developer's dashboard Canvas renders the iframe at a scaled-down 80%.
 - **Current Model:** The `Marker` model stores absolute `x`, `y` floats alongside `viewport_width` and `viewport_height`.
-- **Transformation Logic:** `pixelmark-agent.js` contains coordinate normalization functions (as seen in recent console logs: `[Markers] normalizeMarkerCoordinates final output: {displayX: 507, displayY: 236...}`). It attempts to scale the coordinates based on the ratio of the original viewport to the viewing viewport.
+- **Transformation Logic:** `stage-agent.js` contains coordinate normalization functions (as seen in recent console logs: `[Markers] normalizeMarkerCoordinates final output: {displayX: 507, displayY: 236...}`). It attempts to scale the coordinates based on the ratio of the original viewport to the viewing viewport.
 
 ## Why Pins Drift and Fail
 1. **Window Resize Events:** When the canvas iframe resizes, the relative percentages change, causing pins to "float" off their intended targets.
@@ -487,7 +487,7 @@ To fix the coordinate drift:
 
 ---
 - **Confidence Level:** High
-- **Evidence Source:** Previous user error logs referencing `normalizeMarkerCoordinates`, `pixelmark-agent.js`, and `Marker` model fields.
+- **Evidence Source:** Previous user error logs referencing `normalizeMarkerCoordinates`, `stage-agent.js`, and `Marker` model fields.
 - **Next File to Read:** `11-feature-status-matrix.md`
 
 
@@ -498,7 +498,7 @@ To fix the coordinate drift:
 
 # 11 Feature Status Matrix
 
-This matrix maps the intended features of PixelMark against their actual implementation status in the codebase.
+This matrix maps the intended features of STAGE against their actual implementation status in the codebase.
 
 | Feature | Intended Behavior | Backend Status | Frontend Status | Integration Status | Test Coverage | Prod Readiness | Notes |
 |---------|-------------------|----------------|-----------------|--------------------|---------------|----------------|-------|
@@ -532,21 +532,21 @@ This matrix maps the intended features of PixelMark against their actual impleme
 
 # 12 Broken, Missing, and Hardening Needs
 
-This document highlights critical areas of PixelMark that are failing in production, completely absent, or require significant architectural hardening.
+This document highlights critical areas of STAGE that are failing in production, completely absent, or require significant architectural hardening.
 
 ## 1. Currently Broken
 
 ### Coordinate Placement (The Drift Bug)
 - **Symptoms:** Markers placed on a target element often float far away when viewed on a different screen size or when the Canvas window is resized.
-- **Root Cause:** `pixelmark-agent.js` calculates `x` and `y` strictly as viewport percentages (`clientX` / `window.innerWidth`), which inherently assumes all clients share the exact same aspect ratio and DOM layout.
+- **Root Cause:** `stage-agent.js` calculates `x` and `y` strictly as viewport percentages (`clientX` / `window.innerWidth`), which inherently assumes all clients share the exact same aspect ratio and DOM layout.
 - **Severity:** CRITICAL
 - **Fix Direction:** Abandon absolute viewport math. Capture a unique CSS selector for the clicked element (e.g., `#main-cta-button`) and calculate the click's offset relative to the bounding box of that specific element.
 
 ### Cross-Origin (CORS) and Proxy Resilience
-- **Symptoms:** Target websites (like Google) flood the console with 404s and CORS errors, and sometimes refuse to render inside the PixelMark canvas entirely.
+- **Symptoms:** Target websites (like Google) flood the console with 404s and CORS errors, and sometimes refuse to render inside the STAGE canvas entirely.
 - **Root Cause:** Standard proxying fails against `X-Frame-Options`, `Content-Security-Policy`, and internal sub-resource requests that expect to run on their origin domain.
 - **Severity:** HIGH
-- **Fix Direction:** The proxy middleware must actively strip restrictive headers (`X-Frame-Options`) from responses, but for complex sites, a browser extension (like the abandoned `pixelmark-lens`) is the only 100% reliable way to bypass these limits.
+- **Fix Direction:** The proxy middleware must actively strip restrictive headers (`X-Frame-Options`) from responses, but for complex sites, a browser extension (like the abandoned `stage-lens`) is the only 100% reliable way to bypass these limits.
 
 ## 2. Partially Implemented
 
@@ -554,7 +554,7 @@ This document highlights critical areas of PixelMark that are failing in product
 - **Symptoms:** External users get trapped in `/login` loops.
 - **Root Cause:** `middleware.ts` enforces blanket protection over certain paths. The share routing logic is fighting the Next.js edge router.
 - **Severity:** HIGH
-- **Fix Direction:** Explicitly whitelist the `/review/[token]` URL pattern in `middleware.ts`. Ensure the backend provides a valid temporary session object instead of expecting a full `pm_token`.
+- **Fix Direction:** Explicitly whitelist the `/review/[token]` URL pattern in `middleware.ts`. Ensure the backend provides a valid temporary session object instead of expecting a full `stagetoken`.
 
 ### Exports
 - **Symptoms:** Exporting a session throws a 500 error.
@@ -669,7 +669,7 @@ This document enforces a strict cross-check between the intended product archite
 
 # 14 Runbook: Local Dev & Production
 
-This document serves as the operational runbook for compiling, running, and diagnosing PixelMark locally and in production.
+This document serves as the operational runbook for compiling, running, and diagnosing STAGE locally and in production.
 
 ## 1. Local Development Setup
 
@@ -702,16 +702,16 @@ This document serves as the operational runbook for compiling, running, and diag
 - **Env Vars Required:**
   - `DATABASE_URL` (Neon Postgres)
   - `JWT_SECRET`
-  - `FRONTEND_URL` (e.g., `https://pixelmark.app`)
+  - `FRONTEND_URL` (e.g., `https://stage.app`)
 
 ### Frontend (Vercel)
 - **Framework:** Next.js Serverless Edge
 - **Env Vars Required:**
-  - `NEXT_PUBLIC_API_URL` (e.g., `https://pixelmark-production.up.railway.app`)
+  - `NEXT_PUBLIC_API_URL` (e.g., `https://stage-production.up.railway.app`)
 
 ## 3. Common Failure Points & Quick Smokes
 - **Symptom:** App hangs on login or shows 401s constantly.
-  - *Fix:* Clear your browser's Local Storage and Cookies. The desync between `pm_token` and JWT cache is a known issue.
+  - *Fix:* Clear your browser's Local Storage and Cookies. The desync between `stagetoken` and JWT cache is a known issue.
 - **Symptom:** Dashboard 500 error when clicking a project.
   - *Fix:* The backend schema is likely out of sync with the DB model. Run a quick check on the `/projects/` endpoint via the Swagger `/docs` to see exactly which field is causing the `AttributeError`.
 - **Symptom:** Markers drop but don't show up for other users.
@@ -730,7 +730,7 @@ This document serves as the operational runbook for compiling, running, and diag
 
 # 15 Recommended Repair Order
 
-This document dictates a strict, phased roadmap for repairing the PixelMark repository. Execution out of order will result in compounded technical debt and redundant bug hunting.
+This document dictates a strict, phased roadmap for repairing the STAGE repository. Execution out of order will result in compounded technical debt and redundant bug hunting.
 
 ## Phase 0: Environment & Auth Sanity
 - **Goal:** Establish a baseline where developers can log in locally and in prod without UI flickering or looping.
@@ -750,7 +750,7 @@ This document dictates a strict, phased roadmap for repairing the PixelMark repo
 
 ## Phase 2: Coordinate & Canvas Resilience
 - **Goal:** Stop pins from floating away when windows resize.
-- **Files to Change:** `web/public/pixelmark-agent.js`, `backend/models/core.py` (Marker model).
+- **Files to Change:** `web/public/stage-agent.js`, `backend/models/core.py` (Marker model).
 - **Actions:**
   - Rewrite the coordinate injection logic. Use CSS Selectors + Bounding Box relative math instead of raw Viewport math.
   - Update the `Marker` model to accept `css_selector` strings.
@@ -819,7 +819,7 @@ This document outlines the current testing footprint and identifies the most cri
 - **Required:** `pytest-asyncio` tests that connect two simulated clients to the same session, send a marker update from Client A, and assert Client B receives the exact JSON payload.
 
 ### 4. Regression Tests for Marker Math
-- **Gap:** No tests for `pixelmark-agent.js` coordinate functions.
+- **Gap:** No tests for `stage-agent.js` coordinate functions.
 - **Risk:** Every attempt to fix coordinate drift breaks a different edge case.
 - **Required:** Unit tests specifically for `normalizeMarkerCoordinates` feeding in various mock screen sizes and scrolling offsets.
 
@@ -836,12 +836,12 @@ This document outlines the current testing footprint and identifies the most cri
 
 # 17 Open Questions and Risks
 
-This document highlights critical unknowns that cannot be proven definitively from the current codebase state, representing strategic risks to the PixelMark platform.
+This document highlights critical unknowns that cannot be proven definitively from the current codebase state, representing strategic risks to the STAGE platform.
 
 ## 1. Proxy Viability Limit
 - **The Unknown:** Can a pure backend-proxy approach (intercepting external HTML/JS and injecting a review script) actually scale to complex modern web apps (React/Angular SPAs) with aggressive CSPs and service workers?
 - **The Risk:** High. The app routinely breaks when trying to proxy sites like Google. If proxying fails fundamentally against major corporate targets, the entire "No Extension Required" value proposition collapses.
-- **Alternative:** Forcing users to download a Chrome Extension (like the abandoned `pixelmark-lens`) might be structurally necessary for enterprise UAT.
+- **Alternative:** Forcing users to download a Chrome Extension (like the abandoned `stage-lens`) might be structurally necessary for enterprise UAT.
 
 ## 2. Authentication Strategy Permanence
 - **The Unknown:** Is the product committed to local JWT authentication, or is there an implicit mandate to migrate back to NextAuth/Supabase?
@@ -856,7 +856,7 @@ This document highlights critical unknowns that cannot be proven definitively fr
 - **The Risk:** Medium. If a team invites members, they might not be able to see each other's sessions because the backend routing logic assumes 1 User = 1 Project.
 
 ## 5. Security of Proxy Fallback
-- **The Unknown:** Does the `proxy_fallback_middleware` inadvertently turn the PixelMark backend into an open proxy? 
+- **The Unknown:** Does the `proxy_fallback_middleware` inadvertently turn the STAGE backend into an open proxy? 
 - **The Risk:** High. If malicious actors realize they can append a forged `Referer` header with a fake `session_id`, they might be able to use the Railway server to proxy malicious traffic or bypass IP blocks.
 
 ---
@@ -870,9 +870,9 @@ This document highlights critical unknowns that cannot be proven definitively fr
 <!-- FILE: README.md -->
 <!-- ========================================== -->
 
-# PixelMark System Audit & Blueprint
+# STAGE System Audit & Blueprint
 
-Welcome to the comprehensive system audit of the PixelMark repository. This directory contains a brutal, file-by-file breakdown of the current architecture, data models, broken flows, and the strategic roadmap required to bring the system to production readiness.
+Welcome to the comprehensive system audit of the STAGE repository. This directory contains a brutal, file-by-file breakdown of the current architecture, data models, broken flows, and the strategic roadmap required to bring the system to production readiness.
 
 ## Where to Start
 

@@ -8,8 +8,8 @@ from datetime import datetime
 resend_api_key = os.environ.get("RESEND_API_KEY", "")
 resend.api_key = resend_api_key
 
-FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "PixelMark <noreply@pixelmark.io>")
-APP_URL    = os.environ.get("APP_PUBLIC_URL", "https://pixelmark.io")
+FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "STAGE <noreply@stage.io>")
+APP_URL    = os.environ.get("APP_PUBLIC_URL", "https://stage.io")
 
 
 def _base_template(title: str, body: str, cta_text: str, cta_url: str) -> str:
@@ -22,7 +22,7 @@ def _base_template(title: str, body: str, cta_text: str, cta_url: str) -> str:
       <div style="max-width:520px;margin:0 auto;background:#111827;
                   border-radius:12px;padding:40px;border:1px solid #1f2937;">
         <div style="font-size:22px;font-weight:700;color:#ffffff;
-                    margin-bottom:8px;">PixelMark</div>
+                    margin-bottom:8px;">STAGE</div>
         <div style="font-size:13px;color:#6b7280;margin-bottom:32px;">
           Visual website review — pixel perfect.
         </div>
@@ -36,7 +36,7 @@ def _base_template(title: str, body: str, cta_text: str, cta_url: str) -> str:
                   font-size:15px;font-weight:600;">{cta_text}</a>
         <p style="font-size:12px;color:#4b5563;margin-top:32px;">
           If you didn't request this, you can safely ignore this email.
-          <br>PixelMark · support@pixelmark.io
+          <br>STAGE · support@stage.io
         </p>
       </div>
     </body>
@@ -58,7 +58,7 @@ def send_email_wrapper(subject: str, to: str, html: str, fallback_msg: str):
             
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = f"PixelMark <{smtp_user}>"
+        msg["From"] = f"STAGE <{smtp_user}>"
         msg["To"] = to
         msg.attach(MIMEText(html, "html"))
         
@@ -105,18 +105,18 @@ def send_verification_email(to: str, token: str):
         cta_text="Verify Email",
         cta_url=url
     )
-    send_email_wrapper("Verify your PixelMark account", to, html, url)
+    send_email_wrapper("Verify your STAGE account", to, html, url)
 
 
 def send_login_link_email(to: str, token: str):
     url = f"{APP_URL}/auth/confirm-login?token={token}"
     html = _base_template(
-        title="Sign in to PixelMark",
+        title="Sign in to STAGE",
         body="Click the button below to sign in. This link expires in 15 minutes and can only be used once.",
         cta_text="Sign In",
         cta_url=url
     )
-    send_email_wrapper("Your PixelMark login link", to, html, url)
+    send_email_wrapper("Your STAGE login link", to, html, url)
 
 
 def send_password_reset_email(to: str, token: str):
@@ -127,4 +127,4 @@ def send_password_reset_email(to: str, token: str):
         cta_text="Reset Password",
         cta_url=url
     )
-    send_email_wrapper("Reset your PixelMark password", to, html, url)
+    send_email_wrapper("Reset your STAGE password", to, html, url)

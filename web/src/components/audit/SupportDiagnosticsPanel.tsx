@@ -73,7 +73,7 @@ export function SupportDiagnosticsPanel({
       <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
         <div className="flex items-center gap-1.5 text-cyan-400">
           <Terminal className="w-4 h-4" />
-          <span className="text-[10px] font-black uppercase tracking-wider">PixelMark Diagnostics</span>
+          <span className="text-[10px] font-black uppercase tracking-wider">STAGE Diagnostics</span>
         </div>
         <button 
           onClick={() => setIsOpen(false)}

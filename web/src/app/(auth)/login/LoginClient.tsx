@@ -213,7 +213,7 @@ export default function LoginClient() {
             <span style={{ fontSize: '13px', fontWeight: 600 }}>Home</span>
           </Link>
           <Link href="/">
-            <img src="/logo.png" alt="PixelMark" className="h-24 w-auto object-contain dark-theme-logo" />
+            <img src="/logo.png" alt="STAGE" className="h-24 w-auto object-contain dark-theme-logo" />
           </Link>
         </div>
 
@@ -224,7 +224,7 @@ export default function LoginClient() {
             {/* Logo + Headline */}
             <div className="space-y-5">
               <Link href="/" className="hidden lg:block">
-                <img src="/logo.png" alt="PixelMark" className="h-24 w-auto object-contain dark-theme-logo" />
+                <img src="/logo.png" alt="STAGE" className="h-24 w-auto object-contain dark-theme-logo" />
               </Link>
 
               {(!showVerificationNotice || phase === 'success') && (
@@ -462,7 +462,7 @@ export default function LoginClient() {
           className="auth-form-footer-bar text-center py-5 border-t"
           style={{ borderColor: 'rgba(37,59,128,0.07)', color: '#94A3B8', fontSize: '12px' }}
         >
-          © {new Date().getFullYear()} PixelMark · Secure Workspace · All rights reserved
+          © {new Date().getFullYear()} STAGE · Secure Workspace · All rights reserved
         </div>
       </div>
     </div>

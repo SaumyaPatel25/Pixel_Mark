@@ -328,4 +328,36 @@ class BlueprintDomEditOperation(Base):
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class BlueprintMutationModel(Base):
+    __tablename__ = "blueprint_mutations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    canvas_frame_id: Mapped[str] = mapped_column(String, nullable=True)
+    page_url: Mapped[str] = mapped_column(String, nullable=True)
+    target_selector: Mapped[str] = mapped_column(String, nullable=False)
+    action_type: Mapped[str] = mapped_column(String, nullable=False)
+    preset_id: Mapped[str] = mapped_column(String, nullable=True)
+    preset_name: Mapped[str] = mapped_column(String, nullable=True)
+    html_payload: Mapped[str] = mapped_column(Text, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class BlueprintPublicationModel(Base):
+    __tablename__ = "blueprint_publications"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    blueprint_version: Mapped[int] = mapped_column(Integer, default=1)
+    metadata_json: Mapped[dict] = mapped_column(JSON, nullable=True)
+    share_token: Mapped[str] = mapped_column(String, nullable=True, unique=True)
+    created_by: Mapped[str] = mapped_column(String, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+
+
 

@@ -42,7 +42,7 @@ export function useRealtimeSync({ projectId, onMessage, enabled = true }: Realti
     // Validate UUID format before connecting — prevents 4000 closes
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(projectId)) {
-      console.warn('[PixelMark WS] Invalid projectId format — WebSocket skipped:', projectId)
+      console.warn('[STAGE WS] Invalid projectId format — WebSocket skipped:', projectId)
       return
     }
 
@@ -50,14 +50,14 @@ export function useRealtimeSync({ projectId, onMessage, enabled = true }: Realti
     if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) return
 
     const url = `${WS_BASE}/ws/${projectId}`
-    console.log(`[PixelMark WS] Connecting → ${url} (attempt ${retryRef.current + 1})`)
+    console.log(`[STAGE WS] Connecting → ${url} (attempt ${retryRef.current + 1})`)
 
     let ws: WebSocket
     try {
       ws = new WebSocket(url)
     } catch (err) {
       // This only throws on completely invalid URLs, not connection failures
-      console.error('[PixelMark WS] Invalid WebSocket URL:', url, err)
+      console.error('[STAGE WS] Invalid WebSocket URL:', url, err)
       return
     }
 
@@ -65,7 +65,7 @@ export function useRealtimeSync({ projectId, onMessage, enabled = true }: Realti
 
     ws.onopen = () => {
       if (unmountedRef.current) { ws.close(1000); return }
-      console.log('[PixelMark WS] ✓ Connected to project:', projectId)
+      console.log('[STAGE WS] ✓ Connected to project:', projectId)
       retryRef.current = 0
       setConnected(true)
     }
@@ -73,19 +73,19 @@ export function useRealtimeSync({ projectId, onMessage, enabled = true }: Realti
     ws.onmessage = (event: MessageEvent) => {
       try {
         const payload = JSON.parse(event.data as string)
-        console.log('[PixelMark WS] Recv:', payload.type)
+        console.log('[STAGE WS] Recv:', payload.type)
 
         // Forward to custom onMessage handler
         if (onMessage) onMessage(payload)
       } catch {
-        console.warn('[PixelMark WS] Unparseable message — ignored')
+        console.warn('[STAGE WS] Unparseable message — ignored')
       }
     }
 
     ws.onerror = () => {
       // onerror NEVER has useful details in the browser — that's the spec.
       // onclose fires immediately after with the close code — handle retry there.
-      console.warn(`[PixelMark WS] Socket error on project ${projectId} — waiting for close event`)
+      console.warn(`[STAGE WS] Socket error on project ${projectId} — waiting for close event`)
     }
 
     ws.onclose = (event: CloseEvent) => {
@@ -98,14 +98,14 @@ export function useRealtimeSync({ projectId, onMessage, enabled = true }: Realti
       const retriesLeft = retryRef.current < MAX_RETRIES
 
       if (cleanClose || serverRejected || !retriesLeft) {
-        if (serverRejected) console.warn('[PixelMark WS] Server rejected connection (invalid project ID?)')
-        if (!retriesLeft) console.error('[PixelMark WS] Max retries reached — realtime sync disabled until reload')
+        if (serverRejected) console.warn('[STAGE WS] Server rejected connection (invalid project ID?)')
+        if (!retriesLeft) console.error('[STAGE WS] Max retries reached — realtime sync disabled until reload')
         return
       }
 
       const delay = BACKOFF_BASE_MS * Math.pow(2, retryRef.current)
       retryRef.current++
-      console.log(`[PixelMark WS] Reconnecting in ${delay}ms (attempt ${retryRef.current}/${MAX_RETRIES})...`)
+      console.log(`[STAGE WS] Reconnecting in ${delay}ms (attempt ${retryRef.current}/${MAX_RETRIES})...`)
       timeoutRef.current = setTimeout(connect, delay)
     }
   }, [projectId, enabled, onMessage])
@@ -123,7 +123,7 @@ export function useRealtimeSync({ projectId, onMessage, enabled = true }: Realti
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data))
     } else {
-      console.warn('[PixelMark WS] Cannot send — socket not open')
+      console.warn('[STAGE WS] Cannot send — socket not open')
     }
   }, [])
 

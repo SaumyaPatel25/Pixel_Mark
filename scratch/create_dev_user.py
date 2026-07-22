@@ -14,7 +14,7 @@ from sqlalchemy import select
 async def main():
     async with AsyncSessionLocal() as db:
         # Check if user already exists
-        email = "developer@pixelmark.com"
+        email = "developer@stage.com"
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
         

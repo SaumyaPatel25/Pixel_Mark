@@ -14,7 +14,7 @@ interface SettingsShellProps {
 export default function SettingsShell({
   children,
   title = "Settings",
-  description = "Manage your PixelMark workspace, authentication, and integrations."
+  description = "Manage your STAGE workspace, authentication, and integrations."
 }: SettingsShellProps) {
   const pathname = usePathname()
 

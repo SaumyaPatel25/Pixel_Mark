@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { PixelmarkLoader } from '@/components/ui/PixelmarkLoader'
+import { StageLoader } from '@/components/ui/StageLoader'
 import { api } from '@/lib/api'
 import { 
   ArrowLeft, 
@@ -101,7 +101,7 @@ function SessionsList() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-pm-bg text-pm-text flex flex-col items-center justify-center transition-colors duration-300">
-        <PixelmarkLoader size="md" text="Loading Sessions..." />
+        <StageLoader size="md" text="Loading Sessions..." />
       </div>
     )
   }
@@ -345,7 +345,7 @@ export default function SessionsListPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-pm-bg text-pm-text flex flex-col items-center justify-center">
-        <PixelmarkLoader size="md" text="Initialising sessions list..." />
+        <StageLoader size="md" text="Initialising sessions list..." />
       </div>
     }>
       <SessionsList />

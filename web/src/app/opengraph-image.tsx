@@ -3,7 +3,7 @@ import { ImageResponse } from 'next/og';
 export const runtime = 'edge';
 
 // Image metadata
-export const alt = 'PixelMark - Visual Website Feedback & Bug Reporting Tool';
+export const alt = 'STAGE - Visual Website Feedback & Bug Reporting Tool';
 export const size = {
   width: 1200,
   height: 630,
@@ -54,7 +54,7 @@ export default async function Image() {
             P
           </div>
           <span style={{ fontSize: '48px', fontWeight: 900, letterSpacing: '-0.05em' }}>
-            PixelMark
+            STAGE
           </span>
         </div>
         <h1
@@ -92,7 +92,7 @@ export default async function Image() {
         >
           <span>Entrext Labs</span>
           <span>•</span>
-          <span>team@pixelmark.dev</span>
+          <span>team@stage.dev</span>
         </div>
       </div>
     ),

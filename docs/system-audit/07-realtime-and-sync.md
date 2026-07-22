@@ -1,6 +1,6 @@
 # 07 Realtime and Sync
 
-This document outlines the real-time collaboration architecture of PixelMark.
+This document outlines the real-time collaboration architecture of STAGE.
 
 ## WebSocket Architecture
 - **Endpoint:** `wss://{API_URL}/websocket/session/{session_id}`

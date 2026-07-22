@@ -203,7 +203,7 @@ export function resolveMarkerRenderPosition(
   }
 
   // Diagnostic log requirement
-  console.log("PixelMark resolve attempt", {
+  console.log("STAGE resolve attempt", {
     markerId: (marker as any).id,
     hasSelector: !!selector,
     hasXpath: !!xpath,
@@ -214,11 +214,11 @@ export function resolveMarkerRenderPosition(
   })
 
   if (result) {
-    console.log(`PixelMark pin resolved [${(marker as any).id}] via ${result.source} -> ${result.left},${result.top}`)
+    console.log(`STAGE pin resolved [${(marker as any).id}] via ${result.source} -> ${result.left},${result.top}`)
     return result
   }
 
-  console.warn(`PixelMark pin skipped invalid render position [${(marker as any).id}]`)
+  console.warn(`STAGE pin skipped invalid render position [${(marker as any).id}]`)
   return null
 }
 

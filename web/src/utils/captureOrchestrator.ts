@@ -19,7 +19,7 @@ export async function orchestrateScreenshot(
   
   const { screenshotStream, screenshotPermission } = useScreenshotStore.getState();
 
-  console.log(`[PixelMark Screenshot] mode=${mode} permission=${screenshotPermission}`);
+  console.log(`[STAGE Screenshot] mode=${mode} permission=${screenshotPermission}`);
 
   // Tier 1 & Tier 2: Client-side capture (Canvas-native and html2canvas fallbacks)
   if (mode === 'element' && targetEl) {
@@ -31,11 +31,11 @@ export async function orchestrateScreenshot(
         height: cropRect.height
       } : null);
       if (clientCapture.dataUrl) {
-        console.log(`[PixelMark Screenshot] Client-side capture successful: method=${clientCapture.method}`);
+        console.log(`[STAGE Screenshot] Client-side capture successful: method=${clientCapture.method}`);
         return { dataUrl: clientCapture.dataUrl, source: 'element' };
       }
     } catch (err) {
-      console.warn('[PixelMark Screenshot] Client-side capture failed, falling back to stream/api:', err);
+      console.warn('[STAGE Screenshot] Client-side capture failed, falling back to stream/api:', err);
     }
   }
 
@@ -79,31 +79,31 @@ export async function orchestrateScreenshot(
       screenCapture = await captureFrameFromStream(screenshotStream, adjustedCrop, highlightRect);
       
       if (adjustedCrop) {
-        console.log(`[PixelMark Screenshot] crop rect=${Math.round(adjustedCrop.x)},${Math.round(adjustedCrop.y)},${Math.round(adjustedCrop.width)},${Math.round(adjustedCrop.height)}`);
+        console.log(`[STAGE Screenshot] crop rect=${Math.round(adjustedCrop.x)},${Math.round(adjustedCrop.y)},${Math.round(adjustedCrop.width)},${Math.round(adjustedCrop.height)}`);
       }
     }
     
     if (screenCapture) {
-      console.log(`[PixelMark Screenshot] source=screen-capture`);
+      console.log(`[STAGE Screenshot] source=screen-capture`);
       return { dataUrl: screenCapture, source: sourceMode };
     }
   }
 
   // Layer 2: Server-side Playwright via backend API
   try {
-    console.log('[PixelMark Screenshot] Screen Capture unavailable/failed. Falling back to Playwright (Layer 2).');
+    console.log('[STAGE Screenshot] Screen Capture unavailable/failed. Falling back to Playwright (Layer 2).');
     const response = await api.screenshot.take(sessionId, url, shareToken);
     if (response && response.screenshot_url) {
-      console.log(`[PixelMark Screenshot] source=playwright`);
+      console.log(`[STAGE Screenshot] source=playwright`);
       return { dataUrl: response.screenshot_url, source: 'playwright' };
     }
   } catch (err) {
-    console.error('[PixelMark Screenshot] Playwright fallback failed:', err);
+    console.error('[STAGE Screenshot] Playwright fallback failed:', err);
   }
 
   // Layer 3: Placeholder generator
-  console.warn('[PixelMark Screenshot] Both primary layers failed. Using placeholder.');
-  console.log(`[PixelMark Screenshot] source=placeholder`);
+  console.warn('[STAGE Screenshot] Both primary layers failed. Using placeholder.');
+  console.log(`[STAGE Screenshot] source=placeholder`);
   return { dataUrl: createPlaceholderScreenshot(url, mode), source: 'placeholder' };
 }
 
@@ -147,7 +147,7 @@ function createPlaceholderScreenshot(url: string, mode: string): string {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 36px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('PixelMark Screenshot Placeholder', canvas.width / 2, canvas.height / 2 - 40);
+    ctx.fillText('STAGE Screenshot Placeholder', canvas.width / 2, canvas.height / 2 - 40);
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '20px system-ui, sans-serif';

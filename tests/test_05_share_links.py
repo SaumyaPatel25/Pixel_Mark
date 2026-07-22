@@ -18,7 +18,7 @@ state = {
 
 @pytest.fixture(scope="module", autouse=True)
 async def setup_data():
-    email = f"qatest_{uuid.uuid4().hex[:6]}@pixelmark.dev"
+    email = f"qatest_{uuid.uuid4().hex[:6]}@stage.dev"
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=RAILWAY_URL, timeout=10) as client:
         # Register
         resp = await client.post(

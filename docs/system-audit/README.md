@@ -1,12 +1,12 @@
-# PixelMark System Audit & Architecture Guide
+# STAGE System Audit & Architecture Guide
 
-Welcome to the central system audit repository for PixelMark. All system understanding, architecture, status, design decisions, and audit reports are consolidated in this folder (`docs/system-audit/`).
+Welcome to the central system audit repository for STAGE. All system understanding, architecture, status, design decisions, and audit reports are consolidated in this folder (`docs/system-audit/`).
 
 ---
 
 ## 🚀 Central Audit Index
 
-- **[00 Master System Audit](00_PIXELMARK_MASTER_SYSTEM_AUDIT.md)**: **Master document** covering product architecture, the Audit Surface vs. Blueprint Canvas product split, frontend/backend store maps, API contracts, and complete system health.
+- **[00 Master System Audit](00_STAGE_MASTER_SYSTEM_AUDIT.md)**: **Master document** covering product architecture, the Audit Surface vs. Blueprint Canvas product split, frontend/backend store maps, API contracts, and complete system health.
 - **[18 Phase Status & Tracking](18-status-and-phase-tracking.md)**: Current completion metrics, work log, and phase status.
 - **[MASTER_AUDIT.md](MASTER_AUDIT.md)**: Historical full-length repository audit document.
 

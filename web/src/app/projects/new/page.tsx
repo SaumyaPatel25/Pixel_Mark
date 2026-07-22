@@ -55,7 +55,7 @@ export default function NewProject() {
            </Button>
            <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 shadow-lg shadow-purple-500/20" />
-              <span className="font-bold text-lg tracking-tighter">PixelMark</span>
+              <span className="font-bold text-lg tracking-tighter">STAGE</span>
            </div>
         </div>
 
@@ -151,7 +151,7 @@ export default function NewProject() {
       </div>
       
       <footer className="mt-auto p-12 text-center text-white/10 text-[10px] font-bold uppercase tracking-[0.3em]">
-        © 2024 • Build with PixelMark Engine
+        © 2024 • Build with STAGE Engine
       </footer>
     </div>
   );

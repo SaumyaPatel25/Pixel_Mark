@@ -230,7 +230,7 @@ export function normalizeMarkerCoordinates(eventOrPayload: any): {
   let scaleX = 1
   let scaleY = 1
   if (typeof document !== 'undefined') {
-    const iframe = document.getElementById('pixelmark-proxy-iframe') || document.querySelector('iframe')
+    const iframe = document.getElementById('stage-proxy-iframe') || document.querySelector('iframe')
     if (iframe) {
       const rect = iframe.getBoundingClientRect()
       iframeLeft = rect.left

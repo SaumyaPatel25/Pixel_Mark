@@ -41,7 +41,7 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
         color_token: selectedColor,
       })
 
-      console.log(`PixelMark participant resolved [${identity.id}] [reviewer]`)
+      console.log(`STAGE participant resolved [${identity.id}] [reviewer]`)
 
       // Persist to sessionStorage so future page loads in the same tab skip this gate
       setStoredReviewerIdentity(sessionId, identity)
@@ -144,7 +144,7 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
           </form>
 
           <p className="text-center text-[10px] text-pm-muted/60 font-mono">
-            Powered by PixelMark · Visual Feedback Platform
+            Powered by STAGE · Visual Feedback Platform
           </p>
         </div>
       </div>

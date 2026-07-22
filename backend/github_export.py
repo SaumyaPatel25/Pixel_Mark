@@ -18,9 +18,9 @@ CATEGORY_TO_LABEL = {
 }
 
 def build_issue_body(comment: dict, project: dict) -> str:
-    """Builds a rich GitHub Issue body from an PixelMark comment"""
+    """Builds a rich GitHub Issue body from an STAGE comment"""
     lines = [
-        f"## 🔬 PixelMark Feedback Report",
+        f"## 🔬 STAGE Feedback Report",
         f"",
         f"| Field | Value |",
         f"|-------|-------|",
@@ -52,7 +52,7 @@ def build_issue_body(comment: dict, project: dict) -> str:
         
     lines += [
         "---",
-        f"*Created by [PixelMark OS](https://pixelmark.dev) · Project: {project.get('name', '')}*"
+        f"*Created by [STAGE OS](https://stage.dev) · Project: {project.get('name', '')}*"
     ]
     return "\n".join(lines)
 
@@ -81,7 +81,7 @@ async def push_to_github(
         {"name": "accessibility", "color": "5319e7", "description": "Accessibility issue"},
         {"name": "performance", "color": "f9d0c4", "description": "Performance issue"},
         {"name": "copy", "color": "e4e669", "description": "Copy/text error"},
-        {"name": "pixelmark", "color": "a855f7", "description": "Reported via PixelMark"},
+        {"name": "stage", "color": "a855f7", "description": "Reported via STAGE"},
     ]
     
     async with httpx.AsyncClient(timeout=15) as client:
@@ -105,7 +105,7 @@ async def push_to_github(
             sev = comment.get("severity", "P3")
             title = f"[{sev}] {ai_summary}"
             
-            issue_labels = ["pixelmark"]
+            issue_labels = ["stage"]
             if sev in SEVERITY_TO_LABEL:
                 issue_labels.append(SEVERITY_TO_LABEL[sev])
             cat = comment.get("category")

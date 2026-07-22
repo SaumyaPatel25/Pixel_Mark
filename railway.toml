@@ -10,5 +10,5 @@ restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
 [[services]]
-name = "pixelmark-backend"
+name = "stage-backend"
 rootDirectory = "backend"

@@ -2,7 +2,8 @@ import httpx
 import pytest
 import uuid
 
-RAILWAY_URL = "https://pixelmark-production.up.railway.app"
+import os
+RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
 state = {
     "token": None,
     "project_id": None,
@@ -11,7 +12,7 @@ state = {
 
 @pytest.fixture(scope="module", autouse=True)
 async def setup_data():
-    email = f"qatest_{uuid.uuid4().hex[:6]}@pixelmark.dev"
+    email = f"qatest_{uuid.uuid4().hex[:6]}@stage.dev"
     async with httpx.AsyncClient(timeout=10) as client:
         # Register
         resp = await client.post(

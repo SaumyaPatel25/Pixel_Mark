@@ -1,13 +1,13 @@
 # Integrations and External Services
 
-This document details the configuration settings, secrets, and verification logic for external services integrated with PixelMark.
+This document details the configuration settings, secrets, and verification logic for external services integrated with STAGE.
 
 ---
 
 ## 1. Database Integrations
-PixelMark supports PostgreSQL (via Neon) for production deployments and SQLite for local development:
+STAGE supports PostgreSQL (via Neon) for production deployments and SQLite for local development:
 - **Connection Configuration**:
-  - SQLite: `sqlite+aiosqlite:///./pixelmark.db` or `sqlite+aiosqlite:///./test.db`
+  - SQLite: `sqlite+aiosqlite:///./stage.db` or `sqlite+aiosqlite:///./test.db`
   - Neon PostgreSQL: `postgresql+asyncpg://{user}:{password}@{host}/{db}?sslmode=require`
 - **ORM**: SQLAlchemy.
 - **Connection Strategy**: Connection sessions are managed via FastAPI dependency wrappers (`backend/dependencies.py`). Lifespan hooks retry connection validation up to 5 times.
@@ -82,7 +82,7 @@ Used for client-side authentication, including Google Sign-In and Email Verifica
   4. Once verified, the client sends the Firebase ID Token (`id_token`) to the backend `/auth/firebase-sync` endpoint.
   5. The backend validates the Firebase ID token by executing a secure REST POST to Google's Identity Toolkit:
      `POST https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={FIREBASE_API_KEY}`.
-  6. On successful validation, the backend upserts the user profile, creates default workspace settings, links the provider identity in `user_identities`, and responds with a standard signed HS256 JWT access token (`pm_token`) for subsequent request authorizations.
+  6. On successful validation, the backend upserts the user profile, creates default workspace settings, links the provider identity in `user_identities`, and responds with a standard signed HS256 JWT access token (`stagetoken`) for subsequent request authorizations.
 - **Frontend Configuration Settings**:
   - `NEXT_PUBLIC_FIREBASE_API_KEY`
   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`

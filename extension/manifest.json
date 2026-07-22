@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PixelMark Extension Fallback",
+  "name": "STAGE Extension Fallback",
   "version": "1.0",
-  "description": "Feedback tools for sites that the PixelMark proxy cannot render.",
+  "description": "Feedback tools for sites that the STAGE proxy cannot render.",
   "permissions": [
     "activeTab",
     "scripting",

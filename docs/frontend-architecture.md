@@ -5,7 +5,7 @@ This document details the client-side system architecture, page routes, state ma
 ---
 
 ## 1. Routing and Page Structure
-PixelMark uses **Next.js 16 (App Router)**. It is organized into several layout groups to cleanly segregate page boundaries:
+STAGE uses **Next.js 16 (App Router)**. It is organized into several layout groups to cleanly segregate page boundaries:
 
 ```
 web/src/app/
@@ -32,7 +32,7 @@ web/src/app/
 ```
 
 - **App Entry Point**: `web/src/app/layout.tsx` (loads global styles `globals.css` and sets base HTML shell).
-- **Layout Guards**: `web/src/app/(dashboard)/layout.tsx` wraps pages in `<DashboardLayoutClient>` which checks `pm_token` cookies. If absent, it redirects to `/login`.
+- **Layout Guards**: `web/src/app/(dashboard)/layout.tsx` wraps pages in `<DashboardLayoutClient>` which checks `stagetoken` cookies. If absent, it redirects to `/login`.
 
 ---
 
@@ -57,11 +57,11 @@ The developer workspace is structured into nested containers:
 ---
 
 ## 3. Zustand State Management
-PixelMark isolates UI views, authentication status, and API sync states into dedicated, micro-state Zustand stores under `web/src/store/`:
+STAGE isolates UI views, authentication status, and API sync states into dedicated, micro-state Zustand stores under `web/src/store/`:
 
 1. **useAuthStore**:
-   - Manages token cookies (`pm_token`), active profile fetching, and registers users.
-   - Persists state using local storage middleware (`name: 'pm_auth'`).
+   - Manages token cookies (`stagetoken`), active profile fetching, and registers users.
+   - Persists state using local storage middleware (`name: 'stage_auth'`).
    - *Evidence: web/src/store/authStore.ts*
 2. **useMarkerStore**:
    - Stores the authoritative list of feedback pins (`markersById`), selection IDs, and active filters.
@@ -95,7 +95,7 @@ PixelMark isolates UI views, authentication status, and API sync states into ded
 ## 5. Forms and Input Validation
 - Forms (such as Login, Registration, and Project Creation) manage states via React hooks.
 - **Error Handling**: API errors are caught, parsed (automatically formatting list-based Pydantic validation errors), and surfaced to the UI.
-- **Draft Persistence**: Feedback forms in `AuditSurface.tsx` save changes in real-time to `localStorage` under `pixelmark_current_draft_form`, ensuring users do not lose comments on network drops or refreshes.
+- **Draft Persistence**: Feedback forms in `AuditSurface.tsx` save changes in real-time to `localStorage` under `stage_current_draft_form`, ensuring users do not lose comments on network drops or refreshes.
 
 ---
 
@@ -103,7 +103,7 @@ PixelMark isolates UI views, authentication status, and API sync states into ded
 - **Focus Management**: Opening the `<FeedbackFeed>` drawer shifts focus to the textarea automatically, and closing it returns focus to the trigger button.
 - **Keyboard Navigation**: Pressing `Escape` closes active drawer overlays.
 - **Alt + Click shortcut**: Users can hold `Alt` and click anywhere on the canvas to place a feedback pin.
-- **Loaders**: `<PixelmarkLoader>` provides full-viewport animated loading states during initial hydration.
+- **Loaders**: `<StageLoader>` provides full-viewport animated loading states during initial hydration.
 
 ---
 

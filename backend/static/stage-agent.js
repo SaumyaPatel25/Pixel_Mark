@@ -1,27 +1,27 @@
 (function() {
-  if (window.__PIXELMARK_INSTALLED__) return;
-  window.__PIXELMARK_INSTALLED__ = true;
+  if (window.__STAGE_INSTALLED__) return;
+  window.__STAGE_INSTALLED__ = true;
 
-  const TARGETURL = window.__PIXELMARK_TARGET_URL__ || window.PIXELMARKTARGETURL || window.location.href;
+  const TARGETURL = window.__STAGE_TARGET_URL__ || window.STAGETARGETURL || window.location.href;
   const TARGET_URL = TARGETURL;
-  const SESSION_ID = window.__PIXELMARK_SESSION_ID__ || null;
+  const SESSION_ID = window.__STAGE_SESSION_ID__ || null;
 
   // ─── Namespace ───────────────────────────────────────────────────────────
-  window.__PIXELMARK__ = window.__PIXELMARK__ || {};
-  window.__PIXELMARK__.sessionId = SESSION_ID;
-  window.__PIXELMARK__.pageUrl = TARGET_URL;
-  window.__PIXELMARK__.consoleErrors = [];
-  window.__PIXELMARK__.networkErrors = [];
-  window.__PIXELMARK__.rendererType = "dom";
-  window.__PIXELMARK__.agentVersion = "2.3.0";
+  window.__STAGE__ = window.__STAGE__ || {};
+  window.__STAGE__.sessionId = SESSION_ID;
+  window.__STAGE__.pageUrl = TARGET_URL;
+  window.__STAGE__.consoleErrors = [];
+  window.__STAGE__.networkErrors = [];
+  window.__STAGE__.rendererType = "dom";
+  window.__STAGE__.agentVersion = "2.3.0";
 
-  window.PIXELMARK = window.PIXELMARK || {};
-  window.PIXELMARK.sessionId = window.PIXELMARK.sessionId || SESSION_ID;
-  window.PIXELMARK.pageUrl = window.PIXELMARK.pageUrl || TARGET_URL;
-  window.PIXELMARK.transportUrl = window.PIXELMARK.transportUrl || window.__PIXELMARK_TRANSPORT_URL__;
-  window.PIXELMARK.targetUrl = window.PIXELMARK.targetUrl || window.__PIXELMARK_TARGET_URL__;
+  window.STAGE = window.STAGE || {};
+  window.STAGE.sessionId = window.STAGE.sessionId || SESSION_ID;
+  window.STAGE.pageUrl = window.STAGE.pageUrl || TARGET_URL;
+  window.STAGE.transportUrl = window.STAGE.transportUrl || window.__STAGE_TRANSPORT_URL__;
+  window.STAGE.targetUrl = window.STAGE.targetUrl || window.__STAGE_TARGET_URL__;
 
-  window.lastpageurl = window.lastpageurl || window.__PIXELMARK_TARGET_URL__ || TARGET_URL;
+  window.lastpageurl = window.lastpageurl || window.__STAGE_TARGET_URL__ || TARGET_URL;
 
   let feedbackModeActive = false;
 
@@ -55,7 +55,7 @@
 
       // Broadcast performance stats to parent
       window.parent.postMessage({
-        type: "PIXELMARK_PERFORMANCE_UPDATE",
+        type: "STAGE_PERFORMANCE_UPDATE",
         fps: fps,
         rAFActive: rAFActive
       }, "*");
@@ -74,7 +74,7 @@
   const originalConsoleError = console.error;
   console.error = function(...args) {
     const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    pushCircular(window.__PIXELMARK__.consoleErrors, {
+    pushCircular(window.__STAGE__.consoleErrors, {
       message,
       timestamp: new Date().toISOString(),
       stack: new Error().stack || ""
@@ -90,14 +90,14 @@
       const url = target.src || target.href;
       if (url) {
         window.parent.postMessage({
-          type: 'PIXELMARK_ASSET_DEGRADED',
+          type: 'STAGE_ASSET_DEGRADED',
           url: url,
           tagName: target.tagName,
           timestamp: new Date().toISOString()
         }, '*');
       }
     } else {
-      pushCircular(window.__PIXELMARK__.consoleErrors, {
+      pushCircular(window.__STAGE__.consoleErrors, {
         message: e.message || "Uncaught Error",
         timestamp: new Date().toISOString(),
         stack: e.error ? e.error.stack : ""
@@ -159,7 +159,7 @@
       return url;
     }
 
-    const pmBase = window.__PIXELMARK_BASE__ || (window.__PIXELMARK_SESSION__?.proxy_base_url) || (window.__PIXELMARK__?.proxy_base_url);
+    const pmBase = window.__STAGE_BASE__ || (window.__STAGE_SESSION__?.proxy_base_url) || (window.__STAGE__?.proxy_base_url);
     if (pmBase) {
       return `${pmBase}/asset?url=${encodeURIComponent(absoluteUrl)}`;
     }
@@ -188,7 +188,7 @@
     try {
       const response = await originalFetch.call(this, input, init);
       if (response && response.status >= 400) {
-        pushCircular(window.__PIXELMARK__.networkErrors, {
+        pushCircular(window.__STAGE__.networkErrors, {
           url: response.url,
           status: response.status,
           method: method,
@@ -197,7 +197,7 @@
       }
       return response;
     } catch (err) {
-      pushCircular(window.__PIXELMARK__.networkErrors, {
+      pushCircular(window.__STAGE__.networkErrors, {
         url: typeof input === 'string' ? input : input?.url || "unknown",
         status: 0,
         method: method,
@@ -220,7 +220,7 @@
   XMLHttpRequest.prototype.send = function(...args) {
     this.addEventListener('loadend', function() {
       if (this.status >= 400 || this.status === 0) {
-        pushCircular(window.__PIXELMARK__.networkErrors, {
+        pushCircular(window.__STAGE__.networkErrors, {
           url: this.responseURL,
           status: this.status,
           method: this._method || "unknown",
@@ -256,7 +256,7 @@
     let hasCanvas2D = false;
     if (hasCanvas) {
       for (const canvas of canvases) {
-        var ctxType = canvas.__pixelmark_context_type;
+        var ctxType = canvas.__stage_context_type;
         if (ctxType) {
           if (ctxType === "webgl2") {
             hasActiveWebGLContext = true;
@@ -271,7 +271,7 @@
     }
 
     // 4. Global presence of Three.js / R3F / Babylon / pc / Phaser / PIXI
-    const hasThree = typeof THREE !== "undefined" || !!window.__PIXELMARK__?.threeRenderer || !!window.__r3f;
+    const hasThree = typeof THREE !== "undefined" || !!window.__STAGE__?.threeRenderer || !!window.__r3f;
     const hasPixi = typeof PIXI !== "undefined" || !!window.PIXI;
     const hasBabylon = typeof BABYLON !== "undefined" || !!window.BABYLON;
     const hasPhaser = typeof Phaser !== "undefined" || !!window.Phaser;
@@ -335,7 +335,7 @@
     }
 
     // Set globally on window
-    window.__PIXELMARK_RENDERER__ = detectedType;
+    window.__STAGE_RENDERER__ = detectedType;
 
     return detectedType;
   }
@@ -345,17 +345,17 @@
     for (const name of candidates) {
       const obj = window[name];
       if (!obj) continue;
-      if (obj.isWebGLRenderer) window.__PIXELMARK__.threeRenderer = obj;
-      if (obj.isScene) window.__PIXELMARK__.threeScene = obj;
-      if (obj.isCamera) window.__PIXELMARK__.threeCamera = obj;
-      if (obj.renderer?.isWebGLRenderer) window.__PIXELMARK__.threeRenderer = obj.renderer;
-      if (obj.scene?.isScene) window.__PIXELMARK__.threeScene = obj.scene;
-      if (obj.camera?.isCamera) window.__PIXELMARK__.threeCamera = obj.camera;
+      if (obj.isWebGLRenderer) window.__STAGE__.threeRenderer = obj;
+      if (obj.isScene) window.__STAGE__.threeScene = obj;
+      if (obj.isCamera) window.__STAGE__.threeCamera = obj;
+      if (obj.renderer?.isWebGLRenderer) window.__STAGE__.threeRenderer = obj.renderer;
+      if (obj.scene?.isScene) window.__STAGE__.threeScene = obj.scene;
+      if (obj.camera?.isCamera) window.__STAGE__.threeCamera = obj.camera;
     }
     document.querySelectorAll("canvas").forEach(c => {
-      if (c.__three?.renderer) window.__PIXELMARK__.threeRenderer = c.__three.renderer;
-      if (c.__three?.scene) window.__PIXELMARK__.threeScene = c.__three.scene;
-      if (c.__three?.camera) window.__PIXELMARK__.threeCamera = c.__three.camera;
+      if (c.__three?.renderer) window.__STAGE__.threeRenderer = c.__three.renderer;
+      if (c.__three?.scene) window.__STAGE__.threeScene = c.__three.scene;
+      if (c.__three?.camera) window.__STAGE__.threeCamera = c.__three.camera;
     });
   }
 
@@ -611,7 +611,7 @@
   async function loadHtml2Canvas() {
     if (window.html2canvas) return window.html2canvas;
     
-    const origin = window.__PIXELMARK_PROXY_ORIGIN__ || window.location.origin;
+    const origin = window.__STAGE_PROXY_ORIGIN__ || window.location.origin;
     const localSrc = origin.replace(/\/$/, "") + "/static/html2canvas.min.js";
     const cdnSrc = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
     
@@ -657,7 +657,7 @@
     try {
       const rect = element.getBoundingClientRect();
       const overlay = document.createElement('div');
-      overlay.id = 'pixelmark-screenshot-highlight';
+      overlay.id = 'stage-screenshot-highlight';
       overlay.style.position = 'absolute';
       overlay.style.pointerEvents = 'none';
       overlay.style.zIndex = '2147483647';
@@ -745,11 +745,11 @@
       // Bottom watermark
       ctx.fillStyle = '#a855f7';
       ctx.font = 'bold 9px monospace';
-      ctx.fillText('PIXELMARK DIAGNOSTICS CAPTURE PIPELINE v3.5', 24, canvas.height - 24);
+      ctx.fillText('STAGE DIAGNOSTICS CAPTURE PIPELINE v3.5', 24, canvas.height - 24);
 
       return canvas.toDataURL('image/png');
     } catch (e) {
-      console.error("[PixelMark Capture] Failed to create placeholder canvas:", e);
+      console.error("[STAGE Capture] Failed to create placeholder canvas:", e);
       return null;
     }
   }
@@ -880,7 +880,7 @@
 
       return canvas.toDataURL('image/png');
     } catch (e) {
-      console.error("[PixelMark Capture] Failed to create DOM fallback viewport snapshot:", e);
+      console.error("[STAGE Capture] Failed to create DOM fallback viewport snapshot:", e);
       return null;
     }
   }
@@ -902,7 +902,7 @@
     html = html.replace(/\s+on[a-z]+\s*=\s*(['"])(.*?)\1/gi, '');
     html = html.replace(/\s+on[a-z]+\s*=\s*([^\s>]+)/gi, '');
     try {
-      const proxyBase = window.location.origin + "/proxy/session/" + (window.__PIXELMARK__?.sessionId || "") + "/url/";
+      const proxyBase = window.location.origin + "/proxy/session/" + (window.__STAGE__?.sessionId || "") + "/url/";
       html = html.split(proxyBase).join("");
       html = html.replace(/https?:\/\/localhost:\d+\/proxy\/session\/[a-f0-9-]+\/url\//gi, "");
     } catch(e) {}
@@ -1060,7 +1060,7 @@
       const ariaLabel = element.getAttribute('aria-label') || element.ariaLabel || null;
       const ariaRole = element.getAttribute('role') || null;
       const placeholder = element.getAttribute('placeholder') || null;
-      const rendererType = window.__PIXELMARK__?.rendererType || 'dom';
+      const rendererType = window.__STAGE__?.rendererType || 'dom';
       
       const shadowCtx = captureShadowContext(element);
       const previousSibling = getSiblingInfo(element.previousElementSibling);
@@ -1092,7 +1092,7 @@
 
       return capSnapshotSize(snapshot);
     } catch (err) {
-      console.error("[PixelMark Capture] error in serializeDOMSnapshot:", err);
+      console.error("[STAGE Capture] error in serializeDOMSnapshot:", err);
       return null;
     }
   }
@@ -1167,16 +1167,16 @@
         activeContextType
       };
     } catch (e) {
-      console.error("[PixelMark Capture] error in serializeCanvasDOMSnapshot:", e);
+      console.error("[STAGE Capture] error in serializeCanvasDOMSnapshot:", e);
       return null;
     }
   }
 
   // ─── WebGL/Three.js context ────────────────────────────────────────────────
   function getThreeJSContext(e, canvas) {
-    const renderer = window.__PIXELMARK__.threeRenderer;
-    const scene = window.__PIXELMARK__.threeScene;
-    const camera = window.__PIXELMARK__.threeCamera;
+    const renderer = window.__STAGE__.threeRenderer;
+    const scene = window.__STAGE__.threeScene;
+    const camera = window.__STAGE__.threeCamera;
     if (!renderer || !scene || !camera || typeof THREE === "undefined") {
       return { type: "threejs", canvas_coords: { x: e.clientX, y: e.clientY }, hit_found: false, detail: "Three.js not resolved globally" };
     }
@@ -1240,11 +1240,11 @@
   // Many target sites have cursor-glow / spotlight / WebGL mouse-follow effects.
   // When the site is inside a proxy iframe the browser delivers real mousemove
   // events normally when the pointer is physically over the iframe.
-  // However, when the PixelMark overlay (in the parent) intercepts mouse events
+  // However, when the STAGE overlay (in the parent) intercepts mouse events
   // (e.g. in feedback mode, or when the drawer is open) the iframe stops
   // receiving native pointer events and the cursor effects freeze.
   //
-  // Fix: the parent sends PIXELMARK_CURSOR_MOVE messages with the pointer
+  // Fix: the parent sends STAGE_CURSOR_MOVE messages with the pointer
   // position (in iframe coordinate space). We relay them as synthetic
   // mousemove + pointermove events on document so all listeners—including
   // inline event handlers, addEventListener calls, and canvas RAF loops—
@@ -1357,7 +1357,7 @@
     if (feedbackModeActive) {
       if (!badgeEl) {
         badgeEl = document.createElement("div");
-        badgeEl.id = "pixelmark-hud-badge";
+        badgeEl.id = "stage-hud-badge";
         badgeEl.style.cssText = `
           position: fixed !important;
           bottom: 16px !important;
@@ -1379,15 +1379,15 @@
           pointer-events: none !important;
           animation: pm-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
         `;
-        const rendererLabel = window.__PIXELMARK__.rendererType !== "dom"
-          ? ` ┬╖ ${window.__PIXELMARK__.rendererType.toUpperCase()}`
+        const rendererLabel = window.__STAGE__.rendererType !== "dom"
+          ? ` ┬╖ ${window.__STAGE__.rendererType.toUpperCase()}`
           : "";
         badgeEl.innerHTML = `
           <span style="display:inline-block;width:7px;height:7px;background:#a78bfa;border-radius:50%;animation:pm-ping 1s infinite alternate;"></span>
           Feedback Mode ON${rendererLabel} ΓÇö Click to report
         `;
         const style = document.createElement("style");
-        style.id = "pixelmark-hud-style";
+        style.id = "stage-hud-style";
         style.innerHTML = `
           @keyframes pm-slide-up { from{transform:translateY(24px);opacity:0} to{transform:translateY(0);opacity:1} }
           @keyframes pm-ping { from{transform:scale(1);opacity:1} to{transform:scale(1.5);opacity:0.4} }
@@ -1398,7 +1398,7 @@
       document.body.style.cursor = "crosshair";
     } else {
       if (badgeEl) { badgeEl.remove(); badgeEl = null; }
-      const style = document.getElementById("pixelmark-hud-style");
+      const style = document.getElementById("stage-hud-style");
       if (style) style.remove();
       document.body.style.cursor = "";
     }
@@ -1434,7 +1434,7 @@
     onMouseMove(e) {
       const rawEl = document.elementFromPoint(e.clientX, e.clientY);
       const el = typeof normalizeHoverTarget === 'function' ? normalizeHoverTarget(rawEl, "hoverInspector") : (rawEl && rawEl.nodeType === 1 ? rawEl : null);
-      if (!el || isPixelMarkOwnedNode(el) || el.id === INSPECTOR_ROOT_ID) {
+      if (!el || isSTAGEOwnedNode(el) || el.id === INSPECTOR_ROOT_ID) {
         this.root.style.display = 'none';
         return;
       }
@@ -1442,14 +1442,14 @@
       this.box.style.cssText = `position:absolute;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;border:2px solid #7c3aed;border-radius:4px;pointer-events:none;`;
       const tag = el.tagName.toLowerCase();
       const role = el.getAttribute('role') || '';
-      const hint = detectIssueType(el, window.__PIXELMARK__.rendererType);
+      const hint = detectIssueType(el, window.__STAGE__.rendererType);
       this.tooltip.textContent = `${tag}${role ? '['+role+']' : ''} • ${hint}`;
       this.tooltip.style.left = `${e.clientX}px`;
       this.root.style.display = 'block';
     }
   }
 
-  const INSPECTOR_ROOT_ID = "pixelmark-inspector-root";
+  const INSPECTOR_ROOT_ID = "stage-inspector-root";
   const hoverInspector = new HoverInspector();
 
   // ─── Pin manager ──────────────────────────────────────────────────────────
@@ -1464,7 +1464,7 @@
     createPin(payload) {
       const id = payload.id || crypto.randomUUID();
       const el = document.createElement('div');
-      el.dataset.pixelmarkPin = id;
+      el.dataset.stagePin = id;
       el.style.cssText = `position:absolute;width:12px;height:12px;background:#7c3aed;border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.4);cursor:pointer;pointer-events:auto;`;
       const { viewport_x, viewport_y } = payload.click || {};
       if (viewport_x !== undefined && viewport_y !== undefined) {
@@ -1481,7 +1481,7 @@
       
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        window.parent.postMessage({ type: 'PIXELMARK_OPEN_FEEDBACK_DRAWER', payload }, '*');
+        window.parent.postMessage({ type: 'STAGE_OPEN_FEEDBACK_DRAWER', payload }, '*');
       });
       this.root.appendChild(el);
       this.pins.set(id, el);
@@ -1496,13 +1496,13 @@
       this.pins.clear();
     }
   }
-  const PIN_ROOT_ID = "pixelmark-pin-root";
+  const PIN_ROOT_ID = "stage-pin-root";
   const pinManager = new PinManager();
 
-  // Helper to detect if a element is owned by PixelMark
-  function isPixelMarkOwnedNode(node) {
+  // Helper to detect if a element is owned by STAGE
+  function isSTAGEOwnedNode(node) {
     if (!node) return false;
-    if (node.id === PIN_ROOT_ID || node.id === INSPECTOR_ROOT_ID || node.id === "pixelmark-hud-badge") return true;
+    if (node.id === PIN_ROOT_ID || node.id === INSPECTOR_ROOT_ID || node.id === "stage-hud-badge") return true;
     if (node.closest && (node.closest(`#${PIN_ROOT_ID}`) || node.closest(`#${INSPECTOR_ROOT_ID}`))) return true;
     return false;
   }
@@ -1512,7 +1512,7 @@
     const clickX = event.clientX, clickY = event.clientY;
     const pageX = Math.round(clickX + window.scrollX), pageY = Math.round(clickY + window.scrollY);
     const viewport = { width: window.innerWidth, height: window.innerHeight };
-    const rendererType = window.__PIXELMARK__.rendererType;
+    const rendererType = window.__STAGE__.rendererType;
     const domCtx = getDOMContext(target);
     const viewportCtx = getViewportContext();
     const shadowCtx = captureShadowContext(target);
@@ -1578,7 +1578,7 @@
       issue_type_hint: issueHint,
       renderer_type: rendererType,
       screenshot: { method: null, data_url: null },
-      diagnostics: { console_errors: window.__PIXELMARK__.consoleErrors.slice(), network_errors: window.__PIXELMARK__.networkErrors.slice(), browser: browserInfo },
+      diagnostics: { console_errors: window.__STAGE__.consoleErrors.slice(), network_errors: window.__STAGE__.networkErrors.slice(), browser: browserInfo },
     };
     return payload;
   }
@@ -1603,7 +1603,7 @@
     try {
       const isAlt = e.altKey;
       const isMode = feedbackModeActive;
-      console.log("[PixelMark Pins] click captured. feedbackModeActive=" + feedbackModeActive + ", altKey=" + e.altKey);
+      console.log("[STAGE Pins] click captured. feedbackModeActive=" + feedbackModeActive + ", altKey=" + e.altKey);
       if (!isAlt && !isMode) return;
       
       const now = Date.now();
@@ -1612,13 +1612,13 @@
       
       const target = e.composedPath?.()[0] || e.target;
       if (!target) return;
-      if (isPixelMarkOwnedNode(target)) return; // prevent self-capture
+      if (isSTAGEOwnedNode(target)) return; // prevent self-capture
       
       const clickX = e.clientX;
       const clickY = e.clientY;
       const pageX = Math.round(clickX + window.scrollX);
       const pageY = Math.round(clickY + window.scrollY);
-      const rendererType = window.__PIXELMARK__.rendererType;
+      const rendererType = window.__STAGE__.rendererType;
       const isCanvas = target.tagName === "CANVAS";
       const domCtx = getDOMContext(target);
       const viewCtx = getViewportContext();
@@ -1633,7 +1633,7 @@
       const canvasDomSnapshot = isCanvas ? serializeCanvasDOMSnapshot(target, rendererType) : null;
       const domSnapshotStr = JSON.stringify(domSnapshot || {});
       const domSnapshotKb = (domSnapshotStr.length / 1024).toFixed(2);
-      console.log(`[PixelMark Capture] domsnapshot size: ${domSnapshotKb}kb`);
+      console.log(`[STAGE Capture] domsnapshot size: ${domSnapshotKb}kb`);
 
       let canvasCtx = null;
       if (isCanvas) {
@@ -1693,16 +1693,16 @@
       payload.screenshotrequired = true;
 
       const elapsed = (performance.now() - startMs).toFixed(0);
-      console.log(`[PixelMark Capture] payload ready in ${elapsed}ms`);
+      console.log(`[STAGE Capture] payload ready in ${elapsed}ms`);
 
       // Post message to parent to open feedback drawer (PART 4)
       window.parent.postMessage({
-        type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
+        type: "STAGE_OPEN_FEEDBACK_DRAWER",
         payload: payload,
         
         // Top-level fields for backwards compatibility
-        session_id: window.__PIXELMARK__.sessionId,
-        sessionid: window.__PIXELMARK__.sessionId,
+        session_id: window.__STAGE__.sessionId,
+        sessionid: window.__STAGE__.sessionId,
         page_url: getAbsoluteTargetUrl(),
         pageurl: getAbsoluteTargetUrl(),
         page_title: document.title,
@@ -1757,13 +1757,13 @@
         canvasdomsnapshot: canvasDomSnapshot,
 
         // Diagnostics
-        console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
-        network_errors: window.__PIXELMARK__.networkErrors.slice(-10),
+        console_errors: window.__STAGE__.consoleErrors.slice(-10),
+        network_errors: window.__STAGE__.networkErrors.slice(-10),
 
         // Meta
         browser_info: browserInfo,
         created_via: createdVia,
-        agent_version: window.__PIXELMARK__.agentVersion,
+        agent_version: window.__STAGE__.agentVersion,
         timestamp: new Date().toISOString(),
       }, "*");
 
@@ -1771,7 +1771,7 @@
       setTimeout(() => {
         getScreenshotData(target, rendererType).then((result) => {
           window.parent.postMessage({
-            type: "PIXELMARK_UPDATE_SCREENSHOT",
+            type: "STAGE_UPDATE_SCREENSHOT",
             id: payload.id,
             screenshotdataurl: result.dataUrl,
             screenshot_data_url: result.dataUrl,
@@ -1781,11 +1781,11 @@
             screenshottimestamp: result.timestamp,
             canvasSnapshot: isCanvas ? result.dataUrl : null
           }, "*");
-          console.log(`[PixelMark Capture] background screenshot completed: strategy=${result.strategy}`);
+          console.log(`[STAGE Capture] background screenshot completed: strategy=${result.strategy}`);
         }).catch((err) => {
-          console.error("[PixelMark Capture] background screenshot failed:", err);
+          console.error("[STAGE Capture] background screenshot failed:", err);
           window.parent.postMessage({
-            type: "PIXELMARK_UPDATE_SCREENSHOT",
+            type: "STAGE_UPDATE_SCREENSHOT",
             id: payload.id,
             screenshotdataurl: null,
             screenshot_data_url: null,
@@ -1801,11 +1801,11 @@
       // Do NOT trigger any overlay UI before the pin is stored
       showClickConfirmation(clickX, clickY);
 
-      console.log(`[PixelMark Pins] created x=${clickX} y=${clickY} source=iframe`);
-      console.log("[PixelMark Pins] clicked id=" + payload.id);
-      console.log("[PixelMark Pins] drawer opened from pin id=" + payload.id);
+      console.log(`[STAGE Pins] created x=${clickX} y=${clickY} source=iframe`);
+      console.log("[STAGE Pins] clicked id=" + payload.id);
+      console.log("[STAGE Pins] drawer opened from pin id=" + payload.id);
     } catch (err) {
-      console.error("[PixelMark Agent] handleFeedbackCapture error:", err);
+      console.error("[STAGE Agent] handleFeedbackCapture error:", err);
     }
   }
 
@@ -1885,7 +1885,7 @@
           resolved = true;
           source = "element";
         } catch (e) {
-          console.error("[PixelMark Agent] failed getBoundingClientRect for element", e);
+          console.error("[STAGE Agent] failed getBoundingClientRect for element", e);
         }
       }
 
@@ -1927,10 +1927,10 @@
     }
     lastResolvedPinsString = newResolvedString;
 
-    console.log(`[PixelMark Agent] Resolved ${resolvedPins.length} pins`);
+    console.log(`[STAGE Agent] Resolved ${resolvedPins.length} pins`);
 
     window.parent.postMessage({
-      type: "PIXELMARK_PINS_RESOLVED",
+      type: "STAGE_PINS_RESOLVED",
       resolvedPins: resolvedPins
     }, "*");
   }
@@ -1966,7 +1966,7 @@
       if (nativeMoveThrottle) return;
       nativeMoveThrottle = setTimeout(() => { nativeMoveThrottle = null; }, 16);
       window.parent.postMessage({
-        type: 'PIXELMARK_IFRAME_MOUSEMOVE',
+        type: 'STAGE_IFRAME_MOUSEMOVE',
         x: e.clientX,
         y: e.clientY
       }, '*');
@@ -1977,7 +1977,7 @@
     // Dispatch scroll events to parent so pins can stay anchored to the page
     window.addEventListener('scroll', () => {
       window.parent.postMessage({
-        type: 'PIXELMARK_SCROLL',
+        type: 'STAGE_SCROLL',
         scrollX: window.scrollX,
         scrollY: window.scrollY
       }, '*');
@@ -1986,7 +1986,7 @@
 
     window.addEventListener('resize', () => {
       window.parent.postMessage({
-        type: 'PIXELMARK_RESIZE',
+        type: 'STAGE_RESIZE',
         width: window.innerWidth,
         height: window.innerHeight
       }, '*');
@@ -2001,7 +2001,7 @@
           return;
         }
         e.preventDefault();
-        window.parent.postMessage({ type: 'PIXELMARK_UNDO_LAST' }, '*');
+        window.parent.postMessage({ type: 'STAGE_UNDO_LAST' }, '*');
       }
     });
 
@@ -2022,30 +2022,30 @@
     const data = event.data;
     if (!data || typeof data !== "object") return;
 
-    if (data.type === "PIXELMARK_TRACK_PINS") {
+    if (data.type === "STAGE_TRACK_PINS") {
       window.__trackedPins = data.pins || [];
       resolveAndSendPins();
     }
 
     // ── Cursor relay — receive parent cursor position and re-emit as real events
-    if (data.type === "PIXELMARK_CURSOR_MOVE") {
+    if (data.type === "STAGE_CURSOR_MOVE") {
       if (typeof data.x === 'number' && typeof data.y === 'number') {
         relayCursorEvent(data.x, data.y);
       }
     }
 
-    if (data.type === "PIXELMARK_TOGGLE_MARKER_MODE") {
+    if (data.type === "STAGE_TOGGLE_MARKER_MODE") {
       feedbackModeActive = !!data.active;
       updateFeedbackModeUI();
       if (feedbackModeActive) {
         hoverInspector.start();
-        if (window.__PIXELMARK_EDIT_MODE__) window.__PIXELMARK_EDIT_MODE__.stop();
+        if (window.__STAGE_EDIT_MODE__) window.__STAGE_EDIT_MODE__.stop();
       } else {
         hoverInspector.stop();
       }
     }
 
-    if (data.type === "PIXELMARK_SET_EDIT_MODE" || data.type === "PIXELMARK_TOGGLE_EDIT_MODE") {
+    if (data.type === "STAGE_SET_EDIT_MODE" || data.type === "STAGE_TOGGLE_EDIT_MODE") {
       const active = !!data.active;
       if (active) {
         if (feedbackModeActive) {
@@ -2053,48 +2053,119 @@
           updateFeedbackModeUI();
           hoverInspector.stop();
         }
-        if (window.__PIXELMARK_EDIT_MODE__) window.__PIXELMARK_EDIT_MODE__.start();
+        if (window.__STAGE_EDIT_MODE__) window.__STAGE_EDIT_MODE__.start();
       } else {
-        if (window.__PIXELMARK_EDIT_MODE__) window.__PIXELMARK_EDIT_MODE__.stop();
+        if (window.__STAGE_EDIT_MODE__) window.__STAGE_EDIT_MODE__.stop();
       }
     }
 
-    if (data.type === "PIXELMARK_PREVIEW_STYLE_MUTATION") {
-      if (window.__PIXELMARK_EDIT_MODE__ && window.__PIXELMARK_EDIT_MODE__.applyStyle) {
-        window.__PIXELMARK_EDIT_MODE__.applyStyle(data.selector, data.property, data.value);
+    if (data.type === "STAGE_RECONCILE_MUTATIONS") {
+      try {
+        var mutations = data.mutations || [];
+        // Remove previously inserted elements
+        var inserted = document.querySelectorAll('[data-blueprint-inserted="true"]');
+        for (var i = 0; i < inserted.length; i++) {
+          inserted[i].remove();
+        }
+
+        // Re-apply current mutations in order
+        for (var j = 0; j < mutations.length; j++) {
+          var mut = mutations[j];
+          var targetEl = document.querySelector(mut.targetSelector);
+          if (targetEl && mut.htmlPayload) {
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = mut.htmlPayload;
+            var newEl = tempDiv.firstElementChild || tempDiv;
+            if (newEl && newEl.setAttribute) {
+              newEl.setAttribute('data-blueprint-inserted', 'true');
+            }
+
+            if (mut.actionType === 'replace') {
+              targetEl.replaceWith(newEl);
+            } else if (mut.actionType === 'before' && targetEl.parentNode) {
+              targetEl.parentNode.insertBefore(newEl, targetEl);
+            } else if (mut.actionType === 'after' && targetEl.parentNode) {
+              targetEl.parentNode.insertBefore(newEl, targetEl.nextSibling);
+            } else if (mut.actionType === 'inside') {
+              targetEl.appendChild(newEl);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[STAGE_AGENT] Failed to reconcile mutations:", err);
       }
     }
 
-    if (data.type === "PIXELMARK_REPLAY_EDITS") {
-      if (Array.isArray(data.edits) && window.__PIXELMARK_EDIT_MODE__ && window.__PIXELMARK_EDIT_MODE__.replayBatch) {
-        window.__PIXELMARK_EDIT_MODE__.replayBatch(data.edits);
+    if (data.type === "STAGE_APPLY_MUTATION") {
+      try {
+        var payload = data.payload || data;
+        var targetSelector = payload.targetSelector;
+        var actionType = payload.actionType || 'replace';
+        var htmlPayload = payload.htmlPayload;
+
+        if (targetSelector && htmlPayload) {
+          var targetEl = document.querySelector(targetSelector);
+          if (targetEl) {
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlPayload;
+            var newEl = tempDiv.firstElementChild || tempDiv;
+
+            if (actionType === 'replace') {
+              targetEl.replaceWith(newEl);
+            } else if (actionType === 'before') {
+              if (targetEl.parentNode) {
+                targetEl.parentNode.insertBefore(newEl, targetEl);
+              }
+            } else if (actionType === 'after') {
+              if (targetEl.parentNode) {
+                targetEl.parentNode.insertBefore(newEl, targetEl.nextSibling);
+              }
+            } else if (actionType === 'inside') {
+              targetEl.appendChild(newEl);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[STAGE_AGENT] Failed to apply mutation:", err);
       }
     }
 
-    if (data.type === "PIXELMARK_RESET_SECTION_STYLES") {
-      if (window.__PIXELMARK_EDIT_MODE__ && window.__PIXELMARK_EDIT_MODE__.resetSection) {
-        window.__PIXELMARK_EDIT_MODE__.resetSection(data.selector, data.sectionProperties);
+    if (data.type === "STAGE_PREVIEW_STYLE_MUTATION") {
+      if (window.__STAGE_EDIT_MODE__ && window.__STAGE_EDIT_MODE__.applyStyle) {
+        window.__STAGE_EDIT_MODE__.applyStyle(data.selector, data.property, data.value);
       }
     }
 
-    if (data.type === "PIXELMARK_RESET_ELEMENT_STYLES") {
-      if (window.__PIXELMARK_EDIT_MODE__ && window.__PIXELMARK_EDIT_MODE__.resetElementAll) {
-        window.__PIXELMARK_EDIT_MODE__.resetElementAll(data.selector);
+    if (data.type === "STAGE_REPLAY_EDITS") {
+      if (Array.isArray(data.edits) && window.__STAGE_EDIT_MODE__ && window.__STAGE_EDIT_MODE__.replayBatch) {
+        window.__STAGE_EDIT_MODE__.replayBatch(data.edits);
       }
     }
 
-    if (data.type === "PIXELMARK_SET_CONTEXT") {
+    if (data.type === "STAGE_RESET_SECTION_STYLES") {
+      if (window.__STAGE_EDIT_MODE__ && window.__STAGE_EDIT_MODE__.resetSection) {
+        window.__STAGE_EDIT_MODE__.resetSection(data.selector, data.sectionProperties);
+      }
+    }
+
+    if (data.type === "STAGE_RESET_ELEMENT_STYLES") {
+      if (window.__STAGE_EDIT_MODE__ && window.__STAGE_EDIT_MODE__.resetElementAll) {
+        window.__STAGE_EDIT_MODE__.resetElementAll(data.selector);
+      }
+    }
+
+    if (data.type === "STAGE_SET_CONTEXT") {
       if (data.sessionId) {
-        window.__PIXELMARK__.sessionId = data.sessionId;
-        window.PIXELMARK.sessionId = data.sessionId;
+        window.__STAGE__.sessionId = data.sessionId;
+        window.STAGE.sessionId = data.sessionId;
       }
       if (data.pageUrl) {
-        window.__PIXELMARK__.pageUrl = data.pageUrl;
-        window.PIXELMARK.pageUrl = data.pageUrl;
+        window.__STAGE__.pageUrl = data.pageUrl;
+        window.STAGE.pageUrl = data.pageUrl;
       }
     }
 
-    if (data.type === "PIXELMARK_TRIGGER_FRAME_CAPTURE") {
+    if (data.type === "STAGE_TRIGGER_FRAME_CAPTURE") {
       (async () => {
         const canvases = document.querySelectorAll("canvas");
         let screenshotDataUrl = null;
@@ -2137,7 +2208,7 @@
         
         const payload = {
           id: crypto.randomUUID(),
-          session_id: window.__PIXELMARK__.sessionId,
+          session_id: window.__STAGE__.sessionId,
           pageurl: getAbsoluteTargetUrl(),
           page_url: getAbsoluteTargetUrl(),
           page_title: document.title,
@@ -2157,16 +2228,16 @@
           viewport_context: getViewportContext(),
           shadow_context: { is_inside_shadow_dom: false, shadow_root_depth: 0, shadow_host_tag: null, shadow_host_id: null, shadow_host_class_list: null, shadow_path: null },
           issue_type_hint: "canvas_webgl",
-          renderer_type: window.__PIXELMARK__.rendererType,
+          renderer_type: window.__STAGE__.rendererType,
           screenshot: { method: 'fallback', data_url: screenshotDataUrl },
-          diagnostics: { console_errors: window.__PIXELMARK__.consoleErrors.slice(), network_errors: window.__PIXELMARK__.networkErrors.slice(), browser: getBrowserInfo() },
+          diagnostics: { console_errors: window.__STAGE__.consoleErrors.slice(), network_errors: window.__STAGE__.networkErrors.slice(), browser: getBrowserInfo() },
         };
 
         window.parent.postMessage({
-          type: "PIXELMARK_OPEN_FEEDBACK_DRAWER",
+          type: "STAGE_OPEN_FEEDBACK_DRAWER",
           payload: payload,
-          session_id: window.__PIXELMARK__.sessionId,
-          sessionid: window.__PIXELMARK__.sessionId,
+          session_id: window.__STAGE__.sessionId,
+          sessionid: window.__STAGE__.sessionId,
           page_url: getAbsoluteTargetUrl(),
           pageurl: getAbsoluteTargetUrl(),
           page_title: document.title,
@@ -2187,54 +2258,54 @@
           xpath: "",
           viewport: getViewportContext().viewport,
           scroll_position: getViewportContext().scroll_position,
-          renderer_type: window.__PIXELMARK__.rendererType,
+          renderer_type: window.__STAGE__.rendererType,
           canvas_context: canvasCtx,
           norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
           norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
           canvas_snapshot: screenshotDataUrl,
           screenshot_data_url: screenshotDataUrl,
           screenshot_required: !!screenshotDataUrl,
-          console_errors: window.__PIXELMARK__.consoleErrors.slice(-10),
-          network_errors: window.__PIXELMARK__.networkErrors.slice(-10),
+          console_errors: window.__STAGE__.consoleErrors.slice(-10),
+          network_errors: window.__STAGE__.networkErrors.slice(-10),
           browser_info: getBrowserInfo(),
           created_via: "fallback",
-          agent_version: window.__PIXELMARK__.agentVersion,
+          agent_version: window.__STAGE__.agentVersion,
           timestamp: new Date().toISOString(),
         }, "*");
       })();
     }
 
-    window.addEventListener('pixelmark:navigation', (e) => {
+    window.addEventListener('stage:navigation', (e) => {
       const logicalTargetUrl = e.detail?.logicalTargetUrl;
       if (!logicalTargetUrl) return;
       try {
-        console.log("[PixelMark NAV] logicalTargetUrl=" + logicalTargetUrl);
+        console.log("[STAGE NAV] logicalTargetUrl=" + logicalTargetUrl);
 
         const targetUrlObj = new URL(logicalTargetUrl);
-        const sessionUrlObj = new URL(window.__PIXELMARK_TARGET_URL__);
+        const sessionUrlObj = new URL(window.__STAGE_TARGET_URL__);
         if (targetUrlObj.host !== sessionUrlObj.host) {
           return;
         }
 
         window.parent.postMessage({
-          type: 'PIXELMARK_NAV',
+          type: 'STAGE_NAV',
           pageurl: logicalTargetUrl,
           page_url: logicalTargetUrl,
           pagetitle: document.title,
           page_title: document.title,
-          sessionid: window.PIXELMARK.sessionId,
-          session_id: window.PIXELMARK.sessionId,
-          referrerurl: window.lastpageurl || window.__PIXELMARK_TARGET_URL__,
-          referrer_url: window.lastpageurl || window.__PIXELMARK_TARGET_URL__,
+          sessionid: window.STAGE.sessionId,
+          session_id: window.STAGE.sessionId,
+          referrerurl: window.lastpageurl || window.__STAGE_TARGET_URL__,
+          referrer_url: window.lastpageurl || window.__STAGE_TARGET_URL__,
           isspa: true,
           is_spa: true
         }, '*');
 
         window.lastpageurl = logicalTargetUrl;
-        window.PIXELMARK.pageUrl = logicalTargetUrl;
-        window.__PIXELMARK__.pageUrl = logicalTargetUrl;
+        window.STAGE.pageUrl = logicalTargetUrl;
+        window.__STAGE__.pageUrl = logicalTargetUrl;
       } catch (err) {
-        console.error("[PixelMark NAV] Error handling navigation event", err);
+        console.error("[STAGE NAV] Error handling navigation event", err);
       }
     });
   }
@@ -2248,11 +2319,11 @@
         return new URL(urlParam).href;
       }
     } catch (_) {}
-    if (window.PIXELMARK && window.PIXELMARK.pageUrl) {
-      return window.PIXELMARK.pageUrl;
+    if (window.STAGE && window.STAGE.pageUrl) {
+      return window.STAGE.pageUrl;
     }
-    if (window.__PIXELMARK_TARGET_URL__) {
-      return window.__PIXELMARK_TARGET_URL__;
+    if (window.__STAGE_TARGET_URL__) {
+      return window.__STAGE_TARGET_URL__;
     }
     return TARGETURL;
   }
@@ -2289,28 +2360,28 @@
 
       if (isInternal) {
         window.parent.postMessage({
-          type: "PIXELMARK_NAV",
+          type: "STAGE_NAV",
           page_url: resolvedUrl,
           pageurl: resolvedUrl,
           page_title: document.title || "",
           pagetitle: document.title || "",
-          session_id: window.__PIXELMARK__.sessionId || "",
-          sessionid: window.__PIXELMARK__.sessionId || "",
+          session_id: window.__STAGE__.sessionId || "",
+          sessionid: window.__STAGE__.sessionId || "",
           referrer_url: window.lastpageurl || targetBase,
           referrerurl: window.lastpageurl || targetBase,
           isspa: false,
           is_spa: false
         }, "*");
         window.lastpageurl = resolvedUrl;
-        window.PIXELMARK.pageUrl = resolvedUrl;
-        window.__PIXELMARK__.pageUrl = resolvedUrl;
+        window.STAGE.pageUrl = resolvedUrl;
+        window.__STAGE__.pageUrl = resolvedUrl;
       }
     }, true);
   }
 
   function postRendererDetected(rendererType) {
     const canvases = document.querySelectorAll("canvas");
-    const hasThree = typeof THREE !== "undefined" || !!window.__PIXELMARK__?.threeRenderer || !!window.__r3f;
+    const hasThree = typeof THREE !== "undefined" || !!window.__STAGE__?.threeRenderer || !!window.__r3f;
     const hasPixi = typeof PIXI !== "undefined" || !!window.PIXI;
     const hasBabylon = typeof BABYLON !== "undefined" || !!window.BABYLON;
     const hasPhaser = typeof Phaser !== "undefined" || !!window.Phaser;
@@ -2318,13 +2389,13 @@
     const threeDetected = hasThree || hasPixi || hasBabylon || hasPhaser || hasPlayCanvas;
 
     window.parent.postMessage({
-      type: "PIXELMARK_RENDERER_DETECTED",
+      type: "STAGE_RENDERER_DETECTED",
       renderer_type: rendererType,
       has_canvas: canvases.length > 0,
       canvas_count: canvases.length,
       raf_detected: rAFActive || (rAFCount > 3),
       three_detected: threeDetected,
-      session_id: window.__PIXELMARK__.sessionId || ""
+      session_id: window.__STAGE__.sessionId || ""
     }, "*");
   }
 
@@ -2353,31 +2424,31 @@
   let isAgentReady = false;
 
   window.addEventListener("beforeunload", () => {
-    console.log("[PixelMark PAGEUNLOAD] logicalTargetUrl=" + getAbsoluteTargetUrl());
+    console.log("[STAGE PAGEUNLOAD] logicalTargetUrl=" + getAbsoluteTargetUrl());
     window.parent.postMessage({
-      type: "PIXELMARK_PAGE_UNLOAD",
+      type: "STAGE_PAGE_UNLOAD",
       fromUrl: getAbsoluteTargetUrl(),
       fromurl: getAbsoluteTargetUrl(),
     }, "*");
   });
 
   document.addEventListener("DOMContentLoaded", () => {
-    window.__PIXELMARK__.rendererType = detectRenderer();
+    window.__STAGE__.rendererType = detectRenderer();
     discoverThreeScene();
     setupNavigationInterceptor();
 
-    console.log("[PixelMark PAGELOAD] logicalTargetUrl=" + getAbsoluteTargetUrl());
+    console.log("[STAGE PAGELOAD] logicalTargetUrl=" + getAbsoluteTargetUrl());
     window.parent.postMessage({
-      type: "PIXELMARK_PAGE_LOAD",
+      type: "STAGE_PAGE_LOAD",
       url: getAbsoluteTargetUrl(),
       pageurl: getAbsoluteTargetUrl(),
       title: document.title,
-      rendererType: window.__PIXELMARK__.rendererType,
+      rendererType: window.__STAGE__.rendererType,
       scrollX: window.scrollX,
       scrollY: window.scrollY,
     }, "*");
 
-    const currentRenderer = window.__PIXELMARK__.rendererType;
+    const currentRenderer = window.__STAGE__.rendererType;
     postRendererDetected(currentRenderer);
 
     // Check if it's a heavy render page (contains canvas or WebGL renderer)
@@ -2409,12 +2480,12 @@
     }, 2000);
 
     // Periodic renderer type checks (useful for late-initialized WebGL canvases)
-    let lastDetectedType = window.__PIXELMARK__.rendererType;
+    let lastDetectedType = window.__STAGE__.rendererType;
     setInterval(() => {
       const currentType = detectRenderer();
       if (currentType !== lastDetectedType) {
         lastDetectedType = currentType;
-        window.__PIXELMARK__.rendererType = currentType;
+        window.__STAGE__.rendererType = currentType;
         postRendererDetected(currentType);
       }
     }, 1000);
@@ -2452,10 +2523,10 @@
 (function() {
   'use strict';
 
-  var OVERLAY_CONTAINER_ID = 'pixelmark-edit-overlay-container';
-  var HOVER_BOX_ID = 'pixelmark-edit-hover-box';
-  var HOVER_LABEL_ID = 'pixelmark-edit-hover-label';
-  var SELECT_BOX_ID = 'pixelmark-edit-select-box';
+  var OVERLAY_CONTAINER_ID = 'stage-edit-overlay-container';
+  var HOVER_BOX_ID = 'stage-edit-hover-box';
+  var HOVER_LABEL_ID = 'stage-edit-hover-label';
+  var SELECT_BOX_ID = 'stage-edit-select-box';
 
   var editModeActive = false;
   var hoveredElement = null;
@@ -2508,26 +2579,26 @@
 
   function normalizeHoverTarget(target, source) {
     if (source) {
-      console.log("[PixelMark Agent] hover target incoming", { source: source, target: target });
+      console.log("[STAGE Agent] hover target incoming", { source: source, target: target });
     }
 
     if (!target) {
       if (source) {
-        console.log("[PixelMark Agent] hover target normalized", { source: source, tag: null });
+        console.log("[STAGE Agent] hover target normalized", { source: source, tag: null });
       }
       return null;
     }
 
     if (target === window || target.window === target) {
       if (source) {
-        console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { source: source, targetType: "window", target: target });
+        console.log("[STAGE Agent] updateHoverBox skipped invalid target", { source: source, targetType: "window", target: target });
       }
       return null;
     }
 
     if (target.nodeType === 9) { // Document node
       if (source) {
-        console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { source: source, targetType: "document", target: target });
+        console.log("[STAGE Agent] updateHoverBox skipped invalid target", { source: source, targetType: "document", target: target });
       }
       return null;
     }
@@ -2540,7 +2611,7 @@
         target = target.parentNode;
       } else {
         if (source) {
-          console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { source: source, targetType: typeof target, target: target });
+          console.log("[STAGE Agent] updateHoverBox skipped invalid target", { source: source, targetType: typeof target, target: target });
         }
         return null;
       }
@@ -2562,27 +2633,27 @@
 
     if (isElementNode(target)) {
       if (source) {
-        console.log("[PixelMark Agent] hover target normalized", { source: source, tag: target.tagName ? target.tagName.toLowerCase() : null });
+        console.log("[STAGE Agent] hover target normalized", { source: source, tag: target.tagName ? target.tagName.toLowerCase() : null });
       }
       return target;
     }
 
     if (source) {
-      console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { source: source, targetType: typeof target, target: target });
+      console.log("[STAGE Agent] updateHoverBox skipped invalid target", { source: source, targetType: typeof target, target: target });
     }
     return null;
   }
 
-  function isPixelMarkNode(node) {
+  function isSTAGENode(node) {
     if (!node) return true;
-    if (node === containerEl || node.id === OVERLAY_CONTAINER_ID || node.id === HOVER_BOX_ID || node.id === HOVER_LABEL_ID || node.id === SELECT_BOX_ID || node.id === "pixelmark-hud-badge" || node.id === "pixelmark-inspector-root") return true;
-    if (node.closest && (node.closest('#' + OVERLAY_CONTAINER_ID) || node.closest('#pixelmark-inspector-root'))) return true;
+    if (node === containerEl || node.id === OVERLAY_CONTAINER_ID || node.id === HOVER_BOX_ID || node.id === HOVER_LABEL_ID || node.id === SELECT_BOX_ID || node.id === "stage-hud-badge" || node.id === "stage-inspector-root") return true;
+    if (node.closest && (node.closest('#' + OVERLAY_CONTAINER_ID) || node.closest('#stage-inspector-root'))) return true;
     return false;
   }
 
   function updateHoverBox(target) {
     var el = normalizeHoverTarget(target, null);
-    if (!el || el === document.body || el === document.documentElement || isPixelMarkNode(el)) {
+    if (!el || el === document.body || el === document.documentElement || isSTAGENode(el)) {
       hoveredElement = null;
       if (hoverBoxEl) hoverBoxEl.style.display = 'none';
       if (hoverLabelEl) hoverLabelEl.style.display = 'none';
@@ -2590,7 +2661,7 @@
     }
 
     if (!isElementNode(el)) {
-      console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { targetType: typeof el, target: el });
+      console.log("[STAGE Agent] updateHoverBox skipped invalid target", { targetType: typeof el, target: el });
       hoveredElement = null;
       if (hoverBoxEl) hoverBoxEl.style.display = 'none';
       if (hoverLabelEl) hoverLabelEl.style.display = 'none';
@@ -2624,9 +2695,9 @@
       hoverLabelEl.style.top = labelTop + 'px';
       hoverLabelEl.style.display = 'block';
 
-      console.log("[PixelMark Agent] updateHoverBox applied", { tag: tag });
+      console.log("[STAGE Agent] updateHoverBox applied", { tag: tag });
     } catch (err) {
-      console.log("[PixelMark Agent] updateHoverBox skipped invalid target", { error: err.message, target: el });
+      console.log("[STAGE Agent] updateHoverBox skipped invalid target", { error: err.message, target: el });
       if (hoverBoxEl) hoverBoxEl.style.display = 'none';
       if (hoverLabelEl) hoverLabelEl.style.display = 'none';
     }
@@ -2637,7 +2708,7 @@
     if (!el || !document.body.contains(el)) {
       selectedElement = null;
       if (selectBoxEl) selectBoxEl.style.display = 'none';
-      window.parent.postMessage({ type: 'PIXELMARK_EDIT_ELEMENT_DESELECTED' }, '*');
+      window.parent.postMessage({ type: 'STAGE_EDIT_ELEMENT_DESELECTED' }, '*');
       return;
     }
 
@@ -2654,7 +2725,7 @@
       selectBoxEl.style.height = rect.height + 'px';
       selectBoxEl.style.display = 'block';
     } catch (err) {
-      console.log("[PixelMark Agent] updateSelectBox skipped invalid target", { error: err.message, target: el });
+      console.log("[STAGE Agent] updateSelectBox skipped invalid target", { error: err.message, target: el });
       if (selectBoxEl) selectBoxEl.style.display = 'none';
     }
   }
@@ -2672,7 +2743,7 @@
 
       var rawTarget = pendingHoverEvent.target;
       var target = normalizeHoverTarget(rawTarget, "mousemove");
-      if (target && !isPixelMarkNode(target)) {
+      if (target && !isSTAGENode(target)) {
         updateHoverBox(target);
       } else {
         updateHoverBox(null);
@@ -2680,7 +2751,7 @@
 
       var duration = performance.now() - startTime;
       if (duration > 4) {
-        console.warn('[PixelMark EditMode] Hover handler took ' + duration.toFixed(2) + 'ms (exceeded 4ms budget)');
+        console.warn('[STAGE EditMode] Hover handler took ' + duration.toFixed(2) + 'ms (exceeded 4ms budget)');
       }
     });
   }
@@ -2691,7 +2762,7 @@
 
     var rawTarget = e.target;
     var target = normalizeHoverTarget(rawTarget, "click");
-    if (!target || isPixelMarkNode(target) || target === document.body || target === document.documentElement) {
+    if (!target || isSTAGENode(target) || target === document.body || target === document.documentElement) {
       // Clicked outside / background -> deselect
       deselect();
       return;
@@ -2707,7 +2778,7 @@
     var tag = target.tagName.toLowerCase();
 
     window.parent.postMessage({
-      type: 'PIXELMARK_EDIT_ELEMENT_SELECTED',
+      type: 'STAGE_EDIT_ELEMENT_SELECTED',
       tag: tag,
       selector: selector
     }, '*');
@@ -2742,7 +2813,7 @@
   function deselect() {
     selectedElement = null;
     if (selectBoxEl) selectBoxEl.style.display = 'none';
-    window.parent.postMessage({ type: 'PIXELMARK_EDIT_ELEMENT_DESELECTED' }, '*');
+    window.parent.postMessage({ type: 'STAGE_EDIT_ELEMENT_DESELECTED' }, '*');
   }
 
   // Memory map for storing element's original inline/computed style value before first mutation
@@ -2765,9 +2836,9 @@
       // 1. Read phase (separated from write to prevent layout thrashing):
       //    Resolve target element & read computed style if not already stored
       var element = document.querySelector(selector);
-      if (!element || isPixelMarkNode(element) || !document.body.contains(element)) {
+      if (!element || isSTAGENode(element) || !document.body.contains(element)) {
         internalLog('Selector failed to resolve or element not in DOM:', selector);
-        window.parent.postMessage({ type: 'PIXELMARK_EDIT_UNRESOLVED_ELEMENT', selector: selector }, '*');
+        window.parent.postMessage({ type: 'STAGE_EDIT_UNRESOLVED_ELEMENT', selector: selector }, '*');
         return;
       }
 
@@ -2820,7 +2891,7 @@
 
       try {
         var element = document.querySelector(edit.selector);
-        if (!element || isPixelMarkNode(element) || !document.body.contains(element)) {
+        if (!element || isSTAGENode(element) || !document.body.contains(element)) {
           internalLog('Replay selector failed to resolve:', edit.selector);
           continue;
         }
@@ -2857,8 +2928,8 @@
 
     try {
       var element = document.querySelector(selector);
-      if (!element || isPixelMarkNode(element) || !document.body.contains(element)) {
-        window.parent.postMessage({ type: 'PIXELMARK_EDIT_UNRESOLVED_ELEMENT', selector: selector }, '*');
+      if (!element || isSTAGENode(element) || !document.body.contains(element)) {
+        window.parent.postMessage({ type: 'STAGE_EDIT_UNRESOLVED_ELEMENT', selector: selector }, '*');
         return;
       }
 
@@ -2887,8 +2958,8 @@
 
     try {
       var element = document.querySelector(selector);
-      if (!element || isPixelMarkNode(element) || !document.body.contains(element)) {
-        window.parent.postMessage({ type: 'PIXELMARK_EDIT_UNRESOLVED_ELEMENT', selector: selector }, '*');
+      if (!element || isSTAGENode(element) || !document.body.contains(element)) {
+        window.parent.postMessage({ type: 'STAGE_EDIT_UNRESOLVED_ELEMENT', selector: selector }, '*');
         return;
       }
 
@@ -2923,7 +2994,7 @@
     window.addEventListener('scroll', onScrollOrResize, { passive: true });
     window.addEventListener('resize', onScrollOrResize, { passive: true });
 
-    console.log('[PixelMark] DOM Edit Mode Activated');
+    console.log('[STAGE] DOM Edit Mode Activated');
   }
 
   function stopEditMode() {
@@ -2952,10 +3023,10 @@
       selectBoxEl = null;
     }
 
-    console.log('[PixelMark] DOM Edit Mode Deactivated');
+    console.log('[STAGE] DOM Edit Mode Deactivated');
   }
 
-  window.__PIXELMARK_EDIT_MODE__ = {
+  window.__STAGE_EDIT_MODE__ = {
     start: startEditMode,
     stop: stopEditMode,
     isActive: function() { return editModeActive; },
@@ -2966,7 +3037,7 @@
   };
 
   // Notify parent that agent is ready
-  window.parent.postMessage({ type: 'PIXELMARK_AGENT_READY' }, '*');
-  console.log('[PixelMark Agent] Ready ✓');
+  window.parent.postMessage({ type: 'STAGE_AGENT_READY' }, '*');
+  console.log('[STAGE Agent] Ready ✓');
 
 })();

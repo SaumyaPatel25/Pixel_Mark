@@ -1,4 +1,4 @@
-# PixelMark Phase Status & Work Tracking
+# STAGE Phase Status & Work Tracking
 
 **Location**: `docs/system-audit/18-status-and-phase-tracking.md`  
 **Last Updated**: 2026-07-20

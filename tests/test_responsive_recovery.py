@@ -37,7 +37,7 @@ def test_static_snapshot_mode_decomposes_all_scripts():
     """
     Verifies that when snapshot_mode=True is passed to rewrite_html,
     all pre-existing <script> tags are fully decomposed/stripped from the DOM tree,
-    except the injected PixelMark agent and configuration scripts which are added after.
+    except the injected STAGE agent and configuration scripts which are added after.
     """
     sample_html = """
     <!DOCTYPE html>
@@ -74,16 +74,16 @@ def test_static_snapshot_mode_decomposes_all_scripts():
     # Assert that all standard target-site scripts are stripped
     scripts = soup.find_all("script")
     
-    # The only remaining scripts must be the injected PixelMark ones
+    # The only remaining scripts must be the injected STAGE ones
     # Let's count them and inspect them
     assert len(scripts) > 0
     for s in scripts:
         src = s.get("src", "")
         if src:
-            assert "pixelmark-agent.js" in src
+            assert "stage-agent.js" in src
         else:
             # Inline config script
-            assert "window.__PIXELMARK__" in s.string or "serviceWorker" in s.string
+            assert "window.__STAGE__" in s.string or "serviceWorker" in s.string
 
     # Original script sources must NOT exist in the page
     assert "three.min.js" not in rewritten

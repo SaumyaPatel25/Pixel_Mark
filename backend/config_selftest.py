@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def run_selftest():
-    logger.info("=== PixelMark Config Self-Test ===")
+    logger.info("=== STAGE Config Self-Test ===")
     
     # 1. Database
     dialect = DATABASE_URL.split(":")[0] if DATABASE_URL else "unknown"

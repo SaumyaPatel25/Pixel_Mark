@@ -13,7 +13,7 @@ def test_proxy_rewriter_all_rules():
         <meta http-equiv="Content-Security-Policy" content="default-src 'self'"/>
     </head>
     <body style="background-image: url('images/bg.png'); color: black;">
-        <h1>PixelMark Test</h1>
+        <h1>STAGE Test</h1>
         <a href="about.html">About Page</a>
         <a href="https://originalsite.com/contact">Contact Us</a>
         <a href="https://external.com/out">External Link</a>
@@ -52,9 +52,9 @@ def test_proxy_rewriter_all_rules():
     assert 'src="/js/app.js"' in rewritten
     
     # 3. Bootstrap is injected immediately after <head>
-    assert 'window.__PIXELMARK_TARGET_URL__ = "https://originalsite.com/home";' in rewritten
-    assert 'window.__PIXELMARK_SESSION_ID__ = "12345678-1234-1234-1234-123456789012";' in rewritten
-    assert 'window.__PIXELMARK_PROXY_ORIGIN__ = "http://localhost:8765";' in rewritten
+    assert 'window.__STAGE_TARGET_URL__ = "https://originalsite.com/home";' in rewritten
+    assert 'window.__STAGE_SESSION_ID__ = "12345678-1234-1234-1234-123456789012";' in rewritten
+    assert 'window.__STAGE_PROXY_ORIGIN__ = "http://localhost:8765";' in rewritten
     assert "define(document, 'URL'" in rewritten
     
     # 4. WebGL patch is injected
@@ -69,8 +69,7 @@ def test_proxy_rewriter_all_rules():
     assert 'ChunkLoadError' in rewritten
     assert 'pm_chunk_reload' in rewritten
     
-    # 7. Agent is appended before </body>
-    assert '<script src="http://localhost:8765/static/pixelmark-agent.js" type="module" defer></script></body>' in rewritten
+    assert '<script src="http://localhost:8765/static/stage-agent.js" defer></script></body>' in rewritten
     
     # 8. CSP meta tags removed
     assert "Content-Security-Policy" not in rewritten

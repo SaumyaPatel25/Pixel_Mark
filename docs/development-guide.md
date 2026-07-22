@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide describes how to configure, spin up, seed, and debug the PixelMark Fullstack application locally.
+This guide describes how to configure, spin up, seed, and debug the STAGE Fullstack application locally.
 
 ---
 
@@ -106,7 +106,7 @@ cd ..
 ---
 
 ## 4. Running the Application
-PixelMark provides a root execution helper script that automatically boots both servers and handles clean termination on exit.
+STAGE provides a root execution helper script that automatically boots both servers and handles clean termination on exit.
 
 ### 4.1 Option A: Fullstack Dev Run (Recommended)
 Run the following script from the workspace root:
@@ -142,4 +142,4 @@ This script will:
 
 ### 5.2 Issue: SQLite Database Lockups (`database is locked`)
 - **Cause**: Simultaneous database writes during high-concurrency requests in development. SQLite does not support highly concurrent writes.
-- **Remedy**: Keep write operations short. If lockups persist, clear the local DB file (`rm backend/pixelmark.db`) and run the server to recreate a clean state.
+- **Remedy**: Keep write operations short. If lockups persist, clear the local DB file (`rm backend/stage.db`) and run the server to recreate a clean state.

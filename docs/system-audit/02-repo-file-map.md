@@ -1,11 +1,11 @@
 # 02 Repo File Map
 
-This document maps the critical directories and files within the PixelMark repository, identifying their purpose and current state of usability.
+This document maps the critical directories and files within the STAGE repository, identifying their purpose and current state of usability.
 
 ## Root Level
 - `backend/` - Python/FastAPI source code and migration scripts.
 - `web/` - TypeScript/Next.js frontend application.
-- `pixelmark-lens/` - Suspicious/experimental directory (likely a browser extension prototype or alternate injector).
+- `stage-lens/` - Suspicious/experimental directory (likely a browser extension prototype or alternate injector).
 - `docs/` - System audit and documentation files.
 - `tests/` - Standalone test scripts (Python `verify_suite.py`, `e2e_test.py`).
 - `.github/` & `.vercel/` - CI/CD and deployment configurations.

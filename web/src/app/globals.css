@@ -520,7 +520,7 @@ html[data-theme="dark"] .auth-form-footer-bar {
    This block overrides them only when dark theme is active.
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Section headings (WhyPixelMark, Features, About, Entrext, FAQ) */
+/* Section headings (WhySTAGE, Features, About, Entrext, FAQ) */
 html[data-theme="dark"] .mkt-section-h2 {
   color: #ffffff !important;
 }

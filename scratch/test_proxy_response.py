@@ -2,7 +2,7 @@ import httpx
 
 def main():
     session_id = "6ba1f9ed-13e7-4056-a54c-c101bdeefc3e"
-    url = f"https://pixelmark-production.up.railway.app/proxy/session/{session_id}"
+    url = f"https://stage-production.up.railway.app/proxy/session/{session_id}"
     print(f"Sending GET request to: {url}...")
     
     resp = httpx.get(url, follow_redirects=True, timeout=20.0, verify=False)

@@ -1,11 +1,11 @@
-# PixelMark System Documentation
+# STAGE System Documentation
 
-Welcome to the official developer and architecture documentation for **PixelMark**, a premium visual quality assurance and collaborative bug-tracking platform. PixelMark integrates real-time visual overlays with dynamic sandboxed proxy runners, screenshot orchestration, and live WebSocket synchronization.
+Welcome to the official developer and architecture documentation for **STAGE**, a premium visual quality assurance and collaborative bug-tracking platform. STAGE integrates real-time visual overlays with dynamic sandboxed proxy runners, screenshot orchestration, and live WebSocket synchronization.
 
 ---
 
 ## Project Identity & High-Level Purpose
-PixelMark serves as a **Visual QA OS**. It allows developers, product managers, and reviewers to interact with a target web application inside a sandboxed iframe overlay, drop precise feedback pins (markers) on DOM/Canvas/WebGL elements, record style modifications (DOM edits), generate automated AI reports, and share secure review sessions with external stakeholders.
+STAGE serves as a **Visual QA OS**. It allows developers, product managers, and reviewers to interact with a target web application inside a sandboxed iframe overlay, drop precise feedback pins (markers) on DOM/Canvas/WebGL elements, record style modifications (DOM edits), generate automated AI reports, and share secure review sessions with external stakeholders.
 
 ---
 

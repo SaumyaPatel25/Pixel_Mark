@@ -34,10 +34,10 @@ export default function AISettingsPage() {
           </Link>
         </div>
         <p className="text-pm-muted font-medium text-sm mb-2">
-          Connect your own AI provider to use AI triage and session summaries in PixelMark.
+          Connect your own AI provider to use AI triage and session summaries in STAGE.
         </p>
         <p className="text-pm-muted/60 text-xs font-semibold leading-relaxed">
-          PixelMark uses your provider key server-side for AI requests. Your usage is billed by your provider, not by PixelMark.
+          STAGE uses your provider key server-side for AI requests. Your usage is billed by your provider, not by STAGE.
         </p>
       </div>
 
@@ -154,12 +154,12 @@ export default function AISettingsPage() {
       {/* FAQ Strip */}
       <div className="pt-8 border-t border-pm-border grid gap-6 md:grid-cols-3 text-sm">
         <div className="space-y-1">
-          <h4 className="font-extrabold text-pm-text">Does PixelMark provide the model?</h4>
+          <h4 className="font-extrabold text-pm-text">Does STAGE provide the model?</h4>
           <p className="text-pm-muted leading-relaxed text-xs">No. You connect your own provider.</p>
         </div>
         <div className="space-y-1">
           <h4 className="font-extrabold text-pm-text">Where is my key used?</h4>
-          <p className="text-pm-muted leading-relaxed text-xs">PixelMark uses it server-side for triage and summary requests.</p>
+          <p className="text-pm-muted leading-relaxed text-xs">STAGE uses it server-side for triage and summary requests.</p>
         </div>
         <div className="space-y-1">
           <h4 className="font-extrabold text-pm-text">Why did my test fail?</h4>

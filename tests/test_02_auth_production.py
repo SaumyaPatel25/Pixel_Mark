@@ -2,9 +2,10 @@ import httpx
 import pytest
 import uuid
 
-RAILWAY_URL = "https://pixelmark-production.up.railway.app"
+import os
+RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
 state = {
-    "email": f"qatest_{uuid.uuid4().hex[:6]}@pixelmark.dev",
+    "email": f"qatest_{uuid.uuid4().hex[:6]}@stage.dev",
     "password": "QaTest1234!",
     "token": None
 }

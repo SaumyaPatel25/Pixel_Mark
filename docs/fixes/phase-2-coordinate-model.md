@@ -1,7 +1,7 @@
 # Phase 2: Marker Coordinate Resilience
 
 ## The Problem
-Previously, PixelMark placed markers using a combination of viewport percentages (`click.normalized_x/y`) and hardcoded viewport pixel offsets during the agent pin resolution phase (`getBoundingClientRect().left` - `clickVx`).
+Previously, STAGE placed markers using a combination of viewport percentages (`click.normalized_x/y`) and hardcoded viewport pixel offsets during the agent pin resolution phase (`getBoundingClientRect().left` - `clickVx`).
 
 While this math was correct if the viewport size remained completely unchanged since the moment of capture, it broke immediately if the target iframe was resized or if the element shifted via layout reflows. The fallback mechanism for invisible/missing elements would subtract the live scroll offset from the old absolute pixel position, causing severe marker drift.
 
@@ -10,7 +10,7 @@ While this math was correct if the viewport size remained completely unchanged s
 We refactored the coordinate tracking into a **Canonical Anchor Model** which separates the structural DOM context from the positional viewport context. 
 
 ### 1. Relative Anchor Capture
-In `pixelmark-agent.js` (`buildCapturePayload`), we explicitly calculate `offset_x_ratio` and `offset_y_ratio` relative to the bounding box of the target element exactly at the moment of click. 
+In `stage-agent.js` (`buildCapturePayload`), we explicitly calculate `offset_x_ratio` and `offset_y_ratio` relative to the bounding box of the target element exactly at the moment of click. 
 
 These ratios are stored in `canonical_anchor`:
 ```json

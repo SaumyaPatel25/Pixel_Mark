@@ -26,7 +26,7 @@ const steps: Step[] = [
     badge: '1. WEBSITE INIT',
     role: 'Developers & Creators',
     benefit: 'Works on any preview link or port—no setup required.',
-    desc: 'The developer spins up their website. The staging URL is entered into PixelMark, launching a proxy canvas that maps the page state exactly.',
+    desc: 'The developer spins up their website. The staging URL is entered into STAGE, launching a proxy canvas that maps the page state exactly.',
     addressBar: 'https://nova-analytics.vercel.app'
   },
   {
@@ -44,8 +44,8 @@ const steps: Step[] = [
     badge: '3. SHARE REVIEW LINK',
     role: 'Agencies & Studios',
     benefit: 'Replace long feedback email chains with a single live link.',
-    desc: 'PixelMark generates a secure collaboration link. Copy the URL to send to stakeholders, clients, or design communities for structured review.',
-    addressBar: 'https://pixelmark.io/review/collab-nova'
+    desc: 'STAGE generates a secure collaboration link. Copy the URL to send to stakeholders, clients, or design communities for structured review.',
+    addressBar: 'https://stage.io/review/collab-nova'
   },
   {
     id: 4,
@@ -54,7 +54,7 @@ const steps: Step[] = [
     role: 'Clients & Stakeholders',
     benefit: 'Clients drop feedback instantly—no login or extension required.',
     desc: 'The client opens the shared review link in their standard browser. They see the live page and existing markers, ready to collaborate.',
-    addressBar: 'https://pixelmark.io/review/collab-nova'
+    addressBar: 'https://stage.io/review/collab-nova'
   },
   {
     id: 5,
@@ -63,7 +63,7 @@ const steps: Step[] = [
     role: 'Product Teams & Reviewers',
     benefit: 'Frictionless pinning ensures all feedback is contextual.',
     desc: 'The client clicks the page subheading to drop Pin #2: "The subheading font weight looks too light here." The feedback is logged directly on the live viewport elements.',
-    addressBar: 'https://pixelmark.io/review/collab-nova'
+    addressBar: 'https://stage.io/review/collab-nova'
   },
   {
     id: 6,
@@ -71,8 +71,8 @@ const steps: Step[] = [
     badge: '6. CONTEXT EXTRACTION',
     role: 'QA Leads & Developers',
     benefit: 'Never ask "what screen size?" again. Layout context logs automatically.',
-    desc: 'PixelMark automatically logs the target XPath selector, exact CSS properties (font-size, margins), and console warnings associated with the clicked element.',
-    addressBar: 'https://pixelmark.io/review/collab-nova'
+    desc: 'STAGE automatically logs the target XPath selector, exact CSS properties (font-size, margins), and console warnings associated with the clicked element.',
+    addressBar: 'https://stage.io/review/collab-nova'
   },
   {
     id: 7,
@@ -81,7 +81,7 @@ const steps: Step[] = [
     role: 'All Review Roles',
     benefit: 'Align immediately, fix layout specs, and close work 3x faster.',
     desc: 'The developer views the feedback trails, exports stylesheet patches, and marks the pins as resolved. A clean checkmark stamps the thread and updates the page styling.',
-    addressBar: 'https://pixelmark.io/review/collab-nova'
+    addressBar: 'https://stage.io/review/collab-nova'
   },
   {
     id: 8,
@@ -90,7 +90,7 @@ const steps: Step[] = [
     role: 'High-Converting outcome',
     benefit: 'Tasteful results instead of fake marketing hype.',
     desc: 'A structured review saves client revisions and speeds up approvals. Revisions dropped by 60%—from 3 rounds down to 1 clean loop.',
-    addressBar: 'https://pixelmark.io/review/collab-nova'
+    addressBar: 'https://stage.io/review/collab-nova'
   }
 ];
 
@@ -256,7 +256,7 @@ export default function StorySandbox() {
             <Sparkles className="w-4 h-4 animate-pulse" />
           </div>
           <div>
-            <h3 className="font-display text-sm font-bold uppercase tracking-wider text-pm-text">Know PixelMark better</h3>
+            <h3 className="font-display text-sm font-bold uppercase tracking-wider text-pm-text">Know STAGE better</h3>
             <p className="text-[10px] text-pm-text/60">Follow the end-to-end review journey and watch how it works in real-time.</p>
           </div>
         </div>
@@ -628,7 +628,7 @@ export default function StorySandbox() {
                     </div>
                     
                     <div className="flex items-center gap-2 p-1 rounded-xl border border-pm-border bg-pm-surface-2 text-[9px] w-full max-w-[280px]">
-                      <span className="font-mono text-pm-text/60 truncate flex-1 pl-2 text-left">pixelmark.io/review/collab-nova</span>
+                      <span className="font-mono text-pm-text/60 truncate flex-1 pl-2 text-left">stage.io/review/collab-nova</span>
                       <button
                         onClick={copyLink}
                         className="px-2.5 py-1 bg-pm-accent hover:bg-pm-accent-bright text-white rounded-lg font-mono text-[8px] font-bold uppercase cursor-pointer transition-all flex items-center gap-1 select-none"
@@ -654,7 +654,7 @@ export default function StorySandbox() {
                     {/* DevTools Tab Bar */}
                     <div className="flex items-center justify-between border-b border-pm-border/30 pb-1.5 mb-2 select-none">
                       <div className="flex gap-2">
-                        <span className="font-bold text-pm-accent border-b border-pm-accent pb-0.5">PIXELMARK SPECS</span>
+                        <span className="font-bold text-pm-accent border-b border-pm-accent pb-0.5">STAGE SPECS</span>
                         <span className="opacity-45">CONSOLE (0)</span>
                       </div>
                       <span className="text-[7.5px] bg-pink-500/10 text-pink-500 px-1.5 py-0.5 rounded font-black">PIN #2 METADATA</span>

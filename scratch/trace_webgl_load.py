@@ -46,7 +46,7 @@ async def main():
             await browser.close()
             return
             
-        proxy_url = f"https://pixelmark-production.up.railway.app/proxy/session/{session_id}"
+        proxy_url = f"https://stage-production.up.railway.app/proxy/session/{session_id}"
         print(f"🔗 Direct proxy URL: {proxy_url}")
         
         # Navigate to proxy URL

@@ -67,7 +67,7 @@ export default function ResetPasswordClient() {
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="font-black text-2xl tracking-tighter bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">PixelMark</span>
+          <span className="font-black text-2xl tracking-tighter bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">STAGE</span>
         </div>
 
         {status === 'success' ? (
@@ -96,7 +96,7 @@ export default function ResetPasswordClient() {
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-black italic tracking-tight text-white">Reset Password</h2>
               <p className="text-xs text-white/40 leading-relaxed max-w-xs mx-auto">
-                Set a secure password for your PixelMark account.
+                Set a secure password for your STAGE account.
               </p>
             </div>
 

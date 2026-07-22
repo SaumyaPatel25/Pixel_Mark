@@ -7,15 +7,15 @@ import { seoConfig } from '@/lib/seoConfig'
 import { Check, Clock3 } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: "Chrome Extension — PixelMark",
+  title: "Chrome Extension — STAGE",
   description:
-    "The PixelMark Chrome Extension lets you review and annotate any website without installing code. Hover to inspect, click to mark, and export feedback in seconds.",
+    "The STAGE Chrome Extension lets you review and annotate any website without installing code. Hover to inspect, click to mark, and export feedback in seconds.",
   alternates: {
     canonical: `${seoConfig.siteUrl}/chrome-extension`,
   },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Chrome Extension — PixelMark",
+    title: "Chrome Extension — STAGE",
     description:
       "Review and annotate any website without installing code. Hover to inspect, click to mark, export feedback in seconds.",
     type: 'website',
@@ -28,14 +28,14 @@ const featureList = [
   'Shift+click to add a feedback marker',
   'Capture DOM context, XPath, and computed styles automatically',
   'Works on any public or private website',
-  'Syncs to your PixelMark dashboard in real time',
+  'Syncs to your STAGE dashboard in real time',
 ]
 
 export default function ChromeExtensionPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'PixelMark Chrome Extension',
+    name: 'STAGE Chrome Extension',
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Chrome',
     description:
@@ -86,7 +86,7 @@ export default function ChromeExtensionPage() {
           </h1>
 
           <p className="text-white/40 text-sm md:text-base leading-relaxed max-w-xl mx-auto">
-            The PixelMark Chrome Extension is in development. Install it to review any website directly from
+            The STAGE Chrome Extension is in development. Install it to review any website directly from
             your browser — no code required.
           </p>
 

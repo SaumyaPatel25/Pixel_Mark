@@ -1,6 +1,6 @@
 # Directory and File Map
 
-This map outlines the structural organization of the PixelMark repository. It highlights the roles, exports, and relationships of key human-authored source components.
+This map outlines the structural organization of the STAGE repository. It highlights the roles, exports, and relationships of key human-authored source components.
 
 ---
 
@@ -22,7 +22,7 @@ Entrext/
 │   └── utils/                # SSRF guards, HTML rewriters, and telemetry flags
 ├── docs/                     # System architecture and reference documentation
 ├── extension/                # Chrome extension package code
-├── pixelmark-lens/           # Capture and analytics SDK browser module
+├── stage-lens/           # Capture and analytics SDK browser module
 ├── web/                      # Next.js frontend client application
 │   ├── public/               # Static images and client icons
 │   └── src/                  # React components, routes, and Zustand state stores
@@ -205,7 +205,7 @@ Entrext/
 
 #### [COMPONENT] [web/src/components/marketing/ClosingCTASection.tsx](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/web/src/components/marketing/ClosingCTASection.tsx)
 - **File Type**: Closing call-to-action block.
-- **Primary Responsibility**: Renders the premium final signup conversion prompt for PixelMark, directing users directly to the register/login endpoints.
+- **Primary Responsibility**: Renders the premium final signup conversion prompt for STAGE, directing users directly to the register/login endpoints.
 - **Confidence**: VERIFIED
 
 

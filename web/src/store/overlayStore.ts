@@ -11,8 +11,8 @@ const performOneTimeCleanup = () => {
   if (typeof window === 'undefined') return
 
   const CURRENT_VERSION = '3'
-  const versionKey = 'pixelmark_marker_store_version'
-  const cleanupCompleteKey = 'pixelmark_marker_cleanup_complete'
+  const versionKey = 'stage_marker_store_version'
+  const cleanupCompleteKey = 'stage_marker_cleanup_complete'
 
   const currentStoredVersion = localStorage.getItem(versionKey)
   const cleanupComplete = localStorage.getItem(cleanupCompleteKey)
@@ -22,13 +22,13 @@ const performOneTimeCleanup = () => {
     
     // Clear old marker local storage keys
     const keysToClear = [
-      'pixelmark_markers',
+      'stage_markers',
       'pm_markers',
       'pins',
       'captures',
-      'pixelmark_deleted_markers_v1',
+      'stage_deleted_markers_v1',
       'deleted_pins',
-      'pixelmark_deleted_markers'
+      'stage_deleted_markers'
     ]
 
     keysToClear.forEach(key => {
@@ -36,7 +36,7 @@ const performOneTimeCleanup = () => {
     })
 
     // Clean up old tombstone versions — but preserve v3 which is the live source of truth
-    localStorage.removeItem('pixelmark_deleted_markers_v2')
+    localStorage.removeItem('stage_deleted_markers_v2')
     // NOTE: Do NOT remove v3 here — it tracks deletions that must survive page refreshes
 
     // Set cleanup complete marker
@@ -56,7 +56,7 @@ if (typeof window !== 'undefined') {
 const getTombstonedMarkerIds = (): string[] => {
   if (typeof window === 'undefined') return []
   try {
-    const deletedStr = localStorage.getItem('pixelmark_deleted_markers_v3')
+    const deletedStr = localStorage.getItem('stage_deleted_markers_v3')
     return deletedStr ? JSON.parse(deletedStr) : []
   } catch (e) {
     return []
@@ -94,7 +94,7 @@ export const deleteMarker = async (id: string): Promise<void> => {
         const deletedIds = getTombstonedMarkerIds()
         if (!deletedIds.includes(id)) {
           deletedIds.push(id)
-          localStorage.setItem('pixelmark_deleted_markers_v3', JSON.stringify(deletedIds))
+          localStorage.setItem('stage_deleted_markers_v3', JSON.stringify(deletedIds))
         }
       } catch (e) {
         console.error('[Markers] failed to persist tombstone:', e)
@@ -108,7 +108,7 @@ export const deleteMarker = async (id: string): Promise<void> => {
     } catch (err: any) {
       const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && err.message.includes('404'))
       if (is404) {
-        console.log(`PixelMark delete reconciled stale marker [${id}]`)
+        console.log(`STAGE delete reconciled stale marker [${id}]`)
         usePinStore.getState().removePin(id)
         try {
           useMarkerStore.getState().removeMarkerLocally(id)
@@ -134,7 +134,7 @@ export const deleteMarker = async (id: string): Promise<void> => {
         if (typeof window !== 'undefined') {
           try {
             const deletedIds = getTombstonedMarkerIds().filter(tid => tid !== id)
-            localStorage.setItem('pixelmark_deleted_markers_v3', JSON.stringify(deletedIds))
+            localStorage.setItem('stage_deleted_markers_v3', JSON.stringify(deletedIds))
           } catch (e) { /* ignore */ }
         }
 
@@ -216,7 +216,7 @@ export const usePinStore = create<PinStoreState>((set, get) => ({
       // Load saved local draft pins first
       if (typeof window !== 'undefined') {
         try {
-          const draftsStr = localStorage.getItem('pixelmark_draft_pins_v5')
+          const draftsStr = localStorage.getItem('stage_draft_pins_v5')
           if (draftsStr) {
             const drafts = JSON.parse(draftsStr) as CapturePayload[]
             drafts.forEach((draft) => {
@@ -226,7 +226,7 @@ export const usePinStore = create<PinStoreState>((set, get) => ({
             })
           }
         } catch (e) {
-          console.error('[PixelMark Hydration] failed to load draft pins:', e)
+          console.error('[STAGE Hydration] failed to load draft pins:', e)
         }
       }
 
@@ -279,7 +279,7 @@ export const usePinStore = create<PinStoreState>((set, get) => ({
           nextPins.push(payload)
         }
       })
-      console.log(`[PixelMark Hydration] loaded ${nextPins.length} items`)
+      console.log(`[STAGE Hydration] loaded ${nextPins.length} items`)
       return { pins: nextPins }
     })
   }
@@ -431,7 +431,7 @@ if (typeof window !== 'undefined') {
         }
         return light
       })
-      localStorage.setItem('pixelmark_draft_pins_v5', JSON.stringify(drafts))
+      localStorage.setItem('stage_draft_pins_v5', JSON.stringify(drafts))
     } catch (e) {
       console.error('[Markers] failed to autosave draft pins:', e)
     }

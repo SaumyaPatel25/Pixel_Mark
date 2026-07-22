@@ -108,7 +108,7 @@ export function DrawingCanvas({ baseImageUrl, onSave, initialShapes = [] }: Draw
     img.onload = () => {
       setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight })
       setImageLoaded(true)
-      console.log("PixelMark annotation image natural size:", img.naturalWidth, img.naturalHeight)
+      console.log("STAGE annotation image natural size:", img.naturalWidth, img.naturalHeight)
     }
     img.src = baseImageUrl
   }, [baseImageUrl])

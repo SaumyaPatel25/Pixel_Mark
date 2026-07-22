@@ -137,7 +137,7 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
         }
     }, [mouseX, mouseY, hoveredPosition])
 
-    // Scattered PixelMark-native visual system icons explaining core product features
+    // Scattered STAGE-native visual system icons explaining core product features
     const cards: CardConfig[] = [
         // --- Left Column / Margin Elements ---
         {

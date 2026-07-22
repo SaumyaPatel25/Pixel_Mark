@@ -5,8 +5,8 @@ import SettingsShell from '@/components/SettingsShell'
 import ApiKeysClient from '@/components/settings/ApiKeys.client'
 
 export const metadata: Metadata = {
-  title: "API Keys Settings — PixelMark",
-  description: "Configure developer API credentials for PixelMark visual testing suite.",
+  title: "API Keys Settings — STAGE",
+  description: "Configure developer API credentials for STAGE visual testing suite.",
   robots: {
     index: false,
     follow: false
@@ -18,7 +18,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
 async function getApiKeysServerSide() {
   try {
     const cookieStore = await cookies()
-    const token = cookieStore.get('pm_token')?.value
+    const token = cookieStore.get('stagetoken')?.value || cookieStore.get('pm_token')?.value || cookieStore.get('pmtoken')?.value
     if (!token) {
       return []
     }

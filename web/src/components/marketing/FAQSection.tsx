@@ -59,7 +59,7 @@ export default function FAQSection() {
             </h2>
             
             <p className="text-sm text-pm-muted leading-relaxed font-sans max-w-sm">
-              Everything you need to know about PixelMark sessions, client roles, and custom workspace setups.
+              Everything you need to know about STAGE sessions, client roles, and custom workspace setups.
             </p>
 
             <div className="pt-4">

@@ -1,6 +1,6 @@
-# PixelMark Production-Only Smoke Test Checklist & Release Gate
+# STAGE Production-Only Smoke Test Checklist & Release Gate
 
-This document outlines the end-to-end production smoke test checklist, the subsystem failure rollback protocols, and the official release gate criteria for PixelMark. All operations target live production endpoints only (no local hosts, mocks, or sandbox databases).
+This document outlines the end-to-end production smoke test checklist, the subsystem failure rollback protocols, and the official release gate criteria for STAGE. All operations target live production endpoints only (no local hosts, mocks, or sandbox databases).
 
 ---
 
@@ -17,7 +17,7 @@ This document outlines the end-to-end production smoke test checklist, the subsy
 ### 🔐 Phase B: Core Authentication & User Onboarding
 - `[ ]` **Verify User Registration**:
   - Navigate to `https://[production-frontend]/register`.
-  - Sign up a fresh test email: `qa_smoke_[timestamp]@pixelmark.app`.
+  - Sign up a fresh test email: `qa_smoke_[timestamp]@stage.app`.
   - Assert redirection to `https://[production-frontend]/dashboard` on successful signup.
 - `[ ]` **Verify User Logout & Login**:
   - Click logout and assert cookie removal (session cookies cleared, redirected to `/login`).

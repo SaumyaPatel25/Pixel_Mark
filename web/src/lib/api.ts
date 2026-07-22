@@ -1,4 +1,4 @@
-// PixelMark Core API Client (Unified exception & structured error handler)
+// STAGE Core API Client (Unified exception & structured error handler)
 // Version 2.0.2
 export function getApiBaseUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_API_URL
@@ -29,7 +29,8 @@ export class ApiError extends Error {
 
 export async function request(path: string, options: RequestInit = {}) {
   const baseUrl = getApiBaseUrl()
-  const token = getCookie('pm_token') || getCookie('pmtoken')
+  // Dual-read migration shim for auth token cookie
+  const token = getCookie('stagetoken') || getCookie('pm_token') || getCookie('pmtoken')
   const headers = new Headers(options.headers || {})
 
   if (token) {
@@ -302,6 +303,53 @@ export const api = {
   },
   async getDashboardSummary() {
     return apiQueue.enqueueRead('Loading dashboard summary...', () => request('/projects/dashboard/summary'))
+  },
+
+  // BLUEPRINT PROJECT-SCOPED PERSISTENCE
+  blueprint: {
+    async getEdits(projectId: string) {
+      return apiQueue.enqueueRead('Loading blueprint edits...', () => request(`/canvas/${projectId}/edits`))
+    },
+    async saveEdits(projectId: string, mutations: any[]) {
+      return apiQueue.enqueueWrite('Saving blueprint edits...', () => request(`/canvas/${projectId}/edits`, {
+        method: 'POST',
+        body: JSON.stringify({ mutations })
+      }))
+    },
+    async deleteEdit(projectId: string, editId: string) {
+      return apiQueue.enqueueWrite('Deleting blueprint edit...', () => request(`/canvas/${projectId}/edits/${editId}`, {
+        method: 'DELETE'
+      }))
+    },
+    async clearEdits(projectId: string) {
+      return apiQueue.enqueueWrite('Clearing blueprint edits...', () => request(`/canvas/${projectId}/edits`, {
+        method: 'DELETE'
+      }))
+    },
+    async exportJson(projectId: string) {
+      return apiQueue.enqueueRead('Exporting JSON...', () => request(`/canvas/${projectId}/edits/export/json`))
+    },
+    async exportCss(projectId: string) {
+      return apiQueue.enqueueRead('Exporting CSS...', () => request(`/canvas/${projectId}/edits/export/css`))
+    },
+    async exportMarkdown(projectId: string) {
+      return apiQueue.enqueueRead('Exporting Markdown...', () => request(`/canvas/${projectId}/edits/export/markdown`))
+    },
+    async createPublication(projectId: string, name: string, metadata_json?: any) {
+      return apiQueue.enqueueWrite('Creating publication...', () => request(`/canvas/${projectId}/publications`, {
+        method: 'POST',
+        body: JSON.stringify({ name, metadata_json })
+      }))
+    },
+    async listPublications(projectId: string) {
+      return apiQueue.enqueueRead('Loading publications...', () => request(`/canvas/${projectId}/publications`))
+    },
+    async getPublication(publicationId: string) {
+      return apiQueue.enqueueRead('Loading publication...', () => request(`/canvas/publications/${publicationId}`))
+    },
+    async getPublicationByToken(shareToken: string) {
+      return apiQueue.enqueueRead('Loading publication token...', () => request(`/canvas/publications/token/${shareToken}`))
+    }
   },
 
   // SESSIONS

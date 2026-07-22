@@ -38,7 +38,7 @@ const stages: Stage[] = [
   },
   {
     index: 1,
-    title: '“PixelMark captures the exact context.”',
+    title: '“STAGE captures the exact context.”',
     subtitle: '2. The Action',
     desc: 'Reviewers click to pin feedback right on their screens. We instantly isolate computed CSS styles, exact layout positions, and browser specifications.',
     tag: 'PRECISE & ACTIVE',
@@ -120,7 +120,7 @@ export default function AboutSection() {
               We’ve all received it. A client clicks a button, it doesn’t work, and they write: <em>"The button is broken, please fix."</em> No screenshot, no browser info, and no console logs or error traces.
             </p>
             <p>
-              As developers, we spend hours debugging issues that could be resolved in minutes. PixelMark translates visual clicks directly into precision layout elements, selectors, and diagnostics to eliminate QA friction.
+              As developers, we spend hours debugging issues that could be resolved in minutes. STAGE translates visual clicks directly into precision layout elements, selectors, and diagnostics to eliminate QA friction.
             </p>
           </div>
         </div>
@@ -304,7 +304,7 @@ function ProblemVisual() {
   );
 }
 
-/* Stage 1 Visual: Action (PixelMark DOM capture action) */
+/* Stage 1 Visual: Action (STAGE DOM capture action) */
 function ActionVisual() {
   return (
     <motion.div
@@ -376,7 +376,7 @@ function ActionVisual() {
 
       {/* Footer bar */}
       <div className="border-t border-white/5 pt-3 flex items-center justify-between text-[8px] font-mono text-slate-500">
-        <span>INJECTED: PIXELMARK_AGENT_OK</span>
+        <span>INJECTED: STAGE_AGENT_OK</span>
         <span>ANCHOR: DOM_SELECTOR_STABLE</span>
       </div>
     </motion.div>

@@ -31,7 +31,7 @@ async def get_test_db():
         yield session
 
 MOCK_USER_ID = "user-123"
-MOCK_USER_EMAIL = "user123@pixelmark.dev"
+MOCK_USER_EMAIL = "user123@stage.dev"
 
 async def mock_get_current_user():
     return User(id=MOCK_USER_ID, email=MOCK_USER_EMAIL)
@@ -61,7 +61,7 @@ async def setup_db():
         member = OrgMember(id="mem-123", org_id="org-123", user_id=MOCK_USER_ID, role="member")
         session.add(member)
         
-        proj = Project(id="proj-123", org_id="org-123", name="My Proj", url="https://pixelmark.dev")
+        proj = Project(id="proj-123", org_id="org-123", name="My Proj", url="https://stage.dev")
         session.add(proj)
         
         sess = DbSession(id="sess-123", project_id="proj-123", title="My Session")

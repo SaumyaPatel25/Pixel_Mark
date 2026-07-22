@@ -1,6 +1,6 @@
 # 15 Recommended Repair Order
 
-This document dictates a strict, phased roadmap for repairing the PixelMark repository. Execution out of order will result in compounded technical debt and redundant bug hunting.
+This document dictates a strict, phased roadmap for repairing the STAGE repository. Execution out of order will result in compounded technical debt and redundant bug hunting.
 
 ## Phase 0: Environment & Auth Sanity
 - **Goal:** Establish a baseline where developers can log in locally and in prod without UI flickering or looping.
@@ -20,7 +20,7 @@ This document dictates a strict, phased roadmap for repairing the PixelMark repo
 
 ## Phase 2: Coordinate & Canvas Resilience
 - **Goal:** Stop pins from floating away when windows resize.
-- **Files to Change:** `web/public/pixelmark-agent.js`, `backend/models/core.py` (Marker model).
+- **Files to Change:** `web/public/stage-agent.js`, `backend/models/core.py` (Marker model).
 - **Actions:**
   - Rewrite the coordinate injection logic. Use CSS Selectors + Bounding Box relative math instead of raw Viewport math.
   - Update the `Marker` model to accept `css_selector` strings.

@@ -17,7 +17,7 @@ from services.cache import cache
 
 async def close_stale_sessions():
     from database import AsyncSessionLocal
-    logger = logging.getLogger("pixelmark.sessions.cleanup")
+    logger = logging.getLogger("stage.sessions.cleanup")
     one_min_ago = datetime.utcnow() - timedelta(seconds=60)
     
     async with AsyncSessionLocal() as db:
@@ -108,7 +108,7 @@ async def create_session(
     existing = existing_res.scalars().first()
     if existing:
         # Recycle/reuse
-        logger = logging.getLogger("pixelmark.sessions.create")
+        logger = logging.getLogger("stage.sessions.create")
         logger.info(f"[OBSERVABILITY] [SESSION_REUSE] Reusing active session {existing.id} for project {data.project_id}")
         try:
             from services.cache import SYSTEM_METRICS
@@ -129,7 +129,7 @@ async def create_session(
         )
         active_count = active_count_res.scalar() or 0
         if active_count >= 3:
-            logger = logging.getLogger("pixelmark.sessions.concurrency")
+            logger = logging.getLogger("stage.sessions.concurrency")
             logger.warning(f"[OBSERVABILITY] [SESSION_LIMIT_EXCEEDED] Org {member.org_id} has {active_count} active sessions. Recycling oldest.")
             # Close oldest active session(s)
             oldest_res = await db.execute(
@@ -387,7 +387,7 @@ async def update_session_renderer(
     session.has_three_js = data.three_detected
 
     import logging
-    logger = logging.getLogger("pixelmark.sessions")
+    logger = logging.getLogger("stage.sessions")
     logger.info(f"[OBSERVABILITY] [RENDERER_DETECTED] Deployed agent detected renderer type: {data.renderer_type} for session={session_id}. has_webgl={session.has_webgl}, has_three_js={session.has_three_js}, canvas_count={data.canvas_count}")
 
     db.add(session)
@@ -690,7 +690,7 @@ async def send_report_email(
     <body style="background:#0a0a0c;color:#ffffff;font-family:system-ui,sans-serif;margin:0;padding:40px 20px;">
       <div style="max-width:560px;margin:0 auto;">
         <div style="font-family:monospace;font-size:20px;font-weight:bold;letter-spacing:4px;color:#ffffff;margin-bottom:24px;text-align:center;">
-          PIXELMARK
+          STAGE
         </div>
         <div style="background:#0f0f14;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;margin-bottom:20px;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
           <h2 style="font-size:20px;font-weight:900;margin-top:0;margin-bottom:12px;color:#a855f7;text-transform:uppercase;letter-spacing:1px;text-align:center;">Review Report Ready</h2>
@@ -705,7 +705,7 @@ async def send_report_email(
           </a>
         </div>
         <p style="color:rgba(255,255,255,0.2);font-size:11px;text-align:center;margin-top:24px;">
-          Sent via PixelMark Visual Observability System.
+          Sent via STAGE Visual Observability System.
         </p>
       </div>
     </body>

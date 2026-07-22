@@ -19,7 +19,7 @@ def test_ai_endpoints():
     print("\n=== 2. Find Session with Markers ===")
     sessions_res = requests.get(f"{BASE_URL}/sessions/project/some_id", headers=headers)
     # The instruction says: GET http://localhost:8765/sessions
-    # But PixelMark has GET /sessions/project/{project_id}.
+    # But STAGE has GET /sessions/project/{project_id}.
     # Let me just use the hardcoded session ID I found that has 20 markers: '56daf2dc-714d-4c8f-ad57-0481ca31fd77'
     session_id = '56daf2dc-714d-4c8f-ad57-0481ca31fd77'
     print(f"Using Session ID: {session_id}")

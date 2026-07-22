@@ -108,7 +108,7 @@ export function OnboardingChecklist() {
                 <div className="flex items-center gap-2">
                   <CheckSquare className="w-4 h-4 text-pm-accent" />
                   <span className="text-xs font-black uppercase tracking-wider">
-                    PixelMark Checklist
+                    STAGE Checklist
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -232,7 +232,7 @@ export function OnboardingChecklist() {
               </div>
 
               <h2 className="text-2xl font-black tracking-tight text-pm-text mb-2 uppercase">
-                PixelMark Champion!
+                STAGE Champion!
               </h2>
               <p className="text-xs text-pm-muted max-w-xs mx-auto leading-relaxed mb-6 font-semibold">
                 Congratulations! You have completed all visual QA tasks and successfully onboarded. You are ready to review websites like a pro.

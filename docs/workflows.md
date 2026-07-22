@@ -1,6 +1,6 @@
 # System Workflows
 
-This document diagrams the execution paths for core PixelMark features, tracing interactions from user click down to database commits.
+This document diagrams the execution paths for core STAGE features, tracing interactions from user click down to database commits.
 
 ---
 
