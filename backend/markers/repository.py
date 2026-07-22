@@ -9,6 +9,14 @@ class MarkerRepository:
         self.db = db
 
     async def create_marker(self, marker: Marker) -> Marker:
+        from sqlalchemy import func
+        result = await self.db.execute(
+            select(func.coalesce(func.max(Marker.marker_number), 0))
+            .where(Marker.session_id == marker.session_id)
+        )
+        max_num = result.scalar() or 0
+        marker.marker_number = max_num + 1
+
         self.db.add(marker)
         await self.db.flush()
         return marker

@@ -376,3 +376,12 @@ async def test_websocket_snapshot_request():
         assert markers[0]["id"] == m2["id"]
         assert markers[0]["title"] == "M2"
 
+@pytest.mark.anyio
+async def test_marker_number_increments():
+    p1 = {"project_id": MOCK_PROJECT_ID, "anchor_kind": "manual", "title": "M1"}
+    p2 = {"project_id": MOCK_PROJECT_ID, "anchor_kind": "manual", "title": "M2"}
+    m1 = client.post(f"/sessions/{MOCK_SESSION_ID}/markers", json=p1).json()
+    m2 = client.post(f"/sessions/{MOCK_SESSION_ID}/markers", json=p2).json()
+    assert m1["marker_number"] == 1
+    assert m2["marker_number"] == 2
+

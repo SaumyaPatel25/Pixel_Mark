@@ -58,7 +58,7 @@ class Marker(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
-
+    marker_number: Mapped[int] = mapped_column(Integer, nullable=True)
     # Diagnostics / metadata
     browser: Mapped[str] = mapped_column(String, nullable=True)
     os: Mapped[str] = mapped_column(String, nullable=True)

@@ -186,6 +186,7 @@ class MarkerRead(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     version: int
+    marker_number: Optional[int] = None
 
     browser: Optional[str]
     os: Optional[str]
@@ -212,6 +213,7 @@ class MarkerListItem(BaseModel):
     creator_role: Optional[str]
     created_at: datetime
     version: int
+    marker_number: Optional[int] = None
 
     class Config:
         from_attributes = True
