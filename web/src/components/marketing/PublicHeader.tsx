@@ -24,7 +24,7 @@ export default function PublicHeader() {
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2 flex-shrink-0">
             <span className="text-lg font-black tracking-tight text-white select-none">
-              Pixel<span className="text-purple-500">Mark</span>
+              STAGE
             </span>
           </Link>
 
