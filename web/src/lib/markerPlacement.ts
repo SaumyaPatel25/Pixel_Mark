@@ -199,7 +199,9 @@ export function resolveMarkerRenderPosition(
 
   // 7. viewportX/viewportY fallback (Final fallback)
   if (!result && typeof vpX === 'number' && typeof vpY === 'number' && Number.isFinite(vpX) && Number.isFinite(vpY)) {
-    result = { left: vpX + scrollPos.x, top: vpY + scrollPos.y, source: 'viewport_fallback', confidence: 0.2, degraded: true }
+    const scrollXAtCap = (marker as any).scrollXAtCapture ?? (marker as any).scroll_x ?? (marker as any).scrollX ?? 0
+    const scrollYAtCap = (marker as any).scrollYAtCapture ?? (marker as any).scroll_y ?? (marker as any).scrollY ?? 0
+    result = { left: vpX + scrollXAtCap, top: vpY + scrollYAtCap, source: 'viewport_fallback', confidence: 0.2, degraded: true }
   }
 
   // Diagnostic log requirement
@@ -220,6 +222,83 @@ export function resolveMarkerRenderPosition(
 
   console.warn(`STAGE pin skipped invalid render position [${(marker as any).id}]`)
   return null
+}
+
+export interface PinScreenPositionResult {
+  screenX: number
+  screenY: number
+  pageLeft: number
+  pageTop: number
+  isDegraded: boolean
+  source: 'dom' | 'xpath' | 'canvas' | 'fuzzy_dom' | 'bbox' | 'page_xy' | 'viewport_fallback' | 'unresolved'
+  confidence: number
+}
+
+/**
+ * Centralized pure function to compute the exact screen/overlay position of a marker.
+ * Takes stored marker data, current scroll, iframe rect, window and document objects,
+ * and derives the current screen coordinates without relying on cached state.
+ */
+export function computePinScreenPosition(
+  marker: CanonicalMarkerAnchor | Marker | any,
+  currentScroll: { x: number; y: number },
+  iframeRect: DOMRect | null,
+  iframeWindow: Window | null,
+  iframeDocument: Document | null
+): PinScreenPositionResult | null {
+  const resolved = resolveMarkerRenderPosition(marker, iframeWindow, iframeDocument)
+
+  if (!resolved || !Number.isFinite(resolved.left) || !Number.isFinite(resolved.top)) {
+    return null
+  }
+
+  const pageLeft = resolved.left
+  const pageTop = resolved.top
+
+  // Read current scroll position from iframeWindow if accessible, else fallback to currentScroll
+  let scrollX = currentScroll?.x ?? 0
+  let scrollY = currentScroll?.y ?? 0
+  try {
+    if (iframeWindow) {
+      scrollX = iframeWindow.scrollX ?? scrollX
+      scrollY = iframeWindow.scrollY ?? scrollY
+    }
+  } catch (_) {}
+
+  let screenX = 0
+  let screenY = 0
+
+  if (iframeRect) {
+    let offsetWidth = iframeRect.width || 1
+    let offsetHeight = iframeRect.height || 1
+
+    try {
+      const frameEl = iframeDocument?.defaultView?.frameElement as HTMLIFrameElement | null
+      if (frameEl) {
+        offsetWidth = frameEl.offsetWidth || frameEl.clientWidth || offsetWidth
+        offsetHeight = frameEl.offsetHeight || frameEl.clientHeight || offsetHeight
+      }
+    } catch (_) {}
+
+    const scaleX = iframeRect.width / offsetWidth
+    const scaleY = iframeRect.height / offsetHeight
+
+    screenX = (pageLeft - scrollX) * scaleX + iframeRect.left
+    screenY = (pageTop - scrollY) * scaleY + iframeRect.top
+  } else {
+    screenX = pageLeft - scrollX
+    screenY = pageTop - scrollY
+  }
+
+  return {
+    screenX,
+    screenY,
+    pageLeft,
+    pageTop,
+    isDegraded: resolved.degraded,
+    source: resolved.source as any,
+    confidence: resolved.confidence
+  }
 }
 
 /**

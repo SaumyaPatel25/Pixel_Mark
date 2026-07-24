@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { resolveMarkerRenderPosition, buildDomMovePatch } from '@/lib/markerPlacement'
+import { resolveMarkerRenderPosition, buildDomMovePatch, computePinScreenPosition } from '@/lib/markerPlacement'
 import { CanonicalMarkerAnchor } from '@/types/markers'
 
 describe('markerPlacement', () => {
@@ -148,6 +148,78 @@ describe('markerPlacement', () => {
 
       expect(patch!.offset_x_ratio).toBe(1) // Max 1
       expect(patch!.offset_y_ratio).toBe(0) // Min 0
+    })
+  })
+
+  describe('computePinScreenPosition', () => {
+    it('computes screen coordinates with scroll and iframe offset', () => {
+      const marker = {
+        elementSelector: '#valid',
+        offsetXRatio: 0.5,
+        offsetYRatio: 0.5
+      } as CanonicalMarkerAnchor
+
+      const iframeRect = { left: 50, top: 100, width: 800, height: 600 } as DOMRect
+
+      const pos = computePinScreenPosition(marker, { x: 10, y: 20 }, iframeRect, mockWin, mockDoc)
+
+      expect(pos).not.toBeNull()
+      // pageLeft = 100 + 10 + 25 = 135; screenX = (135 - 10)*1 + 50 = 175
+      expect(pos!.screenX).toBe(175)
+      // pageTop = 200 + 20 + 25 = 245; screenY = (245 - 20)*1 + 100 = 325
+      expect(pos!.screenY).toBe(325)
+    })
+
+    it('recalculates screen position when iframe scrolls', () => {
+      const marker = {
+        elementSelector: '#valid',
+        offsetXRatio: 0.5,
+        offsetYRatio: 0.5
+      } as CanonicalMarkerAnchor
+
+      const iframeRect = { left: 0, top: 0, width: 800, height: 600 } as DOMRect
+
+      // Scrolled down 100px: rect.top becomes 100
+      const scrolledDoc = {
+        ...mockDoc,
+        querySelector: () => ({
+          getBoundingClientRect: () => ({ left: 100, top: 100, width: 50, height: 50 }),
+          getAttribute: () => null,
+          classList: { length: 0 }
+        })
+      }
+      const scrolledWin = { scrollX: 0, scrollY: 100 }
+
+      const pos = computePinScreenPosition(marker, { x: 0, y: 100 }, iframeRect, scrolledWin, scrolledDoc)
+
+      expect(pos).not.toBeNull()
+      // pageTop = 100 + 100 + 25 = 225
+      expect(pos!.pageTop).toBe(225)
+      // screenY = (225 - 100)*1 + 0 = 125 (rect.top + height*0.5 = 100 + 25 = 125)
+      expect(pos!.screenY).toBe(125)
+    })
+
+    it('prevents scroll drift on viewport fallback coordinates', () => {
+      const marker = {
+        elementSelector: '#missing',
+        viewportX: 200,
+        viewportY: 300,
+        scrollXAtCapture: 0,
+        scrollYAtCapture: 50
+      } as CanonicalMarkerAnchor
+
+      const iframeRect = { left: 0, top: 0, width: 800, height: 600 } as DOMRect
+
+      // User scrolls down to scrollY = 300
+      const scrolledWin = { scrollX: 0, scrollY: 300 }
+
+      const pos = computePinScreenPosition(marker, { x: 0, y: 300 }, iframeRect, scrolledWin, mockDoc)
+
+      expect(pos).not.toBeNull()
+      // pageTop should remain fixed at viewportY(300) + scrollYAtCapture(50) = 350
+      expect(pos!.pageTop).toBe(350)
+      // screenY = (350 - 300) = 50
+      expect(pos!.screenY).toBe(50)
     })
   })
 })

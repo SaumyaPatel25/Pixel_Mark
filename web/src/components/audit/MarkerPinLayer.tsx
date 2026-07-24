@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
-import { Marker, ResolvedMarkerPosition } from '@/types/markers'
-import { resolveMarkerRenderPosition, buildDomMovePatch, toOverlayPosition, OverlayMetrics } from '@/lib/markerPlacement'
+import { Marker } from '@/types/markers'
+import { computePinScreenPosition, buildDomMovePatch } from '@/lib/markerPlacement'
 import { MarkerPin } from '@/components/markers/MarkerComponents'
 import { canCurrentActorMutateMarker, ActorContext } from '@/lib/permissions'
 
@@ -51,7 +51,11 @@ export function MarkerPinLayer({
   const [mounted, setMounted] = useState(false)
   const [diagnosticMode, setDiagnosticMode] = useState(false)
   const [iframeRect, setIframeRect] = useState<DOMRect | null>(null)
-  const [iframeLoadedCount, setIframeLoadedCount] = useState(0)
+  const [, setReflowTick] = useState(0)
+
+  const forceReflow = useCallback(() => {
+    setReflowTick(c => c + 1)
+  }, [])
 
   useEffect(() => {
     setMounted(true)
@@ -66,54 +70,82 @@ export function MarkerPinLayer({
   useEffect(() => {
     if (!iframeNode) return
 
-    const handleLoad = () => {
-      console.log("[MarkerPinLayer] iframe load event fired")
-      setIframeLoadedCount(c => c + 1)
-    }
-
-    iframeNode.addEventListener('load', handleLoad)
-    setIframeLoadedCount(c => c + 1)
-
-    return () => {
-      iframeNode.removeEventListener('load', handleLoad)
-    }
-  }, [iframeNode])
-
-  useEffect(() => {
-    if (!iframeNode) return
+    let iframeWin: Window | null = null
+    let iframeDoc: Document | null = null
+    try {
+      iframeWin = iframeNode.contentWindow
+      iframeDoc = iframeNode.contentDocument
+    } catch (_) {}
 
     let rAFId: number | null = null
-    const updateRect = () => {
+    const handleUpdate = () => {
       if (rAFId) return
       rAFId = requestAnimationFrame(() => {
-        setIframeRect(iframeNode.getBoundingClientRect())
-        setIframeLoadedCount(c => c + 1)
         rAFId = null
+        if (iframeNode) {
+          setIframeRect(iframeNode.getBoundingClientRect())
+        }
+        forceReflow()
       })
     }
 
-    // Run first measurement synchronously to avoid initial render delay
     setIframeRect(iframeNode.getBoundingClientRect())
-    setIframeLoadedCount(c => c + 1)
+    forceReflow()
 
-    window.addEventListener('resize', updateRect, { passive: true })
-    window.addEventListener('scroll', updateRect, { passive: true })
+    window.addEventListener('resize', handleUpdate, { passive: true })
+    window.addEventListener('scroll', handleUpdate, { passive: true })
 
-    let observer: MutationObserver | null = null
+    try {
+      if (iframeWin) {
+        iframeWin.addEventListener('scroll', handleUpdate, { passive: true })
+        iframeWin.addEventListener('resize', handleUpdate, { passive: true })
+      }
+    } catch (_) {}
+
+    const handleLoad = () => {
+      console.log('[MarkerPinLayer] iframe load event fired')
+      handleUpdate()
+      const timers = [100, 300, 600, 1200].map(delay =>
+        setTimeout(handleUpdate, delay)
+      )
+      return () => timers.forEach(clearTimeout)
+    }
+
+    iframeNode.addEventListener('load', handleLoad)
+
+    let iframeObserver: MutationObserver | null = null
+    try {
+      if (iframeDoc && typeof MutationObserver !== 'undefined') {
+        iframeObserver = new MutationObserver(handleUpdate)
+        iframeObserver.observe(iframeDoc.body || iframeDoc.documentElement, {
+          childList: true,
+          subtree: true,
+          attributes: true
+        })
+      }
+    } catch (_) {}
+
+    let parentObserver: MutationObserver | null = null
     if (typeof MutationObserver !== 'undefined') {
-      observer = new MutationObserver(updateRect)
-      observer.observe(document.body, { childList: true, subtree: true })
+      parentObserver = new MutationObserver(handleUpdate)
+      parentObserver.observe(document.body, { childList: true, subtree: true })
     }
 
     return () => {
-      window.removeEventListener('resize', updateRect)
-      window.removeEventListener('scroll', updateRect)
-      if (observer) observer.disconnect()
+      window.removeEventListener('resize', handleUpdate)
+      window.removeEventListener('scroll', handleUpdate)
+      try {
+        if (iframeWin) {
+          iframeWin.removeEventListener('scroll', handleUpdate)
+          iframeWin.removeEventListener('resize', handleUpdate)
+        }
+      } catch (_) {}
+      iframeNode.removeEventListener('load', handleLoad)
+      if (iframeObserver) iframeObserver.disconnect()
+      if (parentObserver) parentObserver.disconnect()
       if (rAFId) cancelAnimationFrame(rAFId)
     }
-  }, [iframeNode])
-
-  const loggedRef = useRef<Record<string, string>>({})
+  }, [iframeNode, forceReflow])
 
   const normalizeUrl = (url: string) => {
     if (!url) return ''
@@ -125,7 +157,6 @@ export function MarkerPinLayer({
     }
   }
 
-  // Filter out deleted/invisible/out-of-page pins
   const pagePins = useMemo(() => {
     const normCurrentUrl = normalizeUrl(currentUrl)
     return markers.filter(m => {
@@ -134,26 +165,6 @@ export function MarkerPinLayer({
     })
   }, [markers, currentUrl])
 
-  // Memoize positions of all static markers using the canonical anchor engine
-  // This avoids calling DOM querySelector / evaluate on every pointermove.
-  const staticPositions = useMemo(() => {
-    let iframeDoc: Document | null = null
-    let iframeWin: Window | null = null
-    try {
-      iframeDoc = iframeNode?.contentDocument || null
-      iframeWin = iframeNode?.contentWindow || null
-    } catch (_) {}
-
-    const positions: Record<string, ResolvedMarkerPosition | null> = {}
-    for (const marker of pagePins) {
-      positions[marker.id] = resolveMarkerRenderPosition(marker, iframeWin, iframeDoc)
-    }
-    return positions
-  }, [pagePins, iframeNode, scrollPos, iframeLoadedCount])
-
-  console.log('[Markers] render count=' + pagePins.length)
-
-  // Handle Dragging via Pointer Events
   useEffect(() => {
     if (!dragState || !iframeNode) return
 
@@ -172,8 +183,6 @@ export function MarkerPinLayer({
         const deltaX = (e.clientX - dragState.startClientX) / scaleX
         const deltaY = (e.clientY - dragState.startClientY) / scaleY
 
-        console.debug(`STAGE marker drag preview [${dragState.markerId}] deltaX=${deltaX.toFixed(2)} deltaY=${deltaY.toFixed(2)}`)
-        
         setDragState(prev => {
           if (!prev) return null
           return {
@@ -195,7 +204,6 @@ export function MarkerPinLayer({
       console.log(`STAGE marker drag commit [${pinId}]`)
       setDragState(null)
 
-      // Release pointer capture
       try {
         const target = e.target as HTMLElement
         if (target && typeof target.releasePointerCapture === 'function') {
@@ -229,7 +237,6 @@ export function MarkerPinLayer({
 
     const handlePointerCancel = (e: PointerEvent) => {
       if (e.pointerId !== dragState.pointerId) return
-      console.log(`STAGE marker drag rollback [${dragState.markerId}] due to cancel`)
       setDragState(null)
       try {
         const target = e.target as HTMLElement
@@ -250,13 +257,11 @@ export function MarkerPinLayer({
     }
   }, [dragState, iframeNode, scrollPos, markers, onUpdateMarker])
 
-  // Keydown listener for Escape key to cancel drag
   useEffect(() => {
     if (!dragState) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        console.log(`STAGE marker drag rollback [${dragState.markerId}] due to Escape key`)
         setDragState(null)
       }
     }
@@ -266,6 +271,15 @@ export function MarkerPinLayer({
   }, [dragState])
 
   if (!mounted || typeof document === 'undefined') return null
+
+  const currentIframeRect = iframeRect || (iframeNode ? iframeNode.getBoundingClientRect() : null)
+
+  let iframeWin: Window | null = null
+  let iframeDoc: Document | null = null
+  try {
+    iframeWin = iframeNode?.contentWindow || null
+    iframeDoc = iframeNode?.contentDocument || null
+  } catch (_) {}
 
   const pinOverlay = (
     <>
@@ -295,110 +309,58 @@ export function MarkerPinLayer({
         {pagePins.map((marker) => {
           const isDragging = dragState?.markerId === marker.id
           
-          let left = 0
-          let top = 0
+          let parentX = 0
+          let parentY = 0
           let isDegraded = false
           let source: any = 'dom'
-          
+
           if (isDragging && dragState) {
-            left = dragState.currentLeft
-            top = dragState.currentTop
+            const rect = currentIframeRect
+            if (rect) {
+              const scaleX = rect.width / (iframeNode?.offsetWidth || iframeNode?.clientWidth || 1)
+              const scaleY = rect.height / (iframeNode?.offsetHeight || iframeNode?.clientHeight || 1)
+              parentX = (dragState.currentLeft - scrollPos.x) * scaleX + rect.left
+              parentY = (dragState.currentTop - scrollPos.y) * scaleY + rect.top
+            } else {
+              parentX = dragState.currentLeft
+              parentY = dragState.currentTop
+            }
             isDegraded = false
             source = 'dom'
           } else {
-            const pos = staticPositions[marker.id]
-            if (!pos) {
-              console.warn(`[STAGE Debug] Skipping render for marker ${marker.id} - no resolved static position`)
+            const posResult = computePinScreenPosition(
+              marker,
+              scrollPos,
+              currentIframeRect,
+              iframeWin,
+              iframeDoc
+            )
+
+            if (!posResult) {
               return null
             }
-            left = pos.left
-            top = pos.top
-            isDegraded = pos.degraded
-            source = pos.source
+
+            parentX = posResult.screenX
+            parentY = posResult.screenY
+            isDegraded = posResult.isDegraded
+            source = posResult.source
           }
 
-          // Convert to parent window coordinates, accounting for iframe layout and scaling
-          const rect = iframeRect || (iframeNode ? iframeNode.getBoundingClientRect() : null)
-          let parentX = 0
-          let parentY = 0
-          let scale = 1
-          let offsetLeft = 0
-          let offsetTop = 0
-          
-          if (rect) {
-            const scaleX = rect.width / (iframeNode?.offsetWidth || iframeNode?.clientWidth || 1)
-            const scaleY = rect.height / (iframeNode?.offsetHeight || iframeNode?.clientHeight || 1)
-            scale = scaleX
-            offsetLeft = rect.left - scrollPos.x * scaleX
-            offsetTop = rect.top - scrollPos.y * scaleY
-
-            // Log overlay metrics
-            console.log(`STAGE overlay metrics [${scale}, ${offsetLeft}, ${offsetTop}]`)
-
-            const metrics: OverlayMetrics = { scale, offsetLeft, offsetTop }
-            const overlayPos = toOverlayPosition({ pageLeft: left, pageTop: top }, metrics)
-            parentX = overlayPos.left
-            parentY = overlayPos.top
-          } else {
-            parentX = left
-            parentY = top
-          }
-
-          // Add temporary debug logs for each marker
-          console.log(`[STAGE Debug Pin]`, {
-            id: marker.id,
-            rendererType: marker.renderer_type || marker.rendererType || 'dom',
-            source,
-            rawX: marker.page_x ?? marker.pageX,
-            rawY: marker.page_y ?? marker.pageY,
-            viewportX: marker.viewport_x ?? marker.viewportX,
-            viewportY: marker.viewport_y ?? marker.viewportY,
-            boundingBox: marker.boundingBoxAtCapture,
-            normX: marker.canvas_x_ratio ?? marker.canvasContext?.normX,
-            normY: marker.canvas_y_ratio ?? marker.canvasContext?.normY,
-            finalLeft: left,
-            finalTop: top,
-            computedParentX: parentX,
-            computedParentY: parentY,
-            scale,
-            offsetLeft,
-            offsetTop,
-            isFallbackUsed: isDegraded,
-          })
-
-          // Clamp to parent window viewport bounds with 16px safety padding
-          const safetyPadding = 16
           if (!Number.isFinite(parentX) || !Number.isFinite(parentY)) {
-            console.warn("STAGE pin position invalid, falling back to bbox center", marker.id)
-            if (marker.boundingBoxAtCapture) {
-              const { left: bboxLeft, top: bboxTop, width: bboxWidth, height: bboxHeight } = marker.boundingBoxAtCapture
-              const centerX = bboxLeft + bboxWidth / 2
-              const centerY = bboxTop + bboxHeight / 2
-              if (rect) {
-                const scaleX = rect.width / (iframeNode?.offsetWidth || iframeNode?.clientWidth || 1)
-                const scaleY = rect.height / (iframeNode?.offsetHeight || iframeNode?.clientHeight || 1)
-                parentX = (centerX - scrollPos.x) * scaleX + rect.left
-                parentY = (centerY - scrollPos.y) * scaleY + rect.top
-              } else {
-                parentX = centerX
-                parentY = centerY
-              }
-            } else {
-              // If completely invalid, skip rendering this pin rather than rendering at 0,0
-              console.warn(`STAGE pin skipped invalid render position [${marker.id}]`)
-              return null
-            }
+            return null
           }
 
-          if (typeof window !== 'undefined') {
-            parentX = Math.max(safetyPadding, Math.min(window.innerWidth - safetyPadding, parentX))
-            parentY = Math.max(safetyPadding, Math.min(window.innerHeight - safetyPadding, parentY))
+          if (typeof window !== 'undefined' && !isDragging) {
+            const isOffscreen = parentX < -50 || parentY < -50 || parentX > window.innerWidth + 50 || parentY > window.innerHeight + 50
+            if (isOffscreen) {
+              return null
+            }
+            parentX = Math.max(16, Math.min(window.innerWidth - 16, parentX))
+            parentY = Math.max(16, Math.min(window.innerHeight - 16, parentY))
           }
 
           if (diagnosticMode) {
             console.log(`[STAGE Render Test] Render pin id=${marker.id}:`, {
-              storedPageX: left,
-              storedPageY: top,
               computedParentX: parentX,
               computedParentY: parentY,
             })
@@ -435,8 +397,8 @@ export function MarkerPinLayer({
                   onDelete={onDeletePin}
                   dragging={isDragging}
                   onDragStart={(id, e) => {
-                    const marker = markers.find(m => m.id === id)
-                    if (!marker || !canCurrentActorMutateMarker(actor, marker)) {
+                    const targetMarker = markers.find(m => m.id === id)
+                    if (!targetMarker || !canCurrentActorMutateMarker(actor, targetMarker)) {
                       console.warn('[STAGE Drag] Drag rejected due to permissions context')
                       return
                     }
@@ -445,17 +407,19 @@ export function MarkerPinLayer({
                       e.currentTarget.setPointerCapture(e.pointerId)
                     } catch (_) {}
                     
-                    const pos = staticPositions[id] || { left: marker.page_x || 0, top: marker.page_y || 0 }
+                    const posRes = computePinScreenPosition(targetMarker, scrollPos, currentIframeRect, iframeWin, iframeDoc)
+                    const initialLeft = posRes ? posRes.pageLeft : (targetMarker.page_x || 0)
+                    const initialTop = posRes ? posRes.pageTop : (targetMarker.page_y || 0)
                     
                     setDragState({
                       markerId: id,
                       pointerId: e.pointerId,
                       startClientX: e.clientX,
                       startClientY: e.clientY,
-                      startResolvedLeft: pos.left,
-                      startResolvedTop: pos.top,
-                      currentLeft: pos.left,
-                      currentTop: pos.top,
+                      startResolvedLeft: initialLeft,
+                      startResolvedTop: initialTop,
+                      currentLeft: initialLeft,
+                      currentTop: initialTop,
                       startedAt: Date.now()
                     })
                     setHoveredPinId(null) // hide tooltip while dragging
