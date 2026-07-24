@@ -1,10 +1,33 @@
 # Repository Documentation Status
 
 ## Current phase
-- Phase 29: Unified Notifications + Email Delivery
+- Phase 30: Notification Templates + Summary Tuning
 - Status: Completed
-- Last updated timestamp: 2026-07-24T20:48:00Z
-- Note: Blueprint and session event sources kept separate; notification delivery unified
+- Last updated timestamp: 2026-07-24T20:54:00Z
+- Note: Blueprint and session notification sources remain separate; only templates and summaries are being tuned
+
+## Task Execution Summary: Notification Templates + Summary Tuning
+- **Task Title**: Notification Templates + Summary Tuning
+- **Status**: Completed
+- **Files Added**:
+  - `backend/services/notification_templates.py`
+- **Files Changed**:
+  - `backend/services/notification_service.py`
+  - `backend/routes/notifications.py`
+  - `web/src/lib/api.ts`
+  - `web/src/store/useNotificationStore.ts`
+  - `web/src/components/notifications/NotificationBell.tsx`
+  - `status.md`
+- **Session/Canvas Mechanics Isolation Confirmation**: Pin/marker positioning logic, session review rendering, and Blueprint canvas edit mechanics remain 100% untouched. Only copy synthesis, subject line templates, and template preview UI were added.
+- **Template Rules Implemented**:
+  - **Blueprint Events**: Specific subjects for comments (`"[STAGE] Sarah commented on 'Hero CTA'"`), publications (`"[STAGE] Release v2 draft published"`), status changes (`"[STAGE] Release v2 APPROVED"`), and edit saves (`"[STAGE] 3 new Blueprint edit(s) saved"`).
+  - **Session Events**: Specific subjects for pins (`"[STAGE Session] New pin added on 'Navbar Logo'"`), resolutions, session starts, and export generations.
+  - **Tone Variants**: Supports `client_friendly`, `concise`, and `developer` wording variants across all subjects and body copy.
+  - **Why-You-Got-This**: Generates explicit preference-based explanation text per email and notification.
+- **Preview System**: Added `POST /notifications/templates/preview` endpoint & interactive template previewer modal in `NotificationBell.tsx` with tone switching.
+- **Branding**: "STAGE" branding is strictly used across all subject lines, body text templates, previews, and status entries.
+- **Known Limitations**: Template fallbacks handle missing metadata fields gracefully; email rendering uses inline styled templates.
+- **Next Step**: Notification delivery monitoring + retry logs.
 
 ## Task Execution Summary: Unified Notifications + Email Delivery
 - **Task Title**: Unified Notifications + Email Delivery

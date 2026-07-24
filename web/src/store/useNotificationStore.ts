@@ -43,6 +43,16 @@ export interface DigestPreviewData {
   digest_text: string
 }
 
+export interface TemplatePreviewData {
+  source_type: string
+  event_type: string
+  tone: string
+  subject: string
+  body: string
+  preview_text: string
+  why_you_got_this: string
+}
+
 export type NotificationTab = 'all' | 'blueprint' | 'session' | 'unread'
 
 interface NotificationState {
@@ -50,6 +60,7 @@ interface NotificationState {
   unreadCount: number
   preferences: NotificationPreferences | null
   digestPreview: DigestPreviewData | null
+  templatePreview: TemplatePreviewData | null
   isLoading: boolean
   isDrawerOpen: boolean
   activeTab: NotificationTab
@@ -63,6 +74,7 @@ interface NotificationState {
   fetchPreferences: (projectId?: string) => Promise<void>
   savePreferences: (prefs: Partial<NotificationPreferences>) => Promise<void>
   loadDigestPreview: (projectId?: string, hours?: number) => Promise<void>
+  loadTemplatePreview: (sourceType?: string, eventType?: string, tone?: string) => Promise<void>
   sendTestNotification: (projectId?: string) => Promise<void>
 }
 
@@ -71,6 +83,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   unreadCount: 0,
   preferences: null,
   digestPreview: null,
+  templatePreview: null,
   isLoading: false,
   isDrawerOpen: false,
   activeTab: 'all',
@@ -154,6 +167,15 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       await get().fetchNotifications(projectId)
     } catch (err) {
       console.error('[STAGE Notifications] Test email error:', err)
+    }
+  },
+
+  loadTemplatePreview: async (sourceType = 'blueprint', eventType = 'comment_created', tone = 'client_friendly') => {
+    try {
+      const res: any = await api.notifications.previewTemplate({ source_type: sourceType, event_type: eventType, tone })
+      set({ templatePreview: res })
+    } catch (err) {
+      console.error('[STAGE Notifications] Template preview error:', err)
     }
   }
 }))

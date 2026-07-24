@@ -16,6 +16,9 @@ from services.notification_service import (
     get_or_create_preferences, emit_blueprint_notification,
     build_project_digest, deliver_email_notification
 )
+from services.notification_templates import (
+    build_notification_subject, build_notification_body, build_preview_text, build_why_you_got_this
+)
 
 logger = logging.getLogger("stage.routes.notifications")
 router = APIRouter(tags=["notifications"])
@@ -190,3 +193,37 @@ async def send_test_notification(
         category="critical"
     )
     return {"message": "Test notification emitted", "notification_id": event.id if event else None}
+
+
+@router.post("/notifications/templates/preview")
+async def preview_notification_template(
+    source_type: str = "blueprint",  # blueprint | session
+    event_type: str = "comment_created",
+    tone: str = "client_friendly",
+    sample_target: str = "Hero CTA Button",
+    sample_author: str = "Sarah Jenkins"
+):
+    metadata = {
+        "target_selector": sample_target,
+        "author_name": sample_author,
+        "project_name": "E-Commerce Redesign",
+        "comment_snippet": "Can we increase the padding and contrast on this button?",
+        "version": "2.0",
+        "status": "approved",
+        "session_title": "Homepage Audit"
+    }
+
+    subject = build_notification_subject(source_type, event_type, metadata, tone)
+    body = build_notification_body(source_type, event_type, metadata, tone)
+    preview = build_preview_text(source_type, event_type, metadata)
+    why_you_got_this = build_why_you_got_this(source_type, event_type)
+
+    return {
+        "source_type": source_type,
+        "event_type": event_type,
+        "tone": tone,
+        "subject": subject,
+        "body": body,
+        "preview_text": preview,
+        "why_you_got_this": why_you_got_this
+    }

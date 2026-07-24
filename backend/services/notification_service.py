@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 from models import NotificationEventModel, NotificationPreferencesModel, Project, User
+from services.notification_templates import (
+    build_notification_subject, build_notification_body, build_preview_text, build_why_you_got_this
+)
 
 logger = logging.getLogger("stage.notifications")
 

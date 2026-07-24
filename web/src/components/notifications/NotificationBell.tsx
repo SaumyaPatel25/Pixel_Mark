@@ -28,6 +28,7 @@ export function NotificationBell({ projectId }: NotificationBellProps) {
     unreadCount,
     preferences,
     digestPreview,
+    templatePreview,
     isLoading,
     isDrawerOpen,
     activeTab,
@@ -39,11 +40,14 @@ export function NotificationBell({ projectId }: NotificationBellProps) {
     fetchPreferences,
     savePreferences,
     loadDigestPreview,
+    loadTemplatePreview,
     sendTestNotification
   } = useNotificationStore()
 
   const [showSettings, setShowSettings] = useState(false)
   const [showDigestModal, setShowDigestModal] = useState(false)
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [selectedTone, setSelectedTone] = useState('client_friendly')
 
   useEffect(() => {
     fetchNotifications(projectId)
@@ -203,6 +207,17 @@ export function NotificationBell({ projectId }: NotificationBellProps) {
                     </button>
 
                     <button
+                      onClick={() => {
+                        loadTemplatePreview('blueprint', 'comment_created', selectedTone)
+                        setShowTemplateModal(true)
+                      }}
+                      className="w-full py-2 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/30 text-cyan-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Preview Notification Copy Templates</span>
+                    </button>
+
+                    <button
                       onClick={() => sendTestNotification(projectId)}
                       className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
@@ -293,6 +308,81 @@ export function NotificationBell({ projectId }: NotificationBellProps) {
                 className="px-4 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-bold text-xs cursor-pointer"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Copy Preview Modal */}
+      {showTemplateModal && templatePreview && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#090d16] border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <span>STAGE Notification Copy Template</span>
+              </h3>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Tone Selector */}
+            <div className="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-slate-400 uppercase">Tone Variant:</span>
+              <div className="flex items-center gap-1.5">
+                {['client_friendly', 'concise', 'developer'].map((tone) => (
+                  <button
+                    key={tone}
+                    onClick={() => {
+                      setSelectedTone(tone)
+                      loadTemplatePreview(templatePreview.source_type, templatePreview.event_type, tone)
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer capitalize ${
+                      selectedTone === tone
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
+                    }`}
+                  >
+                    {tone.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Template Card Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Email Subject Line</span>
+                <p className="text-xs font-extrabold text-white">{templatePreview.subject}</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Inbox Snippet Preview</span>
+                <p className="text-xs text-slate-300 italic">{templatePreview.preview_text}</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400">Email Body Copy</span>
+                <p className="text-xs text-slate-200 leading-relaxed">{templatePreview.body}</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-850 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Why You Received This</span>
+                <p className="text-[11px] text-slate-400">{templatePreview.why_you_got_this}</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 border-t border-slate-800 bg-slate-900/90 flex justify-end">
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="px-5 py-1.5 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs cursor-pointer shadow-lg shadow-cyan-500/20"
+              >
+                Close Preview
               </button>
             </div>
           </div>

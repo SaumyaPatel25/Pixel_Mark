@@ -458,6 +458,14 @@ export const api = {
     },
     async sendTestEmail(projectId?: string) {
       return apiQueue.enqueueWrite('Sending test email...', () => request(`/notifications/test-email${projectId ? `?project_id=${projectId}` : ''}`, { method: 'POST' }))
+    },
+    async previewTemplate(params?: { source_type?: string; event_type?: string; tone?: string }) {
+      const q = new URLSearchParams()
+      if (params?.source_type) q.set('source_type', params.source_type)
+      if (params?.event_type) q.set('event_type', params.event_type)
+      if (params?.tone) q.set('tone', params.tone)
+      const qs = q.toString() ? `?${q.toString()}` : ''
+      return apiQueue.enqueueRead('Loading template preview...', () => request(`/notifications/templates/preview${qs}`, { method: 'POST' }))
     }
   },
 
