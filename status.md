@@ -1,10 +1,38 @@
 # Repository Documentation Status
 
 ## Current phase
-- Phase 27: Blueprint Activity Feed / Audit Log
+- Phase 28: Blueprint AI Change Summaries
 - Status: Completed
-- Last updated timestamp: 2026-07-24T20:32:00Z
-- Note: Session canvas, markers, and session WebSocket/presence untouched
+- Last updated timestamp: 2026-07-24T20:38:00Z
+- Note: Session canvas, markers, and session review summary pipeline untouched
+
+## Task Execution Summary: Blueprint AI Change Summaries
+- **Task Title**: Blueprint AI Change Summaries
+- **Status**: Completed
+- **Files Added**:
+  - `backend/services/blueprint_summarizer.py`
+  - `web/src/store/blueprintSummaryStore.ts`
+  - `web/src/components/blueprint/BlueprintSummaryModal.tsx`
+- **Files Changed**:
+  - `backend/models/core.py`
+  - `backend/schemas/core.py`
+  - `backend/routes/canvas.py`
+  - `web/src/lib/api.ts`
+  - `web/src/components/blueprint/BlueprintChangesetModal.tsx`
+  - `web/src/components/blueprint/BlueprintToolbar.tsx`
+  - `web/src/components/blueprint/BlueprintWorkspace.tsx`
+  - `status.md`
+- **Session Review Summary Pipeline Isolation Confirmation**: Session review files (`AuditSurface.tsx`, `DrawingCanvas.tsx`, `markerStore.ts`, `sessionStore.ts`, session review export routes, and session summary endpoints) remain 100% untouched.
+- **New Model & Summary Endpoints**:
+  - `BlueprintSummaryModel` (`blueprint_summaries` table)
+  - `POST /canvas/{project_id}/summaries/generate`: Generates client-friendly summary for publications or edit windows. Supports tones (`client_friendly`, `concise`, `detailed`).
+  - `GET /canvas/{project_id}/summaries`: Retrieves list of project summaries.
+  - `GET /canvas/{project_id}/summaries/{summary_id}`: Retrieves specific summary.
+  - `GET /canvas/publications/{publication_id}/summary`: Retrieves latest summary for publication.
+- **Resiliency & Fallback Guarantee**: Gracefully generates structured template fallback summaries if AI LLM services are offline or unconfigured.
+- **Branding**: "STAGE" branding is strictly used across all new UI copy, summary banners, markdown exports, and status entries.
+- **Known Limitations**: Token estimation uses character heuristics; fallback summary relies on deterministic schema synthesis.
+- **Next Step**: Blueprint notifications digest / weekly project recap.
 
 ## Task Execution Summary: Blueprint Activity Feed / Audit Log
 - **Task Title**: Blueprint Activity Feed / Audit Log

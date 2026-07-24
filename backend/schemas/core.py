@@ -577,6 +577,34 @@ class BlueprintActivityListResponse(BaseModel):
     next_cursor: Optional[str] = None
 
 
+class BlueprintSummaryGenerateRequest(BaseModel):
+    publication_id: Optional[str] = None
+    edit_ids: Optional[List[str]] = None
+    activity_window_hours: Optional[int] = 24
+    tone: Optional[str] = "client_friendly"  # concise | detailed | client_friendly
+    audience: Optional[str] = "client"  # client | developer | stakeholder
+
+
+class BlueprintSummaryRead(BaseModel):
+    id: str
+    project_id: str
+    blueprint_publication_id: Optional[str] = None
+    generated_for_type: str
+    input_range_json: Optional[Dict[str, Any]] = None
+    title: str
+    summary_text: str
+    bullets_json: Optional[List[str]] = None
+    risks_json: Optional[List[str]] = None
+    followups_json: Optional[List[str]] = None
+    model_name: str
+    tokens_estimate: Optional[int] = None
+    created_at: datetime
+    created_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 
 
 

@@ -7,7 +7,7 @@ from dependencies import get_db, get_current_user, get_current_user_optional
 from models import (
     CanvasFrame, CanvasFlow, User, OrgMember, Project, Session,
     BlueprintMutationModel, BlueprintPublicationModel, BlueprintCommentModel, BlueprintStatusHistoryModel,
-    BlueprintActivityModel
+    BlueprintActivityModel, BlueprintSummaryModel
 )
 from schemas import (
     CanvasData, CanvasFrameCreate, CanvasFrameUpdate, CanvasFrameRead,
@@ -16,9 +16,11 @@ from schemas import (
     BlueprintPublicationCreate, BlueprintPublicationRead,
     BlueprintCommentCreate, BlueprintCommentUpdate, BlueprintCommentRead,
     PublicationStatusUpdateRequest, BlueprintStatusHistoryRead,
-    BlueprintActivityRead, BlueprintActivityListResponse
+    BlueprintActivityRead, BlueprintActivityListResponse,
+    BlueprintSummaryGenerateRequest, BlueprintSummaryRead
 )
 from services.blueprint_activity import log_blueprint_activity
+from services.blueprint_summarizer import generate_blueprint_summary
 import uuid
 from datetime import datetime
 
@@ -1001,6 +1003,69 @@ async def get_blueprint_activity_summary(
         "counts": counts,
         "total": sum(counts.values())
     }
+
+
+# ─── BLUEPRINT AI CHANGE SUMMARIES ────────────────────────────────────────
+
+@router.post("/{project_id}/summaries/generate", response_model=BlueprintSummaryRead)
+async def generate_summary_endpoint(
+    project_id: str,
+    payload: BlueprintSummaryGenerateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    summary_model = await generate_blueprint_summary(db, project_id, payload, current_user)
+    return BlueprintSummaryRead.model_validate(summary_model)
+
+
+@router.get("/{project_id}/summaries", response_model=List[BlueprintSummaryRead])
+async def list_blueprint_summaries(
+    project_id: str,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(
+        select(BlueprintSummaryModel)
+        .where(BlueprintSummaryModel.project_id == project_id)
+        .order_by(BlueprintSummaryModel.created_at.desc())
+        .limit(limit)
+    )
+    summaries = res.scalars().all()
+    return [BlueprintSummaryRead.model_validate(s) for s in summaries]
+
+
+@router.get("/{project_id}/summaries/{summary_id}", response_model=BlueprintSummaryRead)
+async def get_blueprint_summary_detail(
+    project_id: str,
+    summary_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(
+        select(BlueprintSummaryModel).where(
+            BlueprintSummaryModel.id == summary_id,
+            BlueprintSummaryModel.project_id == project_id
+        )
+    )
+    summary_model = res.scalar_one_or_none()
+    if not summary_model:
+        raise HTTPException(status_code=404, detail="Blueprint summary not found")
+    return BlueprintSummaryRead.model_validate(summary_model)
+
+
+@router.get("/publications/{publication_id}/summary", response_model=Optional[BlueprintSummaryRead])
+async def get_publication_latest_summary(
+    publication_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(
+        select(BlueprintSummaryModel)
+        .where(BlueprintSummaryModel.blueprint_publication_id == publication_id)
+        .order_by(BlueprintSummaryModel.created_at.desc())
+    )
+    summary_model = res.scalars().first()
+    if not summary_model:
+        return None
+    return BlueprintSummaryRead.model_validate(summary_model)
 
 
 

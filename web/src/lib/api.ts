@@ -404,6 +404,21 @@ export const api = {
     async getActivitySummary(projectId: string) {
       return apiQueue.enqueueRead('Loading activity summary...', () => request(`/canvas/${projectId}/activity/summary`))
     },
+    async generateSummary(projectId: string, payload?: { publication_id?: string; edit_ids?: string[]; tone?: string; audience?: string }) {
+      return apiQueue.enqueueWrite('Generating STAGE AI change summary...', () => request(`/canvas/${projectId}/summaries/generate`, {
+        method: 'POST',
+        body: JSON.stringify(payload || {})
+      }))
+    },
+    async getSummaries(projectId: string, limit: number = 10) {
+      return apiQueue.enqueueRead('Loading summaries...', () => request(`/canvas/${projectId}/summaries?limit=${limit}`))
+    },
+    async getSummaryDetail(projectId: string, summaryId: string) {
+      return apiQueue.enqueueRead('Loading summary details...', () => request(`/canvas/${projectId}/summaries/${summaryId}`))
+    },
+    async getPublicationSummary(publicationId: string) {
+      return apiQueue.enqueueRead('Loading publication summary...', () => request(`/canvas/publications/${publicationId}/summary`))
+    },
   },
 
   // SESSIONS

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { X, Sparkles, Layers, FileText, CheckCircle2, AlertCircle, Clock, ShieldAlert, Send, ThumbsUp, MessageSquare, History } from 'lucide-react'
 import { useBlueprintStore } from '@/store/blueprintStore'
 import { useBlueprintCollaborationStore, PublicationStatus } from '@/store/blueprintCollaborationStore'
+import { useBlueprintSummaryStore } from '@/store/blueprintSummaryStore'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -293,15 +294,27 @@ export function BlueprintChangesetModal({
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => {
+                useBlueprintSummaryStore.getState().generateSummary(projectId, {
+                  publicationId: activePublicationId || undefined
+                })
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all shadow-md cursor-pointer"
+              title="Generate STAGE AI Change Summary"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Generate AI Summary</span>
+            </button>
+            <button
               onClick={handleExportMarkdown}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-all shadow-md"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-all shadow-md cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Download Markdown Handoff</span>
             </button>
             <button
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors"
+              className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors cursor-pointer"
             >
               Close
             </button>

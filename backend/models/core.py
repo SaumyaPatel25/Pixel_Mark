@@ -1,7 +1,7 @@
 from sqlalchemy import String, Text, Integer, ForeignKey, DateTime, Boolean, JSON, Enum as SAEnum, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from database import Base
 import uuid
 import enum
@@ -405,6 +405,26 @@ class BlueprintActivityModel(Base):
     summary_text: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class BlueprintSummaryModel(Base):
+    __tablename__ = "blueprint_summaries"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    blueprint_publication_id: Mapped[Optional[str]] = mapped_column(ForeignKey("blueprint_publications.id", ondelete="CASCADE"), nullable=True, index=True)
+    generated_for_type: Mapped[str] = mapped_column(String, nullable=False)  # publication | edits_window | activity_window
+    input_range_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
+    bullets_json: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    risks_json: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    followups_json: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    model_name: Mapped[str] = mapped_column(String, default="STAGE-AI-Summarizer")
+    tokens_estimate: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_by: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
 
 
 

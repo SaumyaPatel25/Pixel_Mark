@@ -25,12 +25,14 @@ import {
   Send,
   Layers,
   FileText,
-  Activity
+  Activity,
+  Sparkles
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useBlueprintStore, BlueprintTool } from '@/store/blueprintStore'
 import { useBlueprintCollaborationStore } from '@/store/blueprintCollaborationStore'
 import { useBlueprintActivityStore } from '@/store/blueprintActivityStore'
+import { useBlueprintSummaryStore } from '@/store/blueprintSummaryStore'
 import { BlueprintChangesetModal } from './BlueprintChangesetModal'
 import { BlueprintPresenceStack } from './BlueprintPresenceStack'
 
@@ -231,6 +233,21 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
         >
           <Activity className="w-3.5 h-3.5 text-cyan-400" />
           <span className="hidden sm:inline">Activity</span>
+        </button>
+        <button
+          onClick={() => {
+            const summaryStore = useBlueprintSummaryStore.getState()
+            if (!summaryStore.activeSummary) {
+              summaryStore.generateSummary(projectId)
+            } else {
+              summaryStore.toggleSummaryModal(true)
+            }
+          }}
+          className="px-2.5 py-1.5 rounded-lg bg-purple-950/40 border border-purple-500/30 hover:bg-purple-900/40 text-purple-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm cursor-pointer"
+          title="Generate STAGE AI Change Summary"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+          <span className="hidden sm:inline">AI Summary</span>
         </button>
       </div>
 

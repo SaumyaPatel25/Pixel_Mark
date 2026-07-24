@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import { useBlueprintStore } from '@/store/blueprintStore'
 import { useBlueprintCollaborationStore } from '@/store/blueprintCollaborationStore'
 import { useBlueprintActivityStore } from '@/store/blueprintActivityStore'
+import { useBlueprintSummaryStore } from '@/store/blueprintSummaryStore'
 import { BlueprintToolbar } from './BlueprintToolbar'
 import { BlueprintToolRail } from './BlueprintToolRail'
 import { BlueprintLayersPanel } from './BlueprintLayersPanel'
@@ -14,6 +15,7 @@ import { BlueprintInspector } from './BlueprintInspector'
 import { BlueprintCommentThread } from './BlueprintCommentThread'
 import { BlueprintCommentComposer } from './BlueprintCommentComposer'
 import { BlueprintActivityPanel } from './BlueprintActivityPanel'
+import { BlueprintSummaryModal } from './BlueprintSummaryModal'
 
 interface BlueprintWorkspaceProps {
   projectId: string
@@ -179,6 +181,14 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
             onClose={cancelComposingComment}
           />
         </div>
+      )}
+
+      {/* STAGE AI Summary Modal */}
+      {useBlueprintSummaryStore((state) => state.isSummaryModalOpen) && (
+        <BlueprintSummaryModal
+          projectId={projectId}
+          onClose={() => useBlueprintSummaryStore.getState().toggleSummaryModal(false)}
+        />
       )}
     </div>
   )
