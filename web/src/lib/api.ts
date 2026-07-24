@@ -421,6 +421,46 @@ export const api = {
     },
   },
 
+  // NOTIFICATIONS
+  notifications: {
+    async list(params?: { project_id?: string; source_type?: string; unread_only?: boolean; limit?: number; before?: string }) {
+      const q = new URLSearchParams()
+      if (params?.project_id) q.set('project_id', params.project_id)
+      if (params?.source_type) q.set('source_type', params.source_type)
+      if (params?.unread_only) q.set('unread_only', 'true')
+      if (params?.limit) q.set('limit', String(params.limit))
+      if (params?.before) q.set('before', params.before)
+      const qs = q.toString() ? `?${q.toString()}` : ''
+      return apiQueue.enqueueRead('Loading notifications...', () => request(`/notifications${qs}`))
+    },
+    async markRead(id: string) {
+      return apiQueue.enqueueWrite('Marking notification read...', () => request(`/notifications/${id}/read`, { method: 'PATCH' }))
+    },
+    async markAllRead(projectId?: string) {
+      const qs = projectId ? `?project_id=${projectId}` : ''
+      return apiQueue.enqueueWrite('Marking all notifications read...', () => request(`/notifications/read-all${qs}`, { method: 'PATCH' }))
+    },
+    async getPreferences(projectId?: string) {
+      const qs = projectId ? `?project_id=${projectId}` : ''
+      return apiQueue.enqueueRead('Loading notification preferences...', () => request(`/notification-preferences${qs}`))
+    },
+    async updatePreferences(data: { project_id?: string; email_enabled?: boolean; digest_enabled?: boolean; allow_blueprint_events?: boolean; allow_session_events?: boolean; allow_critical?: boolean; allow_important?: boolean; allow_digest?: boolean }) {
+      return apiQueue.enqueueWrite('Updating notification preferences...', () => request('/notification-preferences', {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      }))
+    },
+    async previewDigest(projectId?: string, hours: number = 24) {
+      return apiQueue.enqueueRead('Building digest preview...', () => request('/notifications/digest/preview', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, hours })
+      }))
+    },
+    async sendTestEmail(projectId?: string) {
+      return apiQueue.enqueueWrite('Sending test email...', () => request(`/notifications/test-email${projectId ? `?project_id=${projectId}` : ''}`, { method: 'POST' }))
+    }
+  },
+
   // SESSIONS
   sessions: {
     async getSessions(projectId: string) {

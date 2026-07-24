@@ -35,6 +35,7 @@ import { useBlueprintActivityStore } from '@/store/blueprintActivityStore'
 import { useBlueprintSummaryStore } from '@/store/blueprintSummaryStore'
 import { BlueprintChangesetModal } from './BlueprintChangesetModal'
 import { BlueprintPresenceStack } from './BlueprintPresenceStack'
+import { NotificationBell } from '../notifications/NotificationBell'
 
 interface BlueprintToolbarProps {
   projectId: string
@@ -255,6 +256,9 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
       <div className="flex items-center gap-3">
         {/* STAGE Multi-User Presence Stack */}
         <BlueprintPresenceStack />
+
+        {/* STAGE Unified Notifications Bell */}
+        <NotificationBell projectId={projectId} />
 
         <div className="h-4 w-px bg-slate-800" />
 

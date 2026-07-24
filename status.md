@@ -1,10 +1,40 @@
 # Repository Documentation Status
 
 ## Current phase
-- Phase 28: Blueprint AI Change Summaries
+- Phase 29: Unified Notifications + Email Delivery
 - Status: Completed
-- Last updated timestamp: 2026-07-24T20:38:00Z
-- Note: Session canvas, markers, and session review summary pipeline untouched
+- Last updated timestamp: 2026-07-24T20:48:00Z
+- Note: Blueprint and session event sources kept separate; notification delivery unified
+
+## Task Execution Summary: Unified Notifications + Email Delivery
+- **Task Title**: Unified Notifications + Email Delivery
+- **Status**: Completed
+- **Files Added**:
+  - `backend/routes/notifications.py`
+  - `backend/services/notification_service.py`
+  - `web/src/store/useNotificationStore.ts`
+  - `web/src/components/notifications/NotificationBell.tsx`
+- **Files Changed**:
+  - `backend/models/core.py`
+  - `backend/schemas/core.py`
+  - `backend/main.py`
+  - `backend/routes/canvas.py`
+  - `backend/routes/sessions.py`
+  - `web/src/lib/api.ts`
+  - `web/src/components/blueprint/BlueprintToolbar.tsx`
+  - `status.md`
+- **Event Source Isolation Confirmation**: Blueprint event emitters (`emit_blueprint_notification`) and Session event emitters (`emit_session_notification`) remain 100% separate in their source routers (`canvas.py` vs `sessions.py`), but normalize into a single unified delivery pipeline (`NotificationEventModel`). Pin positioning and marker rendering logic remain completely untouched.
+- **New Models & Notification Endpoints**:
+  - `NotificationEventModel` (`notification_events` table) & `NotificationPreferencesModel` (`notification_preferences` table).
+  - `GET /notifications`: Paginated in-app notifications feed with source and unread filters.
+  - `PATCH /notifications/{id}/read` & `PATCH /notifications/read-all`.
+  - `GET /notification-preferences` & `PUT /notification-preferences`.
+  - `POST /notifications/digest/preview`: Generates live HTML & text email digest previews.
+  - `POST /notifications/test-email`: Emits test notification email.
+- **Resiliency**: All notification emissions execute in non-blocking fire-and-forget try/except blocks; notification failures never break primary edit, publication, or session operations.
+- **Branding**: "STAGE" branding is strictly used across all new UI copy, notification drawer headers, digest email subjects, and status entries.
+- **Known Limitations**: Email delivery operates in mock/console log mode unless production SMTP/Resend API credentials are populated.
+- **Next Step**: Notification templates and summary tuning.
 
 ## Task Execution Summary: Blueprint AI Change Summaries
 - **Task Title**: Blueprint AI Change Summaries

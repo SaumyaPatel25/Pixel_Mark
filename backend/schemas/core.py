@@ -605,6 +605,81 @@ class BlueprintSummaryRead(BaseModel):
         from_attributes = True
 
 
+class NotificationEventRead(BaseModel):
+    id: str
+    user_id: Optional[str] = None
+    project_id: Optional[str] = None
+    source_type: str  # blueprint | session
+    event_type: str
+    category: str  # critical | important | digest | presence
+    entity_type: str
+    entity_id: Optional[str] = None
+    title: str
+    body: str
+    metadata_json: Optional[Dict[str, Any]] = None
+    read_at: Optional[datetime] = None
+    created_at: datetime
+    delivered_email_at: Optional[datetime] = None
+    delivered_digest_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationListResponse(BaseModel):
+    items: List[NotificationEventRead]
+    unread_count: int
+    has_more: bool
+    next_cursor: Optional[str] = None
+
+
+class NotificationPreferencesRead(BaseModel):
+    id: str
+    user_id: str
+    project_id: Optional[str] = None
+    email_enabled: bool
+    digest_enabled: bool
+    allow_blueprint_events: bool
+    allow_session_events: bool
+    allow_critical: bool
+    allow_important: bool
+    allow_digest: bool
+    quiet_hours_json: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    project_id: Optional[str] = None
+    email_enabled: Optional[bool] = None
+    digest_enabled: Optional[bool] = None
+    allow_blueprint_events: Optional[bool] = None
+    allow_session_events: Optional[bool] = None
+    allow_critical: Optional[bool] = None
+    allow_important: Optional[bool] = None
+    allow_digest: Optional[bool] = None
+    quiet_hours_json: Optional[Dict[str, Any]] = None
+
+
+class DigestPreviewRequest(BaseModel):
+    project_id: Optional[str] = None
+    hours: Optional[int] = 24
+
+
+class DigestPreviewResponse(BaseModel):
+    project_id: Optional[str] = None
+    subject: str
+    event_count: int
+    blueprint_count: int
+    session_count: int
+    digest_html: str
+    digest_text: str
+
+
+
 
 
 

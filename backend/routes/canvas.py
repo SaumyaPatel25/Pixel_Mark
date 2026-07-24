@@ -21,6 +21,7 @@ from schemas import (
 )
 from services.blueprint_activity import log_blueprint_activity
 from services.blueprint_summarizer import generate_blueprint_summary
+from services.notification_service import emit_blueprint_notification
 import uuid
 from datetime import datetime
 
@@ -774,6 +775,18 @@ async def create_blueprint_comment(
         metadata_json={"target_selector": comment.target_selector, "page_url": comment.page_url}
     )
 
+    await emit_blueprint_notification(
+        db=db,
+        project_id=project_id,
+        event_type="comment_created",
+        entity_type="comment",
+        entity_id=comment.id,
+        title=f"New Comment by {author_name}",
+        body=comment.body[:100],
+        user_id=author_id,
+        category="important"
+    )
+
     return BlueprintCommentRead.model_validate(comment)
 
 
@@ -927,6 +940,18 @@ async def update_blueprint_publication_status(
         actor_name=actor_name,
         target_id=publication_id,
         metadata_json={"previous_status": prev_status, "new_status": body_data.status, "note": body_data.note}
+    )
+
+    await emit_blueprint_notification(
+        db=db,
+        project_id=project_id,
+        event_type="publication_status_changed",
+        entity_type="publication",
+        entity_id=publication_id,
+        title=f"Release v{pub.blueprint_version} Status: {body_data.status.replace('_', ' ').title()}",
+        body=f"Publication '{pub.name}' updated by {actor_name}.",
+        user_id=current_user.id if current_user else None,
+        category="critical" if body_data.status == "approved" else "important"
     )
 
     return pub

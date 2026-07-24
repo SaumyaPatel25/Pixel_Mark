@@ -14,6 +14,7 @@ from utils.ssrf_guard import is_ssrf_safe, is_domain_allowed
 from routes.proxy import resolve_session_base_url, validate_public_access
 import logging
 from services.cache import cache
+from services.notification_service import emit_session_notification
 
 async def close_stale_sessions():
     from database import AsyncSessionLocal
@@ -173,6 +174,19 @@ async def create_session(
     )
     db.add(frame)
     await db.commit()
+
+    await emit_session_notification(
+        db=db,
+        session_id=session.id,
+        event_type="session_started",
+        entity_type="session",
+        entity_id=session.id,
+        title=f"Session Started: {session.title}",
+        body=f"New review session started for project {data.project_id}.",
+        project_id=data.project_id,
+        user_id=current_user.id,
+        category="important"
+    )
     
     # Invalidate cache keys affected by the mutation
     cache.invalidate(f"user:{current_user.id}:*")

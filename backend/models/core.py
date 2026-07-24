@@ -426,6 +426,45 @@ class BlueprintSummaryModel(Base):
     created_by: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 
+class NotificationEventModel(Base):
+    __tablename__ = "notification_events"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    project_id: Mapped[Optional[str]] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True)
+    source_type: Mapped[str] = mapped_column(String, nullable=False)  # blueprint | session
+    event_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    category: Mapped[str] = mapped_column(String, nullable=False, default="important")  # critical | important | digest | presence
+    entity_type: Mapped[str] = mapped_column(String, nullable=False)  # edit | publication | comment | marker | session | share_link
+    entity_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    read_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    delivered_email_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivered_digest_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class NotificationPreferencesModel(Base):
+    __tablename__ = "notification_preferences"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    project_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    email_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    digest_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_blueprint_events: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_session_events: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_critical: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_important: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_digest: Mapped[bool] = mapped_column(Boolean, default=True)
+    quiet_hours_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+
 
 
 
