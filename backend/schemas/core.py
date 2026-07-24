@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Any, Literal
+from typing import Optional, List, Any, Literal, Dict
 from datetime import datetime
 from models import PriorityEnum, StatusEnum
 
@@ -542,6 +542,39 @@ class BlueprintStatusHistoryRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BlueprintActivityCreate(BaseModel):
+    project_id: str
+    event_type: str
+    target_type: str
+    summary_text: str
+    actor_id: Optional[str] = None
+    actor_name: Optional[str] = "STAGE Collaborator"
+    target_id: Optional[str] = None
+    metadata_json: Optional[Dict[str, Any]] = None
+
+
+class BlueprintActivityRead(BaseModel):
+    id: str
+    project_id: str
+    actor_id: Optional[str] = None
+    actor_name: str
+    event_type: str
+    target_type: str
+    target_id: Optional[str] = None
+    summary_text: str
+    metadata_json: Optional[Dict[str, Any]] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BlueprintActivityListResponse(BaseModel):
+    items: List[BlueprintActivityRead]
+    has_more: bool
+    next_cursor: Optional[str] = None
 
 
 

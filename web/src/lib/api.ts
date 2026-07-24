@@ -391,7 +391,19 @@ export const api = {
     },
     async getPublicationHistory(projectId: string, publicationId: string) {
       return apiQueue.enqueueRead('Loading publication history...', () => request(`/canvas/${projectId}/publications/${publicationId}/history`))
-    }
+    },
+    async getActivity(projectId: string, params?: { limit?: number; before?: string; event_type?: string; target_type?: string }) {
+      const q = new URLSearchParams()
+      if (params?.limit) q.set('limit', String(params.limit))
+      if (params?.before) q.set('before', params.before)
+      if (params?.event_type) q.set('event_type', params.event_type)
+      if (params?.target_type) q.set('target_type', params.target_type)
+      const qs = q.toString() ? `?${q.toString()}` : ''
+      return apiQueue.enqueueRead('Loading Blueprint activity...', () => request(`/canvas/${projectId}/activity${qs}`))
+    },
+    async getActivitySummary(projectId: string) {
+      return apiQueue.enqueueRead('Loading activity summary...', () => request(`/canvas/${projectId}/activity/summary`))
+    },
   },
 
   // SESSIONS

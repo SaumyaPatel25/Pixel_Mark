@@ -1,10 +1,37 @@
 # Repository Documentation Status
 
 ## Current phase
-- Phase 26: Blueprint Multi-User Presence + Live Cursors
+- Phase 27: Blueprint Activity Feed / Audit Log
 - Status: Completed
-- Last updated timestamp: 2026-07-24T18:37:00Z
-- Note: Session canvas, markers, and existing session WebSocket/presence untouched
+- Last updated timestamp: 2026-07-24T20:32:00Z
+- Note: Session canvas, markers, and session WebSocket/presence untouched
+
+## Task Execution Summary: Blueprint Activity Feed / Audit Log
+- **Task Title**: Blueprint Activity Feed / Audit Log
+- **Status**: Completed
+- **Files Added**:
+  - `backend/services/blueprint_activity.py`
+  - `web/src/store/blueprintActivityStore.ts`
+  - `web/src/components/blueprint/BlueprintActivityPanel.tsx`
+- **Files Changed**:
+  - `backend/models/core.py`
+  - `backend/schemas/core.py`
+  - `backend/routes/canvas.py`
+  - `backend/routers/blueprint_dom_edits.py`
+  - `web/src/lib/api.ts`
+  - `web/src/hooks/useBlueprintPresence.ts`
+  - `web/src/components/blueprint/BlueprintToolbar.tsx`
+  - `web/src/components/blueprint/BlueprintWorkspace.tsx`
+  - `status.md`
+- **Session Review Isolation Confirmation**: Session review files (`AuditSurface.tsx`, `DrawingCanvas.tsx`, `markerStore.ts`, `sessionStore.ts`, session review exports, and session WebSockets) remain 100% untouched.
+- **New Model & Activity Endpoints**:
+  - `BlueprintActivityModel` (`blueprint_activities` table)
+  - `GET /canvas/{project_id}/activity`: Paginated chronological audit log with filter support (`limit`, `before`, `event_type`, `target_type`).
+  - `GET /canvas/{project_id}/activity/summary`: Event counts breakdown.
+- **Realtime Integration**: Fire-and-forget logging service broadcasts `activity_event` over project WebSocket channel (`WS /ws/canvas/{project_id}`) for live UI updates.
+- **Branding**: "STAGE" branding is strictly used across all new UI copy, event descriptions, tooltips, and status entries.
+- **Known Limitations**: Fire-and-forget logging ensures non-blocking primary operations; pagination uses ISO timestamp cursors.
+- **Next Step**: Blueprint AI change summary / team digest.
 
 ## Task Execution Summary: Blueprint Multi-User Presence + Live Cursors
 - **Task Title**: Blueprint Multi-User Presence + Live Cursors

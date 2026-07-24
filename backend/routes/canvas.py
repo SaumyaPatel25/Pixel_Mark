@@ -6,7 +6,8 @@ from typing import List, Optional
 from dependencies import get_db, get_current_user, get_current_user_optional
 from models import (
     CanvasFrame, CanvasFlow, User, OrgMember, Project, Session,
-    BlueprintMutationModel, BlueprintPublicationModel, BlueprintCommentModel, BlueprintStatusHistoryModel
+    BlueprintMutationModel, BlueprintPublicationModel, BlueprintCommentModel, BlueprintStatusHistoryModel,
+    BlueprintActivityModel
 )
 from schemas import (
     CanvasData, CanvasFrameCreate, CanvasFrameUpdate, CanvasFrameRead,
@@ -14,8 +15,10 @@ from schemas import (
     BlueprintMutationCreate, BlueprintMutationRead, BlueprintBatchSaveRequest,
     BlueprintPublicationCreate, BlueprintPublicationRead,
     BlueprintCommentCreate, BlueprintCommentUpdate, BlueprintCommentRead,
-    PublicationStatusUpdateRequest, BlueprintStatusHistoryRead
+    PublicationStatusUpdateRequest, BlueprintStatusHistoryRead,
+    BlueprintActivityRead, BlueprintActivityListResponse
 )
+from services.blueprint_activity import log_blueprint_activity
 import uuid
 from datetime import datetime
 
@@ -644,6 +647,17 @@ async def create_blueprint_publication(
     await db.commit()
     await db.refresh(pub)
 
+    await log_blueprint_activity(
+        db, project_id,
+        event_type="publication_created",
+        target_type="publication",
+        summary_text=f"Published Blueprint release '{pub.name}' (v{pub.blueprint_version})",
+        actor_id=current_user.id if current_user else None,
+        actor_name=current_user.email if current_user else "STAGE Developer",
+        target_id=pub.id,
+        metadata_json={"version": pub.blueprint_version, "name": pub.name}
+    )
+
     return pub
 
 
@@ -747,6 +761,17 @@ async def create_blueprint_comment(
     await db.commit()
     await db.refresh(comment)
 
+    await log_blueprint_activity(
+        db, project_id,
+        event_type="comment_created",
+        target_type="comment",
+        summary_text=f"Posted comment: \"{comment.body[:40]}...\"" if len(comment.body) > 40 else f"Posted comment: \"{comment.body}\"",
+        actor_id=author_id,
+        actor_name=author_name,
+        target_id=comment.id,
+        metadata_json={"target_selector": comment.target_selector, "page_url": comment.page_url}
+    )
+
     return BlueprintCommentRead.model_validate(comment)
 
 
@@ -819,9 +844,23 @@ async def resolve_blueprint_comment(
     if not comment:
         raise HTTPException(status_code=404, detail="Blueprint comment not found")
 
-    comment.status = "resolved" if comment.status == "open" else "open"
+    new_status = "resolved" if comment.status == "open" else "open"
+    comment.status = new_status
     await db.commit()
     await db.refresh(comment)
+
+    event_type = "comment_resolved" if new_status == "resolved" else "comment_reopened"
+    await log_blueprint_activity(
+        db, project_id,
+        event_type=event_type,
+        target_type="comment",
+        summary_text=f"{'Resolved' if new_status == 'resolved' else 'Reopened'} comment on target '{comment.target_selector or 'canvas'}'",
+        actor_id=current_user.id if current_user else None,
+        actor_name=current_user.name if current_user else "STAGE Collaborator",
+        target_id=comment.id,
+        metadata_json={"target_selector": comment.target_selector, "status": new_status}
+    )
+
     return BlueprintCommentRead.model_validate(comment)
 
 
@@ -860,19 +899,34 @@ async def update_blueprint_publication_status(
     prev_status = pub.status or "draft"
     pub.status = body_data.status
 
+    actor_name = current_user.name if current_user else (body_data.changed_by_name or f"STAGE {user_role.capitalize()}")
+
     # Record status history
     history_entry = BlueprintStatusHistoryModel(
         publication_id=publication_id,
         previous_status=prev_status,
         new_status=body_data.status,
         changed_by_id=current_user.id if current_user else None,
-        changed_by_name=current_user.name if current_user else (body_data.changed_by_name or f"STAGE {user_role.capitalize()}"),
+        changed_by_name=actor_name,
         note=body_data.note
     )
     db.add(history_entry)
 
     await db.commit()
     await db.refresh(pub)
+
+    # Log activity event
+    await log_blueprint_activity(
+        db, project_id,
+        event_type="publication_status_changed",
+        target_type="publication",
+        summary_text=f"Updated publication release status to '{body_data.status.replace('_', ' ').title()}'",
+        actor_id=current_user.id if current_user else None,
+        actor_name=actor_name,
+        target_id=publication_id,
+        metadata_json={"previous_status": prev_status, "new_status": body_data.status, "note": body_data.note}
+    )
+
     return pub
 
 
@@ -889,6 +943,64 @@ async def get_blueprint_publication_history(
         .order_by(BlueprintStatusHistoryModel.created_at.desc())
     )
     return res.scalars().all()
+
+
+# ─── BLUEPRINT ACTIVITY FEED ROUTES ───────────────────────────────────────
+
+@router.get("/{project_id}/activity", response_model=BlueprintActivityListResponse)
+async def list_blueprint_activity(
+    project_id: str,
+    limit: int = 20,
+    before: Optional[str] = None,
+    event_type: Optional[str] = None,
+    target_type: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(BlueprintActivityModel).where(BlueprintActivityModel.project_id == project_id)
+
+    if event_type:
+        query = query.where(BlueprintActivityModel.event_type == event_type)
+    if target_type:
+        query = query.where(BlueprintActivityModel.target_type == target_type)
+
+    if before:
+        try:
+            dt = datetime.fromisoformat(before.replace('Z', '+00:00'))
+            query = query.where(BlueprintActivityModel.created_at < dt)
+        except Exception:
+            pass
+
+    query = query.order_by(BlueprintActivityModel.created_at.desc()).limit(limit + 1)
+    res = await db.execute(query)
+    activities = res.scalars().all()
+
+    has_more = len(activities) > limit
+    items = activities[:limit]
+    next_cursor = items[-1].created_at.isoformat() if (has_more and items and items[-1].created_at) else None
+
+    return BlueprintActivityListResponse(
+        items=[BlueprintActivityRead.model_validate(act) for act in items],
+        has_more=has_more,
+        next_cursor=next_cursor
+    )
+
+
+@router.get("/{project_id}/activity/summary")
+async def get_blueprint_activity_summary(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(
+        select(BlueprintActivityModel.event_type, func.count(BlueprintActivityModel.id))
+        .where(BlueprintActivityModel.project_id == project_id)
+        .group_by(BlueprintActivityModel.event_type)
+    )
+    counts = dict(res.all())
+    return {
+        "project_id": project_id,
+        "counts": counts,
+        "total": sum(counts.values())
+    }
 
 
 

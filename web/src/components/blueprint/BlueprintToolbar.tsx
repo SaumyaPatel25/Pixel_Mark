@@ -24,11 +24,13 @@ import {
   RefreshCw,
   Send,
   Layers,
-  FileText
+  FileText,
+  Activity
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useBlueprintStore, BlueprintTool } from '@/store/blueprintStore'
 import { useBlueprintCollaborationStore } from '@/store/blueprintCollaborationStore'
+import { useBlueprintActivityStore } from '@/store/blueprintActivityStore'
 import { BlueprintChangesetModal } from './BlueprintChangesetModal'
 import { BlueprintPresenceStack } from './BlueprintPresenceStack'
 
@@ -222,6 +224,14 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           label="Comment (C)"
           badge={useBlueprintCollaborationStore.getState().unresolvedCommentCount > 0 ? String(useBlueprintCollaborationStore.getState().unresolvedCommentCount) : undefined}
         />
+        <button
+          onClick={() => useBlueprintActivityStore.getState().toggleActivityPanel()}
+          className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm cursor-pointer"
+          title="Open STAGE Activity Feed"
+        >
+          <Activity className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="hidden sm:inline">Activity</span>
+        </button>
       </div>
 
       {/* Right section: Presence, Viewport controls, Preview, Save status, Share */}

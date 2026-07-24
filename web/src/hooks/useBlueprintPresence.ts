@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react'
 import { useBlueprintPresenceStore } from '@/store/useBlueprintPresenceStore'
+import { useBlueprintActivityStore } from '@/store/blueprintActivityStore'
 import { getApiBaseUrl } from '@/lib/api'
 
 export function useBlueprintPresence(projectId: string, currentFrameId?: string) {
@@ -82,6 +83,10 @@ export function useBlueprintPresence(projectId: string, currentFrameId?: string)
               frameId: data.frame_id,
               targetSelector: data.target_selector
             })
+          }
+        } else if (type === 'activity_event') {
+          if (data.event) {
+            useBlueprintActivityStore.getState().appendRealtimeEvent(data.event)
           }
         }
       } catch (err) {

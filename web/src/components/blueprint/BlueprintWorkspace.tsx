@@ -4,6 +4,7 @@ import React, { useEffect } from 'react'
 import { api } from '@/lib/api'
 import { useBlueprintStore } from '@/store/blueprintStore'
 import { useBlueprintCollaborationStore } from '@/store/blueprintCollaborationStore'
+import { useBlueprintActivityStore } from '@/store/blueprintActivityStore'
 import { BlueprintToolbar } from './BlueprintToolbar'
 import { BlueprintToolRail } from './BlueprintToolRail'
 import { BlueprintLayersPanel } from './BlueprintLayersPanel'
@@ -12,6 +13,7 @@ import { BlueprintStage } from './BlueprintStage'
 import { BlueprintInspector } from './BlueprintInspector'
 import { BlueprintCommentThread } from './BlueprintCommentThread'
 import { BlueprintCommentComposer } from './BlueprintCommentComposer'
+import { BlueprintActivityPanel } from './BlueprintActivityPanel'
 
 interface BlueprintWorkspaceProps {
   projectId: string
@@ -160,6 +162,11 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
             projectId={projectId}
             onClose={() => useBlueprintCollaborationStore.getState().toggleThreadPanel(false)}
           />
+        )}
+
+        {/* Right STAGE Activity Feed Panel */}
+        {useBlueprintActivityStore((state) => state.isActivityPanelOpen) && (
+          <BlueprintActivityPanel projectId={projectId} />
         )}
       </div>
 

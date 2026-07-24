@@ -1,7 +1,7 @@
 from sqlalchemy import String, Text, Integer, ForeignKey, DateTime, Boolean, JSON, Enum as SAEnum, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
-from typing import Optional
+from typing import Optional, Dict, Any
 from database import Base
 import uuid
 import enum
@@ -390,6 +390,22 @@ class BlueprintStatusHistoryModel(Base):
     changed_by_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class BlueprintActivityModel(Base):
+    __tablename__ = "blueprint_activities"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    actor_name: Mapped[str] = mapped_column(String, default="STAGE Collaborator")
+    event_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    target_type: Mapped[str] = mapped_column(String, nullable=False)  # edit | publication | comment | presence
+    target_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
 
 
 
