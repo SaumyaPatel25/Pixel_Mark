@@ -3,9 +3,15 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Plus, LayoutGrid, Sliders } from 'lucide-react'
 import { useBlueprintStore } from '@/store/blueprintStore'
+import { useBlueprintPresence } from '@/hooks/useBlueprintPresence'
 import { BlueprintFrame } from './BlueprintFrame'
+import { BlueprintRemoteCursors } from './BlueprintRemoteCursors'
 
-export function BlueprintStage() {
+interface BlueprintStageProps {
+  projectId: string
+}
+
+export function BlueprintStage({ projectId }: BlueprintStageProps) {
   const {
     frames,
     zoom,
@@ -13,12 +19,15 @@ export function BlueprintStage() {
     pan,
     setPan,
     activeTool,
+    selectedFrameId,
     setSelectedFrameId,
     setSelectedNodeId,
     addFrame,
     isInspectorOpen,
     toggleInspector
   } = useBlueprintStore()
+
+  const { sendCursorMove } = useBlueprintPresence(projectId, selectedFrameId || undefined)
 
   const [isDraggingPan, setIsDraggingPan] = useState(false)
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -61,6 +70,14 @@ export function BlueprintStage() {
         y: e.clientY - dragStartRef.current.y
       })
     }
+
+    // Broadcast local cursor position in stage coordinates
+    if (stageRef.current) {
+      const rect = stageRef.current.getBoundingClientRect()
+      const stageX = (e.clientX - rect.left - pan.x) / (zoom || 1)
+      const stageY = (e.clientY - rect.top - pan.y) / (zoom || 1)
+      sendCursorMove(stageX, stageY)
+    }
   }
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -96,6 +113,9 @@ export function BlueprintStage() {
         backgroundPosition: `${pan.x}px ${pan.y}px`
       }}
     >
+      {/* STAGE Remote User Cursors Overlay */}
+      <BlueprintRemoteCursors panX={pan.x} panY={pan.y} zoom={zoom} />
+
       {/* Zoomable & Pannable Stage Container */}
       <div
         className="absolute inset-0 origin-top-left transition-transform duration-75 ease-out pointer-events-auto"

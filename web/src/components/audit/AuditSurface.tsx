@@ -392,7 +392,7 @@ export function AuditSurface({
   
   // Phase 4: Canonical Marker Store Integration
   const { markersById, orderedMarkerIds, createMarkerViaApi, updateMarkerViaApi, moveMarkerViaApi, deleteMarkerViaApi, selectMarker, selectedMarkerId } = useMarkerStore()
-  const markers = Object.values(markersById)
+  const markers = Object.values(markersById).filter(m => !m.is_deleted)
   
   // Setup Realtime Sync
   const actor: { id: string; role: 'developer' | 'reviewer' } = !!shareToken 
@@ -649,7 +649,7 @@ export function AuditSurface({
   }, [pendingRegionCaptureId])
 
 
-  const activeMarker = useMarkerStore(state => state.selectedMarkerId ? state.markersById[state.selectedMarkerId] : null)
+  const activeMarker = useMarkerStore(state => state.selectedMarkerId && state.markersById[state.selectedMarkerId] && !state.markersById[state.selectedMarkerId].is_deleted ? state.markersById[state.selectedMarkerId] : null)
   const isSubmitted = !!activeMarker
   const isResolved = activeMarker?.status === 'resolved'
   const isFailed = false
@@ -739,7 +739,7 @@ export function AuditSurface({
           const parsed = JSON.parse(saved)
           if (parsed && parsed.activePinId) {
             const markers = useMarkerStore.getState().markersById
-            if (markers[parsed.activePinId]) {
+            if (markers[parsed.activePinId] && !markers[parsed.activePinId].is_deleted) {
               if (useMarkerStore.getState().selectedMarkerId !== parsed.activePinId) {
                 selectMarker(parsed.activePinId)
                 setIsDrawerOpen(true)
@@ -1303,7 +1303,7 @@ export function AuditSurface({
 
           // If it's an existing marker, select it and open the drawer
           const existingMarker = useMarkerStore.getState().markersById[normalized.id]
-          if (existingMarker) {
+          if (existingMarker && !existingMarker.is_deleted) {
             console.log(`[Markers] opened existing marker id=${normalized.id}`)
             selectMarker(normalized.id)
             setIsDrawerOpen(true)
@@ -1508,7 +1508,7 @@ export function AuditSurface({
           if (data.id) {
             setIsRecapturing(prev => ({ ...prev, [data.id]: false }))
             const existing = useMarkerStore.getState().markersById[data.id]
-            if (existing) {
+            if (existing && !existing.is_deleted) {
               useMarkerStore.getState().updateMarkerViaApi(data.id, { screenshot_url: data.screenshotdataurl }, reviewerIdentity?.id).catch(console.error)
               if (useMarkerStore.getState().selectedMarkerId === data.id) {
                 setCaptureCtx(prev => prev ? {

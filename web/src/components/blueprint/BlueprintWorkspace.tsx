@@ -3,12 +3,15 @@
 import React, { useEffect } from 'react'
 import { api } from '@/lib/api'
 import { useBlueprintStore } from '@/store/blueprintStore'
+import { useBlueprintCollaborationStore } from '@/store/blueprintCollaborationStore'
 import { BlueprintToolbar } from './BlueprintToolbar'
 import { BlueprintToolRail } from './BlueprintToolRail'
 import { BlueprintLayersPanel } from './BlueprintLayersPanel'
 import { BlueprintPresetLibraryPanel } from './BlueprintPresetLibraryPanel'
 import { BlueprintStage } from './BlueprintStage'
 import { BlueprintInspector } from './BlueprintInspector'
+import { BlueprintCommentThread } from './BlueprintCommentThread'
+import { BlueprintCommentComposer } from './BlueprintCommentComposer'
 
 interface BlueprintWorkspaceProps {
   projectId: string
@@ -16,6 +19,13 @@ interface BlueprintWorkspaceProps {
 
 export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
   const { setSessionId, setLiveFrameUrl, undo, redo, past, future, loadPersistedEdits } = useBlueprintStore()
+  const {
+    isThreadPanelOpen,
+    isComposingComment,
+    activeCommentTarget,
+    cancelComposingComment,
+    loadComments
+  } = useBlueprintCollaborationStore()
 
   // Global Keyboard Shortcuts (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y)
   useEffect(() => {
@@ -64,8 +74,9 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
 
     const initBlueprintData = async () => {
       try {
-        // Load persisted Blueprint edits for project
+        // Load persisted Blueprint edits and comments for project
         await loadPersistedEdits(projectId)
+        await loadComments(projectId)
 
         // 1. Fetch project details
         const project = await api.projects.get(projectId)
@@ -119,10 +130,10 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
     return () => {
       isCancelled = true
     }
-  }, [projectId, setSessionId, setLiveFrameUrl])
+  }, [projectId, setSessionId, setLiveFrameUrl, loadPersistedEdits, loadComments])
 
   return (
-    <div className="h-screen w-full flex flex-col overflow-hidden bg-[#070a12] font-sans antialiased select-none">
+    <div className="h-screen w-full flex flex-col overflow-hidden bg-[#070a12] font-sans antialiased select-none relative">
       {/* 1. Top Toolbar */}
       <BlueprintToolbar projectId={projectId} />
 
@@ -138,11 +149,30 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
         <BlueprintLayersPanel />
 
         {/* Center Canvas Stage */}
-        <BlueprintStage />
+        <BlueprintStage projectId={projectId} />
 
         {/* Right Property Inspector */}
         <BlueprintInspector />
+
+        {/* Right Blueprint Feedback Thread Panel */}
+        {isThreadPanelOpen && (
+          <BlueprintCommentThread
+            projectId={projectId}
+            onClose={() => useBlueprintCollaborationStore.getState().toggleThreadPanel(false)}
+          />
+        )}
       </div>
+
+      {/* Floating Comment Composer */}
+      {isComposingComment && activeCommentTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+          <BlueprintCommentComposer
+            projectId={projectId}
+            target={activeCommentTarget}
+            onClose={cancelComposingComment}
+          />
+        </div>
+      )}
     </div>
   )
 }

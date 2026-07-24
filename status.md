@@ -1,9 +1,65 @@
 # Repository Documentation Status
 
 ## Current phase
-- Phase 24: Blueprint Publish Export Handoff
+- Phase 26: Blueprint Multi-User Presence + Live Cursors
 - Status: Completed
-- Last updated timestamp: 2026-07-21T16:40:00Z
+- Last updated timestamp: 2026-07-24T18:37:00Z
+- Note: Session canvas, markers, and existing session WebSocket/presence untouched
+
+## Task Execution Summary: Blueprint Multi-User Presence + Live Cursors
+- **Task Title**: Blueprint Multi-User Presence + Live Cursors
+- **Status**: Completed
+- **Files Added**:
+  - `backend/realtime/blueprint_presence.py`
+  - `backend/routes/blueprint_ws.py`
+  - `web/src/store/useBlueprintPresenceStore.ts`
+  - `web/src/hooks/useBlueprintPresence.ts`
+  - `web/src/components/blueprint/BlueprintPresenceStack.tsx`
+  - `web/src/components/blueprint/BlueprintRemoteCursors.tsx`
+- **Files Changed**:
+  - `backend/main.py`
+  - `web/src/components/blueprint/BlueprintToolbar.tsx`
+  - `web/src/components/blueprint/BlueprintStage.tsx`
+  - `web/src/components/blueprint/BlueprintWorkspace.tsx`
+  - `status.md`
+- **Session Review Isolation Confirmation**: Session review files (`AuditSurface.tsx`, `DrawingCanvas.tsx`, `markerStore.ts`, `sessionStore.ts`, session review WebSocket router `/ws/sessions/{session_id}`, and Redis session channel `sessions:{id}`) remain 100% untouched and uncoupled.
+- **Dedicated WS Route & Redis Channel Naming**:
+  - WS Endpoint: `WS /ws/canvas/{project_id}`
+  - Redis Channel Namespace: `canvas:presence:{project_id}`
+- **Branding**: "STAGE" branding is strictly used across all new UI copy, presence stack tooltips, and status entries.
+- **Known Limitations**: Cursor precision is relative to stage container pan/zoom coordinates; selection highlights are scoped to frame/target selectors.
+- **Next Step**: Blueprint activity feed / audit log for team changes.
+
+## Task Execution Summary: Blueprint Collaboration Layer (Comments + Approvals)
+- **Task Title**: Blueprint Collaboration Layer (Comments + Approvals)
+- **Status**: Completed
+- **Files Added**:
+  - `web/src/store/blueprintCollaborationStore.ts`
+  - `web/src/components/blueprint/BlueprintCommentPin.tsx`
+  - `web/src/components/blueprint/BlueprintCommentComposer.tsx`
+  - `web/src/components/blueprint/BlueprintCommentThread.tsx`
+- **Files Changed**:
+  - `backend/models/core.py`
+  - `backend/schemas/core.py`
+  - `backend/routes/canvas.py`
+  - `web/src/lib/api.ts`
+  - `web/src/components/blueprint/BlueprintChangesetModal.tsx`
+  - `web/src/components/blueprint/BlueprintToolbar.tsx`
+  - `web/src/components/blueprint/BlueprintLiveFrame.tsx`
+  - `web/src/components/blueprint/BlueprintWorkspace.tsx`
+  - `status.md`
+- **Session Canvas Confirmation**: Session canvas, `AuditSurface.tsx`, `DrawingCanvas.tsx`, `markerStore.ts`, `sessionStore.ts`, session review routes, and session WebSockets remain 100% untouched.
+- **New Comment & Approval Endpoints**:
+  - `GET /canvas/{project_id}/comments`: Retrieve threaded comments for project.
+  - `POST /canvas/{project_id}/comments`: Post new Blueprint comment or reply.
+  - `PATCH /canvas/{project_id}/comments/{comment_id}`: Edit comment body or status.
+  - `DELETE /canvas/{project_id}/comments/{comment_id}`: Delete comment and replies.
+  - `POST /canvas/{project_id}/comments/{comment_id}/resolve`: Toggle resolved/open status.
+  - `PATCH /canvas/{project_id}/publications/{publication_id}/status`: Update publication status (`draft`, `in_review`, `approved`, `changes_requested`) with role-based approval enforcement.
+  - `GET /canvas/{project_id}/publications/{publication_id}/history`: Fetch publication status change history timeline.
+- **Branding**: "STAGE" branding is strictly used across all new UI copy and status messages.
+- **Known Limitations**: None.
+- **Next Step**: Blueprint multi-user presence + live cursors (optional stretch).
 
 ## Task Execution Summary: Blueprint Publish Export Handoff
 - **Task Title**: Blueprint Publish Export Handoff

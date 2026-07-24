@@ -349,6 +349,48 @@ export const api = {
     },
     async getPublicationByToken(shareToken: string) {
       return apiQueue.enqueueRead('Loading publication token...', () => request(`/canvas/publications/token/${shareToken}`))
+    },
+    async listComments(projectId: string) {
+      return apiQueue.enqueueRead('Loading Blueprint comments...', () => request(`/canvas/${projectId}/comments`))
+    },
+    async createComment(projectId: string, data: {
+      canvas_frame_id?: string
+      blueprint_edit_id?: string
+      target_selector?: string
+      page_url?: string
+      author_name?: string
+      body: string
+      parent_comment_id?: string
+    }) {
+      return apiQueue.enqueueWrite('Posting Blueprint comment...', () => request(`/canvas/${projectId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }))
+    },
+    async updateComment(projectId: string, commentId: string, data: { body?: string; status?: string }) {
+      return apiQueue.enqueueWrite('Updating Blueprint comment...', () => request(`/canvas/${projectId}/comments/${commentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data)
+      }))
+    },
+    async deleteComment(projectId: string, commentId: string) {
+      return apiQueue.enqueueWrite('Deleting Blueprint comment...', () => request(`/canvas/${projectId}/comments/${commentId}`, {
+        method: 'DELETE'
+      }))
+    },
+    async resolveComment(projectId: string, commentId: string) {
+      return apiQueue.enqueueWrite('Resolving Blueprint comment...', () => request(`/canvas/${projectId}/comments/${commentId}/resolve`, {
+        method: 'POST'
+      }))
+    },
+    async updatePublicationStatus(projectId: string, publicationId: string, status: string, note?: string, changed_by_name?: string, role?: string) {
+      return apiQueue.enqueueWrite('Updating publication status...', () => request(`/canvas/${projectId}/publications/${publicationId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, note, changed_by_name, role })
+      }))
+    },
+    async getPublicationHistory(projectId: string, publicationId: string) {
+      return apiQueue.enqueueRead('Loading publication history...', () => request(`/canvas/${projectId}/publications/${publicationId}/history`))
     }
   },
 

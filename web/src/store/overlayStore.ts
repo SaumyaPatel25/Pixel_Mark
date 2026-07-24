@@ -220,7 +220,7 @@ export const usePinStore = create<PinStoreState>((set, get) => ({
           if (draftsStr) {
             const drafts = JSON.parse(draftsStr) as CapturePayload[]
             drafts.forEach((draft) => {
-              if (!nextPins.some(p => p.id === draft.id) && !deletedIds.includes(draft.id)) {
+              if (draft && !draft.deletedAt && !nextPins.some(p => p.id === draft.id) && !deletedIds.includes(draft.id)) {
                 nextPins.push(draft)
               }
             })

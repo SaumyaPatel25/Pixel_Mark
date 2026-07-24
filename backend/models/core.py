@@ -1,6 +1,7 @@
 from sqlalchemy import String, Text, Integer, ForeignKey, DateTime, Boolean, JSON, Enum as SAEnum, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+from typing import Optional
 from database import Base
 import uuid
 import enum
@@ -352,10 +353,44 @@ class BlueprintPublicationModel(Base):
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     blueprint_version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String, default="draft")  # draft | in_review | approved | changes_requested
     metadata_json: Mapped[dict] = mapped_column(JSON, nullable=True)
     share_token: Mapped[str] = mapped_column(String, nullable=True, unique=True)
     created_by: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class BlueprintCommentModel(Base):
+    __tablename__ = "blueprint_comments"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    canvas_frame_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    blueprint_edit_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    target_selector: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    page_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    author_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    author_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="open")  # open | resolved
+    parent_comment_id: Mapped[Optional[str]] = mapped_column(ForeignKey("blueprint_comments.id", ondelete="CASCADE"), nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class BlueprintStatusHistoryModel(Base):
+    __tablename__ = "blueprint_status_history"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    publication_id: Mapped[str] = mapped_column(ForeignKey("blueprint_publications.id", ondelete="CASCADE"), nullable=False)
+    previous_status: Mapped[str] = mapped_column(String, nullable=False)
+    new_status: Mapped[str] = mapped_column(String, nullable=False)
+    changed_by_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    changed_by_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
 
 
 

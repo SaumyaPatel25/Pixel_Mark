@@ -28,7 +28,9 @@ import {
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useBlueprintStore, BlueprintTool } from '@/store/blueprintStore'
+import { useBlueprintCollaborationStore } from '@/store/blueprintCollaborationStore'
 import { BlueprintChangesetModal } from './BlueprintChangesetModal'
+import { BlueprintPresenceStack } from './BlueprintPresenceStack'
 
 interface BlueprintToolbarProps {
   projectId: string
@@ -212,14 +214,23 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
         <ToolButton
           tool="comment"
           activeTool={activeTool}
-          onClick={() => setActiveTool('comment')}
+          onClick={() => {
+            setActiveTool('comment')
+            useBlueprintCollaborationStore.getState().toggleThreadPanel(true)
+          }}
           icon={<MessageSquare className="w-4 h-4" />}
           label="Comment (C)"
+          badge={useBlueprintCollaborationStore.getState().unresolvedCommentCount > 0 ? String(useBlueprintCollaborationStore.getState().unresolvedCommentCount) : undefined}
         />
       </div>
 
-      {/* Right section: Viewport controls, Preview, Save status, Share */}
+      {/* Right section: Presence, Viewport controls, Preview, Save status, Share */}
       <div className="flex items-center gap-3">
+        {/* STAGE Multi-User Presence Stack */}
+        <BlueprintPresenceStack />
+
+        <div className="h-4 w-px bg-slate-800" />
+
         {/* Save Status Indicator & Save Action */}
         <div className="flex items-center gap-2">
           <button

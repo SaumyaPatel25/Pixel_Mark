@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Globe, RefreshCw, AlertCircle, Eye, MousePointerClick } from 'lucide-react'
 import { getApiBaseUrl } from '@/lib/api'
 import { useBlueprintStore, BlueprintDOMTarget, inferTargetKind } from '@/store/blueprintStore'
+import { useBlueprintCollaborationStore } from '@/store/blueprintCollaborationStore'
 
 interface BlueprintLiveFrameProps {
   url: string
@@ -99,7 +100,17 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
           canInsertInside: ['container', 'generic'].includes(targetKind)
         }
 
-        setSelectedTarget(targetInfo)
+        if (activeTool === 'comment') {
+          useBlueprintCollaborationStore.getState().startComposingComment({
+            selector,
+            pageUrl: url || 'https://example.com',
+            frameId: selectedFrameId || 'frame_homepage',
+            textExcerpt: textExcerpt.substring(0, 80),
+            boundingRect: rectObj
+          })
+        } else {
+          setSelectedTarget(targetInfo)
+        }
       }
 
       if (data.type === 'STAGE_DOM_TARGET_HOVERED') {
@@ -114,7 +125,7 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
 
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [setSelectedTarget, setHoveredTarget, url, selectedFrameId])
+  }, [setSelectedTarget, setHoveredTarget, url, selectedFrameId, activeTool])
 
   const handleIframeLoad = () => {
     setIsLoading(false)

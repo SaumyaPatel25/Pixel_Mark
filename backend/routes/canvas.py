@@ -3,13 +3,18 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 from typing import List, Optional
-from dependencies import get_db, get_current_user
-from models import CanvasFrame, CanvasFlow, User, OrgMember, Project, Session, BlueprintMutationModel, BlueprintPublicationModel
+from dependencies import get_db, get_current_user, get_current_user_optional
+from models import (
+    CanvasFrame, CanvasFlow, User, OrgMember, Project, Session,
+    BlueprintMutationModel, BlueprintPublicationModel, BlueprintCommentModel, BlueprintStatusHistoryModel
+)
 from schemas import (
     CanvasData, CanvasFrameCreate, CanvasFrameUpdate, CanvasFrameRead,
     CanvasFlowCreate, CanvasFlowRead, CanvasPriorityDistribution,
     BlueprintMutationCreate, BlueprintMutationRead, BlueprintBatchSaveRequest,
-    BlueprintPublicationCreate, BlueprintPublicationRead
+    BlueprintPublicationCreate, BlueprintPublicationRead,
+    BlueprintCommentCreate, BlueprintCommentUpdate, BlueprintCommentRead,
+    PublicationStatusUpdateRequest, BlueprintStatusHistoryRead
 )
 import uuid
 from datetime import datetime
@@ -684,5 +689,206 @@ async def get_blueprint_publication_by_token(
     if not pub:
         raise HTTPException(status_code=404, detail="Publication not found for share token")
     return pub
+
+
+# ─── BLUEPRINT COMMENTS ───────────────────────────────────────────────────
+
+@router.get("/{project_id}/comments", response_model=List[BlueprintCommentRead])
+async def list_blueprint_comments(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    res = await db.execute(
+        select(BlueprintCommentModel)
+        .where(BlueprintCommentModel.project_id == project_id)
+        .order_by(BlueprintCommentModel.created_at.asc())
+    )
+    all_comments = list(res.scalars().all())
+
+    # Build threaded hierarchy
+    comment_dict = {c.id: BlueprintCommentRead.model_validate(c) for c in all_comments}
+    root_comments: List[BlueprintCommentRead] = []
+
+    for c in all_comments:
+        c_read = comment_dict[c.id]
+        if c.parent_comment_id and c.parent_comment_id in comment_dict:
+            parent = comment_dict[c.parent_comment_id]
+            parent.replies.append(c_read)
+        else:
+            root_comments.append(c_read)
+
+    return root_comments
+
+
+@router.post("/{project_id}/comments", response_model=BlueprintCommentRead)
+async def create_blueprint_comment(
+    project_id: str,
+    body_data: BlueprintCommentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    author_id = current_user.id if current_user else None
+    author_name = current_user.name if current_user else (body_data.author_name or "Anonymous Reviewer")
+
+    comment = BlueprintCommentModel(
+        project_id=project_id,
+        canvas_frame_id=body_data.canvas_frame_id,
+        blueprint_edit_id=body_data.blueprint_edit_id,
+        target_selector=body_data.target_selector,
+        page_url=body_data.page_url,
+        author_id=author_id,
+        author_name=author_name,
+        body=body_data.body,
+        parent_comment_id=body_data.parent_comment_id,
+        status="open"
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+
+    return BlueprintCommentRead.model_validate(comment)
+
+
+@router.patch("/{project_id}/comments/{comment_id}", response_model=BlueprintCommentRead)
+async def update_blueprint_comment(
+    project_id: str,
+    comment_id: str,
+    body_data: BlueprintCommentUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    res = await db.execute(
+        select(BlueprintCommentModel).where(
+            BlueprintCommentModel.id == comment_id,
+            BlueprintCommentModel.project_id == project_id
+        )
+    )
+    comment = res.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Blueprint comment not found")
+
+    if body_data.body is not None:
+        comment.body = body_data.body
+    if body_data.status is not None:
+        if body_data.status not in ["open", "resolved"]:
+            raise HTTPException(status_code=400, detail="Invalid comment status")
+        comment.status = body_data.status
+
+    await db.commit()
+    await db.refresh(comment)
+    return BlueprintCommentRead.model_validate(comment)
+
+
+@router.delete("/{project_id}/comments/{comment_id}")
+async def delete_blueprint_comment(
+    project_id: str,
+    comment_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    res = await db.execute(
+        select(BlueprintCommentModel).where(
+            BlueprintCommentModel.id == comment_id,
+            BlueprintCommentModel.project_id == project_id
+        )
+    )
+    comment = res.scalar_one_or_none()
+    if not comment:
+        return {"success": True, "message": "Comment already deleted"}
+
+    await db.delete(comment)
+    await db.commit()
+    return {"success": True, "message": "Blueprint comment deleted"}
+
+
+@router.post("/{project_id}/comments/{comment_id}/resolve", response_model=BlueprintCommentRead)
+async def resolve_blueprint_comment(
+    project_id: str,
+    comment_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    res = await db.execute(
+        select(BlueprintCommentModel).where(
+            BlueprintCommentModel.id == comment_id,
+            BlueprintCommentModel.project_id == project_id
+        )
+    )
+    comment = res.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Blueprint comment not found")
+
+    comment.status = "resolved" if comment.status == "open" else "open"
+    await db.commit()
+    await db.refresh(comment)
+    return BlueprintCommentRead.model_validate(comment)
+
+
+# ─── BLUEPRINT PUBLICATION APPROVAL STATUS ─────────────────────────────────
+
+@router.patch("/{project_id}/publications/{publication_id}/status", response_model=BlueprintPublicationRead)
+async def update_blueprint_publication_status(
+    project_id: str,
+    publication_id: str,
+    body_data: PublicationStatusUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    allowed_statuses = ["draft", "in_review", "approved", "changes_requested"]
+    if body_data.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid publication status. Allowed: {allowed_statuses}")
+
+    res = await db.execute(
+        select(BlueprintPublicationModel).where(
+            BlueprintPublicationModel.id == publication_id,
+            BlueprintPublicationModel.project_id == project_id
+        )
+    )
+    pub = res.scalar_one_or_none()
+    if not pub:
+        raise HTTPException(status_code=404, detail="Blueprint publication not found")
+
+    # Role enforcement check
+    user_role = (body_data.role or "reviewer").lower()
+    if body_data.status == "approved" and user_role in ["reviewer", "client"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Only project owners, admins, and developers can approve STAGE Blueprint publications"
+        )
+
+    prev_status = pub.status or "draft"
+    pub.status = body_data.status
+
+    # Record status history
+    history_entry = BlueprintStatusHistoryModel(
+        publication_id=publication_id,
+        previous_status=prev_status,
+        new_status=body_data.status,
+        changed_by_id=current_user.id if current_user else None,
+        changed_by_name=current_user.name if current_user else (body_data.changed_by_name or f"STAGE {user_role.capitalize()}"),
+        note=body_data.note
+    )
+    db.add(history_entry)
+
+    await db.commit()
+    await db.refresh(pub)
+    return pub
+
+
+@router.get("/{project_id}/publications/{publication_id}/history", response_model=List[BlueprintStatusHistoryRead])
+async def get_blueprint_publication_history(
+    project_id: str,
+    publication_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    res = await db.execute(
+        select(BlueprintStatusHistoryModel)
+        .where(BlueprintStatusHistoryModel.publication_id == publication_id)
+        .order_by(BlueprintStatusHistoryModel.created_at.desc())
+    )
+    return res.scalars().all()
+
 
 

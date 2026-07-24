@@ -353,6 +353,10 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
     const existing = get().markersById[markerId]
     if (!existing) return
 
+    if (get().selectedMarkerId === markerId) {
+      set({ selectedMarkerId: null })
+    }
+
     if (!isPersistedMarker(existing)) {
       console.log(`STAGE marker removed local draft [${markerId}]`)
       get().removeMarkerLocally(markerId)
@@ -370,6 +374,9 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       if (is404) {
         console.log(`STAGE delete reconciled stale marker [${markerId}]`)
         get().removeMarkerLocally(markerId)
+        if (get().selectedMarkerId === markerId) {
+          set({ selectedMarkerId: null })
+        }
         const current = get().currentSessionId
         if (current) {
           await get().reconcileSessionMarkers(current)

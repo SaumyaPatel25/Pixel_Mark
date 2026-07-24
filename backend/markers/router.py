@@ -366,8 +366,11 @@ async def delete_marker(
 ):
     repo = MarkerRepository(db)
     marker = await repo.get_marker_by_id(marker_id)
-    if not marker or marker.is_deleted:
+    if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
+
+    if marker.is_deleted:
+        return {"success": True, "message": "Marker already deleted"}
 
     actor_ctx = await resolve_actor_context(
         session_id=marker.session_id,

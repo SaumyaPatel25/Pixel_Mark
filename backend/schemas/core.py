@@ -477,13 +477,72 @@ class BlueprintPublicationRead(BaseModel):
     project_id: str
     name: str
     blueprint_version: int
+    status: str = "draft"
     metadata_json: Optional[dict] = None
     share_token: Optional[str] = None
     created_by: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class BlueprintCommentCreate(BaseModel):
+    canvas_frame_id: Optional[str] = None
+    blueprint_edit_id: Optional[str] = None
+    target_selector: Optional[str] = None
+    page_url: Optional[str] = None
+    author_name: Optional[str] = None
+    body: str
+    parent_comment_id: Optional[str] = None
+
+
+class BlueprintCommentUpdate(BaseModel):
+    body: Optional[str] = None
+    status: Optional[str] = None  # open | resolved
+
+
+class BlueprintCommentRead(BaseModel):
+    id: str
+    project_id: str
+    canvas_frame_id: Optional[str] = None
+    blueprint_edit_id: Optional[str] = None
+    target_selector: Optional[str] = None
+    page_url: Optional[str] = None
+    author_id: Optional[str] = None
+    author_name: Optional[str] = None
+    body: str
+    status: str
+    parent_comment_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    replies: List['BlueprintCommentRead'] = []
+
+    class Config:
+        from_attributes = True
+
+
+class PublicationStatusUpdateRequest(BaseModel):
+    status: str  # draft | in_review | approved | changes_requested
+    note: Optional[str] = None
+    changed_by_name: Optional[str] = None
+    role: Optional[str] = None  # owner | admin | developer | reviewer | client
+
+
+class BlueprintStatusHistoryRead(BaseModel):
+    id: str
+    publication_id: str
+    previous_status: str
+    new_status: str
+    changed_by_id: Optional[str] = None
+    changed_by_name: Optional[str] = None
+    note: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 
 
 

@@ -78,20 +78,32 @@ export function MarkerPinLayer({
     } catch (_) {}
 
     let rAFId: number | null = null
+    let debouncedTimer: NodeJS.Timeout | null = null
+
     const handleUpdate = () => {
       if (rAFId) return
       rAFId = requestAnimationFrame(() => {
         rAFId = null
         if (iframeNode) {
-          setIframeRect(iframeNode.getBoundingClientRect())
+          const rect = iframeNode.getBoundingClientRect()
+          setIframeRect(rect)
         }
         forceReflow()
       })
     }
 
-    setIframeRect(iframeNode.getBoundingClientRect())
-    forceReflow()
+    const scheduleStabilizationPasses = () => {
+      handleUpdate()
+      const delays = [50, 150, 300, 500, 800, 1200]
+      const timers = delays.map(delay => setTimeout(handleUpdate, delay))
+      return () => timers.forEach(clearTimeout)
+    }
 
+    // Initial measurement & stabilization passes
+    handleUpdate()
+    const cancelStabilization = scheduleStabilizationPasses()
+
+    // Window & iframe scroll/resize
     window.addEventListener('resize', handleUpdate, { passive: true })
     window.addEventListener('scroll', handleUpdate, { passive: true })
 
@@ -102,17 +114,58 @@ export function MarkerPinLayer({
       }
     } catch (_) {}
 
+    // Load event listener
     const handleLoad = () => {
       console.log('[MarkerPinLayer] iframe load event fired')
-      handleUpdate()
-      const timers = [100, 300, 600, 1200].map(delay =>
-        setTimeout(handleUpdate, delay)
-      )
-      return () => timers.forEach(clearTimeout)
+      scheduleStabilizationPasses()
     }
 
     iframeNode.addEventListener('load', handleLoad)
 
+    // Check if iframe is already loaded on mount (session restart / review session load)
+    try {
+      if (iframeDoc && (iframeDoc.readyState === 'complete' || iframeDoc.readyState === 'interactive')) {
+        console.log('[MarkerPinLayer] iframe already loaded on mount, scheduling stabilization')
+        scheduleStabilizationPasses()
+      }
+    } catch (_) {}
+
+    // ─── ResizeObserver for Container & Iframe ──────────────────────────────
+    let resizeObserver: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        handleUpdate()
+        if (debouncedTimer) clearTimeout(debouncedTimer)
+        debouncedTimer = setTimeout(handleUpdate, 150)
+      })
+
+      resizeObserver.observe(iframeNode)
+      if (iframeNode.parentElement) {
+        resizeObserver.observe(iframeNode.parentElement)
+      }
+      const auditContainer = iframeNode.closest('#audit-iframe-container') || iframeNode.closest('.flex-1')
+      if (auditContainer && auditContainer !== iframeNode.parentElement) {
+        resizeObserver.observe(auditContainer)
+      }
+      if (document.body) {
+        resizeObserver.observe(document.body)
+      }
+    }
+
+    // ─── CSS Transition & Animation Observers ────────────────────────────────
+    const handleTransition = () => {
+      handleUpdate()
+      if (debouncedTimer) clearTimeout(debouncedTimer)
+      debouncedTimer = setTimeout(handleUpdate, 150)
+      setTimeout(handleUpdate, 350)
+    }
+
+    const containerEl = iframeNode.parentElement || document.body
+    containerEl.addEventListener('transitionrun', handleTransition, { passive: true })
+    containerEl.addEventListener('transitionend', handleTransition, { passive: true })
+    containerEl.addEventListener('animationend', handleTransition, { passive: true })
+
+    // ─── Mutation Observers ──────────────────────────────────────────────────
     let iframeObserver: MutationObserver | null = null
     try {
       if (iframeDoc && typeof MutationObserver !== 'undefined') {
@@ -132,6 +185,8 @@ export function MarkerPinLayer({
     }
 
     return () => {
+      cancelStabilization()
+      if (debouncedTimer) clearTimeout(debouncedTimer)
       window.removeEventListener('resize', handleUpdate)
       window.removeEventListener('scroll', handleUpdate)
       try {
@@ -141,6 +196,10 @@ export function MarkerPinLayer({
         }
       } catch (_) {}
       iframeNode.removeEventListener('load', handleLoad)
+      containerEl.removeEventListener('transitionrun', handleTransition)
+      containerEl.removeEventListener('transitionend', handleTransition)
+      containerEl.removeEventListener('animationend', handleTransition)
+      if (resizeObserver) resizeObserver.disconnect()
       if (iframeObserver) iframeObserver.disconnect()
       if (parentObserver) parentObserver.disconnect()
       if (rAFId) cancelAnimationFrame(rAFId)

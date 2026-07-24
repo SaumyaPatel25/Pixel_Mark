@@ -188,7 +188,7 @@ describe('markerPlacement', () => {
           classList: { length: 0 }
         })
       }
-      const scrolledWin = { scrollX: 0, scrollY: 100 }
+      const scrolledWin = { scrollX: 0, scrollY: 100 } as any as Window
 
       const pos = computePinScreenPosition(marker, { x: 0, y: 100 }, iframeRect, scrolledWin, scrolledDoc)
 
@@ -211,7 +211,7 @@ describe('markerPlacement', () => {
       const iframeRect = { left: 0, top: 0, width: 800, height: 600 } as DOMRect
 
       // User scrolls down to scrollY = 300
-      const scrolledWin = { scrollX: 0, scrollY: 300 }
+      const scrolledWin = { scrollX: 0, scrollY: 300 } as any as Window
 
       const pos = computePinScreenPosition(marker, { x: 0, y: 300 }, iframeRect, scrolledWin, mockDoc)
 
