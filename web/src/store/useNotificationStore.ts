@@ -53,6 +53,31 @@ export interface TemplatePreviewData {
   why_you_got_this: string
 }
 
+export interface DeliveryAttemptItem {
+  id: string
+  notification_event_id: string
+  channel: string
+  status: 'queued' | 'sent' | 'failed' | 'retrying' | 'dead_letter'
+  attempt_number: number
+  provider_message_id?: string
+  error_code?: string
+  error_message?: string
+  next_retry_at?: string
+  created_at: string
+  updated_at: string
+  sent_at?: string
+}
+
+export interface DeliverySummaryData {
+  total_attempts: number
+  queued: number
+  sent: number
+  failed: number
+  retrying: number
+  dead_letter: number
+  health_status: 'healthy' | 'warnings' | 'critical_failures'
+}
+
 export type NotificationTab = 'all' | 'blueprint' | 'session' | 'unread'
 
 interface NotificationState {
@@ -61,6 +86,8 @@ interface NotificationState {
   preferences: NotificationPreferences | null
   digestPreview: DigestPreviewData | null
   templatePreview: TemplatePreviewData | null
+  deliveries: DeliveryAttemptItem[]
+  deliverySummary: DeliverySummaryData | null
   isLoading: boolean
   isDrawerOpen: boolean
   activeTab: NotificationTab
@@ -75,6 +102,10 @@ interface NotificationState {
   savePreferences: (prefs: Partial<NotificationPreferences>) => Promise<void>
   loadDigestPreview: (projectId?: string, hours?: number) => Promise<void>
   loadTemplatePreview: (sourceType?: string, eventType?: string, tone?: string) => Promise<void>
+  fetchDeliveries: (status?: string) => Promise<void>
+  fetchDeliverySummary: () => Promise<void>
+  retryDelivery: (attemptId: string) => Promise<void>
+  retryAllFailed: () => Promise<void>
   sendTestNotification: (projectId?: string) => Promise<void>
 }
 
@@ -84,6 +115,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   preferences: null,
   digestPreview: null,
   templatePreview: null,
+  deliveries: [],
+  deliverySummary: null,
   isLoading: false,
   isDrawerOpen: false,
   activeTab: 'all',
@@ -176,6 +209,45 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ templatePreview: res })
     } catch (err) {
       console.error('[STAGE Notifications] Template preview error:', err)
+    }
+  },
+
+  fetchDeliveries: async (status) => {
+    try {
+      const res: any = await api.notifications.getDeliveries(status)
+      set({
+        deliveries: res.items || [],
+        deliverySummary: res.summary || null
+      })
+    } catch (err) {
+      console.error('[STAGE Notifications] Fetch deliveries error:', err)
+    }
+  },
+
+  fetchDeliverySummary: async () => {
+    try {
+      const res: any = await api.notifications.getDeliverySummary()
+      set({ deliverySummary: res })
+    } catch (err) {
+      console.error('[STAGE Notifications] Fetch delivery summary error:', err)
+    }
+  },
+
+  retryDelivery: async (attemptId) => {
+    try {
+      await api.notifications.retryDelivery(attemptId)
+      await get().fetchDeliveries()
+    } catch (err) {
+      console.error('[STAGE Notifications] Retry delivery error:', err)
+    }
+  },
+
+  retryAllFailed: async () => {
+    try {
+      await api.notifications.retryAllFailed()
+      await get().fetchDeliveries()
+    } catch (err) {
+      console.error('[STAGE Notifications] Retry all failed error:', err)
     }
   }
 }))

@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
-from models import NotificationEventModel, NotificationPreferencesModel, Project, User
+from models import NotificationEventModel, NotificationPreferencesModel, NotificationDeliveryAttemptModel, Project, User
 from services.notification_templates import (
     build_notification_subject, build_notification_body, build_preview_text, build_why_you_got_this
 )
@@ -146,9 +146,9 @@ async def emit_session_notification(
         return None
 
 
-async def deliver_email_notification(db: AsyncSession, notification_id: str) -> bool:
+async def deliver_email_notification(db: AsyncSession, notification_id: str, max_attempts: int = 3) -> bool:
     """
-    Delivers a single STAGE HTML notification email for critical/important events.
+    Delivers a single STAGE HTML notification email and records delivery attempt bookkeeping.
     """
     try:
         res = await db.execute(select(NotificationEventModel).where(NotificationEventModel.id == notification_id))
@@ -156,13 +156,130 @@ async def deliver_email_notification(db: AsyncSession, notification_id: str) -> 
         if not event or event.delivered_email_at:
             return False
 
-        event.delivered_email_at = datetime.utcnow()
+        # Count prior attempts
+        attempts_res = await db.execute(
+            select(func.count(NotificationDeliveryAttemptModel.id)).where(
+                NotificationDeliveryAttemptModel.notification_event_id == notification_id
+            )
+        )
+        attempt_num = (attempts_res.scalar() or 0) + 1
+
+        # Simulate provider send attempt
+        provider_msg_id = f"msg_stage_{notification_id[:8]}_{attempt_num}"
+        now = datetime.utcnow()
+
+        event.delivered_email_at = now
+        attempt = NotificationDeliveryAttemptModel(
+            notification_event_id=notification_id,
+            channel="email",
+            status="sent",
+            attempt_number=attempt_num,
+            provider_message_id=provider_msg_id,
+            sent_at=now
+        )
+        db.add(attempt)
         await db.commit()
-        logger.info(f"[STAGE Email] Delivered notification email for event {notification_id} ('{event.title}')")
+        logger.info(f"[STAGE Email] Delivered notification email for event {notification_id} (Attempt #{attempt_num})")
         return True
     except Exception as e:
         logger.warning(f"[STAGE Email] Failed to deliver email for notification {notification_id}: {e}")
+        try:
+            attempts_res = await db.execute(
+                select(func.count(NotificationDeliveryAttemptModel.id)).where(
+                    NotificationDeliveryAttemptModel.notification_event_id == notification_id
+                )
+            )
+            attempt_num = (attempts_res.scalar() or 0) + 1
+            status = "dead_letter" if attempt_num >= max_attempts else "retrying"
+            next_retry = datetime.utcnow() + timedelta(minutes=2 ** attempt_num) if status == "retrying" else None
+
+            attempt = NotificationDeliveryAttemptModel(
+                notification_event_id=notification_id,
+                channel="email",
+                status=status,
+                attempt_number=attempt_num,
+                error_code="DELIVERY_FAILURE",
+                error_message=str(e)[:500],
+                next_retry_at=next_retry
+            )
+            db.add(attempt)
+            await db.commit()
+        except Exception:
+            await db.rollback()
         return False
+
+
+async def retry_failed_delivery(db: AsyncSession, attempt_id: str) -> Optional[NotificationDeliveryAttemptModel]:
+    """
+    Retries a specific failed/dead_letter delivery attempt.
+    """
+    res = await db.execute(select(NotificationDeliveryAttemptModel).where(NotificationDeliveryAttemptModel.id == attempt_id))
+    attempt = res.scalar_one_or_none()
+    if not attempt:
+        return None
+
+    success = await deliver_email_notification(db, attempt.notification_event_id)
+    if success:
+        attempt.status = "sent"
+        attempt.sent_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(attempt)
+    return attempt
+
+
+async def retry_all_failed_deliveries(db: AsyncSession) -> int:
+    """
+    Retries all failed, retrying, and dead_letter delivery attempts.
+    """
+    res = await db.execute(
+        select(NotificationDeliveryAttemptModel).where(
+            NotificationDeliveryAttemptModel.status.in_(["failed", "retrying", "dead_letter"])
+        )
+    )
+    failed_attempts = res.scalars().all()
+    count = 0
+    for att in failed_attempts:
+        if await deliver_email_notification(db, att.notification_event_id):
+            att.status = "sent"
+            att.sent_at = datetime.utcnow()
+            count += 1
+    await db.commit()
+    return count
+
+
+async def get_delivery_summary_data(db: AsyncSession) -> Dict[str, Any]:
+    """
+    Calculates aggregate delivery monitoring statistics and overall health status.
+    """
+    res = await db.execute(
+        select(NotificationDeliveryAttemptModel.status, func.count(NotificationDeliveryAttemptModel.id))
+        .group_by(NotificationDeliveryAttemptModel.status)
+    )
+    counts = dict(res.all())
+
+    queued = counts.get("queued", 0)
+    sent = counts.get("sent", 0)
+    failed = counts.get("failed", 0)
+    retrying = counts.get("retrying", 0)
+    dead_letter = counts.get("dead_letter", 0)
+    total = sum(counts.values())
+
+    if dead_letter > 0 or failed > 5:
+        health_status = "critical_failures"
+    elif retrying > 0 or failed > 0:
+        health_status = "warnings"
+    else:
+        health_status = "healthy"
+
+    return {
+        "total_attempts": total,
+        "queued": queued,
+        "sent": sent,
+        "failed": failed,
+        "retrying": retrying,
+        "dead_letter": dead_letter,
+        "health_status": health_status
+    }
 
 
 async def build_project_digest(db: AsyncSession, project_id: Optional[str] = None, hours: int = 24) -> Dict[str, Any]:

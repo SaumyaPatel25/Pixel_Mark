@@ -464,6 +464,24 @@ class NotificationPreferencesModel(Base):
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class NotificationDeliveryAttemptModel(Base):
+    __tablename__ = "notification_delivery_attempts"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    notification_event_id: Mapped[str] = mapped_column(ForeignKey("notification_events.id", ondelete="CASCADE"), nullable=False, index=True)
+    channel: Mapped[str] = mapped_column(String, nullable=False, default="email")  # in_app | email | digest_email
+    status: Mapped[str] = mapped_column(String, nullable=False, default="queued", index=True)  # queued | sent | failed | retrying | dead_letter
+    attempt_number: Mapped[int] = mapped_column(Integer, default=1)
+    provider_message_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    error_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    next_retry_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    sent_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+
 
 
 

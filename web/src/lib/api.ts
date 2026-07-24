@@ -466,6 +466,19 @@ export const api = {
       if (params?.tone) q.set('tone', params.tone)
       const qs = q.toString() ? `?${q.toString()}` : ''
       return apiQueue.enqueueRead('Loading template preview...', () => request(`/notifications/templates/preview${qs}`, { method: 'POST' }))
+    },
+    async getDeliveries(status?: string, limit: number = 20) {
+      const qs = status ? `?status=${status}&limit=${limit}` : `?limit=${limit}`
+      return apiQueue.enqueueRead('Loading delivery attempts...', () => request(`/notifications/deliveries${qs}`))
+    },
+    async getDeliverySummary() {
+      return apiQueue.enqueueRead('Loading delivery summary...', () => request('/notifications/deliveries/summary'))
+    },
+    async retryDelivery(attemptId: string) {
+      return apiQueue.enqueueWrite('Retrying delivery attempt...', () => request(`/notifications/deliveries/${attemptId}/retry`, { method: 'POST' }))
+    },
+    async retryAllFailed() {
+      return apiQueue.enqueueWrite('Retrying all failed deliveries...', () => request('/notifications/deliveries/retry-failed', { method: 'POST' }))
     }
   },
 

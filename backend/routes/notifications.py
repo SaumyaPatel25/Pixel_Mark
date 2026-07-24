@@ -6,15 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 
 from dependencies import get_db, get_current_user, get_current_user_optional
-from models import User, NotificationEventModel, NotificationPreferencesModel
+from models import User, NotificationEventModel, NotificationPreferencesModel, NotificationDeliveryAttemptModel
 from schemas import (
     NotificationEventRead, NotificationListResponse,
     NotificationPreferencesRead, NotificationPreferencesUpdate,
-    DigestPreviewRequest, DigestPreviewResponse
+    DigestPreviewRequest, DigestPreviewResponse,
+    NotificationDeliveryAttemptRead, NotificationDeliverySummary, NotificationDeliveryListResponse
 )
 from services.notification_service import (
     get_or_create_preferences, emit_blueprint_notification,
-    build_project_digest, deliver_email_notification
+    build_project_digest, deliver_email_notification,
+    retry_failed_delivery, retry_all_failed_deliveries, get_delivery_summary_data
 )
 from services.notification_templates import (
     build_notification_subject, build_notification_body, build_preview_text, build_why_you_got_this
@@ -227,3 +229,79 @@ async def preview_notification_template(
         "preview_text": preview,
         "why_you_got_this": why_you_got_this
     }
+
+
+# ─── NOTIFICATION DELIVERY MONITORING & RETRY ROUTES ────────────────────────
+
+@router.get("/notifications/deliveries/summary", response_model=NotificationDeliverySummary)
+async def get_delivery_summary(
+    db: AsyncSession = Depends(get_db)
+):
+    summary_data = await get_delivery_summary_data(db)
+    return NotificationDeliverySummary(**summary_data)
+
+
+@router.get("/notifications/deliveries", response_model=NotificationDeliveryListResponse)
+async def list_delivery_attempts(
+    status: Optional[str] = None,  # queued | sent | failed | retrying | dead_letter
+    limit: int = 20,
+    before: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(NotificationDeliveryAttemptModel)
+    if status:
+        query = query.where(NotificationDeliveryAttemptModel.status == status)
+
+    if before:
+        try:
+            dt_before = datetime.fromisoformat(before)
+            query = query.where(NotificationDeliveryAttemptModel.created_at < dt_before)
+        except ValueError:
+            pass
+
+    res = await db.execute(query.order_by(NotificationDeliveryAttemptModel.created_at.desc()).limit(limit + 1))
+    items = res.scalars().all()
+
+    has_more = len(items) > limit
+    results = items[:limit]
+    next_cursor = results[-1].created_at.isoformat() if (has_more and results and results[-1].created_at) else None
+
+    summary_data = await get_delivery_summary_data(db)
+
+    return NotificationDeliveryListResponse(
+        items=[NotificationDeliveryAttemptRead.model_validate(att) for att in results],
+        summary=NotificationDeliverySummary(**summary_data),
+        has_more=has_more,
+        next_cursor=next_cursor
+    )
+
+
+@router.get("/notifications/deliveries/{id}", response_model=NotificationDeliveryAttemptRead)
+async def get_delivery_attempt_detail(
+    id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(select(NotificationDeliveryAttemptModel).where(NotificationDeliveryAttemptModel.id == id))
+    attempt = res.scalar_one_or_none()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Delivery attempt log not found")
+    return NotificationDeliveryAttemptRead.model_validate(attempt)
+
+
+@router.post("/notifications/deliveries/{id}/retry", response_model=NotificationDeliveryAttemptRead)
+async def retry_single_delivery_attempt(
+    id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    attempt = await retry_failed_delivery(db, id)
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Delivery attempt not found for retry")
+    return NotificationDeliveryAttemptRead.model_validate(attempt)
+
+
+@router.post("/notifications/deliveries/retry-failed")
+async def retry_all_failed_deliveries_endpoint(
+    db: AsyncSession = Depends(get_db)
+):
+    count = await retry_all_failed_deliveries(db)
+    return {"message": f"Triggered retries for {count} failed delivery attempts", "retried_count": count}

@@ -17,6 +17,8 @@ import {
   Sliders
 } from 'lucide-react'
 import { useNotificationStore, NotificationTab } from '@/store/useNotificationStore'
+import { NotificationHealthWidget } from './NotificationHealthWidget'
+import { NotificationDeliveryMonitorModal } from './NotificationDeliveryMonitorModal'
 
 interface NotificationBellProps {
   projectId?: string
@@ -47,6 +49,7 @@ export function NotificationBell({ projectId }: NotificationBellProps) {
   const [showSettings, setShowSettings] = useState(false)
   const [showDigestModal, setShowDigestModal] = useState(false)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [showMonitorModal, setShowMonitorModal] = useState(false)
   const [selectedTone, setSelectedTone] = useState('client_friendly')
 
   useEffect(() => {
@@ -149,6 +152,8 @@ export function NotificationBell({ projectId }: NotificationBellProps) {
                     <Sliders className="w-3.5 h-3.5 text-purple-400" />
                     <span>Notification Settings</span>
                   </h4>
+
+                  <NotificationHealthWidget onOpenMonitor={() => setShowMonitorModal(true)} />
 
                   <div className="space-y-3">
                     <label className="flex items-center justify-between text-xs text-slate-300 cursor-pointer">
@@ -387,6 +392,11 @@ export function NotificationBell({ projectId }: NotificationBellProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Delivery Inspector Modal */}
+      {showMonitorModal && (
+        <NotificationDeliveryMonitorModal onClose={() => setShowMonitorModal(false)} />
       )}
     </div>
   )

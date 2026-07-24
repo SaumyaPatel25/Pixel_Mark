@@ -679,6 +679,42 @@ class DigestPreviewResponse(BaseModel):
     digest_text: str
 
 
+class NotificationDeliveryAttemptRead(BaseModel):
+    id: str
+    notification_event_id: str
+    channel: str
+    status: str
+    attempt_number: int
+    provider_message_id: Optional[str] = None
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
+    next_retry_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+    sent_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationDeliverySummary(BaseModel):
+    total_attempts: int
+    queued: int
+    sent: int
+    failed: int
+    retrying: int
+    dead_letter: int
+    health_status: str  # healthy | warnings | critical_failures
+
+
+class NotificationDeliveryListResponse(BaseModel):
+    items: List[NotificationDeliveryAttemptRead]
+    summary: NotificationDeliverySummary
+    has_more: bool
+    next_cursor: Optional[str] = None
+
+
+
 
 
 

@@ -1,10 +1,42 @@
 # Repository Documentation Status
 
 ## Current phase
-- Phase 30: Notification Templates + Summary Tuning
+- Phase 31: Notification Delivery Monitoring + Retry Logs
 - Status: Completed
-- Last updated timestamp: 2026-07-24T20:54:00Z
-- Note: Blueprint and session notification sources remain separate; only templates and summaries are being tuned
+- Last updated timestamp: 2026-07-24T20:58:00Z
+- Note: Blueprint and session notification sources remain separate; delivery bookkeeping is being added
+
+## Task Execution Summary: Notification Delivery Monitoring + Retry Logs
+- **Task Title**: Notification Delivery Monitoring + Retry Logs
+- **Status**: Completed
+- **Files Added**:
+  - `web/src/components/notifications/NotificationHealthWidget.tsx`
+  - `web/src/components/notifications/NotificationDeliveryMonitorModal.tsx`
+- **Files Changed**:
+  - `backend/models/core.py`
+  - `backend/schemas/core.py`
+  - `backend/services/notification_service.py`
+  - `backend/routes/notifications.py`
+  - `web/src/lib/api.ts`
+  - `web/src/store/useNotificationStore.ts`
+  - `web/src/components/notifications/NotificationBell.tsx`
+  - `status.md`
+- **Core STAGE Isolation Confirmation**: Pin/marker positioning logic, session review rendering, and Blueprint canvas edit mechanics remain 100% untouched. Delivery attempt bookkeeping is completely non-blocking to all main product workflows.
+- **Delivery Model & Retry Policy**:
+  - `NotificationDeliveryAttemptModel` (`notification_delivery_attempts` table) tracking `channel`, `status` (`queued` | `sent` | `failed` | `retrying` | `dead_letter`), `attempt_number`, `provider_message_id`, `error_code`, `error_message`, `next_retry_at`, `sent_at`.
+  - Exponential backoff retry policy (Max 3 attempts -> transition to `dead_letter`).
+- **Inspector API Endpoints**:
+  - `GET /notifications/deliveries`: Paginated attempt logs filtered by `status`.
+  - `GET /notifications/deliveries/summary`: Aggregated delivery counts and overall health indicator status.
+  - `GET /notifications/deliveries/{id}`: Detailed attempt log.
+  - `POST /notifications/deliveries/{id}/retry`: Triggers manual retry for specific attempt.
+  - `POST /notifications/deliveries/retry-failed`: Bulk retries all failed / dead_letter delivery attempts.
+- **Frontend Admin Inspector UI**:
+  - `NotificationHealthWidget`: Compact health badge displaying status (**healthy**, **warnings**, **critical_failures**) and counts.
+  - `NotificationDeliveryMonitorModal`: Admin modal with status filter tabs, attempt count chips, provider message IDs, error trace snippets, and single/bulk retry buttons.
+- **Branding**: "STAGE" branding is strictly used across all new UI components, inspector headers, and status entries.
+- **Known Limitations**: Email delivery uses mock provider IDs in local development mode; retries execute synchronously when triggered via admin endpoints.
+- **Next Step**: Notification analytics / delivery rate trends.
 
 ## Task Execution Summary: Notification Templates + Summary Tuning
 - **Task Title**: Notification Templates + Summary Tuning
