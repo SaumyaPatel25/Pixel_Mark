@@ -515,7 +515,7 @@ export default function DashboardPage() {
                           alert('Please start a review session first before generating a client link.')
                         }
                       }}
-                      onDelete={async () => { await handleDeleteProject(p.id) }}
+                      // onDelete={async () => { await handleDeleteProject(p.id) }}
                     />
                   </motion.div>
                 ))}
