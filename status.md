@@ -1,10 +1,31 @@
 # Repository Documentation Status
 
 ## Current phase
-- Phase 34: Monkfeed Chatbot Integration
+- Phase 35: Billing System Refactoring (Solopreneur Removal & Cap limits)
 - Status: Completed
-- Last updated timestamp: 2026-07-26T10:16:00Z
-- Note: Created MonkfeedWidget component, monkfeed-sync helper, root layout integration, and handled safety checks for iframe rendering and collision prevention.
+- Last updated timestamp: 2026-07-26T18:23:00Z
+- Note: Removed Solopreneur plan entirely. Reconfigured Dev Team plan ($29/mo or $21.75/mo early-bird) limit to 5 seats, 10 projects, including Blueprint Canvas. Configured Enterprise card mailto link using ENTERPRISE_CONTACT_EMAIL.
+
+## Task Execution Summary: Billing System Refactoring
+- **Task Title**: Billing System Refactoring (Solopreneur Removal & Cap limits)
+- **Status**: Completed
+- **Files Added**:
+  - None
+- **Files Changed**:
+  - `backend/config.py`
+  - `backend/dependencies.py`
+  - `backend/models/core.py`
+  - `backend/routes/billing.py`
+  - `backend/schemas/core.py`
+  - `backend/services/dodo_client.py`
+  - `backend/services/plan_capabilities.py`
+  - `backend/tests/test_billing.py`
+  - `backend/tests/test_plan_capabilities.py`
+  - `web/src/app/pricing/page.tsx`
+  - `web/src/components/billing/PlanBadge.tsx`
+  - `web/src/hooks/usePlan.ts`
+  - `web/src/store/useBillingStore.ts`
+  - `status.md`
 
 ## Task Execution Summary: Monkfeed Chatbot Integration
 - **Task Title**: Monkfeed Chatbot Integration
