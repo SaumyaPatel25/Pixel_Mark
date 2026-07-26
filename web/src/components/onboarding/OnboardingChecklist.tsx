@@ -36,7 +36,11 @@ const reviewerTaskMeta: TaskMeta[] = [
   { id: 'complete_review', label: 'Submit QA Review', description: 'Wrap up and complete the review session.', stepIndex: 3 }, // maps back to active viewport
 ];
 
-export function OnboardingChecklist() {
+interface OnboardingChecklistProps {
+  isSidebarCollapsed?: boolean;
+}
+
+export function OnboardingChecklist({ isSidebarCollapsed = true }: OnboardingChecklistProps) {
   const {
     isOnboardingActive,
     userRole,
@@ -77,7 +81,7 @@ export function OnboardingChecklist() {
   return (
     <>
       {/* Floating Onboarding Widget */}
-      <div className="fixed bottom-6 right-6 z-[9997] font-sans">
+      <div className={`fixed bottom-6 ${isSidebarCollapsed ? 'left-6' : 'left-[240px]'} z-[9997] font-sans transition-all duration-300`}>
         <AnimatePresence>
           {isChecklistCollapsed ? (
             /* Collapsed State Bubble */
@@ -94,13 +98,13 @@ export function OnboardingChecklist() {
               <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-md animate-bounce">
                 {completedCount}/{totalCount}
               </span>
-              {/* Close Button on bubble */}
+              {/* Close Button on bubble (Always Visible) */}
               <span
                 onClick={(e) => {
                   e.stopPropagation();
                   setDismissed(true);
                 }}
-                className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-[#182235]/90 border border-pm-border hover:bg-rose-500 hover:text-white text-pm-muted flex items-center justify-center shadow-md transition-all cursor-pointer opacity-0 group-hover:opacity-100 z-10"
+                className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-[#1e293b] border border-pm-border hover:bg-rose-500 hover:text-white text-pm-muted hover:border-rose-500 flex items-center justify-center shadow-md transition-all cursor-pointer z-10"
                 title="Dismiss Guide"
               >
                 <X className="w-3 h-3" />
@@ -124,11 +128,21 @@ export function OnboardingChecklist() {
                     STAGE Checklist
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <span className="text-[10px] font-black text-pm-accent font-mono">
                     {progressPercent}%
                   </span>
                   <ChevronDown className="w-4 h-4 text-pm-muted" />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDismissed(true);
+                    }}
+                    className="p-1 rounded-lg text-pm-muted hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
+                    title="Hide Checklist"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
 

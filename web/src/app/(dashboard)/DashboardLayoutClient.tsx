@@ -326,7 +326,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
 
       {/* Onboarding overlays — rendered at layout level so they persist across all pages */}
       <OnboardingTour />
-      <OnboardingChecklist />
+      <OnboardingChecklist isSidebarCollapsed={isSidebarCollapsed} />
     </div>
   )
 }
