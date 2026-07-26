@@ -24,6 +24,10 @@ async def create_project(data: ProjectCreate, current_user: User = Depends(get_c
     if not member:
         raise HTTPException(status_code=400, detail="User does not belong to any organization")
     
+    # Enforce plan project limit
+    from dependencies import check_project_limit
+    await check_project_limit(member.org_id, db)
+
     project = Project(id=str(uuid.uuid4()), org_id=member.org_id, **data.model_dump())
     db.add(project)
     await db.commit()

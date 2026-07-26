@@ -25,6 +25,13 @@ class Settings:
     redis_url: str = "redis://localhost:6379/0"
     firebase_api_key: str = ""
     firebase_project_id: str = ""
+    dodo_environment: str = "test_mode"
+    dodo_api_key: str = "test_dodo_api_key_sample"
+    dodo_webhook_secret: str = "whsec_test_stage_secret"
+    dodo_product_id_solopreneur: str = "p_solopreneur_test"
+    dodo_product_id_dev_team: str = "p_dev_team_test"
+    dodo_discount_code_dev_team_early_bird: str = "dsc_early_bird_25"
+    stage_founder_email: str = "founder@stage.dev"
 
 
 def load_config() -> Settings:
@@ -59,7 +66,14 @@ def load_config() -> Settings:
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
         auto_verify_users=auto_verify,
         firebase_api_key=fb_api_key,
-        firebase_project_id=fb_project_id
+        firebase_project_id=fb_project_id,
+        dodo_environment=os.getenv("DODO_ENVIRONMENT", "test_mode"),
+        dodo_api_key=os.getenv("DODO_API_KEY", "test_dodo_api_key_sample"),
+        dodo_webhook_secret=os.getenv("DODO_WEBHOOK_SECRET", "whsec_test_stage_secret"),
+        dodo_product_id_solopreneur=os.getenv("DODO_PRODUCT_ID_SOLOPRENEUR", "p_solopreneur_test"),
+        dodo_product_id_dev_team=os.getenv("DODO_PRODUCT_ID_DEV_TEAM", "p_dev_team_test"),
+        dodo_discount_code_dev_team_early_bird=os.getenv("DODO_DISCOUNT_CODE_DEV_TEAM_EARLY_BIRD", "dsc_early_bird_25"),
+        stage_founder_email=os.getenv("STAGE_FOUNDER_EMAIL", "founder@stage.dev")
     )
 
 settings = load_config()

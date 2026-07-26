@@ -378,6 +378,10 @@ async def batch_save_blueprint_edits(
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
+    # Enforce feature plan requirement
+    from dependencies import require_plan_feature
+    await require_plan_feature("blueprint_dom_edit")(member.org_id, current_user, db)
+
     proj_result = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
     project = proj_result.scalar_one_or_none()
     if not project:
@@ -595,6 +599,10 @@ async def create_blueprint_publication(
     member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Enforce feature plan requirement
+    from dependencies import require_plan_feature
+    await require_plan_feature("blueprint_dom_edit")(member.org_id, current_user, db)
 
     proj_res = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
     project = proj_res.scalar_one_or_none()

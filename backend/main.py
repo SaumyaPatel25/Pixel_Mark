@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from database import engine, Base
 import asyncio
 import logging
-from routes import auth, projects, sessions, proxy, export, websocket, canvas, shares, flags, screenshot, blueprint_ws, notifications
+from routes import auth, projects, sessions, proxy, export, websocket, canvas, shares, flags, screenshot, blueprint_ws, notifications, billing
 from routers.share_links import router as share_links_router
 from routers.review import router as review_router
 from routers.ai import router as ai_router
@@ -107,7 +107,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
     reserved_prefixes = (
         "/auth", "/projects", "/sessions", "/markers", "/canvas", "/shares", 
         "/proxy", "/export", "/websocket", "/health", "/metrics", "/static", "/docs", "/openapi.json",
-        "/share-links", "/review", "/ai", "/waitlist", "/settings"
+        "/share-links", "/review", "/ai", "/waitlist", "/settings", "/notifications", "/billing"
     )
     is_reserved = any(path.startswith(prefix) for prefix in reserved_prefixes)
     
@@ -400,6 +400,7 @@ app.include_router(markers_router)
 app.include_router(realtime_router)
 app.include_router(blueprint_ws.router)
 app.include_router(notifications.router)
+app.include_router(billing.router)
 
 @app.get("/health")
 async def health():

@@ -482,6 +482,27 @@ export const api = {
     }
   },
 
+  // BILLING
+  billing: {
+    async createCheckout(data: { plan_type: string; org_id?: string }) {
+      return apiQueue.enqueueWrite('Creating checkout session...', () => request('/billing/checkout', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }))
+    },
+    async getEarlyBirdStatus() {
+      return apiQueue.enqueueRead('Fetching early-bird status...', () => request('/billing/early-bird-status'))
+    },
+    async getBillingStatus(orgId?: string) {
+      const qs = orgId ? `?org_id=${orgId}` : ''
+      return apiQueue.enqueueRead('Fetching billing status...', () => request(`/billing/status${qs}`))
+    },
+    async cancelSubscription(orgId?: string) {
+      const qs = orgId ? `?org_id=${orgId}` : ''
+      return apiQueue.enqueueWrite('Canceling subscription...', () => request(`/billing/cancel${qs}`, { method: 'POST' }))
+    }
+  },
+
   // SESSIONS
   sessions: {
     async getSessions(projectId: string) {

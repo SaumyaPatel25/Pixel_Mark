@@ -103,3 +103,76 @@ def require_role(minimum_role: RoleEnum):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return membership
     return checker
+
+
+async def check_project_limit(org_id: str, db: AsyncSession = Depends(get_db)):
+    from models import SubscriptionModel, Project
+    from sqlalchemy import func
+
+    res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
+    sub = res.scalar_one_or_none()
+    projects_allowed = sub.projects_allowed if sub else 5
+
+    count_res = await db.execute(select(func.count(Project.id)).where(Project.org_id == org_id))
+    projects_used = count_res.scalar() or 0
+
+    if projects_used >= projects_allowed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "LIMIT_PROJECTS_EXCEEDED",
+                "message": f"Project limit ({projects_allowed}) reached for your current STAGE plan. Please upgrade to Dev Team."
+            }
+        )
+
+
+async def check_seat_limit(org_id: str, db: AsyncSession = Depends(get_db)):
+    from models import SubscriptionModel, OrgMember
+    from sqlalchemy import func
+
+    res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
+    sub = res.scalar_one_or_none()
+    seats_allowed = sub.seats_allowed if sub else 1
+
+    count_res = await db.execute(select(func.count(OrgMember.id)).where(OrgMember.org_id == org_id))
+    seats_used = count_res.scalar() or 0
+
+    if seats_used >= seats_allowed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "LIMIT_SEATS_EXCEEDED",
+                "message": f"Developer seat limit ({seats_allowed}) reached for your current STAGE plan. Please upgrade your STAGE subscription."
+            }
+        )
+
+
+def require_plan_feature(feature_name: str):
+    async def feature_checker(org_id: Optional[str] = None, current_user: Optional[User] = None, db: AsyncSession = Depends(get_db)):
+        from models import SubscriptionModel, OrgMember
+
+        target_org_id = org_id
+        if not target_org_id and current_user:
+            res = await db.execute(select(OrgMember).where(OrgMember.user_id == getattr(current_user, "id", None)))
+            mem = res.scalar_one_or_none()
+            if mem:
+                target_org_id = mem.org_id
+
+        if not target_org_id:
+            return True
+
+        sub_res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == target_org_id))
+        sub = sub_res.scalar_one_or_none()
+
+        if feature_name == "blueprint_dom_edit":
+            if not sub or sub.plan_type == "solopreneur" or sub.status != "active":
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "code": "FEATURE_REQUIRES_DEV_TEAM_PLAN",
+                        "message": "Blueprint DOM Edit mode requires the STAGE Dev Team plan."
+                    }
+                )
+        return True
+    return feature_checker
+

@@ -714,6 +714,54 @@ class NotificationDeliveryListResponse(BaseModel):
     next_cursor: Optional[str] = None
 
 
+class SubscriptionRead(BaseModel):
+    id: str
+    org_id: str
+    dodo_customer_id: Optional[str] = None
+    dodo_subscription_id: Optional[str] = None
+    plan_type: str
+    status: str
+    is_test_mode: bool
+    current_period_end: Optional[datetime] = None
+    seats_allowed: int
+    projects_allowed: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CheckoutRequest(BaseModel):
+    plan_type: str  # solopreneur | dev_team
+    org_id: Optional[str] = None
+
+
+class CheckoutResponse(BaseModel):
+    checkout_url: str
+    session_id: str
+    plan_type: str
+    early_bird_applied: bool
+    is_test_mode: bool
+
+
+class EarlyBirdStatusResponse(BaseModel):
+    claimed_count: int
+    max_limit: int
+    slots_remaining: int
+    is_active: bool
+
+
+class BillingStatusResponse(BaseModel):
+    subscription: SubscriptionRead
+    projects_used: int
+    seats_used: int
+    has_blueprint_dom_edit: bool
+    is_early_bird: bool
+    is_test_mode: bool
+
+
+
 
 
 
