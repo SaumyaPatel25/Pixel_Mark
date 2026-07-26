@@ -438,6 +438,9 @@ async def delete_blueprint_edit(
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
+    from dependencies import require_plan_feature
+    await require_plan_feature("blueprint_dom_edit")(member.org_id, current_user, db)
+
     await db.execute(
         delete(BlueprintMutationModel).where(
             BlueprintMutationModel.id == edit_id,
@@ -458,6 +461,9 @@ async def clear_all_blueprint_edits(
     member = org_member.scalars().first()
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
+
+    from dependencies import require_plan_feature
+    await require_plan_feature("blueprint_dom_edit")(member.org_id, current_user, db)
 
     await db.execute(delete(BlueprintMutationModel).where(BlueprintMutationModel.project_id == project_id))
     await db.commit()

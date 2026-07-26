@@ -109,6 +109,17 @@ async def get_billing_status(
     )
 
 
+@router.get("/plan")
+async def get_plan_capabilities_endpoint(
+    org_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from services.plan_capabilities import resolve_org_plan
+    target_org_id = await resolve_user_org_id(db, current_user, org_id)
+    return await resolve_org_plan(target_org_id, db)
+
+
 @router.post("/checkout", response_model=CheckoutResponse)
 async def create_checkout(
     payload: CheckoutRequest,
@@ -186,6 +197,7 @@ async def cancel_subscription_endpoint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    from services.plan_capabilities import invalidate_org_plan_cache
     target_org_id = await resolve_user_org_id(db, current_user, org_id)
     sub = await get_or_create_subscription(db, target_org_id)
 
@@ -197,6 +209,7 @@ async def cancel_subscription_endpoint(
 
     sub.status = "canceled"
     await db.commit()
+    invalidate_org_plan_cache(target_org_id)
     return {"message": "Subscription canceled successfully", "status": "canceled"}
 
 
@@ -205,6 +218,8 @@ async def handle_dodo_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
+    from services.plan_capabilities import invalidate_org_plan_cache, PlanCapabilities
+
     payload_bytes = await request.body()
     headers = dict(request.headers)
 
@@ -240,6 +255,7 @@ async def handle_dodo_webhook(
 
         sub.plan_type = plan_type
         sub.status = "active"
+        sub.past_due_since = None
         sub.dodo_subscription_id = sub_id
         sub.dodo_customer_id = cust_id
         sub.is_test_mode = (settings.dodo_environment == "test_mode")
@@ -247,18 +263,34 @@ async def handle_dodo_webhook(
         if plan_type in ("dev_team", "dev_team_early_bird"):
             sub.seats_allowed = 5
             sub.projects_allowed = 10
-        else: # solopreneur
+        elif plan_type == "enterprise":
+            sub.seats_allowed = 9999
+            sub.projects_allowed = 9999
+        else:  # solopreneur
             sub.seats_allowed = 1
             sub.projects_allowed = 5
 
         await db.commit()
+        invalidate_org_plan_cache(org_id)
 
-    elif org_id and event_type in ("subscription.canceled", "payment.failed"):
+    elif org_id and event_type in ("payment.failed", "subscription.past_due"):
+        res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
+        sub = res.scalar_one_or_none()
+        if sub:
+            sub.status = "past_due"
+            sub.past_due_since = datetime.utcnow()
+            await db.commit()
+            invalidate_org_plan_cache(org_id)
+
+    elif org_id and event_type in ("subscription.canceled", "subscription.expired"):
         res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
         sub = res.scalar_one_or_none()
         if sub:
             sub.status = "canceled"
             await db.commit()
+            invalidate_org_plan_cache(org_id)
+            # Sync projects for downgrade/cancellation
+            await PlanCapabilities.sync_org_project_status(org_id, 0, db)
 
     if event_id:
         PROCESSED_WEBHOOK_EVENTS.add(event_id)

@@ -52,6 +52,9 @@ async def lifespan(app: FastAPI):
             logger.info(f"Connecting to Neon DB (Attempt {i}/{retries})...")
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+                from sqlalchemy import text
+                await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS past_due_since TIMESTAMPTZ;"))
+                await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';"))
             logger.info("✓ Neon DB connection successful & tables verified!")
             break
         except Exception as e:

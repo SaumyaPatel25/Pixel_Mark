@@ -10,6 +10,8 @@ import { useOnboardingStore } from '@/store/onboardingStore'
 import { useProjectStore } from '@/store/projectStore'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
 import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist'
+import { PlanBadge } from '@/components/billing/PlanBadge'
+import { PastDueWarningBanner } from '@/components/billing/PastDueWarningBanner'
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -265,9 +267,14 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
         {/* User profile section + Sign out */}
         <div className="space-y-4 pt-4 border-t border-pm-border">
           {user && (
-            <div className="px-3 min-w-0">
-              <p className="text-xs font-bold text-pm-text truncate">{user.name || 'Pro Reviewer'}</p>
+            <div className="px-3 min-w-0 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-pm-text truncate">{user.name || 'Pro Reviewer'}</p>
+              </div>
               <p className="text-[10px] text-pm-muted truncate mt-0.5">{user.email}</p>
+              <div className="pt-1">
+                <PlanBadge />
+              </div>
             </div>
           )}
           <button
@@ -286,6 +293,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           isSidebarCollapsed ? 'ml-0' : 'ml-56'
         }`}
       >
+        <PastDueWarningBanner />
         {children}
       </main>
 

@@ -497,6 +497,10 @@ export const api = {
       const qs = orgId ? `?org_id=${orgId}` : ''
       return apiQueue.enqueueRead('Fetching billing status...', () => request(`/billing/status${qs}`))
     },
+    async getPlanCapabilities(orgId?: string) {
+      const qs = orgId ? `?org_id=${orgId}` : ''
+      return apiQueue.enqueueRead('Fetching plan capabilities...', () => request(`/billing/plan${qs}`))
+    },
     async cancelSubscription(orgId?: string) {
       const qs = orgId ? `?org_id=${orgId}` : ''
       return apiQueue.enqueueWrite('Canceling subscription...', () => request(`/billing/cancel${qs}`, { method: 'POST' }))

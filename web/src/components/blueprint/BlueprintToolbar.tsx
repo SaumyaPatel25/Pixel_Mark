@@ -26,7 +26,8 @@ import {
   Layers,
   FileText,
   Activity,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useBlueprintStore, BlueprintTool } from '@/store/blueprintStore'
@@ -36,12 +37,15 @@ import { useBlueprintSummaryStore } from '@/store/blueprintSummaryStore'
 import { BlueprintChangesetModal } from './BlueprintChangesetModal'
 import { BlueprintPresenceStack } from './BlueprintPresenceStack'
 import { NotificationBell } from '../notifications/NotificationBell'
+import { usePlan } from '@/hooks/usePlan'
+import { PlanBadge } from '../billing/PlanBadge'
 
 interface BlueprintToolbarProps {
   projectId: string
 }
 
 export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
+  const { canUseBlueprintDomEdit } = usePlan()
   const {
     activeTool,
     setActiveTool,
@@ -207,14 +211,19 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           onClick={() => setActiveTool('move')}
           icon={<Hand className="w-4 h-4" />}
           label="Pan / Move (H)"
-        />
         <ToolButton
           tool="dom-edit"
           activeTool={activeTool}
-          onClick={() => setActiveTool('dom-edit')}
-          icon={<MousePointerClick className="w-4 h-4" />}
-          label="DOM Edit Tool"
-          badge="DOM"
+          onClick={() => {
+            if (!canUseBlueprintDomEdit) {
+              window.location.href = '/pricing'
+            } else {
+              setActiveTool('dom-edit')
+            }
+          }}
+          icon={!canUseBlueprintDomEdit ? <Lock className="w-4 h-4 text-amber-400" /> : <MousePointerClick className="w-4 h-4" />}
+          label={!canUseBlueprintDomEdit ? "Upgrade to Dev Team to unlock Blueprint DOM Edit mode" : "DOM Edit Tool"}
+          badge={!canUseBlueprintDomEdit ? "LOCK" : "DOM"}
         />
         <ToolButton
           tool="comment"
@@ -258,6 +267,7 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
         <BlueprintPresenceStack />
 
         {/* STAGE Unified Notifications Bell */}
+        <PlanBadge />
         <NotificationBell projectId={projectId} />
 
         <div className="h-4 w-px bg-slate-800" />

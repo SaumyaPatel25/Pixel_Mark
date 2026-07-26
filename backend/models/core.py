@@ -97,6 +97,7 @@ class Project(Base):
     org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     url: Mapped[str] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="active", server_default="active", nullable=False)  # active | archived_over_limit
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     org: Mapped["Organization"] = relationship(back_populates="projects")
     environments: Mapped[list["Environment"]] = relationship(back_populates="project", cascade="all, delete-orphan")
@@ -494,6 +495,7 @@ class SubscriptionModel(Base):
     current_period_end: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
     seats_allowed: Mapped[int] = mapped_column(Integer, default=1)
     projects_allowed: Mapped[int] = mapped_column(Integer, default=5)
+    past_due_since: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

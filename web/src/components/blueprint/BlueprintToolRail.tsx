@@ -15,7 +15,13 @@ import {
 } from 'lucide-react'
 import { useBlueprintStore, BlueprintTool } from '@/store/blueprintStore'
 
+import { usePlan } from '@/hooks/usePlan'
+import { useRouter } from 'next/navigation'
+import { Lock } from 'lucide-react'
+
 export function BlueprintToolRail() {
+  const router = useRouter()
+  const { canUseBlueprintDomEdit } = usePlan()
   const {
     activeTool,
     setActiveTool,
@@ -37,6 +43,10 @@ export function BlueprintToolRail() {
   ]
 
   const handleToolClick = (toolId: BlueprintTool) => {
+    if (toolId === 'dom-edit' && !canUseBlueprintDomEdit) {
+      router.push('/pricing')
+      return
+    }
     if (toolId === 'frame') {
       addFrame()
       setActiveTool('select')
@@ -51,18 +61,27 @@ export function BlueprintToolRail() {
       <div className="flex flex-col items-center gap-1.5 w-full px-2">
         {tools.map((t) => {
           const isActive = activeTool === t.id
+          const isLockedDomEdit = t.id === 'dom-edit' && !canUseBlueprintDomEdit
+
           return (
             <button
               key={t.id}
               onClick={() => handleToolClick(t.id)}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                isActive
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                isLockedDomEdit
+                  ? 'text-slate-500 bg-slate-900/60 border border-amber-500/30 hover:border-amber-500/60 opacity-80 cursor-pointer'
+                  : isActive
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/25 scale-105'
                   : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
               }`}
-              title={t.label}
+              title={isLockedDomEdit ? 'Upgrade to Dev Team to unlock Blueprint DOM Edit mode' : t.label}
             >
               {t.icon}
+              {isLockedDomEdit && (
+                <div className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 p-0.5 rounded-full border border-slate-950 shadow-sm">
+                  <Lock className="w-2.5 h-2.5" />
+                </div>
+              )}
             </button>
           )
         })}

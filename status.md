@@ -1,10 +1,31 @@
 # Repository Documentation Status
 
 ## Current phase
-- Phase 32: Dodo Payments Integration (Test Mode)
+- Phase 33: Plan-Aware System & Feature Gating
 - Status: Completed
-- Last updated timestamp: 2026-07-26T09:55:00Z
-- Note: Dodo Payments integration successfully implemented and verified in TEST MODE with Solopreneur ($9/mo), Dev Team ($29/mo), Dev Team Early Bird (25% off, max 50 orgs via atomic DB locks), and Enterprise ("Let's talk") CTA.
+- Last updated timestamp: 2026-07-26T10:07:00Z
+- Note: PlanCapabilities service, cached org plan resolution dependency, Blueprint DOM Edit route guards, frontend usePlan hook, plan badge UI, past_due 3-day grace period, and downgrade over-limit project archiving completed and verified with 100% passing pytest suite.
+
+## Task Execution Summary: Plan-Aware System & Feature Gating
+- **Task Title**: Plan-Aware System & Feature Gating
+- **Status**: Completed
+- **Files Added**:
+  - `backend/services/plan_capabilities.py`
+  - `backend/tests/test_plan_capabilities.py`
+  - `web/src/hooks/usePlan.ts`
+  - `web/src/components/billing/PlanBadge.tsx`
+  - `web/src/components/billing/PastDueWarningBanner.tsx`
+- **Files Changed**:
+  - `backend/models/core.py`
+  - `backend/dependencies.py`
+  - `backend/routes/billing.py`
+  - `backend/routes/canvas.py`
+  - `backend/main.py`
+  - `web/src/lib/api.ts`
+  - `web/src/app/(dashboard)/DashboardLayoutClient.tsx`
+  - `web/src/components/blueprint/BlueprintToolRail.tsx`
+  - `web/src/components/blueprint/BlueprintToolbar.tsx`
+  - `status.md`
 
 ## Task Execution Summary: Dodo Payments Integration (Test Mode)
 - **Task Title**: Dodo Payments Integration (Test Mode)
