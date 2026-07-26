@@ -211,6 +211,7 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           onClick={() => setActiveTool('move')}
           icon={<Hand className="w-4 h-4" />}
           label="Pan / Move (H)"
+        />
         <ToolButton
           tool="dom-edit"
           activeTool={activeTool}

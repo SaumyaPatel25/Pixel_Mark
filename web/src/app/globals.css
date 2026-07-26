@@ -36,6 +36,9 @@
 }
 
 :root {
+  --color-primary: var(--pm-accent);
+  --color-bg: var(--pm-bg);
+  --color-text: var(--pm-text);
   /* Core Light Palette Values (Phase 1) */
   --pm-bg:           #FAF2F2;
   --pm-surface:      #FFFFFF;
@@ -81,6 +84,9 @@
    DARK THEME FOUNDATION VARIABLES (Theme Module Part 1)
    ───────────────────────────────────────────────────────────────────────────── */
 html[data-theme="dark"] {
+  --color-primary: var(--pm-accent);
+  --color-bg: var(--pm-bg);
+  --color-text: var(--pm-text);
   --pm-bg:           #0d0e12;
   --pm-surface:      #13151c;
   --pm-surface-2:    #181a24;

@@ -66,6 +66,7 @@ import { ToastContainer } from "@/components/ui/ToastContainer";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { QueueIndicator } from "@/components/ui/QueueIndicator";
+import MonkfeedWidget from "@/components/MonkfeedWidget";
 
 export default function RootLayout({
   children,
@@ -156,6 +157,7 @@ export default function RootLayout({
             <main className="relative z-10 flex-1 flex flex-col">
               {children}
             </main>
+            <MonkfeedWidget />
           </PostHogProvider>
         </Suspense>
       </body>

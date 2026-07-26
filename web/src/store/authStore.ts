@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { api } from '@/lib/api'
 import { posthog } from '@/lib/posthog'
+import { syncMonkfeedLogin, syncMonkfeedLogout } from '@/lib/monkfeed-sync'
 
 interface User {
   id: string
@@ -47,6 +48,7 @@ export const useAuthStore = create<AuthState>()(
           // Identify the user in PostHog
           if (typeof window !== 'undefined' && res.user) {
             posthog.identify(res.user.id, { email: res.user.email, name: res.user.name ?? undefined })
+            syncMonkfeedLogin(res.user)
           }
         } finally {
           set({ isLoading: false })
@@ -63,6 +65,7 @@ export const useAuthStore = create<AuthState>()(
             set({ token, user: res.user })
             if (typeof window !== 'undefined' && res.user) {
               posthog.identify(res.user.id, { email: res.user.email, name: res.user.name ?? undefined })
+              syncMonkfeedLogin(res.user)
             }
           }
           return res
@@ -84,7 +87,10 @@ export const useAuthStore = create<AuthState>()(
         document.cookie = 'stagetoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         set({ user: null, token: null })
         // Reset PostHog — severs link between anonymous and identified session
-        if (typeof window !== 'undefined') posthog.reset()
+        if (typeof window !== 'undefined') {
+          posthog.reset()
+          syncMonkfeedLogout()
+        }
       },
 
       fetchMe: async () => {
@@ -92,6 +98,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           const meRes = await api.auth.me()
           set({ user: meRes })
+          if (meRes) {
+            syncMonkfeedLogin(meRes)
+          }
         } catch (err) {
           get().logout()
         } finally {
@@ -108,6 +117,9 @@ export const useAuthStore = create<AuthState>()(
           set({ user: meRes })
           if (typeof window !== 'undefined') {
             posthog.identify(meRes.id, { email: meRes.email, name: meRes.name ?? undefined })
+            if (meRes) {
+              syncMonkfeedLogin(meRes)
+            }
           }
         } finally {
           set({ isLoading: false })
@@ -123,6 +135,7 @@ export const useAuthStore = create<AuthState>()(
           set({ token, user: res.user })
           if (typeof window !== 'undefined' && res.user) {
             posthog.identify(res.user.id, { email: res.user.email, name: res.user.name ?? undefined })
+            syncMonkfeedLogin(res.user)
           }
         } finally {
           set({ isLoading: false })
