@@ -43,11 +43,13 @@ export function OnboardingChecklist() {
     checklist,
     isChecklistCollapsed,
     showCompletionModal,
+    isDismissed,
     startOnboarding,
     stopOnboarding,
     setStep,
     toggleChecklist,
     setShowCompletionModal,
+    setDismissed,
     hydrateFromLocalStorage
   } = useOnboardingStore();
 
@@ -55,7 +57,7 @@ export function OnboardingChecklist() {
     hydrateFromLocalStorage();
   }, [hydrateFromLocalStorage]);
 
-  if (!userRole) return null;
+  if (!userRole || isDismissed) return null;
 
   const tasks = userRole === 'developer' ? developerTaskMeta : reviewerTaskMeta;
   const completedCount = tasks.filter(t => checklist[t.id]).length;
@@ -91,6 +93,17 @@ export function OnboardingChecklist() {
               {/* Circular progress badge */}
               <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-md animate-bounce">
                 {completedCount}/{totalCount}
+              </span>
+              {/* Close Button on bubble */}
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDismissed(true);
+                }}
+                className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-[#182235]/90 border border-pm-border hover:bg-rose-500 hover:text-white text-pm-muted flex items-center justify-center shadow-md transition-all cursor-pointer opacity-0 group-hover:opacity-100 z-10"
+                title="Dismiss Guide"
+              >
+                <X className="w-3 h-3" />
               </span>
             </motion.button>
           ) : (

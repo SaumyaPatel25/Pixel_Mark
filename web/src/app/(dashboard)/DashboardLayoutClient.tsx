@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { StageLoader } from '@/components/ui/StageLoader'
-import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play, RotateCcw, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useOnboardingStore } from '@/store/onboardingStore'
 import { useProjectStore } from '@/store/projectStore'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
@@ -35,7 +35,9 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     hydrateFromLocalStorage,
     isOnboardingActive,
     isCompleted,
-    isDismissed
+    isDismissed,
+    setDismissed,
+    userRole
   } = useOnboardingStore()
 
   const { projects, loading: projectsLoading, fetchProjects } = useProjectStore()
@@ -242,16 +244,41 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               <HelpCircle className="w-4 h-4" />
               Diagnostic Support
             </Link>
-            <button 
-              onClick={() => {
-                startOnboarding('developer');
-                router.push('/dashboard');
-              }}
-              className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all w-full text-left cursor-pointer"
-            >
-              <Play className="w-4 h-4 text-purple-400" />
-              Restart Product Tour
-            </button>
+            {isDismissed && userRole ? (
+              <>
+                <button 
+                  onClick={() => {
+                    setDismissed(false);
+                    router.push('/dashboard');
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all w-full text-left cursor-pointer"
+                >
+                  <Play className="w-4 h-4 text-emerald-400 animate-pulse" />
+                  Resume Product Tour
+                </button>
+                <button 
+                  onClick={() => {
+                    startOnboarding('developer');
+                    router.push('/dashboard');
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all w-full text-left cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4 text-purple-400" />
+                  Restart Product Tour
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={() => {
+                  startOnboarding('developer');
+                  router.push('/dashboard');
+                }}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all w-full text-left cursor-pointer"
+              >
+                <Play className="w-4 h-4 text-purple-400" />
+                Restart Product Tour
+              </button>
+            )}
             <div 
               className="flex items-center justify-between px-3 py-2 rounded-xl text-sm text-pm-muted/60 cursor-not-allowed select-none"
             >

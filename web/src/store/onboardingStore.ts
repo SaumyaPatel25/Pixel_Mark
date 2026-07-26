@@ -41,6 +41,7 @@ interface OnboardingState {
   resetTasks: () => void;
   toggleChecklist: (collapsed?: boolean) => void;
   setShowCompletionModal: (show: boolean) => void;
+  setDismissed: (dismissed: boolean) => void;
   hydrateFromLocalStorage: () => void;
 }
 
@@ -378,6 +379,11 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   setShowCompletionModal: (show) => {
     set({ showCompletionModal: show });
     saveToLocalStorage({ ...get(), showCompletionModal: show });
+  },
+
+  setDismissed: (dismissed) => {
+    set({ isDismissed: dismissed });
+    saveToLocalStorage({ ...get(), isDismissed: dismissed });
   },
 
   hydrateFromLocalStorage: () => {
