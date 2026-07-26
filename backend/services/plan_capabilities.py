@@ -77,17 +77,17 @@ class PlanCapabilities:
                 "can_create_projects": True,
                 "has_blueprint_dom_edit": True,
             }
-        else:  # solopreneur
+        else:  # none / fallback
             return {
-                "plan_type": "solopreneur",
+                "plan_type": "none",
                 "status": status,
                 "seats_allowed": 1,
-                "projects_allowed": 5,
+                "projects_allowed": 0,  # 0 new allowed
                 "blueprint_dom_edit": False,
                 "is_early_bird": False,
                 "is_past_due_warning": is_past_due_warning,
                 "grace_period_ends_at": grace_period_ends_at.isoformat() if grace_period_ends_at else None,
-                "can_create_projects": True,
+                "can_create_projects": False,
                 "has_blueprint_dom_edit": False,
             }
 

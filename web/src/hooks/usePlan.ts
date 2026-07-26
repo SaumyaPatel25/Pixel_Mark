@@ -47,7 +47,7 @@ export function usePlan(orgId?: string) {
   const status = plan?.status || 'none'
   const isEarlyBird = Boolean(plan?.is_early_bird)
   const isDevTeam = planType === 'dev_team' || planType === 'dev_team_early_bird' || planType === 'enterprise'
-  const isSolopreneur = planType === 'solopreneur'
+  const isSolopreneur = false
   const hasNoSubscription = planType === 'none' || status === 'none' || status === 'canceled' || status === 'expired'
   const canUseBlueprintDomEdit = Boolean(plan?.has_blueprint_dom_edit)
   const projectsRemaining = plan?.projects_remaining ?? 0

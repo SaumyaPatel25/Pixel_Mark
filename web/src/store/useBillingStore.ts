@@ -40,14 +40,14 @@ interface BillingState {
 
 export const useBillingStore = create<BillingState>((set, get) => ({
   subscription: null,
-  currentPlan: 'solopreneur',
+  currentPlan: 'none',
   isEarlyBird: false,
   isTestMode: true,
-  projectsAllowed: 5,
+  projectsAllowed: 0,
   projectsUsed: 0,
   seatsAllowed: 1,
   seatsUsed: 1,
-  subscriptionStatus: 'active',
+  subscriptionStatus: 'none',
   hasBlueprintDomEdit: false,
   earlyBirdSlotsRemaining: 50,
   earlyBirdClaimedCount: 0,

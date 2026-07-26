@@ -28,11 +28,11 @@ async def get_or_create_subscription(db: AsyncSession, org_id: str) -> Subscript
         is_test = (settings.dodo_environment == "test_mode")
         sub = SubscriptionModel(
             org_id=org_id,
-            plan_type="solopreneur",
-            status="active",
+            plan_type="none",
+            status="none",
             is_test_mode=is_test,
             seats_allowed=1,
-            projects_allowed=5
+            projects_allowed=0
         )
         db.add(sub)
         await db.commit()
@@ -132,37 +132,34 @@ async def create_checkout(
             detail="Enterprise plan is custom-managed. Please click 'Let's talk' to contact our team directly."
         )
 
-    if payload.plan_type not in ("solopreneur", "dev_team"):
-        raise HTTPException(status_code=400, detail="Invalid plan_type requested.")
+    if payload.plan_type != "dev_team":
+        raise HTTPException(status_code=400, detail="Invalid plan_type requested. Solopreneur plan is temporarily unavailable.")
 
     target_org_id = await resolve_user_org_id(db, current_user, payload.org_id)
     early_bird_applied = False
-    requested_plan = payload.plan_type
+    requested_plan = "dev_team"
     discount_code = None
 
-    if payload.plan_type == "dev_team":
-        # Atomic lock on early bird counter to prevent race conditions past 50
-        res = await db.execute(
-            select(EarlyBirdCounterModel)
-            .where(EarlyBirdCounterModel.id == "dev_team_early_bird")
-            .with_for_update()
-        )
-        counter = res.scalar_one_or_none()
-        if not counter:
-            counter = EarlyBirdCounterModel(id="dev_team_early_bird", claimed_count=0, max_limit=50)
-            db.add(counter)
-            await db.flush()
+    # Atomic lock on early bird counter to prevent race conditions past 50
+    res = await db.execute(
+        select(EarlyBirdCounterModel)
+        .where(EarlyBirdCounterModel.id == "dev_team_early_bird")
+        .with_for_update()
+    )
+    counter = res.scalar_one_or_none()
+    if not counter:
+        counter = EarlyBirdCounterModel(id="dev_team_early_bird", claimed_count=0, max_limit=50)
+        db.add(counter)
+        await db.flush()
 
-        if counter.claimed_count < 50:
-            counter.claimed_count += 1
-            early_bird_applied = True
-            requested_plan = "dev_team_early_bird"
-            discount_code = settings.dodo_discount_code_dev_team_early_bird
-            await db.commit()
+    if counter.claimed_count < 50:
+        counter.claimed_count += 1
+        early_bird_applied = True
+        requested_plan = "dev_team_early_bird"
+        discount_code = settings.dodo_discount_code_dev_team_early_bird
+        await db.commit()
 
-        product_id = settings.dodo_product_id_dev_team
-    else:
-        product_id = settings.dodo_product_id_solopreneur
+    product_id = settings.dodo_product_id_dev_team
 
     customer = await dodo_client.create_customer(email=current_user.email, name=current_user.name or current_user.email)
     customer_id = customer.get("customer_id", f"cust_{current_user.id[:8]}")
@@ -183,7 +180,7 @@ async def create_checkout(
     )
 
     return CheckoutResponse(
-        checkout_url=session.get("checkout_url", f"https://test.dodopayments.com/buy/{product_id}"),
+        checkout_url=session.get("checkout_url", f"https://test.checkout.dodopayments.com/buy/{product_id}"),
         session_id=session.get("session_id", f"cs_test_{target_org_id[:8]}"),
         plan_type=requested_plan,
         early_bird_applied=early_bird_applied,
@@ -240,7 +237,7 @@ async def handle_dodo_webhook(
     metadata = event_data.get("metadata", {})
 
     org_id = metadata.get("org_id")
-    plan_type = metadata.get("plan_type", "solopreneur")
+    plan_type = metadata.get("plan_type", "dev_team")
     sub_id = event_data.get("subscription_id") or event_data.get("id")
     cust_id = event_data.get("customer_id")
 
@@ -266,9 +263,9 @@ async def handle_dodo_webhook(
         elif plan_type == "enterprise":
             sub.seats_allowed = 9999
             sub.projects_allowed = 9999
-        else:  # solopreneur
+        else:  # fallback to none limits
             sub.seats_allowed = 1
-            sub.projects_allowed = 5
+            sub.projects_allowed = 0
 
         await db.commit()
         invalidate_org_plan_cache(org_id)

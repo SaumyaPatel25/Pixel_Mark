@@ -13,10 +13,11 @@ from fastapi import HTTPException
 
 @pytest.mark.asyncio
 async def test_plan_capabilities_service_rules():
-    # Solopreneur
+    # Solopreneur (fallback to none)
     c_solo = PlanCapabilities.get_capabilities("solopreneur", "active")
+    assert c_solo["plan_type"] == "none"
     assert c_solo["seats_allowed"] == 1
-    assert c_solo["projects_allowed"] == 5
+    assert c_solo["projects_allowed"] == 0
     assert c_solo["has_blueprint_dom_edit"] is False
 
     # Dev Team
@@ -105,9 +106,10 @@ async def test_downgrade_archiving_and_resolution_cache():
         assert plan1["plan_type"] == "dev_team"
         assert plan1["projects_used"] == 7
 
-        # Downgrade to Solopreneur (5 projects max)
-        sub.plan_type = "solopreneur"
-        sub.projects_allowed = 5
+        # Downgrade to None / Canceled (0 projects max)
+        sub.plan_type = "none"
+        sub.status = "canceled"
+        sub.projects_allowed = 0
         sub.seats_allowed = 1
         await db_session.commit()
 
@@ -116,18 +118,18 @@ async def test_downgrade_archiving_and_resolution_cache():
 
         # Resolve after downgrade
         plan2 = await resolve_org_plan(target_org_id, db_session)
-        assert plan2["plan_type"] == "solopreneur"
-        assert plan2["projects_allowed"] == 5
-        # 5 active projects, 2 archived_over_limit
-        assert plan2["projects_used"] == 5
+        assert plan2["plan_type"] == "none"
+        assert plan2["projects_allowed"] == 0
+        # 0 active projects, 7 archived_over_limit
+        assert plan2["projects_used"] == 0
         assert plan2["can_create_projects"] is False
 
-        # Attempt project creation under solopreneur with 5 active projects must raise LIMIT_PROJECTS_EXCEEDED
+        # Attempt project creation under none plan must raise SUBSCRIPTION_REQUIRED
         try:
             await check_project_limit(target_org_id, db_session)
-            assert False, "Should have raised LIMIT_PROJECTS_EXCEEDED"
+            assert False, "Should have raised SUBSCRIPTION_REQUIRED"
         except HTTPException as exc:
             assert exc.status_code == 403
-            assert exc.detail["code"] == "LIMIT_PROJECTS_EXCEEDED"
+            assert exc.detail["code"] == "SUBSCRIPTION_REQUIRED"
 
     await test_engine.dispose()

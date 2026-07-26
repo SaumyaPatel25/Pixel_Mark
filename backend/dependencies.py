@@ -105,8 +105,6 @@ def require_role(minimum_role: RoleEnum):
     return checker
 
 
-async def check_project_limit(org_id: str, db: AsyncSession = Depends(get_db)):
-    from models import SubscriptionModel, Project
 async def get_current_org_with_plan(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
     from models.core import OrgMember
     from services.plan_capabilities import resolve_org_plan

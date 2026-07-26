@@ -108,34 +108,28 @@ async def test_subscription_limits_and_enforcement():
         db_session.add(org)
         await db_session.commit()
 
-        # Create Solopreneur Subscription (1 seat, 5 projects)
+        # Create None Subscription (1 seat, 0 projects)
         sub = SubscriptionModel(
             id=str(uuid.uuid4()),
             org_id=target_org_id,
-            plan_type="solopreneur",
-            status="active",
+            plan_type="none",
+            status="none",
             seats_allowed=1,
-            projects_allowed=5
+            projects_allowed=0
         )
         db_session.add(sub)
         await db_session.commit()
 
-        # Add 5 projects
-        for i in range(5):
-            p = Project(id=str(uuid.uuid4()), name=f"Project {i}", org_id=target_org_id)
-            db_session.add(p)
-        await db_session.commit()
-
-        # 6th project check must raise LIMIT_PROJECTS_EXCEEDED
+        # Add project check must raise SUBSCRIPTION_REQUIRED
         from fastapi import HTTPException
         try:
             await check_project_limit(target_org_id, db_session)
-            assert False, "Should have raised LIMIT_PROJECTS_EXCEEDED"
+            assert False, "Should have raised SUBSCRIPTION_REQUIRED"
         except HTTPException as exc:
             assert exc.status_code == 403
-            assert exc.detail["code"] == "LIMIT_PROJECTS_EXCEEDED"
+            assert exc.detail["code"] == "SUBSCRIPTION_REQUIRED"
 
-        # Feature check for DOM Edit on Solopreneur plan must raise FEATURE_REQUIRES_DEV_TEAM_PLAN
+        # Feature check for DOM Edit on None plan must raise FEATURE_REQUIRES_DEV_TEAM_PLAN
         user = User(id=str(uuid.uuid4()), email=f"solo-{uid}@stage.dev", name="Solo Dev", hashed_password="mock_hash")
         db_session.add(user)
         await db_session.commit()

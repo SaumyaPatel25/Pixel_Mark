@@ -53,19 +53,7 @@ export function PlanBadge() {
     )
   }
 
-  if (isSolopreneur) {
-    return (
-      <Link
-        href="/pricing"
-        className="group inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 transition-all"
-        title="Solopreneur Plan - Click to Upgrade"
-      >
-        <Zap className="w-3.5 h-3.5 text-indigo-400" />
-        <span>Solopreneur</span>
-        <ArrowUpRight className="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity text-cyan-400" />
-      </Link>
-    )
-  }
+
 
   return (
     <Link

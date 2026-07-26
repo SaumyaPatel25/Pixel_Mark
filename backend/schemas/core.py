@@ -733,7 +733,7 @@ class SubscriptionRead(BaseModel):
 
 
 class CheckoutRequest(BaseModel):
-    plan_type: str  # solopreneur | dev_team
+    plan_type: str  # dev_team
     org_id: Optional[str] = None
 
 

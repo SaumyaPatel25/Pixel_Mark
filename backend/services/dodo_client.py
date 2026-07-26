@@ -2,6 +2,8 @@ import hmac
 import hashlib
 import logging
 import httpx
+import sys
+import os
 from typing import Optional, Dict, Any
 from config import settings
 
@@ -17,6 +19,7 @@ class DodoClient:
         self.env = settings.dodo_environment
         self.api_key = settings.dodo_api_key
         self.webhook_secret = settings.dodo_webhook_secret
+        self.is_mock = self.api_key.startswith("test_dodo_api_key") or "pytest" in sys.modules or bool(os.environ.get("PYTEST_CURRENT_TEST"))
 
         if self.env == "test_mode":
             self.base_url = "https://test.dodopayments.com"
@@ -38,7 +41,7 @@ class DodoClient:
         payload = {"email": email, "name": name}
 
         # Mock fallback for sandbox test keys
-        if self.api_key.startswith("test_dodo_api_key"):
+        if self.is_mock:
             return {
                 "customer_id": f"cust_dodo_test_{hashlib.md5(email.encode()).hexdigest()[:12]}",
                 "email": email,
@@ -76,7 +79,7 @@ class DodoClient:
             payload["discount_code"] = discount_code
 
         # Synthetic test mode fallback when using sample test key
-        if self.api_key.startswith("test_dodo_api_key"):
+        if self.is_mock:
             session_id = f"cs_test_{hashlib.md5(f'{customer_id}:{product_id}'.encode()).hexdigest()[:16]}"
             checkout_url = f"{self.base_url}/buy/{product_id}?session_id={session_id}&customer={customer_id}"
             if discount_code:
@@ -104,7 +107,7 @@ class DodoClient:
         """
         url = f"{self.base_url}/v1/subscriptions/{subscription_id}"
 
-        if self.api_key.startswith("test_dodo_api_key"):
+        if self.is_mock:
             return {
                 "subscription_id": subscription_id,
                 "status": "active",
@@ -125,7 +128,7 @@ class DodoClient:
         """
         url = f"{self.base_url}/v1/subscriptions/{subscription_id}/cancel"
 
-        if self.api_key.startswith("test_dodo_api_key"):
+        if self.is_mock:
             return {
                 "subscription_id": subscription_id,
                 "status": "canceled",

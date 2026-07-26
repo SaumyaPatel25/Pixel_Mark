@@ -489,12 +489,12 @@ class SubscriptionModel(Base):
     org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     dodo_customer_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     dodo_subscription_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
-    plan_type: Mapped[str] = mapped_column(String, nullable=False, default="solopreneur", index=True)  # solopreneur | dev_team | dev_team_early_bird | enterprise
-    status: Mapped[str] = mapped_column(String, nullable=False, default="active", index=True)  # active | past_due | canceled | trialing | incomplete
+    plan_type: Mapped[str] = mapped_column(String, nullable=False, default="none", index=True)  # none | dev_team | dev_team_early_bird | enterprise
+    status: Mapped[str] = mapped_column(String, nullable=False, default="none", index=True)  # none | active | past_due | canceled | trialing | incomplete
     is_test_mode: Mapped[bool] = mapped_column(Boolean, default=True)
     current_period_end: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
     seats_allowed: Mapped[int] = mapped_column(Integer, default=1)
-    projects_allowed: Mapped[int] = mapped_column(Integer, default=5)
+    projects_allowed: Mapped[int] = mapped_column(Integer, default=0)
     past_due_since: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

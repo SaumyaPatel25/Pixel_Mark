@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { Check, Sparkles, Zap, Shield, ArrowRight, Mail, Users, Layers, ExternalLink, HelpCircle } from 'lucide-react'
 import { useBillingStore } from '@/store/useBillingStore'
 
+const ENTERPRISE_CONTACT_EMAIL = process.env.NEXT_PUBLIC_ENTERPRISE_CONTACT_EMAIL || "founder@stage.dev"
+
 export default function PricingPage() {
   const {
     currentPlan,
@@ -69,67 +71,9 @@ export default function PricingPage() {
       </div>
 
       {/* Pricing Cards Grid */}
-      <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+      <div className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
         
-        {/* CARD 1: SOLOPRENEUR */}
-        <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 flex flex-col justify-between hover:border-slate-700 transition-all duration-200 shadow-xl relative">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Solopreneur</span>
-              {currentPlan === 'solopreneur' && (
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-bold">Current Plan</span>
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-white">$9</span>
-                <span className="text-xs font-medium text-slate-400">/ month flat</span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">Perfect for solo developers and freelancers.</p>
-            </div>
-
-            <hr className="border-slate-800" />
-
-            <ul className="space-y-2.5 text-xs text-slate-300">
-              <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span><strong>1 Developer Seat</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span><strong>5 Projects</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>Session Review & Marker Pinning</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>Standard CSS/JSON Exports</span>
-              </li>
-            </ul>
-          </div>
-
-          <div className="pt-6">
-            <button
-              onClick={() => handleCheckout('solopreneur')}
-              disabled={loadingPlan === 'solopreneur'}
-              className="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer border border-slate-700"
-            >
-              {loadingPlan === 'solopreneur' ? (
-                <span>Redirecting...</span>
-              ) : (
-                <>
-                  <span>Subscribe to Solopreneur</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* CARD 2 & 3: DEV TEAM (WITH EARLY BIRD BADGE OVERLAY) */}
+        {/* CARD 1: DEV TEAM (WITH EARLY BIRD BADGE OVERLAY) */}
         <div className="bg-[#0b101d] border-2 border-purple-500/40 rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 shadow-2xl relative bg-gradient-to-b from-purple-950/20 via-[#0b101d] to-[#0b101d]">
           {/* Early Bird Scarcity Badge */}
           {isEarlyBirdActive && (
@@ -220,7 +164,7 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* CARD 4: ENTERPRISE ("LET'S TALK") */}
+        {/* CARD 2: ENTERPRISE ("LET'S TALK") */}
         <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 flex flex-col justify-between hover:border-slate-700 transition-all duration-200 shadow-xl relative">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -261,7 +205,7 @@ export default function PricingPage() {
 
           <div className="pt-6">
             <a
-              href="mailto:founder@stage.dev?subject=STAGE%20Enterprise%20Plan%20Inquiry"
+              href={`mailto:${ENTERPRISE_CONTACT_EMAIL}?subject=STAGE%20Enterprise%20Plan%20Inquiry`}
               className="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer border border-cyan-500/30"
             >
               <Mail className="w-3.5 h-3.5" />
@@ -275,7 +219,7 @@ export default function PricingPage() {
       {/* Footer info */}
       <div className="max-w-4xl mx-auto px-6 py-12 text-center text-xs text-slate-500 space-y-2">
         <p>All subscriptions are powered safely by Dodo Payments in Sandbox Test Mode.</p>
-        <p>Need custom procurement or invoice billing? Contact founder@stage.dev</p>
+        <p>Need custom procurement or invoice billing? Contact {ENTERPRISE_CONTACT_EMAIL}</p>
       </div>
     </div>
   )
