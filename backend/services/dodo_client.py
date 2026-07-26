@@ -37,7 +37,7 @@ class DodoClient:
         """
         Creates or returns a Dodo customer object.
         """
-        url = f"{self.base_url}/v1/customers"
+        url = f"{self.base_url}/customers"
         payload = {"email": email, "name": name}
 
         # Mock fallback for sandbox test keys
@@ -67,12 +67,16 @@ class DodoClient:
         """
         Creates a Dodo Checkout Session in test or live mode.
         """
-        url = f"{self.base_url}/v1/checkout/sessions"
+        url = f"{self.base_url}/checkouts"
         payload: Dict[str, Any] = {
-            "product_id": product_id,
             "customer_id": customer_id,
-            "quantity": 1,
-            "redirect_url": redirect_url or f"{settings.frontend_url}/billing/success",
+            "product_cart": [
+                {
+                    "product_id": product_id,
+                    "quantity": 1
+                }
+            ],
+            "return_url": redirect_url or f"{settings.frontend_url}/billing/success",
             "metadata": metadata or {}
         }
         if discount_code:
@@ -105,7 +109,7 @@ class DodoClient:
         """
         Retrieves subscription details from Dodo Payments.
         """
-        url = f"{self.base_url}/v1/subscriptions/{subscription_id}"
+        url = f"{self.base_url}/subscriptions/{subscription_id}"
 
         if self.is_mock:
             return {
@@ -126,7 +130,7 @@ class DodoClient:
         """
         Cancels an active subscription in Dodo Payments.
         """
-        url = f"{self.base_url}/v1/subscriptions/{subscription_id}/cancel"
+        url = f"{self.base_url}/subscriptions/{subscription_id}/cancel"
 
         if self.is_mock:
             return {
