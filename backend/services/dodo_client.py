@@ -101,6 +101,13 @@ class DodoClient:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(url, json=payload, headers=self._get_headers())
             if resp.status_code not in (200, 201):
+                # If discount code is invalid/not found, retry without discount code
+                if resp.status_code == 404 and "discount_code" in payload:
+                    discount_code = payload.pop("discount_code")
+                    logger.warning(f"[DodoClient] Discount code '{discount_code}' not found in Dodo Payments. Retrying checkout creation without discount.")
+                    resp = await client.post(url, json=payload, headers=self._get_headers())
+                    if resp.status_code in (200, 201):
+                        return resp.json()
                 logger.error(f"[DodoClient] create_checkout_session failed ({resp.status_code}): {resp.text}")
                 resp.raise_for_status()
             return resp.json()
