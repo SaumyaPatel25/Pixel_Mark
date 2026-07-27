@@ -195,6 +195,41 @@ async def run_migration():
                 """))
             print("[OK] audit_artifacts table created successfully!")
 
+        # Check if org_invites table exists
+        if "org_invites" not in tables:
+            print("Creating org_invites table...")
+            col_type = "TIMESTAMP WITH TIME ZONE" if "postgresql" in DATABASE_URL else "TIMESTAMP"
+            await conn.execute(text(f"""
+                CREATE TABLE org_invites (
+                    id VARCHAR PRIMARY KEY,
+                    org_id VARCHAR NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+                    role VARCHAR NOT NULL DEFAULT 'developer',
+                    max_uses INTEGER NOT NULL DEFAULT 5,
+                    current_use_count INTEGER NOT NULL DEFAULT 0,
+                    expires_at {col_type} NULL,
+                    password_hash VARCHAR NULL,
+                    created_by VARCHAR NOT NULL REFERENCES users(id),
+                    revoked_at {col_type} NULL,
+                    created_at {col_type} DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            print("[OK] org_invites table created successfully!")
+
+        # Check if is_internal column exists in organizations
+        org_cols = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_columns("organizations"))
+        org_col_names = [c["name"] for c in org_cols]
+        if "is_internal" not in org_col_names:
+            print("Adding is_internal column to organizations...")
+            await conn.execute(text("ALTER TABLE organizations ADD COLUMN is_internal BOOLEAN DEFAULT FALSE"))
+
+        # Check if soft_deleted_at column exists in projects
+        proj_cols = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_columns("projects"))
+        proj_col_names = [c["name"] for c in proj_cols]
+        if "soft_deleted_at" not in proj_col_names:
+            print("Adding soft_deleted_at column to projects...")
+            col_type = "TIMESTAMP WITH TIME ZONE" if "postgresql" in DATABASE_URL else "TIMESTAMP"
+            await conn.execute(text(f"ALTER TABLE projects ADD COLUMN soft_deleted_at {col_type} NULL"))
+
         # Safety Sequential Renumbering of markers to prevent unique constraint failures
         print("Renumbering existing markers sequentially per session...")
         sessions_res = await conn.execute(text("SELECT DISTINCT session_id FROM markers"))

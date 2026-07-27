@@ -507,6 +507,33 @@ export const api = {
     }
   },
 
+  // INVITES
+  invites: {
+    async create(data: { role?: string; max_uses?: number; expires_in_days?: number; password?: string }) {
+      return apiQueue.enqueueWrite('Creating team invite link...', () => request('/orgs/invites', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }))
+    },
+    async list() {
+      return apiQueue.enqueueRead('Loading team invites...', () => request('/orgs/invites'))
+    },
+    async revoke(inviteId: string) {
+      return apiQueue.enqueueWrite('Revoking invite link...', () => request(`/orgs/invites/${inviteId}`, {
+        method: 'DELETE'
+      }))
+    },
+    async preview(inviteId: string) {
+      return apiQueue.enqueueRead('Previewing invite link...', () => request(`/orgs/invites/${inviteId}/preview`))
+    },
+    async join(inviteId: string, password?: string) {
+      return apiQueue.enqueueWrite('Joining organization...', () => request(`/orgs/invites/${inviteId}/join`, {
+        method: 'POST',
+        body: JSON.stringify({ password })
+      }))
+    }
+  },
+
   // SESSIONS
   sessions: {
     async getSessions(projectId: string) {

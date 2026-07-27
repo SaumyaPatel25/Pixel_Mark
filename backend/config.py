@@ -30,8 +30,8 @@ class Settings:
     dodo_webhook_secret: str = "whsec_test_stage_secret"
     dodo_product_id_dev_team: str = "p_dev_team_test"
     dodo_discount_code_dev_team_early_bird: str = "dsc_early_bird_25"
-    stage_founder_email: str = "founder@stage.dev"
-    enterprise_contact_email: str = "founder@stage.dev"
+    stage_founder_email: str = "saumyavishwam@gmail.com"
+    enterprise_contact_email: str = "saumyavishwam@gmail.com"
 
 
 def load_config() -> Settings:
@@ -72,8 +72,8 @@ def load_config() -> Settings:
         dodo_webhook_secret=os.getenv("DODO_WEBHOOK_SECRET", "whsec_test_stage_secret"),
         dodo_product_id_dev_team=os.getenv("DODO_PRODUCT_ID_DEV_TEAM", "p_dev_team_test"),
         dodo_discount_code_dev_team_early_bird=os.getenv("DODO_DISCOUNT_CODE_DEV_TEAM_EARLY_BIRD", "dsc_early_bird_25"),
-        stage_founder_email=os.getenv("STAGE_FOUNDER_EMAIL", "founder@stage.dev"),
-        enterprise_contact_email=os.getenv("ENTERPRISE_CONTACT_EMAIL", "founder@stage.dev")
+        stage_founder_email=os.getenv("STAGE_FOUNDER_EMAIL", "saumyavishwam@gmail.com"),
+        enterprise_contact_email=os.getenv("ENTERPRISE_CONTACT_EMAIL", "saumyavishwam@gmail.com")
     )
 
 settings = load_config()

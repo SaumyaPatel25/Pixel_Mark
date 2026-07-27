@@ -78,6 +78,7 @@ class Organization(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     name: Mapped[str] = mapped_column(String, nullable=False)
     slug: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    is_internal: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     members: Mapped[list["OrgMember"]] = relationship(back_populates="org")
     projects: Mapped[list["Project"]] = relationship(back_populates="org")
@@ -91,13 +92,30 @@ class OrgMember(Base):
     org: Mapped["Organization"] = relationship(back_populates="members")
     user: Mapped["User"] = relationship(back_populates="org_memberships")
 
+class OrgInvite(Base):
+    __tablename__ = "org_invites"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[str] = mapped_column(String, default="developer", nullable=False)
+    max_uses: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    current_use_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    org: Mapped["Organization"] = relationship()
+    creator: Mapped["User"] = relationship(foreign_keys=[created_by])
+
 class Project(Base):
     __tablename__ = "projects"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     url: Mapped[str] = mapped_column(String, nullable=True)
-    status: Mapped[str] = mapped_column(String, default="active", server_default="active", nullable=False)  # active | archived_over_limit
+    status: Mapped[str] = mapped_column(String, default="active", server_default="active", nullable=False)  # active | archived | soft_deleted
+    soft_deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     org: Mapped["Organization"] = relationship(back_populates="projects")
     environments: Mapped[list["Environment"]] = relationship(back_populates="project", cascade="all, delete-orphan")

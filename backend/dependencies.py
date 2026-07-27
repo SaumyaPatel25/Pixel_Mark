@@ -178,8 +178,8 @@ def require_plan_feature(feature_name: str):
                 raise HTTPException(
                     status_code=403,
                     detail={
-                        "code": "FEATURE_REQUIRES_DEV_TEAM_PLAN",
-                        "message": "Blueprint DOM Edit mode requires the STAGE Dev Team plan."
+                        "code": "FEATURE_REQUIRES_PAID_PLAN",
+                        "message": "Blueprint DOM Edit mode is available on Dev Team and Enterprise plans."
                     }
                 )
         return True

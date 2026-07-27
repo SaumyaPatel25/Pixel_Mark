@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from database import engine, Base
 import asyncio
 import logging
-from routes import auth, projects, sessions, proxy, export, websocket, canvas, shares, flags, screenshot, blueprint_ws, notifications, billing
+from routes import auth, projects, sessions, proxy, export, websocket, canvas, shares, flags, screenshot, blueprint_ws, notifications, billing, invites
 from routers.share_links import router as share_links_router
 from routers.review import router as review_router
 from routers.ai import router as ai_router
@@ -404,6 +404,7 @@ app.include_router(realtime_router)
 app.include_router(blueprint_ws.router)
 app.include_router(notifications.router)
 app.include_router(billing.router)
+app.include_router(invites.router)
 
 @app.get("/health")
 async def health():

@@ -2,7 +2,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from models.core import SubscriptionModel, Project, OrgMember
+from models.core import SubscriptionModel, Project, OrgMember, Organization
 
 # In-memory plan resolution cache with 45s TTL per org
 _PLAN_CACHE: Dict[str, Dict[str, Any]] = {}
@@ -40,12 +40,12 @@ class PlanCapabilities:
                 "plan_type": plan_type if plan_type != "none" else "none",
                 "status": status,
                 "seats_allowed": 1,
-                "projects_allowed": 0,  # 0 new allowed
+                "projects_allowed": 1,
                 "blueprint_dom_edit": False,
                 "is_early_bird": False,
                 "is_past_due_warning": is_past_due_warning,
                 "grace_period_ends_at": grace_period_ends_at.isoformat() if grace_period_ends_at else None,
-                "can_create_projects": False,
+                "can_create_projects": True,
                 "has_blueprint_dom_edit": False,
             }
 
@@ -82,12 +82,12 @@ class PlanCapabilities:
                 "plan_type": "none",
                 "status": status,
                 "seats_allowed": 1,
-                "projects_allowed": 0,  # 0 new allowed
+                "projects_allowed": 1,
                 "blueprint_dom_edit": False,
                 "is_early_bird": False,
                 "is_past_due_warning": is_past_due_warning,
                 "grace_period_ends_at": grace_period_ends_at.isoformat() if grace_period_ends_at else None,
-                "can_create_projects": False,
+                "can_create_projects": True,
                 "has_blueprint_dom_edit": False,
             }
 
@@ -137,29 +137,45 @@ async def resolve_org_plan(org_id: str, db: AsyncSession) -> Dict[str, Any]:
     if cached and (now_ts - cached["_cached_at"]) < CACHE_TTL_SECONDS:
         return cached["data"]
 
-    # Fetch Subscription
-    sub_res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
-    sub = sub_res.scalar_one_or_none()
+    # Fetch Org to check if internal QA organization
+    org_res = await db.execute(select(Organization).where(Organization.id == org_id))
+    org_obj = org_res.scalar_one_or_none()
+    is_internal_org = bool(org_obj and getattr(org_obj, "is_internal", False))
 
-    if not sub:
-        # Edge Case 1: No subscription yet
-        caps = PlanCapabilities.get_capabilities(plan_type="none", status="none")
+    if is_internal_org:
+        caps = PlanCapabilities.get_capabilities(plan_type="enterprise", status="active")
     else:
-        past_due_since = getattr(sub, "past_due_since", None)
-        caps = PlanCapabilities.get_capabilities(
-            plan_type=sub.plan_type,
-            status=sub.status,
-            past_due_since=past_due_since
-        )
+        # Fetch Subscription
+        sub_res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
+        sub = sub_res.scalar_one_or_none()
+
+        if not sub:
+            # Edge Case 1: No subscription yet
+            caps = PlanCapabilities.get_capabilities(plan_type="none", status="none")
+        else:
+            past_due_since = getattr(sub, "past_due_since", None)
+            caps = PlanCapabilities.get_capabilities(
+                plan_type=sub.plan_type,
+                status=sub.status,
+                past_due_since=past_due_since
+            )
 
     # Sync over-limit projects if needed
     await PlanCapabilities.sync_org_project_status(org_id, caps["projects_allowed"], db)
 
-    # Count active non-archived projects
+    # Count projects toward plan capacity (active + archived + soft_deleted within 30-day retention window)
+    retention_cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     proj_res = await db.execute(
         select(func.count(Project.id))
         .where(Project.org_id == org_id)
-        .where(Project.status != "archived_over_limit")
+        .where(
+            (Project.status.in_(["active", "archived", "archived_over_limit"]))
+            | (
+                (Project.status == "soft_deleted")
+                & (Project.soft_deleted_at != None)
+                & (Project.soft_deleted_at > retention_cutoff)
+            )
+        )
     )
     projects_used = proj_res.scalar() or 0
 
@@ -194,3 +210,73 @@ async def resolve_org_plan(org_id: str, db: AsyncSession) -> Dict[str, Any]:
         "data": res_data
     }
     return res_data
+
+
+async def resolve_org_entitlements(user_id: str, db: AsyncSession) -> Dict[str, Any]:
+    """
+    Centralized entitlement resolution for a user.
+    Resolves org membership, role, subscription status, seat counts, and Blueprint DOM access.
+    """
+    res = await db.execute(select(OrgMember).where(OrgMember.user_id == user_id))
+    member = res.scalars().first()
+    if not member:
+        return {
+            "user_id": user_id,
+            "org_id": None,
+            "org_name": "No Organization",
+            "role": "guest",
+            "is_billing_owner": False,
+            "plan_type": "none",
+            "status": "none",
+            "seats_allowed": 1,
+            "seats_used": 1,
+            "seats_remaining": 0,
+            "projects_allowed": 1,
+            "projects_used": 0,
+            "projects_remaining": 1,
+            "has_blueprint_dom_edit": False,
+            "can_use_blueprint_dom": False,
+            "is_paid": False,
+            "is_early_bird": False,
+            "is_test_mode": True,
+        }
+
+    org_id = member.org_id
+    plan_info = await resolve_org_plan(org_id, db)
+    
+    org_res = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = org_res.scalar_one_or_none()
+    org_name = org.name if org else "My Organization"
+
+    role_str = member.role.value if hasattr(member.role, "value") else str(member.role)
+    is_billing_owner = (role_str in ("billing_owner", "owner"))
+
+    is_paid = (
+        plan_info["plan_type"] in ("dev_team", "dev_team_early_bird", "enterprise")
+        and plan_info["status"] in ("active", "trialing")
+        and plan_info["seats_used"] <= plan_info["seats_allowed"]
+    )
+
+    can_use_blueprint_dom = bool(is_paid and plan_info["has_blueprint_dom_edit"])
+
+    return {
+        "user_id": user_id,
+        "org_id": org_id,
+        "org_name": org_name,
+        "role": role_str,
+        "is_billing_owner": is_billing_owner,
+        "plan_type": plan_info["plan_type"],
+        "status": plan_info["status"],
+        "seats_allowed": plan_info["seats_allowed"],
+        "seats_used": plan_info["seats_used"],
+        "seats_remaining": plan_info["seats_remaining"],
+        "projects_allowed": plan_info["projects_allowed"],
+        "projects_used": plan_info["projects_used"],
+        "projects_remaining": plan_info["projects_remaining"],
+        "has_blueprint_dom_edit": can_use_blueprint_dom,
+        "can_use_blueprint_dom": can_use_blueprint_dom,
+        "is_paid": is_paid,
+        "is_early_bird": plan_info["is_early_bird"],
+        "is_test_mode": True,
+    }
+

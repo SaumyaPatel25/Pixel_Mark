@@ -108,16 +108,20 @@ async def test_subscription_limits_and_enforcement():
         db_session.add(org)
         await db_session.commit()
 
-        # Create None Subscription (1 seat, 0 projects)
+        # Create None Subscription (1 seat, 1 project allowed)
         sub = SubscriptionModel(
             id=str(uuid.uuid4()),
             org_id=target_org_id,
             plan_type="none",
             status="none",
             seats_allowed=1,
-            projects_allowed=0
+            projects_allowed=1
         )
         db_session.add(sub)
+        
+        # Add 1 project to reach the limit
+        proj = Project(id=str(uuid.uuid4()), name="Test Project", org_id=target_org_id)
+        db_session.add(proj)
         await db_session.commit()
 
         # Add project check must raise SUBSCRIPTION_REQUIRED

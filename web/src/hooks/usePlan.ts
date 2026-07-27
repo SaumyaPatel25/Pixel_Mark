@@ -1,74 +1,38 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { api } from '@/lib/api'
+import { useBillingStore } from '@/store/useBillingStore'
+import { useAuthStore } from '@/store/authStore'
+import { isPaidPlan, evaluateFeatureAccess, FeatureName, PlanCapabilities } from '@/lib/featureAccess'
 
-export interface PlanCapabilitiesData {
-  org_id: string
-  plan_type: string
-  status: string
-  seats_allowed: number
-  projects_allowed: number
-  has_blueprint_dom_edit: boolean
-  is_early_bird: boolean
-  is_past_due_warning: boolean
-  grace_period_ends_at: string | null
-  projects_used: number
-  seats_used: number
-  projects_remaining: number
-  seats_remaining: number
-  can_create_projects: boolean
-}
+export function usePlan() {
+  const billing = useBillingStore()
+  const user = useAuthStore((s) => s.user)
 
-export function usePlan(orgId?: string) {
-  const [plan, setPlan] = useState<PlanCapabilitiesData | null>(null)
-  const [loading, setLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string | null>(null)
+  const isPaid = isPaidPlan(billing.currentPlan, billing.subscriptionStatus)
 
-  const fetchPlan = useCallback(async () => {
-    try {
-      setLoading(true)
-      const data = await api.billing.getPlanCapabilities(orgId)
-      setPlan(data)
-      setError(null)
-    } catch (err: any) {
-      console.error('[STAGE Plan Hook] Error fetching plan capabilities:', err)
-      setError(err?.message || 'Failed to fetch plan capabilities')
-    } finally {
-      setLoading(false)
-    }
-  }, [orgId])
+  const caps: PlanCapabilities = {
+    planType: (billing.currentPlan as any) || 'none',
+    status: billing.subscriptionStatus || 'none',
+    seatsAllowed: billing.seatsAllowed || 1,
+    seatsUsed: billing.seatsUsed || 1,
+    projectsAllowed: billing.projectsAllowed || 1,
+    projectsUsed: billing.projectsUsed || 0,
+    hasBlueprintDomEdit: Boolean(billing.hasBlueprintDomEdit && isPaid),
+    canCreateProjects: billing.projectsUsed < billing.projectsAllowed,
+    isEarlyBird: billing.isEarlyBird,
+    isPaid,
+    isTestMode: billing.isTestMode
+  }
 
-  useEffect(() => {
-    fetchPlan()
-  }, [fetchPlan])
-
-  const planType = plan?.plan_type || 'none'
-  const status = plan?.status || 'none'
-  const isEarlyBird = Boolean(plan?.is_early_bird)
-  const isDevTeam = planType === 'dev_team' || planType === 'dev_team_early_bird' || planType === 'enterprise'
-  const isSolopreneur = false
-  const hasNoSubscription = planType === 'none' || status === 'none' || status === 'canceled' || status === 'expired'
-  const canUseBlueprintDomEdit = Boolean(plan?.has_blueprint_dom_edit)
-  const projectsRemaining = plan?.projects_remaining ?? 0
-  const seatsRemaining = plan?.seats_remaining ?? 0
-  const isPastDueWarning = Boolean(plan?.is_past_due_warning)
+  const canAccess = (feature: FeatureName): boolean => {
+    return evaluateFeatureAccess(feature, caps)
+  }
 
   return {
-    plan,
-    loading,
-    error,
-    refreshPlan: fetchPlan,
-    planType,
-    status,
-    isEarlyBird,
-    isDevTeam,
-    isSolopreneur,
-    hasNoSubscription,
-    canUseBlueprintDomEdit,
-    projectsRemaining,
-    seatsRemaining,
-    isPastDueWarning,
-    gracePeriodEndsAt: plan?.grace_period_ends_at || null,
+    ...billing,
+    capabilities: caps,
+    isPaid,
+    canAccess,
+    user,
   }
 }

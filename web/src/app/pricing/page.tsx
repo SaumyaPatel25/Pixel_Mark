@@ -7,7 +7,7 @@ import MarketingNav from '@/components/marketing/MarketingNav'
 import MarketingFooter from '@/components/marketing/MarketingFooter'
 import Link from 'next/link'
 
-const ENTERPRISE_CONTACT_EMAIL = process.env.NEXT_PUBLIC_ENTERPRISE_CONTACT_EMAIL || "founder@stage.dev"
+const ENTERPRISE_CONTACT_EMAIL = process.env.NEXT_PUBLIC_ENTERPRISE_CONTACT_EMAIL || "saumyavishwam@gmail.com"
 
 export default function PricingPage() {
   const {
@@ -112,11 +112,11 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span><strong>0 Projects Allowed</strong> (Sandbox mode)</span>
+                  <span><strong>1 Project Allowed</strong></span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span>Drop annotations on any URL</span>
+                  <span>Only canvas sessions available</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />

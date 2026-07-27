@@ -32,7 +32,7 @@ async def get_or_create_subscription(db: AsyncSession, org_id: str) -> Subscript
             status="none",
             is_test_mode=is_test,
             seats_allowed=1,
-            projects_allowed=0
+            projects_allowed=1
         )
         db.add(sub)
         await db.commit()
@@ -265,7 +265,7 @@ async def handle_dodo_webhook(
             sub.projects_allowed = 9999
         else:  # fallback to none limits
             sub.seats_allowed = 1
-            sub.projects_allowed = 0
+            sub.projects_allowed = 1
 
         await db.commit()
         invalidate_org_plan_cache(org_id)

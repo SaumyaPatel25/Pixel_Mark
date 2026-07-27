@@ -17,7 +17,7 @@ async def test_plan_capabilities_service_rules():
     c_solo = PlanCapabilities.get_capabilities("solopreneur", "active")
     assert c_solo["plan_type"] == "none"
     assert c_solo["seats_allowed"] == 1
-    assert c_solo["projects_allowed"] == 0
+    assert c_solo["projects_allowed"] == 1
     assert c_solo["has_blueprint_dom_edit"] is False
 
     # Dev Team
@@ -42,8 +42,8 @@ async def test_plan_capabilities_service_rules():
     # None / Canceled
     c_none = PlanCapabilities.get_capabilities("none", "none")
     assert c_none["seats_allowed"] == 1
-    assert c_none["projects_allowed"] == 0
-    assert c_none["can_create_projects"] is False
+    assert c_none["projects_allowed"] == 1
+    assert c_none["can_create_projects"] is True
     assert c_none["has_blueprint_dom_edit"] is False
 
 
@@ -61,7 +61,7 @@ async def test_past_due_grace_period_and_expiration():
     c_expired = PlanCapabilities.get_capabilities("dev_team", "past_due", past_due_since=now - timedelta(days=4))
     assert c_expired["is_past_due_warning"] is False
     assert c_expired["status"] == "canceled"
-    assert c_expired["projects_allowed"] == 0
+    assert c_expired["projects_allowed"] == 1
     assert c_expired["has_blueprint_dom_edit"] is False
 
 
@@ -109,7 +109,7 @@ async def test_downgrade_archiving_and_resolution_cache():
         # Downgrade to None / Canceled (0 projects max)
         sub.plan_type = "none"
         sub.status = "canceled"
-        sub.projects_allowed = 0
+        sub.projects_allowed = 1
         sub.seats_allowed = 1
         await db_session.commit()
 
@@ -119,9 +119,9 @@ async def test_downgrade_archiving_and_resolution_cache():
         # Resolve after downgrade
         plan2 = await resolve_org_plan(target_org_id, db_session)
         assert plan2["plan_type"] == "none"
-        assert plan2["projects_allowed"] == 0
-        # 0 active projects, 7 archived_over_limit
-        assert plan2["projects_used"] == 0
+        assert plan2["projects_allowed"] == 1
+        # 1 active project, 6 archived_over_limit
+        assert plan2["projects_used"] == 1
         assert plan2["can_create_projects"] is False
 
         # Attempt project creation under none plan must raise SUBSCRIPTION_REQUIRED

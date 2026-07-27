@@ -98,7 +98,7 @@ async def list_projects(current_user: User = Depends(get_current_user), db: Asyn
     if not member:
         return []
         
-    result = await db.execute(select(Project).where(Project.org_id == member.org_id))
+    result = await db.execute(select(Project).where(Project.org_id == member.org_id, Project.status != "soft_deleted"))
     projects = result.scalars().all()
     
     # Serialize to dictionary for safe caching
@@ -236,14 +236,73 @@ async def delete_project(project_id: str, current_user: User = Depends(get_curre
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    await db.delete(project)
+    project.status = "soft_deleted"
+    project.soft_deleted_at = datetime.now(timezone.utc)
     await db.commit()
+
+    from services.plan_capabilities import invalidate_org_plan_cache
+    invalidate_org_plan_cache(member.org_id)
 
     # Invalidate cache
     from services.cache import cache
     cache.invalidate(f"user:{current_user.id}:*")
 
-    return {"deleted": True}
+    return {
+        "deleted": True,
+        "status": "soft_deleted",
+        "message": "Project moved to retention window before permanent purge."
+    }
+
+@router.post("/{project_id}/archive")
+async def archive_project(project_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    try:
+        uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    result = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.status = "archived"
+    await db.commit()
+
+    from services.plan_capabilities import invalidate_org_plan_cache
+    invalidate_org_plan_cache(member.org_id)
+
+    return {"status": "archived", "message": "Project archived successfully."}
+
+@router.post("/{project_id}/restore")
+async def restore_project(project_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    try:
+        uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    result = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.status = "active"
+    project.soft_deleted_at = None
+    await db.commit()
+
+    from services.plan_capabilities import invalidate_org_plan_cache
+    invalidate_org_plan_cache(member.org_id)
+
+    return {"status": "active", "message": "Project restored to active state."}
 
 # Environments CRUD
 @router.post("/{project_id}/environments", response_model=EnvironmentOut)
