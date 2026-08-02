@@ -1,11 +1,29 @@
 'use client'
 
-import React from 'react'
-import { useParams } from 'next/navigation'
+import React, { useEffect, Suspense } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { BlueprintWorkspace } from '@/components/blueprint/BlueprintWorkspace'
 import { StageLoader } from '@/components/ui/StageLoader'
 import { FeatureGate } from '@/components/auth/FeatureGate'
-import { LockedDomModal } from '@/components/blueprint/LockedDomModal'
+
+function RedirectToPricing() {
+  const router = useRouter()
+  useEffect(() => {
+    router.replace('/pricing')
+  }, [router])
+  return null
+}
+
+function CanvasPageContent({ projectId }: { projectId: string }) {
+  const searchParams = useSearchParams()
+  const sessionId = searchParams.get('sessionId') || undefined
+
+  return (
+    <FeatureGate feature="blueprint_dom_edit" fallback={<RedirectToPricing />}>
+      <BlueprintWorkspace projectId={projectId} sessionId={sessionId} />
+    </FeatureGate>
+  )
+}
 
 export default function CanvasPage() {
   const params = useParams()
@@ -25,8 +43,12 @@ export default function CanvasPage() {
   }
 
   return (
-    <FeatureGate feature="blueprint_dom_edit" fallback={<LockedDomModal />}>
-      <BlueprintWorkspace projectId={projectId} />
-    </FeatureGate>
+    <Suspense fallback={
+      <div className="w-full h-screen flex flex-col items-center justify-center bg-pm-bg">
+        <StageLoader size="md" text="Loading Canvas Workspace..." />
+      </div>
+    }>
+      <CanvasPageContent projectId={projectId} />
+    </Suspense>
   )
 }

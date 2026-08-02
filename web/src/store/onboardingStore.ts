@@ -29,6 +29,7 @@ interface OnboardingState {
   showCompletionModal: boolean;
   isDismissed: boolean;
   isCompleted: boolean;
+  currentUserId: string | null;
   
   // Actions
   startOnboarding: (role: OnboardingRole) => void;
@@ -42,7 +43,7 @@ interface OnboardingState {
   toggleChecklist: (collapsed?: boolean) => void;
   setShowCompletionModal: (show: boolean) => void;
   setDismissed: (dismissed: boolean) => void;
-  hydrateFromLocalStorage: () => void;
+  hydrateFromLocalStorage: (userId?: string | null) => void;
 }
 
 // Developer steps definition
@@ -181,6 +182,10 @@ export const reviewerSteps: OnboardingStep[] = [
   }
 ];
 
+const getStorageKey = (userId?: string | null) => {
+  return userId ? `stage_onboarding_state_${userId}` : 'pm_onboarding_state';
+};
+
 const saveToLocalStorage = (state: Partial<OnboardingState>) => {
   if (typeof window === 'undefined') return;
   const data = {
@@ -193,7 +198,8 @@ const saveToLocalStorage = (state: Partial<OnboardingState>) => {
     isDismissed: state.isDismissed,
     isCompleted: state.isCompleted,
   };
-  localStorage.setItem('pm_onboarding_state', JSON.stringify(data));
+  const key = getStorageKey(state.currentUserId);
+  localStorage.setItem(key, JSON.stringify(data));
 };
 
 export const useOnboardingStore = create<OnboardingState>((set, get) => ({
@@ -205,6 +211,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   showCompletionModal: false,
   isDismissed: false,
   isCompleted: false,
+  currentUserId: null,
 
   startOnboarding: (role) => {
     const initialChecklist: Record<string, boolean> = role === 'developer' ? {
@@ -386,13 +393,16 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     saveToLocalStorage({ ...get(), isDismissed: dismissed });
   },
 
-  hydrateFromLocalStorage: () => {
+  hydrateFromLocalStorage: (userId?: string | null) => {
     if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem('pm_onboarding_state');
+    const targetUserId = userId !== undefined ? userId : get().currentUserId;
+    const key = getStorageKey(targetUserId);
+    const saved = localStorage.getItem(key);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         set({
+          currentUserId: targetUserId || null,
           isOnboardingActive: parsed.isOnboardingActive || false,
           currentStepIndex: parsed.currentStepIndex || 0,
           userRole: parsed.userRole || null,
@@ -402,9 +412,22 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
           isDismissed: parsed.isDismissed || false,
           isCompleted: parsed.isCompleted || false,
         });
+        return;
       } catch (e) {
         console.error('Failed to parse onboarding local storage:', e);
       }
     }
+    // Clean default state if no record exists for this user ID
+    set({
+      currentUserId: targetUserId || null,
+      isOnboardingActive: false,
+      currentStepIndex: 0,
+      userRole: null,
+      checklist: {},
+      isChecklistCollapsed: false,
+      showCompletionModal: false,
+      isDismissed: false,
+      isCompleted: false,
+    });
   }
 }));

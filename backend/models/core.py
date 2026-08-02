@@ -86,8 +86,8 @@ class Organization(Base):
 class OrgMember(Base):
     __tablename__ = "org_members"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     role: Mapped[RoleEnum] = mapped_column(SAEnum(RoleEnum), default=RoleEnum.member)
     org: Mapped["Organization"] = relationship(back_populates="members")
     user: Mapped["User"] = relationship(back_populates="org_memberships")
@@ -95,13 +95,13 @@ class OrgMember(Base):
 class OrgInvite(Base):
     __tablename__ = "org_invites"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     role: Mapped[str] = mapped_column(String, default="developer", nullable=False)
     max_uses: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
     current_use_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     password_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -111,7 +111,7 @@ class OrgInvite(Base):
 class Project(Base):
     __tablename__ = "projects"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     url: Mapped[str] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, default="active", server_default="active", nullable=False)  # active | archived | soft_deleted
@@ -122,12 +122,13 @@ class Project(Base):
     sessions: Mapped[list["Session"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     frames: Mapped[list["CanvasFrame"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     flows: Mapped[list["CanvasFlow"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    allow_reviewer_dom_edit: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
 
 class CanvasFrame(Base):
     __tablename__ = "canvas_frames"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
     position_x: Mapped[float] = mapped_column(nullable=False, default=0.0)
     position_y: Mapped[float] = mapped_column(nullable=False, default=0.0)
@@ -143,7 +144,7 @@ class CanvasFrame(Base):
 class CanvasFlow(Base):
     __tablename__ = "canvas_flows"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     source_frame_id: Mapped[str] = mapped_column(ForeignKey("canvas_frames.id", ondelete="CASCADE"), nullable=False)
     target_frame_id: Mapped[str] = mapped_column(ForeignKey("canvas_frames.id", ondelete="CASCADE"), nullable=False)
     label: Mapped[str] = mapped_column(String, nullable=True)
@@ -156,7 +157,7 @@ class CanvasFlow(Base):
 class Environment(Base):
     __tablename__ = "environments"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)  # dev, staging, prod
     base_url: Mapped[str] = mapped_column(String, nullable=False)
     project: Mapped["Project"] = relationship(back_populates="environments")
@@ -164,7 +165,7 @@ class Environment(Base):
 class Session(Base):
     __tablename__ = "sessions"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String, nullable=True)
     current_page_url: Mapped[str] = mapped_column(String, nullable=True)
     pages_visited_count: Mapped[int] = mapped_column("pages_visited", nullable=True, default=0)
@@ -450,6 +451,7 @@ class NotificationEventModel(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     user_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    org_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     project_id: Mapped[Optional[str]] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True)
     source_type: Mapped[str] = mapped_column(String, nullable=False)  # blueprint | session
     event_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
@@ -471,6 +473,7 @@ class NotificationPreferencesModel(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     project_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    in_app_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     email_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     digest_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_blueprint_events: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -525,6 +528,25 @@ class EarlyBirdCounterModel(Base):
     claimed_count: Mapped[int] = mapped_column(Integer, default=0)
     max_limit: Mapped[int] = mapped_column(Integer, default=50)
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ReviewerDomEditSuggestionModel(Base):
+    __tablename__ = "reviewer_dom_edit_suggestions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    share_link_id: Mapped[str] = mapped_column(ForeignKey("share_links.id", ondelete="CASCADE"), nullable=False)
+    reviewer_identity_id: Mapped[str] = mapped_column(ForeignKey("reviewer_identities.id", ondelete="CASCADE"), nullable=False)
+    frame_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    page_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    selector: Mapped[str] = mapped_column(String, nullable=False)
+    xpath: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    operation_type: Mapped[str] = mapped_column(String, nullable=False)
+    proposed_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="pending", server_default="pending", nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
 
 

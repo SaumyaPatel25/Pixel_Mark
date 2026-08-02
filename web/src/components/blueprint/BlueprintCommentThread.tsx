@@ -32,6 +32,23 @@ export function BlueprintCommentThread({ projectId, onClose }: BlueprintCommentT
     }
   }, [projectId, loadComments])
 
+  useEffect(() => {
+    if (!onClose) return
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
+      const trigger = document.getElementById('comment-tool-btn')
+      if (trigger) {
+        trigger.focus()
+      }
+    }
+  }, [onClose])
+
   const handlePostReply = async (parentId: string) => {
     if (!replyBody.trim()) return
 

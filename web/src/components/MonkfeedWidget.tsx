@@ -1,89 +1,56 @@
-'use client'
+'use client';
+import { useEffect, useState, useCallback } from 'react';
+import Script from 'next/script';
 
-import React, { useState, useEffect, useMemo } from 'react'
-import { usePathname } from 'next/navigation'
-import Script from 'next/script'
-import { useAuthStore } from '@/store/authStore'
+export default function MonkFeedWidget() {
+  const [userData, setUserData] = useState<any>(null);
+  const [remountKey, setRemountKey] = useState(0);
 
-export default function MonkfeedWidget() {
-  const pathname = usePathname()
-  const user = useAuthStore((s) => s.user)
-  const [remountKey, setRemountKey] = useState(0)
-
-  // Listen to login/logout custom events to update remountKey and re-initialize
-  useEffect(() => {
-    const handleAuthChange = () => {
-      setRemountKey((prev) => prev + 1)
-    }
-
-    window.addEventListener('monkfeed-login', handleAuthChange)
-    window.addEventListener('monkfeed-logout', handleAuthChange)
-
-    return () => {
-      window.removeEventListener('monkfeed-login', handleAuthChange)
-      window.removeEventListener('monkfeed-logout', handleAuthChange)
-    }
-  }, [])
-
-  // Do not render inside Blueprint Canvas or live session review iframe surfaces
-  const shouldShowWidget = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        if (window.self !== window.top) {
-          return false // loaded inside an iframe context
-        }
-      } catch (e) {
-        return false
+  const fetchSession = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/auth/session?t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setUserData(data.user?.email ? data.user : null);
       }
+    } catch (e) {
+      console.error("Failed to fetch session for MonkFeed", e);
     }
+  }, []);
 
-    if (!pathname) return true
-
-    const isBlueprint = pathname.includes('/blueprint')
-    const isReview = pathname.includes('/review')
-    const isTest = pathname.includes('/test')
-    const isSampleTarget = pathname.includes('/sample-target')
-
-    return !(isBlueprint || isReview || isTest || isSampleTarget)
-  }, [pathname])
-
-  if (!shouldShowWidget) {
-    return null
-  }
+  useEffect(() => {
+    fetchSession();
+    const handleLogin = (e: any) => { setUserData(e.detail); setRemountKey(k => k + 1); };
+    const handleLogout = () => {
+      setUserData(null); setRemountKey(k => k + 1);
+      if ((window as any).__monkfeed_cleanup) (window as any).__monkfeed_cleanup();
+    };
+    window.addEventListener('monkfeed:login', handleLogin);
+    window.addEventListener('monkfeed:logout', handleLogout);
+    window.addEventListener('focus', fetchSession);
+    return () => {
+      window.removeEventListener('monkfeed:login', handleLogin);
+      window.removeEventListener('monkfeed:logout', handleLogout);
+      window.removeEventListener('focus', fetchSession);
+    };
+  }, [fetchSession]);
 
   return (
     <div key={remountKey}>
-      <style dangerouslySetInnerHTML={{__html: `
-        #monkfeed-widget-container,
-        #monkfeed-launcher-container,
-        iframe[id^="monkfeed"],
-        iframe[src*="monkfeed"],
-        .monkfeed-widget-launcher {
-          left: 24px !important;
-          right: auto !important;
-          bottom: 24px !important;
-          z-index: 99999 !important;
-        }
-      `}} />
-      <div
-        className="monkfeed-widget"
-        data-application-id="6a60efa31a4920a4561af412"
-        data-user-id={user?.id || ''}
-        data-email={user?.email || ''}
-        data-require-identity="false"
-        data-primary-color="var(--color-primary)"
-        data-launcher-color="var(--color-primary)"
-        data-bg-color="var(--color-bg)"
-        data-text-color="var(--color-text)"
-        data-widget-name="STAGE Support"
-        data-catchphrase="Got feedback or visual QA questions? Ask us here!"
-        data-position="bottom-left"
+      <div className="monkfeed-widget"
+           data-application-id={process.env.NEXT_PUBLIC_MONKFEED_APP_ID || "6a60efa31a4920a4561af412"}
+           data-user-id={userData?.id || ''}
+           data-email={userData?.email || ''}
+           data-require-identity="false"
+           data-position="right"
+           data-primary-color="#4f46e5"
+           data-secondary-color="#000000"
+           data-bg-color="#ffffff"
+           data-text-color="#18181b"
+           data-launcher-color="#4f46e5"
+           data-launcher-active-color="#ef4444"
       />
-      <Script
-        key={`monkfeed-script-${remountKey}`}
-        src="https://www.monkfeed.com/widget.js"
-        strategy="afterInteractive"
-      />
+      <Script src="https://www.monkfeed.com//widget.js" strategy="afterInteractive" />
     </div>
-  )
+  );
 }

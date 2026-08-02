@@ -12,7 +12,7 @@ import urllib.parse
 import uuid
 import os
 import hashlib
-from datetime import datetime
+from typing import Optional, Tuple, Dict, Any, List
 from proxy.runtime_policy import check_third_party_policy, get_failure_fallback_response
 from proxy.asset_resolver import resolve_asset_url, get_asset_failure_fallback
 
@@ -21,8 +21,37 @@ router = APIRouter(prefix="/proxy", tags=["proxy"])
 import logging
 logger = logging.getLogger("stage.proxy")
 
-# Active IP sessions tracking for fallback resolution
+import time
+
+# Active IP sessions tracking with TTL pruning (2 hours)
+# Format: { ip: (session_id, timestamp) }
 ACTIVE_IP_SESSIONS = {}
+
+def set_active_ip_session(client_host: str, session_id: str):
+    if not client_host or not session_id:
+        return
+    now = time.time()
+    ACTIVE_IP_SESSIONS[client_host] = (session_id, now)
+    if len(ACTIVE_IP_SESSIONS) > 1000:
+        cutoff = now - 7200
+        stale = [ip for ip, val in ACTIVE_IP_SESSIONS.items() if isinstance(val, tuple) and val[1] < cutoff]
+        for ip in stale:
+            ACTIVE_IP_SESSIONS.pop(ip, None)
+
+def get_active_ip_session(client_host: str) -> Optional[str]:
+    if not client_host:
+        return None
+    val = ACTIVE_IP_SESSIONS.get(client_host)
+    if not val:
+        return None
+    if isinstance(val, tuple):
+        session_id, ts = val
+        if time.time() - ts < 7200:
+            return session_id
+        else:
+            ACTIVE_IP_SESSIONS.pop(client_host, None)
+            return None
+    return val
 
 # Async helper to record/upsert PageVisits cleanly
 async def record_page_visit(
@@ -161,7 +190,35 @@ async def validate_public_access(session_id: str, share_token: str, db: AsyncSes
     return link
 
 
-def prepare_proxy_response(response: Response) -> Response:
+def guess_binary_content_type(url: str, default_content_type: str) -> str:
+    parsed = urllib.parse.urlparse(url)
+    path = parsed.path.lower()
+    if path.endswith(".fbx"):
+        return "model/fbx"
+    elif path.endswith(".glb"):
+        return "model/gltf-binary"
+    elif path.endswith(".gltf"):
+        return "model/gltf+json"
+    elif path.endswith(".bin"):
+        return "application/octet-stream"
+    elif path.endswith(".wasm"):
+        return "application/wasm"
+    elif path.endswith(".png"):
+        return "image/png"
+    elif path.endswith(".jpg") or path.endswith(".jpeg"):
+        return "image/jpeg"
+    elif path.endswith(".gif"):
+        return "image/gif"
+    elif path.endswith(".webp"):
+        return "image/webp"
+    elif path.endswith(".svg"):
+        return "image/svg+xml"
+    elif path.endswith(".hdr"):
+        return "image/vnd.radiance"
+    return default_content_type
+
+
+def prepare_proxy_response(response: Response, request: Request = None) -> Response:
     HEADERS_TO_STRIP = [
         "x-frame-options",
         "content-security-policy",
@@ -179,6 +236,18 @@ def prepare_proxy_response(response: Response) -> Response:
             if k.lower() == header:
                 del response.headers[k]
 
+    if request:
+        origin = request.headers.get("origin")
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+        else:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+    else:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, PATCH, DELETE"
+    response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
 
@@ -264,7 +333,7 @@ async def proxy_initial(
         raise HTTPException(status_code=422, detail="Invalid UUID format")
         
     client_host = request.client.host if request.client else "unknown"
-    ACTIVE_IP_SESSIONS[client_host] = session_id
+    set_active_ip_session(client_host, session_id)
         
     base_url, project_id, session = await resolve_session_base_url(session_id, db)
     
@@ -379,7 +448,7 @@ async def proxy_page(
         raise HTTPException(status_code=422, detail="Invalid UUID format")
         
     client_host = request.client.host if request.client else "unknown"
-    ACTIVE_IP_SESSIONS[client_host] = session_id
+    set_active_ip_session(client_host, session_id)
         
     base_url, project_id, session = await resolve_session_base_url(session_id, db)
     
@@ -501,6 +570,28 @@ def get_cached_asset(url: str) -> tuple[bytes, str]:
     return None, None
 
 
+MAX_CACHE_BYTES = 500 * 1024 * 1024  # 500 MB max cache limit
+
+def prune_disk_cache_if_needed():
+    try:
+        files = [os.path.join(CACHE_DIR, f) for f in os.listdir(CACHE_DIR)]
+        total_bytes = sum(os.path.getsize(f) for f in files if os.path.isfile(f))
+        if total_bytes > MAX_CACHE_BYTES:
+            file_stats = [(f, os.path.getmtime(f), os.path.getsize(f)) for f in files if os.path.isfile(f)]
+            file_stats.sort(key=lambda x: x[1])
+            bytes_to_delete = total_bytes - int(MAX_CACHE_BYTES * 0.7)
+            deleted_bytes = 0
+            for fpath, _, fsize in file_stats:
+                if deleted_bytes >= bytes_to_delete:
+                    break
+                try:
+                    os.remove(fpath)
+                    deleted_bytes += fsize
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.warning(f"[PROXY CACHE PRUNE] Failed to prune cache: {e}")
+
 def save_cached_asset(url: str, content: bytes, content_type: str):
     cachable_types = ("image/", "font/", "application/javascript", "text/css", "application/wasm", "model/gltf", "application/octet-stream", "image/vnd.radiance")
     cachable_exts = (".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".glb", ".gltf", ".wasm", ".ico", ".hdr", ".exr")
@@ -512,6 +603,7 @@ def save_cached_asset(url: str, content: bytes, content_type: str):
     if not should_cache:
         return
         
+    prune_disk_cache_if_needed()
     url_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
     cache_path = os.path.join(CACHE_DIR, url_hash)
     meta_path = cache_path + ".meta"
@@ -666,6 +758,7 @@ async def handle_proxy_asset_request(
                 return prepare_proxy_response(fallback_response)
                 
             content_type = resp.headers.get("content-type", "application/octet-stream")
+            content_type = guess_binary_content_type(url, content_type)
             if request.method == "GET":
                 save_cached_asset(url, resp.content, content_type)
             
@@ -675,7 +768,7 @@ async def handle_proxy_asset_request(
             response = Response(content=resp.content, status_code=resp.status_code, media_type=content_type)
             set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
             response.headers["X-STAGE-Cache"] = "MISS"
-            return prepare_proxy_response(response)
+            return prepare_proxy_response(response, request)
             
     except Exception as e:
         record_domain_failure(url)
@@ -684,7 +777,7 @@ async def handle_proxy_asset_request(
         # Upstream failure handling
         fallback_response = get_failure_fallback_response(url, str(e))
         logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy} (UPSTREAM_FAIL), Status=500, Reason={str(e)}")
-        return prepare_proxy_response(fallback_response)
+        return prepare_proxy_response(fallback_response, request)
 
 
 @router.api_route("/session/{session_id}/asset", methods=["GET", "POST", "OPTIONS"])

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ChevronRight, ChevronDown, Square, Layout, Type, Shapes, Layers as LayersIcon, X } from 'lucide-react'
 import { useBlueprintStore, BlueprintFrameNode, BlueprintElementNode } from '@/store/blueprintStore'
 
@@ -14,6 +14,23 @@ export function BlueprintLayersPanel() {
     isLayersOpen,
     toggleLayers
   } = useBlueprintStore()
+
+  useEffect(() => {
+    if (!isLayersOpen) return
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        toggleLayers()
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
+      const trigger = document.getElementById('layers-toggle-btn')
+      if (trigger) {
+        trigger.focus()
+      }
+    }
+  }, [isLayersOpen, toggleLayers])
 
   if (!isLayersOpen) return null
 
@@ -35,7 +52,7 @@ export function BlueprintLayersPanel() {
       </div>
 
       {/* Layer Tree List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      <div role="tree" aria-label="Layers Panel" className="flex-1 overflow-y-auto p-2 space-y-1">
         {frames.length === 0 ? (
           <div className="p-4 text-center text-xs text-slate-500 italic">No frames on canvas</div>
         ) : (
@@ -71,7 +88,7 @@ function FrameItem({
   const [expanded, setExpanded] = useState(true)
   const isSelected = selectedFrameId === frame.id && !selectedNodeId
 
-  const handleSelectFrame = (e: React.MouseEvent) => {
+  const handleSelectFrame = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation()
     setSelectedFrameId(frame.id)
     setSelectedNodeId(null)
@@ -80,8 +97,18 @@ function FrameItem({
   return (
     <div className="space-y-0.5">
       <div
+        tabIndex={0}
+        role="treeitem"
+        aria-selected={isSelected}
+        aria-expanded={expanded}
         onClick={handleSelectFrame}
-        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+        onKeyDown={(e) => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault()
+            handleSelectFrame(e)
+          }
+        }}
+        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
           isSelected
             ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
             : 'text-slate-300 hover:bg-slate-800/60'
@@ -142,7 +169,7 @@ function NodeItem({
   const [expanded, setExpanded] = useState(true)
   const isSelected = selectedFrameId === frameId && selectedNodeId === node.id
 
-  const handleSelectNode = (e: React.MouseEvent) => {
+  const handleSelectNode = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation()
     setSelectedFrameId(frameId)
     setSelectedNodeId(node.id)
@@ -163,8 +190,18 @@ function NodeItem({
   return (
     <div className="space-y-0.5">
       <div
+        tabIndex={0}
+        role="treeitem"
+        aria-selected={isSelected}
+        aria-expanded={node.children && node.children.length > 0 ? expanded : undefined}
         onClick={handleSelectNode}
-        className={`flex items-center gap-2 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors ${
+        onKeyDown={(e) => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault()
+            handleSelectNode(e)
+          }
+        }}
+        className={`flex items-center gap-2 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors focus:ring-2 focus:ring-purple-500 focus:outline-none ${
           isSelected
             ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold'
             : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'

@@ -43,6 +43,12 @@ async def lifespan(app: FastAPI):
                 "CRITICAL CONFIGURATION ERROR: GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set. "
                 "Please configure them in your environment variables or .env file."
             )
+        if settings.environment == "production":
+            if settings.jwt_secret_key in ("dev_secret_key_123", "change_me_in_production", ""):
+                raise ValueError(
+                    "CRITICAL SECURITY ERROR: JWT_SECRET_KEY is using a weak or default value in production. "
+                    "Set a secure, random JWT_SECRET_KEY environment variable before running in production!"
+                )
 
     # Production-grade Neon DB reconnection retry backoff loop on startup
     retries = 5
@@ -55,6 +61,14 @@ async def lifespan(app: FastAPI):
                 from sqlalchemy import text
                 await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS past_due_since TIMESTAMPTZ;"))
                 await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';"))
+                # Check for allow_reviewer_dom_edit column
+                if "sqlite" in str(engine.url):
+                    try:
+                        await conn.execute(text("ALTER TABLE projects ADD COLUMN allow_reviewer_dom_edit BOOLEAN DEFAULT 1;"))
+                    except Exception:
+                        pass
+                else:
+                    await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS allow_reviewer_dom_edit BOOLEAN DEFAULT 1;"))
             logger.info("✓ Neon DB connection successful & tables verified!")
             break
         except Exception as e:
@@ -132,8 +146,8 @@ async def proxy_fallback_middleware(request: Request, call_next):
             
         if not session_id:
             # Fall back to active IP session mapping
-            from routes.proxy import ACTIVE_IP_SESSIONS
-            session_id = ACTIVE_IP_SESSIONS.get(client_host)
+            from routes.proxy import get_active_ip_session
+            session_id = get_active_ip_session(client_host)
             
         if session_id:
             async with AsyncSessionLocal() as db:
@@ -306,6 +320,8 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                             
                                     duration = (datetime.utcnow() - start_time).total_seconds() * 1000
                                     content_type = resp.headers.get("content-type", "application/octet-stream")
+                                    from routes.proxy import guess_binary_content_type
+                                    content_type = guess_binary_content_type(target_url, content_type)
                                     
                                     if "text/html" in content_type:
                                         from routes.proxy import rewrite_html, record_page_visit, prepare_proxy_response
@@ -362,7 +378,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                         samesite="none",
                                         secure=True
                                     )
-                                    return prepare_proxy_response(response)
+                                    return prepare_proxy_response(response, request)
                             except Exception as e:
                                 pass
                                 
@@ -410,8 +426,13 @@ app.include_router(invites.router)
 async def health():
     return {"status": "ok", "version": "2.0.0"}
 
+from dependencies import get_db, get_current_user
+
 @app.get("/metrics")
-async def get_system_metrics(db = Depends(get_db)):
+async def get_system_metrics(
+    db = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
     from services.cache import cache, SYSTEM_METRICS
     from sqlalchemy import select, func
     from models import Session

@@ -1,4 +1,5 @@
 import logging
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
@@ -18,7 +19,48 @@ from services.dodo_client import dodo_client
 logger = logging.getLogger("stage.routes.billing")
 router = APIRouter(prefix="/billing", tags=["billing"])
 
-PROCESSED_WEBHOOK_EVENTS = set()
+import time
+PROCESSED_WEBHOOK_EVENTS = {}  # { event_id: timestamp }
+
+async def is_webhook_event_processed(event_id: str) -> bool:
+    if not event_id:
+        return False
+    try:
+        from realtime.redis_broadcaster import redis_broadcaster
+        redis = await redis_broadcaster.get_redis()
+        if redis:
+            is_set = await redis.get(f"dodo_webhook:{event_id}")
+            if is_set:
+                return True
+    except Exception:
+        pass
+
+    now = time.time()
+    if event_id in PROCESSED_WEBHOOK_EVENTS:
+        if now - PROCESSED_WEBHOOK_EVENTS[event_id] < 86400:
+            return True
+        else:
+            del PROCESSED_WEBHOOK_EVENTS[event_id]
+    return False
+
+async def mark_webhook_event_processed(event_id: str) -> None:
+    if not event_id:
+        return
+    try:
+        from realtime.redis_broadcaster import redis_broadcaster
+        redis = await redis_broadcaster.get_redis()
+        if redis:
+            await redis.set(f"dodo_webhook:{event_id}", "1", ex=86400)
+    except Exception:
+        pass
+
+    now = time.time()
+    PROCESSED_WEBHOOK_EVENTS[event_id] = now
+    if len(PROCESSED_WEBHOOK_EVENTS) > 5000:
+        cutoff = now - 86400
+        to_del = [k for k, v in PROCESSED_WEBHOOK_EVENTS.items() if v < cutoff]
+        for k in to_del:
+            PROCESSED_WEBHOOK_EVENTS.pop(k, None)
 
 # Helper function to get or create default subscription for an organization
 async def get_or_create_subscription(db: AsyncSession, org_id: str) -> SubscriptionModel:
@@ -86,27 +128,34 @@ async def get_billing_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    from services.plan_capabilities import resolve_org_plan
     target_org_id = await resolve_user_org_id(db, current_user, org_id)
     sub = await get_or_create_subscription(db, target_org_id)
+    plan_info = await resolve_org_plan(target_org_id, db)
 
-    # Usage stats
-    proj_res = await db.execute(select(func.count(Project.id)).where(Project.org_id == target_org_id))
-    projects_used = proj_res.scalar() or 0
-
-    mem_res = await db.execute(select(func.count(OrgMember.id)).where(OrgMember.org_id == target_org_id))
-    seats_used = mem_res.scalar() or 0
-
-    has_dom_edit = sub.plan_type in ("dev_team", "dev_team_early_bird", "enterprise") and sub.status == "active"
-    is_early_bird = (sub.plan_type == "dev_team_early_bird")
+    # Sync sub attributes with plan_info if different
+    sub.plan_type = plan_info["plan_type"]
+    sub.status = plan_info["status"]
+    sub.projects_allowed = plan_info["projects_allowed"]
+    sub.seats_allowed = plan_info["seats_allowed"]
 
     return BillingStatusResponse(
         subscription=SubscriptionRead.model_validate(sub),
-        projects_used=projects_used,
-        seats_used=seats_used,
-        has_blueprint_dom_edit=has_dom_edit,
-        is_early_bird=is_early_bird,
+        projects_used=plan_info["projects_used"],
+        seats_used=plan_info["seats_used"],
+        has_blueprint_dom_edit=plan_info["has_blueprint_dom_edit"],
+        is_early_bird=plan_info["is_early_bird"],
         is_test_mode=sub.is_test_mode
     )
+
+
+@router.get("/entitlements")
+async def get_user_entitlements_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from services.plan_capabilities import resolve_org_entitlements
+    return await resolve_org_entitlements(current_user.id, db)
 
 
 @router.get("/plan")
@@ -162,9 +211,16 @@ async def create_checkout(
     product_id = settings.dodo_product_id_dev_team
 
     customer = await dodo_client.create_customer(email=current_user.email, name=current_user.name or current_user.email)
-    customer_id = customer.get("customer_id", f"cust_{current_user.id[:8]}")
+    customer_id = customer.get("customer_id") or customer.get("id") or f"cust_{current_user.id[:8]}"
 
     redirect_url = f"{settings.frontend_url}/billing/success?org_id={target_org_id}&plan={requested_plan}"
+
+    # Store customer ID in subscription immediately for webhook mapping fallback
+    sub = await get_or_create_subscription(db, target_org_id)
+    sub.dodo_customer_id = customer_id
+    await db.commit()
+
+    logger.info(f"[STAGE Billing Checkout] Initiated checkout for org_id={target_org_id}, user_id={current_user.id}, customer_id={customer_id}, plan_type={requested_plan}")
 
     session = await dodo_client.create_checkout_session(
         product_id=product_id,
@@ -186,6 +242,12 @@ async def create_checkout(
         early_bird_applied=early_bird_applied,
         is_test_mode=(settings.dodo_environment == "test_mode")
     )
+
+
+class SyncCheckoutRequest(BaseModel):
+    org_id: Optional[str] = None
+    subscription_id: Optional[str] = None
+    plan_type: Optional[str] = None
 
 
 @router.post("/cancel")
@@ -210,6 +272,56 @@ async def cancel_subscription_endpoint(
     return {"message": "Subscription canceled successfully", "status": "canceled"}
 
 
+@router.post("/sync-checkout")
+async def sync_checkout_endpoint(
+    req: SyncCheckoutRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Direct post-checkout sync endpoint.
+    Verifies subscription status directly via Dodo Payments API or query parameters,
+    ensuring instant promotion even if background webhooks are delayed or testing locally.
+    """
+    from services.plan_capabilities import invalidate_org_plan_cache, resolve_org_entitlements, PlanCapabilities
+    target_org_id = await resolve_user_org_id(db, current_user, req.org_id)
+
+    if not target_org_id:
+        raise HTTPException(status_code=400, detail="Organization required for billing sync")
+
+    sub = await get_or_create_subscription(db, target_org_id)
+    sub_id = req.subscription_id or sub.dodo_subscription_id
+    plan = req.plan_type or (sub.plan_type if sub.plan_type != "none" else "dev_team")
+
+    if sub_id:
+        try:
+            dodo_sub = await dodo_client.get_subscription(sub_id)
+            status = dodo_sub.get("status", "active")
+            sub.dodo_subscription_id = sub_id
+            sub.plan_type = plan
+            sub.status = status
+            sub.projects_allowed = 10 if plan in ("dev_team", "dev_team_early_bird") else (9999 if plan == "enterprise" else 1)
+            sub.seats_allowed = 5 if plan in ("dev_team", "dev_team_early_bird") else (9999 if plan == "enterprise" else 1)
+            await db.commit()
+            invalidate_org_plan_cache(target_org_id)
+            await PlanCapabilities.sync_org_project_status(target_org_id, sub.projects_allowed, db)
+            logger.info(f"[STAGE Billing Sync] Verified subscription {sub_id} directly with Dodo API for org {target_org_id}")
+        except Exception as e:
+            logger.warning(f"[STAGE Billing Sync] Dodo API fetch error ({e}), syncing from checkout params for org {target_org_id}")
+            if req.subscription_id:
+                sub.dodo_subscription_id = req.subscription_id
+                sub.plan_type = plan
+                sub.status = "active"
+                sub.projects_allowed = 10 if plan in ("dev_team", "dev_team_early_bird") else (9999 if plan == "enterprise" else 1)
+                sub.seats_allowed = 5 if plan in ("dev_team", "dev_team_early_bird") else (9999 if plan == "enterprise" else 1)
+                await db.commit()
+                invalidate_org_plan_cache(target_org_id)
+                await PlanCapabilities.sync_org_project_status(target_org_id, sub.projects_allowed, db)
+
+    entitlements = await resolve_org_entitlements(current_user.id, db)
+    return entitlements
+
+
 @router.post("/webhooks/dodo")
 async def handle_dodo_webhook(
     request: Request,
@@ -229,21 +341,63 @@ async def handle_dodo_webhook(
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
     event_id = data.get("event_id") or data.get("id")
-    if event_id and event_id in PROCESSED_WEBHOOK_EVENTS:
+    if event_id and await is_webhook_event_processed(event_id):
         return {"message": "Event already processed"}
 
     event_type = data.get("event_type") or data.get("type", "unknown")
     event_data = data.get("data", {})
-    metadata = event_data.get("metadata", {})
+    metadata = event_data.get("metadata", {}) or data.get("metadata", {})
+    custom_fields = event_data.get("custom_fields", {})
 
-    org_id = metadata.get("org_id")
-    plan_type = metadata.get("plan_type", "dev_team")
+    org_id = metadata.get("org_id") or custom_fields.get("org_id")
+    plan_type = metadata.get("plan_type") or custom_fields.get("plan_type") or "dev_team"
     sub_id = event_data.get("subscription_id") or event_data.get("id")
-    cust_id = event_data.get("customer_id")
+    cust_id = event_data.get("customer_id") or event_data.get("customer", {}).get("id") or event_data.get("customer", {}).get("customer_id")
 
-    logger.info(f"[STAGE Billing Webhook] Received Dodo event '{event_type}' for org {org_id}")
+    logger.info(f"[STAGE Webhook] Webhook payload: event_id={event_id}, event_type={event_type}, sub_id={sub_id}, cust_id={cust_id}, org_id_meta={org_id}")
 
-    if org_id and event_type in ("subscription.created", "subscription.updated", "payment.succeeded"):
+    # Robust org_id resolution from subscription or customer mappings
+    if not org_id:
+        if sub_id:
+            res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.dodo_subscription_id == sub_id))
+            existing_sub = res.scalar_one_or_none()
+            if existing_sub:
+                org_id = existing_sub.org_id
+                logger.info(f"[STAGE Webhook] Resolved org_id={org_id} from database subscription mapping (dodo_subscription_id={sub_id})")
+
+        if not org_id and cust_id:
+            res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.dodo_customer_id == cust_id))
+            existing_sub = res.scalar_one_or_none()
+            if existing_sub:
+                org_id = existing_sub.org_id
+                logger.info(f"[STAGE Webhook] Resolved org_id={org_id} from database customer mapping (dodo_customer_id={cust_id})")
+
+        if not org_id:
+            customer_data = event_data.get("customer", {})
+            email = customer_data.get("email") or event_data.get("customer_email") or data.get("customer_email")
+            if email:
+                res = await db.execute(select(User).where(User.email == email))
+                user_obj = res.scalar_one_or_none()
+                if user_obj:
+                    org_id = await resolve_user_org_id(db, user_obj)
+                    logger.info(f"[STAGE Webhook] Resolved org_id={org_id} from fallback email matching (email={email})")
+
+    # Look up plan_type from existing subscription if webhook metadata doesn't specify it
+    if not metadata.get("plan_type") and not custom_fields.get("plan_type") and org_id:
+        res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
+        existing_sub = res.scalar_one_or_none()
+        if existing_sub and existing_sub.plan_type != "none":
+            plan_type = existing_sub.plan_type
+            logger.info(f"[STAGE Webhook] Retained plan_type={plan_type} from existing subscription record")
+
+    logger.info(f"[STAGE Billing Webhook] Received Dodo event '{event_type}' for resolved org {org_id}")
+
+    active_event_types = (
+        "subscription.created", "subscription.active", "subscription.updated",
+        "subscription.plan_changed", "subscription.renewed", "payment.succeeded"
+    )
+
+    if org_id and event_type in active_event_types:
         res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
         sub = res.scalar_one_or_none()
         if not sub:
@@ -290,6 +444,6 @@ async def handle_dodo_webhook(
             await PlanCapabilities.sync_org_project_status(org_id, 0, db)
 
     if event_id:
-        PROCESSED_WEBHOOK_EVENTS.add(event_id)
+        await mark_webhook_event_processed(event_id)
 
     return {"message": "Webhook processed successfully", "event_type": event_type}

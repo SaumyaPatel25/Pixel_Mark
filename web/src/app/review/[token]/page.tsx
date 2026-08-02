@@ -233,6 +233,7 @@ export default function ReviewPage() {
             isReviewerGateOpen={showIdentityGate}
             isHeaderCollapsed={isHeaderCollapsed}
             onHeaderCollapsedChange={setIsHeaderCollapsed}
+            domEditAvailable={sessionInfo.dom_edit_available}
           />
         </main>
         <OnboardingTour />

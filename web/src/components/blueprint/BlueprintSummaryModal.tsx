@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Sparkles,
   X,
@@ -31,6 +31,57 @@ export function BlueprintSummaryModal({ projectId, onClose }: BlueprintSummaryMo
   } = useBlueprintSummaryStore()
 
   const [copied, setCopied] = useState(false)
+
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+      
+      if (e.key === 'Tab' && containerRef.current) {
+        const focusableElements = containerRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex="0"], a'
+        )
+        if (focusableElements.length === 0) return
+        const firstElement = focusableElements[0] as HTMLElement
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            lastElement.focus()
+            e.preventDefault()
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            firstElement.focus()
+            e.preventDefault()
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+
+    // Focus first focusable element
+    setTimeout(() => {
+      if (containerRef.current) {
+        const focusable = containerRef.current.querySelector(
+          'button, [href], input, select, textarea, [tabindex="0"], a'
+        ) as HTMLElement
+        if (focusable) focusable.focus()
+      }
+    }, 50)
+
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
+      const trigger = document.getElementById('ai-summary-btn')
+      if (trigger) {
+        trigger.focus()
+      }
+    }
+  }, [onClose])
 
   const handleCopyMarkdown = () => {
     if (!activeSummary) return
@@ -68,7 +119,10 @@ ${activeSummary.followups_json && activeSummary.followups_json.length > 0 ? `## 
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
-      <div className="bg-[#090d16] border border-slate-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+      <div 
+        ref={containerRef}
+        className="bg-[#090d16] border border-slate-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]"
+      >
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
           <div className="flex items-center gap-2.5">

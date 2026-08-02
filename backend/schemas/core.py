@@ -71,6 +71,7 @@ class ProjectOut(BaseModel):
     name: str
     url: Optional[str]
     created_at: datetime
+    allow_reviewer_dom_edit: bool = True
     class Config: from_attributes = True
 
 # Sessions
@@ -217,6 +218,36 @@ CanvasFlowOut = CanvasFlowRead
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
+    allow_reviewer_dom_edit: Optional[bool] = None
+
+# Reviewer DOM Edit Suggestions
+class ReviewerDomEditSuggestionCreate(BaseModel):
+    reviewer_identity_id: str
+    frame_id: Optional[str] = None
+    page_url: Optional[str] = None
+    selector: str
+    xpath: Optional[str] = None
+    operation_type: str
+    proposed_value: Optional[str] = None
+    password: Optional[str] = None
+
+class ReviewerDomEditSuggestionRead(BaseModel):
+    id: str
+    project_id: str
+    share_link_id: str
+    reviewer_identity_id: str
+    reviewer_name: str
+    frame_id: Optional[str] = None
+    page_url: Optional[str] = None
+    selector: str
+    xpath: Optional[str] = None
+    operation_type: str
+    proposed_value: Optional[str] = None
+    status: str
+    created_at: datetime
+    reviewed_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    class Config: from_attributes = True
 
 # Page Visits
 class PageVisitCreate(BaseModel):
@@ -608,6 +639,7 @@ class BlueprintSummaryRead(BaseModel):
 class NotificationEventRead(BaseModel):
     id: str
     user_id: Optional[str] = None
+    org_id: Optional[str] = None
     project_id: Optional[str] = None
     source_type: str  # blueprint | session
     event_type: str
@@ -637,6 +669,7 @@ class NotificationPreferencesRead(BaseModel):
     id: str
     user_id: str
     project_id: Optional[str] = None
+    in_app_enabled: bool
     email_enabled: bool
     digest_enabled: bool
     allow_blueprint_events: bool
@@ -654,6 +687,7 @@ class NotificationPreferencesRead(BaseModel):
 
 class NotificationPreferencesUpdate(BaseModel):
     project_id: Optional[str] = None
+    in_app_enabled: Optional[bool] = None
     email_enabled: Optional[bool] = None
     digest_enabled: Optional[bool] = None
     allow_blueprint_events: Optional[bool] = None

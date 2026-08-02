@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from database import AsyncSessionLocal
-from dependencies import get_db, bearer_scheme, get_current_user_optional
+from dependencies import get_db, bearer_scheme, get_current_user, get_current_user_optional
 from fastapi.security import HTTPAuthorizationCredentials
 from auth import decode_token
 from models import User, ApiKey
@@ -66,15 +66,23 @@ async def resolve_actor_context(
             return resolved
 
     if current_user:
-        resolved = {
-            "id": current_user.id,
-            "name": current_user.name or current_user.email,
-            "role": "developer",
-            "color_token": "#4f46e5"
-        }
-        logger.info(f"STAGE participant resolved [{current_user.id}] [developer]")
-        print(f"[DEBUG resolve_actor_context] Resolved to developer actor: {resolved}")
-        return resolved
+        from models import OrgMember, Session as DbSession, Project
+        res = await db.execute(
+            select(OrgMember)
+            .join(Project, OrgMember.org_id == Project.org_id)
+            .join(DbSession, Project.id == DbSession.project_id)
+            .where(OrgMember.user_id == current_user.id, DbSession.id == session_id)
+        )
+        if res.scalar_one_or_none():
+            resolved = {
+                "id": current_user.id,
+                "name": current_user.name or current_user.email,
+                "role": "developer",
+                "color_token": "#4f46e5"
+            }
+            logger.info(f"STAGE participant resolved [{current_user.id}] [developer]")
+            print(f"[DEBUG resolve_actor_context] Resolved to developer actor: {resolved}")
+            return resolved
 
     # Default fallback
     resolved = {
@@ -200,6 +208,28 @@ async def create_marker(
     except Exception as e:
         logger.warning(f"[WS] Failed to broadcast marker_created event: {e}")
 
+    try:
+        from services.notification_service import emit_session_notification
+        await emit_session_notification(
+            db=db,
+            session_id=session_id,
+            event_type="marker_created",
+            entity_type="marker",
+            entity_id=marker.id,
+            title="New Pin Added",
+            body=marker.description or marker.comment or f"Marker added on page '{marker.page_url or '/'}'",
+            project_id=session.project_id,
+            user_id=actor["id"] if actor.get("role") == "user" else None,
+            metadata={
+                "marker_id": marker.id,
+                "page_url": marker.page_url,
+                "target_selector": marker.target_selector,
+                "author_name": actor.get("name", "Reviewer")
+            }
+        )
+    except Exception as ne:
+        logger.warning(f"[STAGE Notification] Failed to emit marker_created event: {ne}")
+
     return marker
 
 
@@ -232,11 +262,21 @@ async def list_project_markers(
     creator_id: Optional[str] = None,
     status: Optional[str] = None,
     include_deleted: bool = False,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    from models.core import Session
+    from models.core import Session, OrgMember, Project
     from sqlalchemy import select
     
+    # Verify user belongs to the org that owns this project
+    res = await db.execute(
+        select(OrgMember)
+        .join(Project, OrgMember.org_id == Project.org_id)
+        .where(OrgMember.user_id == current_user.id, Project.id == project_id)
+    )
+    if not res.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     query = select(Marker).join(Session, Marker.session_id == Session.id).where(Session.project_id == project_id)
     
     if not include_deleted:
@@ -308,6 +348,24 @@ async def update_marker(
         await redis_broadcaster.publish_event(marker.session_id, event)
     except Exception as e:
         logger.warning(f"[WS] Failed to broadcast marker_updated event: {e}")
+
+    if payload.status == "resolved" or marker.status == "resolved":
+        try:
+            from services.notification_service import emit_session_notification
+            await emit_session_notification(
+                db=db,
+                session_id=marker.session_id,
+                event_type="marker_resolved",
+                entity_type="marker",
+                entity_id=marker.id,
+                title="Pin Resolved",
+                body=f"Pin on selector '{marker.target_selector or marker.page_url or 'element'}' was marked as resolved.",
+                project_id=None,
+                user_id=actor_ctx["id"] if actor_ctx.get("role") == "user" else None,
+                metadata={"marker_id": marker.id, "status": "resolved"}
+            )
+        except Exception as ne:
+            logger.warning(f"[STAGE Notification] Failed to emit marker_resolved event: {ne}")
 
     return marker
 

@@ -122,12 +122,12 @@ async def check_project_limit(org_id: str, db: AsyncSession = Depends(get_db)):
 
     plan_info = await resolve_org_plan(org_id, db)
     if not plan_info["can_create_projects"]:
-        if plan_info["plan_type"] == "none" or plan_info["status"] in ("canceled", "expired", "none"):
+        if plan_info["plan_type"] in ("none", "free") or plan_info["status"] in ("canceled", "expired", "none"):
             raise HTTPException(
                 status_code=403,
                 detail={
-                    "code": "SUBSCRIPTION_REQUIRED",
-                    "message": "No active STAGE subscription found. Please subscribe to create projects."
+                    "code": "LIMIT_PROJECTS_EXCEEDED",
+                    "message": "Free plan project limit (1 project max) reached. Please upgrade to Dev Team to create more projects."
                 }
             )
         else:
@@ -135,7 +135,7 @@ async def check_project_limit(org_id: str, db: AsyncSession = Depends(get_db)):
                 status_code=403,
                 detail={
                     "code": "LIMIT_PROJECTS_EXCEEDED",
-                    "message": f"Project limit ({plan_info['projects_allowed']}) reached for your current STAGE plan. Please upgrade to Dev Team."
+                    "message": f"Project limit ({plan_info['projects_allowed']}) reached for your current STAGE plan. Please upgrade your subscription."
                 }
             )
 

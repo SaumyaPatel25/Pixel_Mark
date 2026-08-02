@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { event as trackEvent } from '@/lib/analytics'
+import { useProjectStore } from '@/store/projectStore'
+import { usePlan } from '@/hooks/usePlan'
 
 interface ShareLinkPanelProps {
   sessionId: string
@@ -14,6 +16,34 @@ interface ShareLinkPanelProps {
 }
 
 export function ShareLinkPanel({ sessionId, onClose }: ShareLinkPanelProps) {
+  const { currentProject, setCurrentProject } = useProjectStore()
+  const { canUseBlueprintDomEdit } = usePlan()
+  
+  const [allowReviewerDomEdit, setAllowReviewerDomEdit] = useState(
+    currentProject?.allow_reviewer_dom_edit ?? true
+  )
+
+  useEffect(() => {
+    if (currentProject) {
+      setAllowReviewerDomEdit(currentProject.allow_reviewer_dom_edit ?? true)
+    }
+  }, [currentProject])
+
+  const handleToggleAllowReviewerDomEdit = async () => {
+    if (!currentProject) return
+    const newValue = !allowReviewerDomEdit
+    setAllowReviewerDomEdit(newValue)
+    try {
+      const updated = await api.projects.update(currentProject.id, {
+        allow_reviewer_dom_edit: newValue
+      })
+      setCurrentProject(updated)
+    } catch (err: any) {
+      console.error("Failed to update project setting:", err)
+      setAllowReviewerDomEdit(!newValue)
+    }
+  }
+
   const [links, setLinks] = useState<ShareLink[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -156,6 +186,30 @@ export function ShareLinkPanel({ sessionId, onClose }: ShareLinkPanelProps) {
               )} />
             </button>
           </div>
+
+          {canUseBlueprintDomEdit && (
+            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+              <div className="flex items-center gap-3">
+                <Shield className="w-4 h-4 text-purple-400" />
+                <div>
+                  <p className="text-xs font-bold text-white">Allow reviewer DOM edits</p>
+                  <p className="text-[10px] text-white/40">Reviewers can suggest style changes</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleToggleAllowReviewerDomEdit}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-all relative",
+                  allowReviewerDomEdit ? "bg-purple-600" : "bg-white/10"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
+                  allowReviewerDomEdit ? "right-1" : "left-1"
+                )} />
+              </button>
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Password Protection</label>

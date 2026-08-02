@@ -87,7 +87,9 @@ async def list_all_sessions(current_user: User = Depends(get_current_user), db: 
     cache.set(cache_key, data, 15)
     return data
 
-@router.post("/", response_model=SessionOut)
+from ratelimit import rate_limit
+
+@router.post("/", response_model=SessionOut, dependencies=[Depends(rate_limit(20, 60))])
 async def create_session(
     data: SessionCreate,
     background_tasks: BackgroundTasks,
@@ -283,8 +285,27 @@ async def delete_session(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
+    project_id = session.project_id
+    session_title = session.title
+
     await db.delete(session)
     await db.commit()
+
+    try:
+        await emit_session_notification(
+            db=db,
+            session_id=session_id,
+            event_type="session_closed",
+            entity_type="session",
+            entity_id=session_id,
+            title=f"Session Closed: {session_title}",
+            body=f"Session '{session_title}' has been closed.",
+            project_id=project_id,
+            user_id=current_user.id if current_user else None,
+            category="important"
+        )
+    except Exception as ne:
+        logging.getLogger("stage.sessions").warning(f"[STAGE Notification] Failed to emit session_closed event: {ne}")
 
     # Invalidate cache
     cache.invalidate(f"user:{current_user.id}:*")
@@ -727,6 +748,23 @@ async def send_report_email(
     """
     from notifications import send_email
     background_tasks.add_task(send_email, data.email, subject, html)
+
+    try:
+        await emit_session_notification(
+            db=db,
+            session_id=session_id,
+            event_type="export_ready",
+            entity_type="session",
+            entity_id=session_id,
+            title=f"Export Ready: {project_name}",
+            body=f"Review report/export ready for session '{session.title}'.",
+            project_id=session.project_id,
+            user_id=None,
+            metadata={"session_id": session_id, "recipient": data.email}
+        )
+    except Exception as ne:
+        logging.getLogger("stage.sessions").warning(f"[STAGE Notification] Failed to emit export_ready event: {ne}")
+
     return {"status": "queued", "message": f"Report email queueing to {data.email}..."}
 
 

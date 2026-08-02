@@ -259,6 +259,25 @@ async def resolve_org_entitlements(user_id: str, db: AsyncSession) -> Dict[str, 
 
     can_use_blueprint_dom = bool(is_paid and plan_info["has_blueprint_dom_edit"])
 
+    # Load subscription for frontend Zustand state hydration
+    sub_res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
+    sub = sub_res.scalar_one_or_none()
+
+    sub_dict = {
+        "id": sub.id,
+        "org_id": sub.org_id,
+        "dodo_customer_id": sub.dodo_customer_id,
+        "dodo_subscription_id": sub.dodo_subscription_id,
+        "plan_type": sub.plan_type,
+        "status": sub.status,
+        "is_test_mode": sub.is_test_mode,
+        "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
+        "seats_allowed": sub.seats_allowed,
+        "projects_allowed": sub.projects_allowed,
+        "created_at": sub.created_at.isoformat() if sub.created_at else None,
+        "updated_at": sub.updated_at.isoformat() if sub.updated_at else None,
+    } if sub else None
+
     return {
         "user_id": user_id,
         "org_id": org_id,
@@ -278,5 +297,8 @@ async def resolve_org_entitlements(user_id: str, db: AsyncSession) -> Dict[str, 
         "is_paid": is_paid,
         "is_early_bird": plan_info["is_early_bird"],
         "is_test_mode": True,
+        "is_past_due_warning": plan_info["is_past_due_warning"],
+        "grace_period_ends_at": plan_info["grace_period_ends_at"],
+        "subscription": sub_dict,
     }
 

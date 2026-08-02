@@ -14,6 +14,7 @@ from dependencies import get_db, get_current_user
 from config import settings
 from services.email import send_verification_email, send_password_reset_email, send_login_link_email
 from services.tokens import create_token, consume_token
+from ratelimit import rate_limit
 from pydantic import BaseModel
 import uuid
 import secrets
@@ -60,8 +61,11 @@ async def login_or_register_oauth_user(email: str, name: str, db: AsyncSession) 
             
     return create_access_token({"sub": user.id})
 
-@router.post("/register", response_model=RegisterResponse, status_code=201)
+@router.post("/register", response_model=RegisterResponse, status_code=201, dependencies=[Depends(rate_limit(10, 60))])
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    if len(data.password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters long.")
+
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -124,7 +128,7 @@ async def verify_email(token: str = Query(...), db: AsyncSession = Depends(get_d
     
     return MessageResponse(message="Email verified. You can now sign in.")
 
-@router.post("/login", response_model=ExtendedTokenResponse)
+@router.post("/login", response_model=ExtendedTokenResponse, dependencies=[Depends(rate_limit(10, 60))])
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
@@ -144,7 +148,7 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         user=UserOut.model_validate(user)
     )
 
-@router.post("/request-password-reset", response_model=MessageResponse)
+@router.post("/request-password-reset", response_model=MessageResponse, dependencies=[Depends(rate_limit(5, 60))])
 async def request_password_reset(data: RequestPasswordResetRequest, db: AsyncSession = Depends(get_db)):
     generic_response = "If that email exists, we sent a reset link."
     
@@ -171,7 +175,7 @@ async def request_password_reset(data: RequestPasswordResetRequest, db: AsyncSes
         dev_link=dev_link
     )
 
-@router.post("/reset-password", response_model=MessageResponse)
+@router.post("/reset-password", response_model=MessageResponse, dependencies=[Depends(rate_limit(5, 60))])
 async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     auth_token = await consume_token(db, data.token, "password_reset")
     if not auth_token:
@@ -183,8 +187,8 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
         raise HTTPException(status_code=404, detail="User not found")
         
     new_pwd = data.new_password or data.password
-    if not new_pwd:
-        raise HTTPException(status_code=400, detail="Password is required")
+    if not new_pwd or len(new_pwd) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
         
     user.hashed_password = hash_password(new_pwd)
     db.add(user)
@@ -199,7 +203,7 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
     
     return MessageResponse(message="Password updated. You can now sign in.")
 
-@router.post("/resend-verification", response_model=MessageResponse)
+@router.post("/resend-verification", response_model=MessageResponse, dependencies=[Depends(rate_limit(5, 60))])
 async def resend_verification(data: ResendVerificationRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()

@@ -26,7 +26,7 @@ interface AuthState {
   verifyEmail: (token: string) => Promise<void>
   oauthLogin: (token: string) => Promise<void>
   firebaseSync: (idToken: string, name?: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   fetchMe: () => Promise<void>
 }
 
@@ -45,7 +45,6 @@ export const useAuthStore = create<AuthState>()(
           const token = res.access_token
           document.cookie = `stagetoken=${token}; path=/; max-age=604800; samesite=lax`
           set({ token, user: res.user })
-          // Identify the user in PostHog
           if (typeof window !== 'undefined' && res.user) {
             posthog.identify(res.user.id, { email: res.user.email, name: res.user.name ?? undefined })
             syncMonkfeedLogin(res.user)
@@ -83,10 +82,21 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
+      logout: async () => {
+        try {
+          const { signOut } = await import('firebase/auth')
+          const { auth } = await import('@/lib/firebase')
+          await signOut(auth)
+        } catch (err) {
+          console.warn('[AuthStore] Firebase signOut notice:', err)
+        }
         document.cookie = 'stagetoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-        set({ user: null, token: null })
-        // Reset PostHog — severs link between anonymous and identified session
+        document.cookie = 'pm_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        document.cookie = 'pmtoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('stage_auth')
+        }
+        set({ user: null, token: null, isLoading: false })
         if (typeof window !== 'undefined') {
           posthog.reset()
           syncMonkfeedLogout()
@@ -101,8 +111,11 @@ export const useAuthStore = create<AuthState>()(
           if (meRes) {
             syncMonkfeedLogin(meRes)
           }
-        } catch (err) {
-          get().logout()
+        } catch (err: any) {
+          console.warn('[AuthStore] fetchMe failed:', err)
+          if (err?.status === 401) {
+            await get().logout()
+          }
         } finally {
           set({ isLoading: false })
         }

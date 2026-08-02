@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useMarkerStore } from '@/store/markerStore'
 import { Marker, MarkerStatus, MarkerPriority } from '@/types/markers'
 import { api } from '@/lib/api'
+import { useUIStore } from '@/store/uiStore'
 import { 
   Search, 
   Filter, 
@@ -31,7 +32,6 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getMarkerColors } from '@/lib/markerColors'
-import { useUIStore } from '@/store/uiStore'
 import { cn } from '@/lib/utils'
 
 interface ObservationDetailsProps {
@@ -271,7 +271,7 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
     if (!selectedMarker) return
     const link = `${window.location.origin}/project/${projectId}?session=${sessionId}&marker=${selectedMarker.id}&view=details`
     navigator.clipboard.writeText(link)
-      .then(() => alert('Observation direct link copied to clipboard!'))
+      .then(() => useUIStore.getState().addToast('Observation direct link copied to clipboard!', 'success'))
   }
 
   const hasActiveFilters = statusFilter !== 'all' || reviewerFilter !== 'all' || pageFilter !== 'all' || searchTerm.trim() !== ''

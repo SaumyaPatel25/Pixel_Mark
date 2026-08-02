@@ -11,7 +11,8 @@ import {
   MousePointerClick,
   FolderOpen,
   Layers,
-  Sparkles
+  Sparkles,
+  FileCheck
 } from 'lucide-react'
 import { useBlueprintStore, BlueprintTool } from '@/store/blueprintStore'
 
@@ -29,6 +30,8 @@ export function BlueprintToolRail() {
     toggleLayers,
     isLibraryOpen,
     toggleLibrary,
+    isSuggestionsOpen,
+    toggleSuggestions,
     addFrame
   } = useBlueprintStore()
 
@@ -66,8 +69,9 @@ export function BlueprintToolRail() {
           return (
             <button
               key={t.id}
+              id={`${t.id}-tool-btn`}
               onClick={() => handleToolClick(t.id)}
-              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
                 isLockedDomEdit
                   ? 'text-slate-500 bg-slate-900/60 border border-amber-500/30 hover:border-amber-500/60 opacity-80 cursor-pointer'
                   : isActive
@@ -75,6 +79,7 @@ export function BlueprintToolRail() {
                   : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
               }`}
               title={isLockedDomEdit ? 'Upgrade to Dev Team to unlock Blueprint DOM Edit mode' : t.label}
+              aria-label={isLockedDomEdit ? 'Upgrade to Dev Team to unlock Blueprint DOM Edit mode' : t.label}
             >
               {t.icon}
               {isLockedDomEdit && (
@@ -90,21 +95,24 @@ export function BlueprintToolRail() {
 
         {/* Preset Library Toggle */}
         <button
+          id="library-toggle-btn"
           onClick={toggleLibrary}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
             isLibraryOpen
               ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm'
               : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
           }`}
           title="Pick & Place Preset Library"
+          aria-label="Open Preset library panel"
         >
           <Sparkles className="w-4 h-4" />
         </button>
 
         {/* Assets Placeholder */}
         <button
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-colors"
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none"
           title="Assets & Components (Placeholder)"
+          aria-label="Assets & Components (Placeholder)"
         >
           <FolderOpen className="w-4 h-4" />
         </button>
@@ -113,13 +121,29 @@ export function BlueprintToolRail() {
       {/* Bottom section: Layers Panel Toggle */}
       <div className="flex flex-col items-center gap-1.5 w-full px-2">
         <button
+          id="suggestions-toggle-btn"
+          onClick={toggleSuggestions}
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+            isSuggestionsOpen
+              ? 'bg-slate-800 text-cyan-400 border border-cyan-500/30'
+              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+          }`}
+          title="Reviewer Suggestions"
+          aria-label="Toggle Reviewer Suggestions Panel"
+        >
+          <FileCheck className="w-4 h-4" />
+        </button>
+
+        <button
+          id="layers-toggle-btn"
           onClick={toggleLayers}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
             isLayersOpen
               ? 'bg-slate-800 text-cyan-400 border border-cyan-500/30'
               : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
           }`}
           title="Toggle Layers Panel"
+          aria-label="Toggle Layers Panel"
         >
           <Layers className="w-4 h-4" />
         </button>

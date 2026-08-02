@@ -11,7 +11,7 @@ export type BlueprintTool =
   | 'dom-edit' 
   | 'comment'
 
-export type InsertionMode = 'replace' | 'before' | 'after' | 'inside'
+export type InsertionMode = 'replace' | 'before' | 'after' | 'inside' | 'move'
 
 export type BlueprintTargetKind = 'text' | 'image' | 'button' | 'container' | 'input' | 'generic'
 
@@ -138,12 +138,15 @@ interface BlueprintState {
   // Viewport state
   zoom: number
   pan: { x: number; y: number }
+  viewportMode: 'desktop' | 'tablet' | 'mobile'
 
   // Panels & modes
   isLayersOpen: boolean
+  isSuggestionsOpen: boolean
   isInspectorOpen: boolean
   previewMode: boolean
   isDirty: boolean
+  isWorkspaceLoading: boolean
 
   // Data
   frames: BlueprintFrameNode[]
@@ -165,6 +168,8 @@ interface BlueprintState {
   setSessionId: (sessionId: string | null) => void
   setSelectedTarget: (target: BlueprintDOMTarget | null) => void
   setHoveredTarget: (target: { selector: string; tag: string } | null) => void
+  setViewportMode: (mode: 'desktop' | 'tablet' | 'mobile') => void
+  setIsWorkspaceLoading: (loading: boolean) => void
   
   toggleLibrary: () => void
   setIsLibraryOpen: (open: boolean) => void
@@ -179,6 +184,7 @@ interface BlueprintState {
   setPan: (pan: { x: number; y: number } | ((prev: { x: number; y: number }) => { x: number; y: number })) => void
   resetViewport: () => void
   toggleLayers: () => void
+  toggleSuggestions: () => void
   toggleInspector: () => void
   setPreviewMode: (preview: boolean) => void
   updateFramePosition: (id: string, x: number, y: number) => void
@@ -261,11 +267,14 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
 
   zoom: 1.0,
   pan: { x: 0, y: 0 },
+  viewportMode: 'desktop',
 
   isLayersOpen: true,
+  isSuggestionsOpen: false,
   isInspectorOpen: true,
   previewMode: false,
   isDirty: false,
+  isWorkspaceLoading: false,
 
   frames: [DEFAULT_HOMEPAGE_FRAME],
 
@@ -434,6 +443,8 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
   setSessionId: (sessionId) => set({ sessionId }),
   setSelectedTarget: (target) => set({ selectedTarget: target }),
   setHoveredTarget: (target) => set({ hoveredTarget: target }),
+  setViewportMode: (mode) => set({ viewportMode: mode }),
+  setIsWorkspaceLoading: (loading) => set({ isWorkspaceLoading: loading }),
 
   toggleLibrary: () => set((state) => ({ isLibraryOpen: !state.isLibraryOpen })),
   setIsLibraryOpen: (open) => set({ isLibraryOpen: open }),
@@ -483,6 +494,7 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
   resetViewport: () => set({ zoom: 1.0, pan: { x: 0, y: 0 } }),
 
   toggleLayers: () => set((state) => ({ isLayersOpen: !state.isLayersOpen })),
+  toggleSuggestions: () => set((state) => ({ isSuggestionsOpen: !state.isSuggestionsOpen })),
   toggleInspector: () => set((state) => ({ isInspectorOpen: !state.isInspectorOpen })),
   setPreviewMode: (preview) => set({ previewMode: preview }),
 

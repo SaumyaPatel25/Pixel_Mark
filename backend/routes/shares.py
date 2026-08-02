@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
-from models import ShareLink, User, Session as DBSession
+from models import ShareLink, User, Session as DBSession, OrgMember, Project
 from schemas import ShareLinkCreate, ShareLinkOut
 from pydantic import BaseModel
 from typing import Optional
@@ -13,6 +13,32 @@ import os
 import logging
 
 logger = logging.getLogger("stage.shares")
+
+async def verify_project_ownership(project_id: str, user_id: str, db: AsyncSession) -> None:
+    res = await db.execute(select(OrgMember).where(OrgMember.user_id == user_id))
+    member = res.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    proj_res = await db.execute(
+        select(Project).where(Project.id == project_id, Project.org_id == member.org_id)
+    )
+    project = proj_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+async def verify_session_ownership(session_id: str, user_id: str, db: AsyncSession) -> None:
+    res = await db.execute(select(OrgMember).where(OrgMember.user_id == user_id))
+    member = res.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    sess_res = await db.execute(
+        select(DBSession)
+        .join(Project, DBSession.project_id == Project.id)
+        .where(DBSession.id == session_id, Project.org_id == member.org_id)
+    )
+    session = sess_res.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
 
 class LegacyShareLinkAccess(BaseModel):
     password: Optional[str] = None
@@ -54,6 +80,8 @@ async def list_share_links_for_project(
     trace_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:8]
     logger.info(f"[OBSERVABILITY] [SHARE_LIST] [TRACE={trace_id}] Listing share links for project={project_id}")
     
+    await verify_project_ownership(project_id, current_user.id, db)
+    
     # Get all sessions for this project
     sessions_result = await db.execute(
         select(DBSession).where(DBSession.project_id == project_id)
@@ -84,6 +112,8 @@ async def create_share_link_for_project(
     """Create a share link for the most recent session of a project."""
     trace_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:8]
     logger.info(f"[OBSERVABILITY] [SHARE_CREATE_PROJECT] [TRACE={trace_id}] Creating share link for project={project_id}, role={data.get('role')}")
+    
+    await verify_project_ownership(project_id, current_user.id, db)
     
     # Find the most recent session for this project
     result = await db.execute(
@@ -139,6 +169,24 @@ async def create_share_link_for_project(
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
     share_url = f"{frontend_url}/t/{token}"
     logger.info(f"[OBSERVABILITY] [SHARE_CREATE_SUCCESS] [TRACE={trace_id}] Created link={link.id} for session={session.id}, url={share_url}")
+
+    try:
+        from services.notification_service import emit_session_notification
+        await emit_session_notification(
+            db=db,
+            session_id=session.id,
+            event_type="share_link_created",
+            entity_type="share_link",
+            entity_id=link.id,
+            title="Share Link Created",
+            body=f"New share link created for session '{session.title or session.id}'.",
+            project_id=session.project_id,
+            user_id=current_user.id if current_user else None,
+            metadata={"token": link.token, "share_url": share_url}
+        )
+    except Exception as ne:
+        logger.warning(f"[STAGE Notification] Failed to emit share_link_created event: {ne}")
+
     return _link_to_dict(link, share_url)
 
 
@@ -153,6 +201,8 @@ async def delete_share_link_for_project(
     """Revoke (deactivate) a share link."""
     trace_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:8]
     logger.info(f"[OBSERVABILITY] [SHARE_REVOKE_PROJECT] [TRACE={trace_id}] Revoking share link={link_id} for project={project_id}")
+    
+    await verify_project_ownership(project_id, current_user.id, db)
     
     result = await db.execute(select(ShareLink).where(ShareLink.id == link_id))
     link = result.scalar_one_or_none()
@@ -178,6 +228,8 @@ async def create_share_link(
 ):
     trace_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:8]
     logger.info(f"[OBSERVABILITY] [SHARE_CREATE_LEGACY] [TRACE={trace_id}] Creating share link for session={data.session_id}")
+    
+    await verify_session_ownership(data.session_id, current_user.id, db)
     
     token = secrets.token_urlsafe(16)
     password_hash = None
@@ -211,6 +263,7 @@ async def list_share_links(
 ):
     trace_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:8]
     logger.info(f"[OBSERVABILITY] [SHARE_LIST_LEGACY] [TRACE={trace_id}] Listing legacy share links for session={session_id}")
+    await verify_session_ownership(session_id, current_user.id, db)
     result = await db.execute(select(ShareLink).where(ShareLink.session_id == session_id))
     return result.scalars().all()
 
@@ -289,6 +342,14 @@ async def delete_share_link(
 ):
     trace_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:8]
     logger.info(f"[OBSERVABILITY] [SHARE_DELETE_LEGACY] [TRACE={trace_id}] Deleting legacy share link={share_id}")
+    
+    result = await db.execute(select(ShareLink).where(ShareLink.id == share_id))
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="Share link not found")
+        
+    await verify_session_ownership(link.session_id, current_user.id, db)
+    
     await db.execute(delete(ShareLink).where(ShareLink.id == share_id))
     await db.commit()
     logger.info(f"[OBSERVABILITY] [SHARE_DELETE_LEGACY_SUCCESS] [TRACE={trace_id}] Deleted legacy share link={share_id} from database")

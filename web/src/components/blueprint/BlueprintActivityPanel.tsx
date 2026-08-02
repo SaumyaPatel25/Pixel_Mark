@@ -36,6 +36,22 @@ export function BlueprintActivityPanel({ projectId }: BlueprintActivityPanelProp
     }
   }, [projectId, fetchActivity])
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        toggleActivityPanel(false)
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
+      const trigger = document.getElementById('activity-toggle-btn')
+      if (trigger) {
+        trigger.focus()
+      }
+    }
+  }, [toggleActivityPanel])
+
   function formatRelativeTime(dateStr: string) {
     try {
       const date = new Date(dateStr)

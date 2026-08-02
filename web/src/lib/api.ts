@@ -27,7 +27,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path: string, options: RequestInit = {}) {
+export async function request(path: string, options: RequestInit = {}, isRetry = false): Promise<any> {
   const baseUrl = getApiBaseUrl()
   // Dual-read migration shim for auth token cookie
   const token = getCookie('stagetoken') || getCookie('pm_token') || getCookie('pmtoken')
@@ -48,12 +48,44 @@ export async function request(path: string, options: RequestInit = {}) {
   })
 
   if (!response.ok) {
-    if (response.status === 401) {
-      if (typeof window !== 'undefined') {
-        import('../store/authStore').then((mod) => {
-          mod.useAuthStore.getState().logout()
-          window.location.href = '/login'
-        }).catch(() => {})
+    if (response.status === 401 && !isRetry) {
+      const isAuthPath = path.startsWith('/auth/login') || path.startsWith('/auth/register') || path.startsWith('/auth/firebase-sync')
+      if (!isAuthPath && typeof window !== 'undefined') {
+        try {
+          const { auth } = await import('@/lib/firebase')
+          if (auth.currentUser) {
+            console.log('[API] 401 encountered, attempting background Firebase token refresh...')
+            const newToken = await auth.currentUser.getIdToken(true)
+            const syncRes = await fetch(`${baseUrl}/auth/firebase-sync`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id_token: newToken })
+            })
+            if (syncRes.ok) {
+              const syncData = await syncRes.json()
+              if (syncData.access_token) {
+                document.cookie = `stagetoken=${syncData.access_token}; path=/; max-age=604800; samesite=lax`
+                return request(path, options, true)
+              }
+            }
+          }
+        } catch (refreshErr) {
+          console.warn('[API] Background token refresh failed:', refreshErr)
+        }
+
+        const isPublicPath = path.startsWith('/share-links/') || path.startsWith('/canvas/publications/token/')
+        if (!isPublicPath) {
+          document.cookie = 'stagetoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'pm_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'pmtoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          localStorage.removeItem('stage_auth');
+          import('../store/authStore').then((mod) => {
+            mod.useAuthStore.getState().logout()
+          }).catch(() => {})
+          if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+            window.location.href = '/login'
+          }
+        }
       }
     }
     let detail: any = 'An error occurred'
@@ -87,7 +119,11 @@ export async function request(path: string, options: RequestInit = {}) {
       if (rawBody) detail = rawBody
     }
     const method = (options.method || 'GET').toUpperCase()
-    console.error(`[API] ${method} ${path} → ${response.status} ${response.statusText}`, detail)
+    if (response.status >= 500) {
+      console.error(`[API] ${method} ${path} → ${response.status} ${response.statusText}`, detail)
+    } else {
+      console.warn(`[API] ${method} ${path} → ${response.status} ${response.statusText}`, detail)
+    }
     throw new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail), response.status)
   }
 
@@ -131,6 +167,7 @@ export interface Project {
   name: string
   url?: string
   created_at: string
+  allow_reviewer_dom_edit?: boolean
 }
 
 export interface ProjectCreate {
@@ -171,6 +208,7 @@ export interface ShareLinkPublicRead {
   project_name: string | null
   name: string | null
   target_url: string | null
+  dom_edit_available?: boolean
 }
 
 export interface ShareLinkAccess {
@@ -299,6 +337,12 @@ export const api = {
     },
     async getAnalytics(id: string): Promise<any> {
       return apiQueue.enqueueRead('Loading analytics...', () => request(`/projects/${id}/analytics`))
+    },
+    async update(id: string, data: Partial<Project>): Promise<Project> {
+      return apiQueue.enqueueWrite('Updating project...', () => request(`/projects/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }))
     },
   },
   async getDashboardSummary() {
@@ -497,6 +541,9 @@ export const api = {
       const qs = orgId ? `?org_id=${orgId}` : ''
       return apiQueue.enqueueRead('Fetching billing status...', () => request(`/billing/status${qs}`))
     },
+    async getEntitlements() {
+      return apiQueue.enqueueRead('Fetching user entitlements...', () => request('/billing/entitlements'))
+    },
     async getPlanCapabilities(orgId?: string) {
       const qs = orgId ? `?org_id=${orgId}` : ''
       return apiQueue.enqueueRead('Fetching plan capabilities...', () => request(`/billing/plan${qs}`))
@@ -504,6 +551,12 @@ export const api = {
     async cancelSubscription(orgId?: string) {
       const qs = orgId ? `?org_id=${orgId}` : ''
       return apiQueue.enqueueWrite('Canceling subscription...', () => request(`/billing/cancel${qs}`, { method: 'POST' }))
+    },
+    async syncCheckout(data: { org_id?: string; subscription_id?: string; plan_type?: string }) {
+      return apiQueue.enqueueWrite('Syncing checkout...', () => request('/billing/sync-checkout', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }))
     }
   },
 
@@ -687,6 +740,19 @@ export const api = {
       return apiQueue.enqueueWrite('Creating frame...', () => request('/canvas/frames', {
         method: 'POST',
         body: JSON.stringify(data),
+      }))
+    },
+    async getReviewerSuggestions(projectId: string): Promise<any[]> {
+      return apiQueue.enqueueRead('Loading suggestions...', () => request(`/canvas/${projectId}/reviewer-suggestions`))
+    },
+    async acceptSuggestion(projectId: string, suggestionId: string): Promise<void> {
+      return apiQueue.enqueueWrite('Accepting suggestion...', () => request(`/canvas/${projectId}/reviewer-suggestions/${suggestionId}/accept`, {
+        method: 'POST'
+      }))
+    },
+    async rejectSuggestion(projectId: string, suggestionId: string): Promise<void> {
+      return apiQueue.enqueueWrite('Rejecting suggestion...', () => request(`/canvas/${projectId}/reviewer-suggestions/${suggestionId}/reject`, {
+        method: 'POST'
       }))
     },
     async updateFrame(id: string, data: any) {
@@ -912,6 +978,17 @@ export const api = {
     },
     async revokeApiKey(id: string) {
       return revokeApiKey(id)
+    }
+  },
+  review: {
+    async getDomEditAvailable(token: string): Promise<{ dom_edit_available: boolean }> {
+      return apiQueue.enqueueRead('Checking DOM edit support...', () => request(`/review/${token}/dom-edit-available`))
+    },
+    async submitDomEditSuggestion(token: string, data: any): Promise<void> {
+      return apiQueue.enqueueWrite('Submitting suggestion...', () => request(`/review/${token}/dom-edit-suggestions`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }))
     }
   }
 }

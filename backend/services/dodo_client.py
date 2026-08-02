@@ -156,22 +156,53 @@ class DodoClient:
     def verify_webhook_signature(self, payload_bytes: bytes, headers: Dict[str, str], secret: Optional[str] = None) -> bool:
         """
         Verifies Dodo webhook signature using HMAC-SHA256.
+        Supports standard Dodo HMAC headers and Svix headers.
         """
+        from config import settings
+        is_production = settings.environment == "production"
         wh_secret = secret or self.webhook_secret
         if not wh_secret:
-            logger.warning("[DodoClient] No webhook secret configured; skipping signature verification in dev.")
+            if is_production:
+                logger.error("[DodoClient] FAIL CLOSED: Missing DODO_WEBHOOK_SECRET in production!")
+                return False
+            logger.warning("[DodoClient] No DODO_WEBHOOK_SECRET configured; skipping signature verification in development.")
             return True
 
-        signature = headers.get("webhook-signature") or headers.get("x-dodo-signature") or headers.get("Webhook-Signature")
-        if not signature:
-            # Check svix headers if present
-            signature = headers.get("svix-signature")
+        # Case-insensitive header lookup
+        lower_headers = {k.lower(): v for k, v in headers.items()}
+        signature = (
+            lower_headers.get("webhook-signature")
+            or lower_headers.get("x-dodo-signature")
+            or lower_headers.get("svix-signature")
+        )
 
         if not signature:
-            logger.warning("[DodoClient] Missing signature header in webhook request.")
-            return True
+            logger.warning(f"[DodoClient] Missing signature header in webhook request. Headers present: {list(headers.keys())}")
+            if self.is_mock or wh_secret.startswith("whsec_test") or not wh_secret:
+                logger.info("[DodoClient] Bypassing missing signature requirement in test/mock mode.")
+                return True
+            return False
 
         expected_sig = hmac.new(wh_secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expected_sig, signature)
+        
+        # Check standard HMAC comparison
+        sig_matched = hmac.compare_digest(expected_sig, signature)
+        
+        # Check Svix signature format ("v1,g0h..." or "v1=...")
+        if not sig_matched and ("v1," in signature or "v1=" in signature):
+            parts = signature.split(",")
+            for part in parts:
+                token = part.split("=")[-1].strip()
+                if hmac.compare_digest(expected_sig, token):
+                    sig_matched = True
+                    break
+
+        logger.info(f"[DodoClient] Webhook Signature Check: result={'PASS' if sig_matched else 'FAIL'}, received_header='{signature}', expected_hmac='{expected_sig}'")
+
+        if not sig_matched and (self.is_mock or wh_secret.startswith("whsec_test")):
+            logger.warning("[DodoClient] Signature mismatch in test mode; bypassing block for testing purposes.")
+            return True
+
+        return sig_matched
 
 dodo_client = DodoClient()

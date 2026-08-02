@@ -40,15 +40,20 @@ def is_ssrf_safe(url: str) -> bool:
         if hostname.startswith("[") and hostname.endswith("]"):
             hostname = hostname[1:-1]
             
+        # Allow loopback/localhost checks bypass ONLY in development/E2E testing
+        import os
+        from config import settings
+        is_dev_or_test = (settings.environment == "development" or os.environ.get("RUNNING_SSRF_TEST") == "true")
+        
         # Resolve hostname to all associated IPs to verify safety
         addr_info = socket.getaddrinfo(hostname, None)
         for family, socktype, proto, canonname, sockaddr in addr_info:
             ip_str = sockaddr[0]
-            # Bypass loopback/localhost checks for local development/E2E testing
-            import os
-            if os.environ.get("RUNNING_SSRF_TEST") != "true":
+            if is_dev_or_test:
+                # Bypass checks for local development/testing
                 if hostname in ("localhost", "127.0.0.1", "::1") or hostname.endswith(".localhost"):
                     continue
+            
             ip = ipaddress.ip_address(ip_str)
             # Check private, loopback, link-local, multicast, unspecified
             if (ip.is_private or 

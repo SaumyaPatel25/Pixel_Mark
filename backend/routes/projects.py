@@ -33,9 +33,11 @@ async def create_project(data: ProjectCreate, current_user: User = Depends(get_c
     await db.commit()
     await db.refresh(project)
 
-    # Invalidate cache
+    # Invalidate caches (app cache + plan capability cache)
     from services.cache import cache
+    from services.plan_capabilities import invalidate_org_plan_cache
     cache.invalidate(f"user:{current_user.id}:*")
+    invalidate_org_plan_cache(member.org_id)
 
     return project
 

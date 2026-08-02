@@ -1,5 +1,6 @@
 'use client'
 import { useUIStore } from '@/store/uiStore'
+import { usePlan } from '@/hooks/usePlan'
 import { normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useDOMEditStore } from '@/store/domEditStore'
@@ -71,6 +72,7 @@ interface AuditSurfaceProps {
   shouldConnectSocket?: boolean
   isHeaderCollapsed?: boolean
   onHeaderCollapsedChange?: (collapsed: boolean) => void
+  domEditAvailable?: boolean
 }
 
 type IssueType = 'layout' | 'copy' | 'interaction' | 'navigation' | 'rendering' | 'canvas_webgl' | 'other'
@@ -314,8 +316,10 @@ export function AuditSurface({
   onPageChanged,
   shouldConnectSocket = true,
   isHeaderCollapsed = false,
-  onHeaderCollapsedChange
+  onHeaderCollapsedChange,
+  domEditAvailable = false
 }: AuditSurfaceProps) {
+  const { canUseBlueprintDomEdit } = usePlan()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const isDraggingExitFocusRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -383,6 +387,79 @@ export function AuditSurface({
   const [feedbackModeActive, setFeedbackModeActive] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'comment' | 'edit'>('comment')
   const [selectedEditElement, setSelectedEditElement] = useState<{ tag: string; selector: string } | null>(null)
+  const [selectedEditElementDetails, setSelectedEditElementDetails] = useState<any>(null)
+  const [suggestionType, setSuggestionType] = useState<'text' | 'style'>('text')
+  const [proposedText, setProposedText] = useState('')
+  const [proposedColor, setProposedColor] = useState('#ffffff')
+  const [proposedBgColor, setProposedBgColor] = useState('#000000')
+  const [proposedFontSize, setProposedFontSize] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  function rgbToHex(rgbStr: string): string {
+    if (!rgbStr) return '#ffffff'
+    const match = rgbStr.match(/\d+/g)
+    if (!match || match.length < 3) return '#ffffff'
+    const r = parseInt(match[0])
+    const g = parseInt(match[1])
+    const b = parseInt(match[2])
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+  }
+
+  useEffect(() => {
+    if (selectedEditElementDetails) {
+      setProposedText(selectedEditElementDetails.innerText || '')
+      setProposedColor(rgbToHex(selectedEditElementDetails.computedStyles?.color || '#ffffff'))
+      setProposedBgColor(rgbToHex(selectedEditElementDetails.computedStyles?.backgroundColor || '#000000'))
+      setProposedFontSize(selectedEditElementDetails.computedStyles?.fontSize || '')
+    }
+  }, [selectedEditElementDetails])
+
+  const submitSuggestion = async () => {
+    if (!selectedEditElement || !shareToken || !reviewerIdentity) return
+    try {
+      setSubmitting(true)
+      setErrorMsg(null)
+      
+      let proposedValue = ''
+      if (suggestionType === 'text') {
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(selectedEditElementDetails.outerHTML, 'text/html')
+        const el = doc.body.firstElementChild
+        if (el) {
+          el.textContent = proposedText
+          proposedValue = el.outerHTML
+        }
+      } else {
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(selectedEditElementDetails.outerHTML, 'text/html')
+        const el = doc.body.firstElementChild as HTMLElement
+        if (el) {
+          if (proposedColor) el.style.color = proposedColor
+          if (proposedBgColor) el.style.backgroundColor = proposedBgColor
+          if (proposedFontSize) el.style.fontSize = proposedFontSize
+          proposedValue = el.outerHTML
+        }
+      }
+
+      await api.review.submitDomEditSuggestion(shareToken, {
+        reviewer_identity_id: reviewerIdentity.id,
+        frame_id: 'frame_homepage',
+        page_url: currentUrl,
+        selector: selectedEditElement.selector,
+        operation_type: 'replace',
+        proposed_value: proposedValue
+      })
+
+      setSelectedEditElement(null)
+      setSelectedEditElementDetails(null)
+      useUIStore.getState().addToast('Suggestion submitted for project owner review!', 'success')
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to submit suggestion. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
   const canUndo = useUndoRedoStore(state => state.canUndo)
   const canRedo = useUndoRedoStore(state => state.canRedo)
   const { fetchEdits, createEdit } = useDOMEditStore()
@@ -1163,10 +1240,16 @@ export function AuditSurface({
       switch (data.type) {
         case 'STAGE_EDIT_ELEMENT_SELECTED':
           setSelectedEditElement({ tag: data.tag || '', selector: data.selector || '' })
+          setSelectedEditElementDetails({
+            outerHTML: data.outerHTML || '',
+            innerText: data.innerText || '',
+            computedStyles: data.computedStyles || {}
+          })
           break
 
         case 'STAGE_EDIT_ELEMENT_DESELECTED':
           setSelectedEditElement(null)
+          setSelectedEditElementDetails(null)
           break
         case 'STAGE_PAGE_LOAD':
           setCurrentUrl(data.url)
@@ -2210,17 +2293,43 @@ export function AuditSurface({
                 <Plus className="w-3 h-3" />
                 Comment Mode
               </button>
-              <button
-                id="open-in-blueprint-btn"
-                aria-label="Refine this page in Blueprint Canvas"
-                onClick={() => {
-                  window.location.href = `/canvas?sessionId=${sessionId}`
-                }}
-                className="h-7 px-3 rounded-lg font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer text-teal-400 border border-teal-500/30 hover:bg-teal-500/10"
-              >
-                <Layers className="w-3 h-3" />
-                Open in Blueprint
-              </button>
+              {shareToken ? (
+                domEditAvailable && (
+                  <button
+                    id="canvas-mode-reviewer-edit-btn"
+                    aria-label="Switch to Suggestion Edit Mode"
+                    onClick={() => {
+                      setCanvasMode('edit')
+                      setFeedbackModeActive(false)
+                    }}
+                    className={cn(
+                      "h-7 px-3 rounded-lg font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer",
+                      canvasMode === 'edit'
+                        ? "bg-purple-600 text-white shadow-md shadow-purple-900/40"
+                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Layers className="w-3 h-3" />
+                    Suggest Edits
+                  </button>
+                )
+              ) : (
+                <button
+                  id="open-in-blueprint-btn"
+                  aria-label="Refine this page in Blueprint Canvas"
+                  onClick={() => {
+                    if (canUseBlueprintDomEdit) {
+                      window.location.href = `/canvas/${projectId}?sessionId=${sessionId}`
+                    } else {
+                      window.location.href = '/pricing'
+                    }
+                  }}
+                  className="h-7 px-3 rounded-lg font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer text-teal-400 border border-teal-500/30 hover:bg-teal-500/10"
+                >
+                  <Layers className="w-3 h-3" />
+                  Open in Blueprint
+                </button>
+              )}
             </div>
 
             {/* ── PRIMARY CTA: Leave Feedback ────────────────────────────── */}
@@ -2570,25 +2679,137 @@ export function AuditSurface({
             </div>
           )}
 
-          {/* ── Guidance to Blueprint Canvas for Design Editing ──── */}
+          {/* ── Guidance / Reviewer Suggestion Form ──── */}
           {canvasMode === 'edit' && (
-            <div className="absolute top-20 right-6 bg-[#18181b] border border-teal-500/30 text-white p-4 rounded-xl shadow-2xl z-40 max-w-xs space-y-3">
-              <div className="flex items-center gap-2 text-teal-400 font-bold text-xs">
-                <Layers className="w-4 h-4" />
-                <span>Refine page in Blueprint</span>
+            shareToken ? (
+              <div className="absolute top-20 right-6 bg-[#0f0f16]/95 border border-purple-500/20 text-white p-5 rounded-2xl shadow-2xl z-40 w-80 space-y-4 backdrop-blur-xl">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <div className="flex items-center gap-2 text-purple-400 font-black text-xs uppercase tracking-wider">
+                    <Layers className="w-4 h-4" />
+                    <span>Propose Change</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCanvasMode('comment')
+                      setFeedbackModeActive(true)
+                    }}
+                    className="p-1 text-white/40 hover:text-white/80 transition-colors"
+                    aria-label="Exit suggestion mode"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {!selectedEditElement ? (
+                  <div className="text-center py-6 text-white/50 text-xs space-y-2">
+                    <Plus className="w-8 h-8 mx-auto text-purple-500/30 animate-pulse" />
+                    <p className="font-bold uppercase tracking-wider text-[10px]">Select Element</p>
+                    <p className="text-[10px]">Click any element on the page to suggest edits.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-3 bg-white/5 rounded-xl border border-white/5 space-y-1">
+                      <div className="text-[8px] font-black text-purple-400 uppercase tracking-widest">Selected Tag</div>
+                      <div className="text-xs font-mono font-bold text-white/80 uppercase truncate">{selectedEditElement.tag}</div>
+                      <div className="text-[8px] font-mono text-white/40 truncate">{selectedEditElement.selector}</div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Edit Type</label>
+                        <select
+                          value={suggestionType}
+                          onChange={(e) => setSuggestionType(e.target.value as 'text' | 'style')}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                        >
+                          <option value="text">Modify Text Content</option>
+                          <option value="style">Tweak Styles</option>
+                        </select>
+                      </div>
+
+                      {suggestionType === 'text' ? (
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">New Text Content</label>
+                          <textarea
+                            value={proposedText}
+                            onChange={(e) => setProposedText(e.target.value)}
+                            placeholder="Type your proposed text here..."
+                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500 placeholder:text-white/20 resize-none"
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Text Color</label>
+                              <input
+                                type="color"
+                                value={proposedColor}
+                                onChange={(e) => setProposedColor(e.target.value)}
+                                className="w-full h-8 bg-transparent cursor-pointer rounded-lg border border-white/10 p-0.5"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Bg Color</label>
+                              <input
+                                type="color"
+                                value={proposedBgColor}
+                                onChange={(e) => setProposedBgColor(e.target.value)}
+                                className="w-full h-8 bg-transparent cursor-pointer rounded-lg border border-white/10 p-0.5"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Font Size</label>
+                            <input
+                              type="text"
+                              value={proposedFontSize}
+                              onChange={(e) => setProposedFontSize(e.target.value)}
+                              placeholder="e.g. 16px, 1.25rem"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 placeholder:text-white/20"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {errorMsg && (
+                        <p className="text-[10px] text-red-400 font-bold bg-red-950/20 border border-red-500/20 p-2 rounded-lg">{errorMsg}</p>
+                      )}
+
+                      <button
+                        onClick={submitSuggestion}
+                        disabled={submitting}
+                        className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase tracking-wider text-[10px] rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-900/40"
+                      >
+                        {submitting ? 'Submitting...' : 'Submit Suggestion'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <p className="text-xs text-white/70">
-                Design style editing has moved to the Blueprint Canvas. Select a frame there to tweak layout, typography, background, and effects.
-              </p>
-              <button
-                onClick={() => {
-                  window.location.href = `/canvas?sessionId=${sessionId}`
-                }}
-                className="w-full py-2 px-3 bg-teal-500 hover:bg-teal-400 text-black font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <span>Open in Blueprint</span>
-              </button>
-            </div>
+            ) : (
+              <div className="absolute top-20 right-6 bg-[#18181b] border border-teal-500/30 text-white p-4 rounded-xl shadow-2xl z-40 max-w-xs space-y-3">
+                <div className="flex items-center gap-2 text-teal-400 font-bold text-xs">
+                  <Layers className="w-4 h-4" />
+                  <span>Refine page in Blueprint</span>
+                </div>
+                <p className="text-xs text-white/70">
+                  Design style editing has moved to the Blueprint Canvas. Select a frame there to tweak layout, typography, background, and effects.
+                </p>
+                <button
+                  onClick={() => {
+                    if (canUseBlueprintDomEdit) {
+                      window.location.href = `/canvas/${projectId}?sessionId=${sessionId}`
+                    } else {
+                      window.location.href = '/pricing'
+                    }
+                  }}
+                  className="w-full py-2 px-3 bg-teal-500 hover:bg-teal-400 text-black font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>Open in Blueprint</span>
+                </button>
+              </div>
+            )
           )}
 
           {/* ── Shortcut hint ───────────────────────────────────────────── */}

@@ -2,15 +2,18 @@
 
 import React, { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
 import { ProjectCard } from '@/components/ProjectCard'
 import { event as trackEvent } from '@/lib/analytics'
-import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useOnboardingStore } from '@/store/onboardingStore'
+import { useBillingStore } from '@/store/useBillingStore'
+import { useUIStore } from '@/store/uiStore'
+import { CrownDoodle } from '@/components/ui/CrownDoodle'
 import { 
   Plus, 
   Folder, 
@@ -69,6 +72,12 @@ export default function DashboardPage() {
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectUrl, setNewProjectUrl] = useState('')
   const [isCreatingProject, setIsCreatingProject] = useState(false)
+  const [projectError, setProjectError] = useState<{ code: string; message: string } | null>(null)
+
+  const closeCreateProjectModal = () => {
+    setShowCreateProject(false)
+    setProjectError(null)
+  }
 
   // New Session Modal State
   const [newSessionProject, setNewSessionProject] = useState<any | null>(null)
@@ -94,9 +103,19 @@ export default function DashboardPage() {
       // Optimistically remove from local state
       setProjectsData(prev => prev.filter(p => p.id !== projectId))
       setStatsData(prev => ({ ...prev, totalProjects: Math.max(0, prev.totalProjects - 1) }))
+      useUIStore.getState().addToast('Project deleted successfully.', 'success')
     } catch (err: any) {
-      console.error('[Dashboard] Failed to delete project:', err)
-      alert(`Failed to delete project: ${err.message || 'Unknown error'}`)
+      if (err.status >= 500) {
+        console.error('[Dashboard] Failed to delete project:', err)
+      } else {
+        console.warn('[Dashboard] Failed to delete project:', err.message || err)
+      }
+      let errMsg = err.message || 'Unknown error'
+      try {
+        const parsed = JSON.parse(errMsg)
+        errMsg = parsed.message || parsed.detail || errMsg
+      } catch {}
+      useUIStore.getState().addToast(`Failed to delete project: ${errMsg}`, 'error')
     } finally {
       setDeletingProjectId(null)
     }
@@ -202,12 +221,12 @@ export default function DashboardPage() {
     return () => { isCancelled = true }
   }, [mounted])
 
-  // Create Project handler
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newProjectName.trim() || isCreatingProject) return
 
     setIsCreatingProject(true)
+    setProjectError(null)
     try {
       await api.projects.create({
         name: newProjectName.trim(),
@@ -221,8 +240,29 @@ export default function DashboardPage() {
       setNewProjectName('')
       setNewProjectUrl('')
       setShowCreateProject(false)
+      useUIStore.getState().addToast('Project created successfully!', 'success')
     } catch (err: any) {
-      alert(err.message || 'Failed to initialize project')
+      if (err.status >= 500) {
+        console.error('[Dashboard] Failed to create project:', err)
+      } else {
+        console.warn('[Dashboard] Failed to create project:', err.message || err)
+      }
+      const rawMsg = err.message || 'Failed to initialize project'
+      try {
+        const parsed = JSON.parse(rawMsg)
+        if (parsed.code && parsed.message) {
+          setProjectError({ code: parsed.code, message: parsed.message })
+        } else if (parsed.detail && typeof parsed.detail === 'object') {
+          setProjectError({ 
+            code: parsed.detail.code || 'ERROR', 
+            message: parsed.detail.message || 'Failed to initialize project' 
+          })
+        } else {
+          setProjectError({ code: 'ERROR', message: rawMsg })
+        }
+      } catch {
+        setProjectError({ code: 'ERROR', message: rawMsg })
+      }
     } finally {
       setIsCreatingProject(false)
     }
@@ -253,8 +293,14 @@ export default function DashboardPage() {
 
       setNewSessionProject(null)
       router.push(`/project/${newSessionProject.id}`)
+      useUIStore.getState().addToast('Review session initialized successfully!', 'success')
     } catch (err: any) {
-      alert(err.message || 'Failed to initialize session')
+      let errMsg = err.message || 'Failed to initialize session'
+      try {
+        const parsed = JSON.parse(errMsg)
+        errMsg = parsed.message || parsed.detail || errMsg
+      } catch {}
+      useUIStore.getState().addToast(errMsg, 'error')
     } finally {
       setIsCreatingSession(false)
     }
@@ -312,6 +358,12 @@ export default function DashboardPage() {
     }
   }
 
+  const { isPaid, currentPlan, fetchBillingStatus } = useBillingStore()
+
+  useEffect(() => {
+    fetchBillingStatus()
+  }, [fetchBillingStatus])
+
   return (
     <div className="min-h-screen bg-pm-bg text-pm-text p-6 md:p-10 font-sans selection:bg-pm-cyan/20 overflow-x-hidden relative transition-colors duration-300">
       
@@ -332,10 +384,15 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2 text-xs font-bold text-pm-accent uppercase tracking-widest">
               <span>Developer Workspace</span>
               <span className="w-1 h-1 rounded-full bg-pm-border-bright" />
-              <span>Standard Plan</span>
+              <span>
+                {currentPlan === 'dev_team_early_bird' ? 'Dev Team Early Bird' :
+                 currentPlan === 'dev_team' ? 'Dev Team Plan' :
+                 currentPlan === 'enterprise' ? 'Enterprise Plan' : 'Free Plan'}
+              </span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-pm-text leading-tight">
-              Welcome back, {user?.name || 'Pro Reviewer'}
+            <h1 className="text-3xl font-extrabold tracking-tight text-pm-text leading-tight flex items-center gap-1">
+              <span>HI, {user?.name ? user.name.toUpperCase() : 'DEVELOPER'}</span>
+              {isPaid && <CrownDoodle className="w-6 h-6" />}
             </h1>
             <p className="text-pm-muted text-xs font-semibold">Visual feedback and live collaboration dashboard</p>
           </div>
@@ -512,7 +569,7 @@ export default function DashboardPage() {
                         if (sorted.length > 0) {
                           setShareSessionId(sorted[0].id)
                         } else {
-                          alert('Please start a review session first before generating a client link.')
+                          useUIStore.getState().addToast('Please start a review session first before generating a client link.', 'info')
                         }
                       }}
                       // onDelete={async () => { await handleDeleteProject(p.id) }}
@@ -618,7 +675,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.4 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowCreateProject(false)}
+              onClick={closeCreateProjectModal}
               className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             />
             
@@ -631,7 +688,7 @@ export default function DashboardPage() {
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold uppercase tracking-widest text-pm-accent">New Review Project</h3>
-                <button onClick={() => setShowCreateProject(false)} className="text-pm-muted hover:text-pm-text transition-colors p-1 hover:bg-pm-surface-2 rounded-lg cursor-pointer">
+                <button onClick={closeCreateProjectModal} className="text-pm-muted hover:text-pm-text transition-colors p-1 hover:bg-pm-surface-2 rounded-lg cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -640,14 +697,14 @@ export default function DashboardPage() {
                 <div className="space-y-1.5">
                   <label className="text-pm-muted text-[10px] font-bold uppercase tracking-widest block font-sans">Project Name</label>
                   <input
-                    autoFocus
-                    required
-                    disabled={isCreatingProject}
-                    type="text"
-                    placeholder="Acme Workspace / Landing Portal"
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    className="w-full bg-pm-bg border border-pm-border rounded-xl px-4 py-3 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent outline-none transition-all shadow-inner"
+                     autoFocus
+                     required
+                     disabled={isCreatingProject}
+                     type="text"
+                     placeholder="Acme Workspace / Landing Portal"
+                     value={newProjectName}
+                     onChange={(e) => setNewProjectName(e.target.value)}
+                     className="w-full bg-pm-bg border border-pm-border rounded-xl px-4 py-3 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent outline-none transition-all shadow-inner"
                   />
                 </div>
 
@@ -666,11 +723,39 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                {projectError && (
+                  <div className={`p-4 rounded-2xl border text-xs leading-relaxed flex flex-col gap-3 ${
+                    projectError.code === 'LIMIT_PROJECTS_EXCEEDED'
+                      ? 'bg-purple-950/20 border-purple-500/30 text-purple-200'
+                      : 'bg-rose-950/20 border-rose-500/30 text-rose-200'
+                  }`}>
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                        projectError.code === 'LIMIT_PROJECTS_EXCEEDED' ? 'text-purple-400' : 'text-rose-400'
+                      }`} />
+                      <div>
+                        <p className="font-bold">
+                          {projectError.code === 'LIMIT_PROJECTS_EXCEEDED' ? 'Project Limit Reached' : 'Unable to create project'}
+                        </p>
+                        <p className="mt-0.5 opacity-90">{projectError.message}</p>
+                      </div>
+                    </div>
+                    {projectError.code === 'LIMIT_PROJECTS_EXCEEDED' && (
+                      <Link
+                        href="/pricing"
+                        className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-extrabold text-[11px] text-center uppercase tracking-wider transition-all shadow-lg shadow-purple-600/20 active:scale-[0.98]"
+                      >
+                        Upgrade to Dev Team Plan
+                      </Link>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex gap-2.5 justify-end pt-4 border-t border-pm-border">
                   <button
                     type="button"
                     disabled={isCreatingProject}
-                    onClick={() => setShowCreateProject(false)}
+                    onClick={closeCreateProjectModal}
                     className="px-5 py-3 rounded-xl border border-pm-border bg-pm-surface hover:bg-pm-surface-2 text-xs font-bold text-pm-text transition-all active:scale-95 cursor-pointer"
                   >
                     Cancel

@@ -12,6 +12,7 @@ const ENTERPRISE_CONTACT_EMAIL = process.env.NEXT_PUBLIC_ENTERPRISE_CONTACT_EMAI
 export default function PricingPage() {
   const {
     currentPlan,
+    isPaid,
     isTestMode,
     earlyBirdSlotsRemaining,
     fetchEarlyBirdStatus,
@@ -45,6 +46,8 @@ export default function PricingPage() {
   }
 
   const isEarlyBirdActive = earlyBirdSlotsRemaining > 0
+  const isDevTeamActive = isPaid && (currentPlan === 'dev_team' || currentPlan === 'dev_team_early_bird')
+  const isFreeActive = !isPaid && (!currentPlan || currentPlan === 'free' || currentPlan === 'none')
 
   return (
     <div className="min-h-screen bg-pm-bg text-pm-text font-sans transition-colors duration-500 selection:bg-pm-accent/20">
@@ -85,7 +88,7 @@ export default function PricingPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between pt-1">
                 <span className="text-xs font-extrabold uppercase tracking-wider text-pm-muted">Free Plan</span>
-                {(!currentPlan || currentPlan === 'free' || currentPlan === 'none') && (
+                {isFreeActive && (
                   <span className="px-2.5 py-0.5 rounded-full bg-pm-accent-subtle border border-pm-border text-pm-accent text-[10px] font-bold">Current Plan</span>
                 )}
               </div>
@@ -126,20 +129,29 @@ export default function PricingPage() {
             </div>
 
             <div className="pt-6">
-              <Link
-                href="/register"
-                className="w-full py-3 rounded-2xl bg-pm-surface-2 border border-pm-border hover:bg-pm-surface-3 text-pm-text font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
-              >
-                <span>Start Free</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+              {isFreeActive ? (
+                <button
+                  disabled
+                  className="w-full py-3 rounded-2xl bg-pm-surface-2 border border-pm-border text-pm-muted font-extrabold text-xs cursor-not-allowed opacity-60 flex items-center justify-center gap-2 text-center"
+                >
+                  <span>Current Plan</span>
+                </button>
+              ) : (
+                <Link
+                  href="/dashboard"
+                  className="w-full py-3 rounded-2xl bg-pm-surface-2 border border-pm-border hover:bg-pm-surface-3 text-pm-text font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
+                >
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              )}
             </div>
           </div>
 
           {/* CARD 2: DEV TEAM (WITH EARLY BIRD BADGE OVERLAY) */}
           <div className="bg-pm-surface border-2 border-pm-accent rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 shadow-2xl relative bg-gradient-to-b from-pm-accent/5 to-pm-surface">
             {/* Early Bird Scarcity Badge */}
-            {isEarlyBirdActive && (
+            {isEarlyBirdActive && !isDevTeamActive && (
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-gradient-to-r from-purple-600 to-cyan-500 text-white text-[11px] font-extrabold shadow-lg flex items-center gap-1.5 whitespace-nowrap">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>25% OFF EARLY BIRD — {earlyBirdSlotsRemaining} OF 50 SPOTS LEFT</span>
@@ -148,14 +160,16 @@ export default function PricingPage() {
 
             <div className="space-y-4">
               <div className="flex items-center justify-between pt-1">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-pm-accent">Dev Team</span>
-                {(currentPlan === 'dev_team' || currentPlan === 'dev_team_early_bird') && (
+                <span className="text-xs font-extrabold uppercase tracking-wider text-pm-accent">
+                  {currentPlan === 'dev_team_early_bird' ? 'Dev Team Early Bird' : 'Dev Team'}
+                </span>
+                {isDevTeamActive && (
                   <span className="px-2.5 py-0.5 rounded-full bg-pm-accent/20 text-pm-accent text-[10px] font-bold">Current Plan</span>
                 )}
               </div>
 
               <div>
-                {isEarlyBirdActive ? (
+                {isEarlyBirdActive && !isDevTeamActive ? (
                   <div>
                     <div className="flex items-baseline gap-2">
                       <span className="text-4xl font-extrabold text-pm-text">$21.75</span>
@@ -192,7 +206,7 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span><strong>10 Projects Total</strong> (2 per seat)</span>
+                  <span><strong>10 Projects Total</strong></span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
@@ -210,20 +224,30 @@ export default function PricingPage() {
             </div>
 
             <div className="pt-6">
-              <button
-                onClick={() => handleCheckout('dev_team')}
-                disabled={loadingPlan === 'dev_team'}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-pm-accent to-purple-600 hover:from-pm-accent-bright hover:to-purple-500 text-white font-extrabold text-xs transition-all shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {loadingPlan === 'dev_team' ? (
-                  <span>Redirecting to Dodo Checkout...</span>
-                ) : (
-                  <>
-                    <span>{isEarlyBirdActive ? 'Claim Early Bird (25% Off)' : 'Subscribe to Dev Team'}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </>
-                )}
-              </button>
+              {isDevTeamActive ? (
+                <button
+                  disabled
+                  className="w-full py-3 rounded-2xl bg-pm-accent/20 border border-pm-accent/40 text-pm-accent font-extrabold text-xs cursor-not-allowed opacity-80 flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Current Active Plan</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleCheckout('dev_team')}
+                  disabled={loadingPlan === 'dev_team'}
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-pm-accent to-purple-600 hover:from-pm-accent-bright hover:to-purple-500 text-white font-extrabold text-xs transition-all shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {loadingPlan === 'dev_team' ? (
+                    <span>Redirecting to Dodo Checkout...</span>
+                  ) : (
+                    <>
+                      <span>{isEarlyBirdActive ? 'Claim Early Bird (25% Off)' : 'Subscribe to Dev Team'}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 

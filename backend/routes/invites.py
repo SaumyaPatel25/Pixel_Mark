@@ -64,6 +64,21 @@ async def create_invite_link(
     if role_str not in ("billing_owner", "owner", "admin"):
         raise HTTPException(status_code=403, detail="Only billing owners and admins can create invite links.")
 
+    requested_role = req.role or "developer"
+    valid_roles = {"owner", "billing_owner", "admin", "developer", "member", "guest"}
+    if requested_role not in valid_roles:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid invite role '{requested_role}'. Must be one of: {list(valid_roles)}"
+        )
+
+    # Enforce privilege hierarchy: Only owners/billing_owners can invite admins/owners
+    if requested_role in ("owner", "billing_owner", "admin") and role_str not in ("owner", "billing_owner"):
+        raise HTTPException(
+            status_code=403,
+            detail="Only organization owners can create admin or owner invitations."
+        )
+
     plan_info = await resolve_org_plan(member.org_id, db)
     seats_remaining = plan_info["seats_remaining"]
     if seats_remaining <= 0:

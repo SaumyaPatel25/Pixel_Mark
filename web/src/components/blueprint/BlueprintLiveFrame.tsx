@@ -20,7 +20,8 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
     setHoveredTarget,
     pendingMutations,
     selectedFrameId,
-    setBaselineSnapshot
+    setBaselineSnapshot,
+    addMutation
   } = useBlueprintStore()
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
@@ -121,11 +122,28 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
           })
         }
       }
+
+      if (data.type === 'STAGE_DOM_ELEMENT_MOVED') {
+        const { sourceSelector, targetParentSelector, action, siblingSelector, targetIndex } = data
+        addMutation({
+          targetSelector: sourceSelector,
+          actionType: 'move',
+          presetId: 'element_move',
+          presetName: `Move Element (${sourceSelector.split('>').pop()?.trim()})`,
+          htmlPayload: JSON.stringify({
+            sourceSelector,
+            targetParentSelector,
+            action,
+            siblingSelector,
+            targetIndex
+          })
+        })
+      }
     }
 
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [setSelectedTarget, setHoveredTarget, url, selectedFrameId, activeTool])
+  }, [setSelectedTarget, setHoveredTarget, url, selectedFrameId, activeTool, addMutation])
 
   const handleIframeLoad = () => {
     setIsLoading(false)
@@ -190,9 +208,41 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
       {/* Iframe Viewport Container */}
       <div className="flex-1 relative w-full h-full bg-white">
         {(isLoading || !proxySrc) && (
-          <div className="absolute inset-0 bg-[#090d16]/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center text-slate-300 text-xs gap-3">
-            <RefreshCw className="w-6 h-6 text-cyan-400 animate-spin" />
-            <span>Loading Proxied Session for {url || 'Project'}...</span>
+          <div className="absolute inset-0 bg-[#070a12] z-20 flex flex-col items-center justify-center text-slate-300 p-8">
+            {/* Animated Wireframe Skeleton Structure */}
+            <div className="w-full max-w-2xl space-y-6 opacity-60 animate-pulse">
+              <div className="h-8 bg-slate-800/80 rounded-lg w-full flex items-center px-4 justify-between">
+                <div className="h-3 bg-slate-700/80 rounded w-24" />
+                <div className="flex gap-2">
+                  <div className="h-3 bg-slate-700/80 rounded w-12" />
+                  <div className="h-3 bg-slate-700/80 rounded w-12" />
+                </div>
+              </div>
+              <div className="h-44 bg-slate-800/50 rounded-2xl border border-slate-800 p-6 flex flex-col justify-center space-y-3">
+                <div className="h-6 bg-slate-700/80 rounded w-2/3" />
+                <div className="h-3 bg-slate-700/60 rounded w-1/2" />
+                <div className="h-8 bg-cyan-500/20 rounded-lg w-28 border border-cyan-500/30" />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="h-28 bg-slate-800/40 rounded-xl border border-slate-800 p-4 space-y-2">
+                  <div className="h-3 bg-slate-700/60 rounded w-3/4" />
+                  <div className="h-2 bg-slate-700/40 rounded w-1/2" />
+                </div>
+                <div className="h-28 bg-slate-800/40 rounded-xl border border-slate-800 p-4 space-y-2">
+                  <div className="h-3 bg-slate-700/60 rounded w-3/4" />
+                  <div className="h-2 bg-slate-700/40 rounded w-1/2" />
+                </div>
+                <div className="h-28 bg-slate-800/40 rounded-xl border border-slate-800 p-4 space-y-2">
+                  <div className="h-3 bg-slate-700/60 rounded w-3/4" />
+                  <div className="h-2 bg-slate-700/40 rounded w-1/2" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 flex items-center gap-2 text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-800 shadow-lg">
+              <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+              <span>Connecting live proxy session for <strong className="text-slate-200">{url || 'Project'}</strong>...</span>
+            </div>
           </div>
         )}
 

@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ArrowRight, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
+import { useBillingStore } from '@/store/useBillingStore';
+import { CrownDoodle } from '@/components/ui/CrownDoodle';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function MarketingNav() {
@@ -14,6 +16,7 @@ export default function MarketingNav() {
   
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
+  const isPaid = useBillingStore(state => state.isPaid);
 
   useEffect(() => {
     setMounted(true);
@@ -83,7 +86,10 @@ export default function MarketingNav() {
                   href="/dashboard"
                   className="btn-ghost-3d text-[11px] font-mono font-bold uppercase tracking-wider text-pm-muted hover:text-pm-accent transition-colors"
                 >
-                  Hi, {user?.name || 'Developer'}
+                  <span className="inline-flex items-center gap-1">
+                    <span>HI, {user?.name ? user.name.toUpperCase() : 'DEVELOPER'}</span>
+                    {isPaid && <CrownDoodle className="w-4 h-4" />}
+                  </span>
                 </Link>
                 <Link
                   href="/dashboard"

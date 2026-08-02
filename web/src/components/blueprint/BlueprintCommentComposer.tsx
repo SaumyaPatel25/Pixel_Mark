@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { MessageSquare, X, Send, Target, Sparkles } from 'lucide-react'
 import { useBlueprintCollaborationStore, CommentTargetContext } from '@/store/blueprintCollaborationStore'
 
@@ -23,6 +23,55 @@ export function BlueprintCommentComposer({
   const [error, setError] = useState<string | null>(null)
 
   const addComment = useBlueprintCollaborationStore(s => s.addComment)
+
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+      
+      if (e.key === 'Tab' && containerRef.current) {
+        const focusableElements = containerRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex="0"]'
+        )
+        if (focusableElements.length === 0) return
+        const firstElement = focusableElements[0] as HTMLElement
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            lastElement.focus()
+            e.preventDefault()
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            firstElement.focus()
+            e.preventDefault()
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+
+    // Focus textarea on mount
+    setTimeout(() => {
+      if (containerRef.current) {
+        const textarea = containerRef.current.querySelector('textarea')
+        if (textarea) textarea.focus()
+      }
+    }, 50)
+
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
+      const trigger = document.getElementById('comment-tool-btn')
+      if (trigger) {
+        trigger.focus()
+      }
+    }
+  }, [onClose])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,7 +101,10 @@ export function BlueprintCommentComposer({
   }
 
   return (
-    <div className="w-80 p-4 rounded-2xl bg-[#0d0d16]/95 border border-indigo-500/40 text-white shadow-2xl backdrop-blur-md space-y-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+    <div 
+      ref={containerRef}
+      className="w-80 p-4 rounded-2xl bg-[#0d0d16]/95 border border-indigo-500/40 text-white shadow-2xl backdrop-blur-md space-y-3 z-50 animate-in fade-in zoom-in-95 duration-150"
+    >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
         <div className="flex items-center gap-2">
@@ -65,7 +117,8 @@ export function BlueprintCommentComposer({
         </div>
         <button
           onClick={onClose}
-          className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all"
+          className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          aria-label="Close comment composer"
         >
           <X className="w-4 h-4" />
         </button>
@@ -91,7 +144,7 @@ export function BlueprintCommentComposer({
           placeholder="Your name (optional)"
           value={authorName}
           onChange={e => setAuthorName(e.target.value)}
-          className="w-full h-8 bg-white/5 border border-white/10 rounded-xl px-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500 transition-all"
+          className="w-full h-8 bg-white/5 border border-white/10 rounded-xl px-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 transition-all"
         />
 
         <textarea
@@ -99,7 +152,7 @@ export function BlueprintCommentComposer({
           placeholder="Discuss this Blueprint element or edit..."
           value={body}
           onChange={e => setBody(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500 transition-all resize-none"
+          className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
           autoFocus
         />
 
@@ -107,14 +160,14 @@ export function BlueprintCommentComposer({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-[10px] font-bold uppercase tracking-wider transition-all"
+            className="px-3 py-1.5 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-[10px] font-bold uppercase tracking-wider transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting || !body.trim()}
-            className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-900/40"
+            className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-900/40 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             {submitting ? (
               <span>Posting...</span>

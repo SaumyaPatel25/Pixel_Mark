@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { X, Sparkles, Layers, FileText, CheckCircle2, AlertCircle, Clock, ShieldAlert, Send, ThumbsUp, MessageSquare, History } from 'lucide-react'
 import { useBlueprintStore } from '@/store/blueprintStore'
 import { useBlueprintCollaborationStore, PublicationStatus } from '@/store/blueprintCollaborationStore'
@@ -36,6 +36,9 @@ export function BlueprintChangesetModal({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
 
+  const containerRef = useRef<HTMLDivElement>(null)
+  const prevOpen = useRef(isOpen)
+
   useEffect(() => {
     if (isOpen && projectId) {
       // Find or load recent publication for this project
@@ -49,6 +52,62 @@ export function BlueprintChangesetModal({
       }).catch(err => console.error('[STAGE Blueprint] Failed to load publications:', err))
     }
   }, [isOpen, projectId, loadPublicationHistory])
+
+  useEffect(() => {
+    if (!isOpen) {
+      if (prevOpen.current) {
+        const trigger = document.getElementById('changeset-summary-btn')
+        if (trigger) trigger.focus()
+      }
+      prevOpen.current = isOpen
+      return
+    }
+
+    prevOpen.current = isOpen
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+      
+      if (e.key === 'Tab' && containerRef.current) {
+        const focusableElements = containerRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex="0"]'
+        )
+        if (focusableElements.length === 0) return
+        const firstElement = focusableElements[0] as HTMLElement
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            lastElement.focus()
+            e.preventDefault()
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            firstElement.focus()
+            e.preventDefault()
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+
+    // Focus first focusable element
+    setTimeout(() => {
+      if (containerRef.current) {
+        const focusable = containerRef.current.querySelector(
+          'button, [href], input, select, textarea, [tabindex="0"]'
+        ) as HTMLElement
+        if (focusable) focusable.focus()
+      }
+    }, 50)
+
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
+    }
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 
@@ -114,7 +173,10 @@ export function BlueprintChangesetModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-[#070a12]/85 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl bg-[#0d1322] border border-cyan-500/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh]">
+      <div 
+        ref={containerRef}
+        className="w-full max-w-3xl bg-[#0d1322] border border-cyan-500/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh]"
+      >
         {/* Modal Header */}
         <div className="px-6 py-4 bg-[#090d16] border-b border-cyan-950/60 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -124,10 +186,14 @@ export function BlueprintChangesetModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-black tracking-wide text-white uppercase">STAGE Blueprint Handoff & Approval</h3>
-                <span className={cn("px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border flex items-center gap-1", badge.style)}>
-                  <BadgeIcon className="w-3 h-3" />
-                  <span>{badge.label}</span>
-                </span>
+              <span 
+                role="status"
+                aria-label={`Publication status: ${badge.label}`}
+                className={cn("px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border flex items-center gap-1", badge.style)}
+              >
+                <BadgeIcon className="w-3 h-3" />
+                <span>{badge.label}</span>
+              </span>
               </div>
               <p className="text-[11px] text-slate-400">
                 {pendingMutations.length} active Blueprint edits in this changeset

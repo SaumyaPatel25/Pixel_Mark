@@ -23,6 +23,7 @@ export interface NotificationPreferences {
   id?: string
   user_id?: string
   project_id?: string
+  in_app_enabled: boolean
   email_enabled: boolean
   digest_enabled: boolean
   allow_blueprint_events: boolean

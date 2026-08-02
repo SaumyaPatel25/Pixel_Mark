@@ -3,16 +3,31 @@ export type FeatureName = 'blueprint_dom_edit' | 'create_project' | 'invite_team
 
 export interface PlanCapabilities {
   planType: PlanType;
+  plan_type: PlanType;
   status: string;
   seatsAllowed: number;
   seatsUsed: number;
+  seats_allowed: number;
+  seats_used: number;
+  seats_remaining: number;
   projectsAllowed: number;
   projectsUsed: number;
+  projects_allowed: number;
+  projects_used: number;
+  projects_remaining: number;
   hasBlueprintDomEdit: boolean;
+  can_use_blueprint_dom: boolean;
   canCreateProjects: boolean;
   isEarlyBird: boolean;
+  is_early_bird: boolean;
   isPaid: boolean;
+  is_paid: boolean;
   isTestMode: boolean;
+  role: string;
+  is_billing_owner: boolean;
+  org_name: string;
+  is_past_due_warning: boolean;
+  grace_period_ends_at: string | null;
 }
 
 export function isPaidPlan(planType?: string, status?: string): boolean {

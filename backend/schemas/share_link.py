@@ -49,5 +49,6 @@ class ShareLinkPublicRead(BaseModel):
     label: Optional[str]
     session_title: Optional[str]
     project_name: Optional[str]
+    dom_edit_available: bool = False
 
     model_config = ConfigDict(from_attributes=True)

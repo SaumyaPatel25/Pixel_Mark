@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import SessionFeedbackSummary from '@/components/session/SessionFeedbackSummary'
 import { useOnboardingStore } from '@/store/onboardingStore'
+import { useUIStore } from '@/store/uiStore'
 
 function SessionsList() {
   const router = useRouter()
@@ -91,8 +92,14 @@ function SessionsList() {
       useOnboardingStore.getState().completeTask('click_new_session')
       useOnboardingStore.getState().completeTask('launch_session')
       await fetchData()
+      useUIStore.getState().addToast('Review session launched successfully!', 'success')
     } catch (err: any) {
-      alert(err.message || 'Failed to launch session.')
+      let errMsg = err.message || 'Failed to launch session.'
+      try {
+        const parsed = JSON.parse(errMsg)
+        errMsg = parsed.message || parsed.detail || errMsg
+      } catch {}
+      useUIStore.getState().addToast(errMsg, 'error')
     } finally {
       setIsCreating(false)
     }

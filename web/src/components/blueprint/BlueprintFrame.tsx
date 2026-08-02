@@ -15,14 +15,17 @@ export function BlueprintFrame({ frame }: BlueprintFrameProps) {
     setSelectedFrameId,
     selectedNodeId,
     setSelectedNodeId,
-    activeTool
+    activeTool,
+    viewportMode
   } = useBlueprintStore()
 
   const [surfaceMode, setSurfaceMode] = useState<'live' | 'mock'>('live')
 
   const isFrameSelected = selectedFrameId === frame.id && !selectedNodeId
+  const effectiveWidth =
+    viewportMode === 'mobile' ? 375 : viewportMode === 'tablet' ? 768 : frame.width
 
-  const handleFrameClick = (e: React.MouseEvent) => {
+  const handleFrameClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation()
     setSelectedFrameId(frame.id)
     setSelectedNodeId(null)
@@ -31,7 +34,16 @@ export function BlueprintFrame({ frame }: BlueprintFrameProps) {
   return (
     <div
       onClick={handleFrameClick}
-      className={`absolute transition-shadow rounded-2xl select-none group cursor-pointer overflow-hidden flex flex-col ${
+      onKeyDown={(e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault()
+          handleFrameClick(e)
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-label={`Artboard frame: ${frame.title}`}
+      className={`absolute transition-all duration-300 ease-in-out rounded-2xl select-none group cursor-pointer overflow-hidden flex flex-col focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
         isFrameSelected
           ? 'ring-2 ring-cyan-400 shadow-2xl shadow-cyan-500/10'
           : 'ring-1 ring-slate-800 hover:ring-slate-700'
@@ -39,7 +51,7 @@ export function BlueprintFrame({ frame }: BlueprintFrameProps) {
       style={{
         left: `${frame.positionX}px`,
         top: `${frame.positionY}px`,
-        width: `${frame.width}px`,
+        width: `${effectiveWidth}px`,
         height: `${frame.height}px`,
         backgroundColor: '#0b101d'
       }}

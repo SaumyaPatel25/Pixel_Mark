@@ -129,7 +129,15 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
       if (isExact || isSuffix || isGoogleCollect) return absoluteUrl;
     }} catch(e) {{}}
 
-    return proxyBase + '/asset?url=' + encodeURIComponent(absoluteUrl);
+    try {{
+      const parsedProxy = new URL(absoluteUrl);
+      const scheme = parsedProxy.protocol.replace(':', '');
+      const host = parsedProxy.host;
+      const path = parsedProxy.pathname.slice(1) + parsedProxy.search + parsedProxy.hash;
+      return proxyBase + '/asset/' + scheme + '/' + host + '/' + path;
+    }} catch(e) {{
+      return proxyBase + '/asset?url=' + encodeURIComponent(absoluteUrl);
+    }}
   }}
 
   try {{
@@ -210,6 +218,30 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     this._method = method;
     return originalXHROpen.apply(this, [method, url, ...args]);
   }};
+
+  try {{
+    const originalWorker = window.Worker;
+    window.Worker = function(scriptURL, options) {{
+      if (scriptURL && typeof scriptURL === 'string') {{
+        scriptURL = rewriteUrl(scriptURL);
+      }} else if (scriptURL instanceof URL) {{
+        scriptURL = new URL(rewriteUrl(scriptURL.href));
+      }}
+      return new originalWorker(scriptURL, options);
+    }};
+  }} catch(e) {{}}
+
+  try {{
+    const originalSharedWorker = window.SharedWorker;
+    window.SharedWorker = function(scriptURL, options) {{
+      if (scriptURL && typeof scriptURL === 'string') {{
+        scriptURL = rewriteUrl(scriptURL);
+      }} else if (scriptURL instanceof URL) {{
+        scriptURL = new URL(rewriteUrl(scriptURL.href));
+      }}
+      return new originalSharedWorker(scriptURL, options);
+    }};
+  }} catch(e) {{}}
 
   const nativePushState = History.prototype.pushState;
   const nativeReplaceState = History.prototype.replaceState;
@@ -778,10 +810,10 @@ def rewrite_html(
             extract_script(guard_script)
         ])
         
-        # Inject at the very end of <head>
-        head_end_match = re.search(r'</head>', html, re.IGNORECASE)
-        if head_end_match:
-            idx = head_end_match.start()
+        # Inject at the beginning of <head>
+        head_start_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+        if head_start_match:
+            idx = head_start_match.end()
             html = html[:idx] + f"\n{combined_shims}\n" + html[idx:]
         else:
             # Fallback if no head closing tag

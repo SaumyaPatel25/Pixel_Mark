@@ -7,7 +7,7 @@ from dependencies import get_db, get_current_user, get_current_user_optional
 from models import (
     CanvasFrame, CanvasFlow, User, OrgMember, Project, Session,
     BlueprintMutationModel, BlueprintPublicationModel, BlueprintCommentModel, BlueprintStatusHistoryModel,
-    BlueprintActivityModel, BlueprintSummaryModel
+    BlueprintActivityModel, BlueprintSummaryModel, ReviewerDomEditSuggestionModel
 )
 from schemas import (
     CanvasData, CanvasFrameCreate, CanvasFrameUpdate, CanvasFrameRead,
@@ -409,6 +409,19 @@ async def batch_save_blueprint_edits(
 
     await db.commit()
 
+    await emit_blueprint_notification(
+        db=db,
+        project_id=project_id,
+        event_type="blueprint_edit_saved",
+        entity_type="edit",
+        entity_id=project_id,
+        title="Blueprint Edits Saved",
+        body=f"Saved {len(new_models)} DOM edit mutation(s) for project.",
+        user_id=current_user.id,
+        category="important",
+        metadata={"mutation_count": len(new_models)}
+    )
+
     return [
         BlueprintMutationRead(
             id=m.id,
@@ -534,7 +547,11 @@ async def export_blueprint_edits_css(
     ]
 
     for m in mutations:
-        lines.append(f"/* Edit: {m.preset_name or 'Mutation'} on {m.target_selector} ({m.action_type}) */")
+        if m.action_type == 'move':
+            lines.append(f"/* Structural Move: {m.preset_name or 'Mutation'} on {m.target_selector} ({m.action_type}) */")
+            lines.append("/* Note: Structural move changes are not representable as CSS rules. */")
+        else:
+            lines.append(f"/* Edit: {m.preset_name or 'Mutation'} on {m.target_selector} ({m.action_type}) */")
 
     css_content = "\n".join(lines)
     return PlainTextResponse(content=css_content, media_type="text/css")
@@ -584,6 +601,15 @@ async def export_blueprint_edits_markdown(
                 lines.append(f"- **Page URL**: `{m.page_url}`")
             if m.preset_id:
                 lines.append(f"- **Preset ID**: `{m.preset_id}`")
+            if m.action_type == 'move' and m.html_payload:
+                try:
+                    import json
+                    payload = json.loads(m.html_payload)
+                    act_upper = str(payload.get('action', 'inside')).upper()
+                    sib_str = f" sibling `{payload.get('siblingSelector')}`" if payload.get('siblingSelector') else ""
+                    lines.append(f"- **Action**: Moved element from `{payload.get('sourceSelector')}` to {act_upper}{sib_str} under parent `{payload.get('targetParentSelector')}` (Index: {payload.get('targetIndex')})")
+                except Exception:
+                    pass
             lines.append("")
 
     md_content = "\n".join(lines)
@@ -673,6 +699,19 @@ async def create_blueprint_publication(
         actor_name=current_user.email if current_user else "STAGE Developer",
         target_id=pub.id,
         metadata_json={"version": pub.blueprint_version, "name": pub.name}
+    )
+
+    await emit_blueprint_notification(
+        db=db,
+        project_id=project_id,
+        event_type="blueprint_publication_created",
+        entity_type="publication",
+        entity_id=pub.id,
+        title=f"Blueprint Release Published: v{pub.blueprint_version}",
+        body=f"Published snapshot '{pub.name}' (v{pub.blueprint_version}).",
+        user_id=current_user.id if current_user else None,
+        category="important",
+        metadata={"publication_id": pub.id, "version": pub.blueprint_version, "name": pub.name}
     )
 
     return pub
@@ -890,6 +929,19 @@ async def resolve_blueprint_comment(
         metadata_json={"target_selector": comment.target_selector, "status": new_status}
     )
 
+    await emit_blueprint_notification(
+        db=db,
+        project_id=project_id,
+        event_type="blueprint_comment_resolved" if new_status == "resolved" else "blueprint_comment_reopened",
+        entity_type="comment",
+        entity_id=comment.id,
+        title=f"Blueprint Comment {'Resolved' if new_status == 'resolved' else 'Reopened'}",
+        body=f"Comment on selector '{comment.target_selector or 'canvas'}' was marked as {new_status}.",
+        user_id=current_user.id if current_user else None,
+        category="important",
+        metadata={"comment_id": comment.id, "target_selector": comment.target_selector, "status": new_status}
+    )
+
     return BlueprintCommentRead.model_validate(comment)
 
 
@@ -1105,6 +1157,147 @@ async def get_publication_latest_summary(
     if not summary_model:
         return None
     return BlueprintSummaryRead.model_validate(summary_model)
+
+
+@router.get("/{project_id}/reviewer-suggestions")
+async def get_reviewer_suggestions(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    proj_res = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = proj_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    res = await db.execute(
+        select(ReviewerDomEditSuggestionModel)
+        .where(ReviewerDomEditSuggestionModel.project_id == project_id)
+        .order_by(ReviewerDomEditSuggestionModel.created_at.desc())
+    )
+    suggestions = res.scalars().all()
+
+    from markers.models import ReviewerIdentity
+    out = []
+    for s in suggestions:
+        rev_res = await db.execute(select(ReviewerIdentity).where(ReviewerIdentity.id == s.reviewer_identity_id))
+        rev = rev_res.scalar_one_or_none()
+        rev_name = rev.display_name if rev else "Anonymous Reviewer"
+        out.append({
+            "id": s.id,
+            "project_id": s.project_id,
+            "share_link_id": s.share_link_id,
+            "reviewer_identity_id": s.reviewer_identity_id,
+            "reviewer_name": rev_name,
+            "frame_id": s.frame_id,
+            "page_url": s.page_url,
+            "selector": s.selector,
+            "xpath": s.xpath,
+            "operation_type": s.operation_type,
+            "proposed_value": s.proposed_value,
+            "status": s.status,
+            "created_at": s.created_at.isoformat(),
+            "reviewed_at": s.reviewed_at.isoformat() if s.reviewed_at else None,
+            "reviewed_by": s.reviewed_by
+        })
+    return out
+
+
+@router.post("/{project_id}/reviewer-suggestions/{suggestion_id}/accept")
+async def accept_reviewer_suggestion(
+    project_id: str,
+    suggestion_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from datetime import datetime
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    proj_res = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = proj_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    s_res = await db.execute(
+        select(ReviewerDomEditSuggestionModel)
+        .where(ReviewerDomEditSuggestionModel.id == suggestion_id, ReviewerDomEditSuggestionModel.project_id == project_id)
+    )
+    suggestion = s_res.scalar_one_or_none()
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    if suggestion.status != "pending":
+        raise HTTPException(status_code=400, detail="Suggestion is already resolved")
+
+    max_order_res = await db.execute(
+        select(func.max(BlueprintMutationModel.sort_order)).where(BlueprintMutationModel.project_id == project_id)
+    )
+    max_order = max_order_res.scalar() or 0
+
+    mutation = BlueprintMutationModel(
+        project_id=project_id,
+        canvas_frame_id=suggestion.frame_id,
+        page_url=suggestion.page_url,
+        target_selector=suggestion.selector,
+        action_type=suggestion.operation_type,
+        preset_id="element_move" if suggestion.operation_type == "move" else "custom_style",
+        preset_name="Move Element" if suggestion.operation_type == "move" else "Reviewer Suggestion",
+        html_payload=suggestion.proposed_value,
+        sort_order=max_order + 1
+    )
+    db.add(mutation)
+
+    suggestion.status = "accepted"
+    suggestion.reviewed_at = datetime.utcnow()
+    suggestion.reviewed_by = current_user.id
+
+    await db.commit()
+    return {"message": "Suggestion accepted and promoted to Blueprint edit", "mutation_id": mutation.id}
+
+
+@router.post("/{project_id}/reviewer-suggestions/{suggestion_id}/reject")
+async def reject_reviewer_suggestion(
+    project_id: str,
+    suggestion_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from datetime import datetime
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    member = org_member.scalars().first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    proj_res = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    project = proj_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    s_res = await db.execute(
+        select(ReviewerDomEditSuggestionModel)
+        .where(ReviewerDomEditSuggestionModel.id == suggestion_id, ReviewerDomEditSuggestionModel.project_id == project_id)
+    )
+    suggestion = s_res.scalar_one_or_none()
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    if suggestion.status != "pending":
+        raise HTTPException(status_code=400, detail="Suggestion is already resolved")
+
+    suggestion.status = "rejected"
+    suggestion.reviewed_at = datetime.utcnow()
+    suggestion.reviewed_by = current_user.id
+
+    await db.commit()
+    return {"message": "Suggestion rejected successfully"}
 
 
 

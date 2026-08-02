@@ -68,6 +68,9 @@ async def setup_db():
         org = Organization(id=MOCK_ORG_ID, name="My Org", slug="my-org")
         session.add(org)
         
+        mem = OrgMember(id=str(uuid.uuid4()), org_id=MOCK_ORG_ID, user_id=MOCK_USER_ID)
+        session.add(mem)
+        
         proj = Project(id=MOCK_PROJECT_ID, org_id=MOCK_ORG_ID, name="My Proj", url="https://stage.dev")
         session.add(proj)
         

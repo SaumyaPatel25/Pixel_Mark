@@ -3,7 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { User, Cpu, Key, ArrowLeft } from 'lucide-react'
+import { User, Cpu, Key, Bell, ArrowLeft } from 'lucide-react'
 
 interface SettingsShellProps {
   children: React.ReactNode
@@ -24,6 +24,12 @@ export default function SettingsShell({
       href: '/settings/profile',
       icon: User,
       desc: 'Manage your profile and display name'
+    },
+    {
+      name: 'Notification Preferences',
+      href: '/settings/notifications',
+      icon: Bell,
+      desc: 'Configure in-app and email delivery options'
     },
     {
       name: 'AI Providers',

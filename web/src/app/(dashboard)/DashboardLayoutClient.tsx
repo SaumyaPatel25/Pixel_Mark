@@ -44,9 +44,11 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   const [projectsFetched, setProjectsFetched] = useState(false)
 
   useEffect(() => {
-    // Restore saved onboarding state on mount
-    hydrateFromLocalStorage()
-  }, [hydrateFromLocalStorage])
+    // Restore saved onboarding state on mount when user is resolved
+    if (user?.id) {
+      hydrateFromLocalStorage(user.id)
+    }
+  }, [user?.id, hydrateFromLocalStorage])
 
   // Fetch projects when user session is resolved
   useEffect(() => {
@@ -135,8 +137,8 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     }
   }, [mounted, token, user, isLoading, router, fetchMe])
 
-  const handleSignOut = () => {
-    logout()
+  const handleSignOut = async () => {
+    await logout()
     router.push('/login')
   }
 

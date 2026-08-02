@@ -29,6 +29,7 @@ async def get_or_create_preferences(
         pref = NotificationPreferencesModel(
             user_id=user_id,
             project_id=project_id,
+            in_app_enabled=True,
             email_enabled=True,
             digest_enabled=True,
             allow_blueprint_events=True,
@@ -64,26 +65,60 @@ async def emit_blueprint_notification(
     Emits a Blueprint-sourced notification event safely without blocking main transaction flows.
     """
     try:
-        event = NotificationEventModel(
-            user_id=user_id,
-            project_id=project_id,
-            source_type="blueprint",
-            event_type=event_type,
-            category=category,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            title=title,
-            body=body,
-            metadata_json=metadata or {}
-        )
-        db.add(event)
-        await db.commit()
-        await db.refresh(event)
+        # Resolve project and organization to check entitlement
+        proj_res = await db.execute(select(Project).where(Project.id == project_id))
+        proj = proj_res.scalar_one_or_none()
+        if not proj:
+            logger.info(f"[STAGE Notification] Skipping Blueprint event: project {project_id} not found.")
+            return None
+        
+        org_id = proj.org_id
 
-        logger.info(f"[STAGE Notification] Emitted Blueprint event '{event_type}' [{event.id}] for project {project_id}")
+        # Entitlement check
+        from services.plan_capabilities import resolve_org_plan
+        plan_info = await resolve_org_plan(org_id, db)
+        if not plan_info.get("has_blueprint_dom_edit", False):
+            logger.info(f"[STAGE Notification] Skipping Blueprint event for org {org_id} (No Blueprint entitlement).")
+            return None
 
-        if category in ("critical", "important") and user_id:
-            await deliver_email_notification(db, event.id)
+        # Check preferences
+        email_only = False
+        if user_id:
+            pref = await get_or_create_preferences(db, user_id, project_id)
+            if not pref.allow_blueprint_events:
+                logger.info(f"[STAGE Notification] Blueprint notifications disabled for user {user_id}. Skipping.")
+                return None
+            if not pref.in_app_enabled:
+                email_only = True
+
+        event = None
+        if not email_only or not user_id:
+            event = NotificationEventModel(
+                user_id=user_id,
+                org_id=org_id,
+                project_id=project_id,
+                source_type="blueprint",
+                event_type=event_type,
+                category=category,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                title=title,
+                body=body,
+                metadata_json=metadata or {}
+            )
+            db.add(event)
+            await db.commit()
+            await db.refresh(event)
+            logger.info(f"[STAGE Notification] Emitted Blueprint event '{event_type}' [{event.id}] for project {project_id}")
+
+        # Send email if enabled
+        if user_id:
+            pref = await get_or_create_preferences(db, user_id, project_id)
+            if pref.email_enabled:
+                if event:
+                    await deliver_email_notification(db, event.id)
+                else:
+                    await deliver_email_notification_direct(db, user_id, project_id, "blueprint", event_type, title, body, metadata)
 
         return event
     except Exception as err:
@@ -112,29 +147,54 @@ async def emit_session_notification(
     Emits a Session-sourced notification event safely without blocking session/review flows.
     """
     try:
+        org_id = None
+        if project_id:
+            proj_res = await db.execute(select(Project).where(Project.id == project_id))
+            proj = proj_res.scalar_one_or_none()
+            if proj:
+                org_id = proj.org_id
+
+        # Check preferences
+        email_only = False
+        if user_id:
+            pref = await get_or_create_preferences(db, user_id, project_id)
+            if not pref.allow_session_events:
+                logger.info(f"[STAGE Notification] Session notifications disabled for user {user_id}. Skipping.")
+                return None
+            if not pref.in_app_enabled:
+                email_only = True
+
         merged_meta = metadata or {}
         merged_meta["session_id"] = session_id
 
-        event = NotificationEventModel(
-            user_id=user_id,
-            project_id=project_id,
-            source_type="session",
-            event_type=event_type,
-            category=category,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            title=title,
-            body=body,
-            metadata_json=merged_meta
-        )
-        db.add(event)
-        await db.commit()
-        await db.refresh(event)
+        event = None
+        if not email_only or not user_id:
+            event = NotificationEventModel(
+                user_id=user_id,
+                org_id=org_id,
+                project_id=project_id,
+                source_type="session",
+                event_type=event_type,
+                category=category,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                title=title,
+                body=body,
+                metadata_json=merged_meta
+            )
+            db.add(event)
+            await db.commit()
+            await db.refresh(event)
+            logger.info(f"[STAGE Notification] Emitted Session event '{event_type}' [{event.id}] for session {session_id}")
 
-        logger.info(f"[STAGE Notification] Emitted Session event '{event_type}' [{event.id}] for session {session_id}")
-
-        if category in ("critical", "important") and user_id:
-            await deliver_email_notification(db, event.id)
+        # Send email if enabled
+        if user_id:
+            pref = await get_or_create_preferences(db, user_id, project_id)
+            if pref.email_enabled:
+                if event:
+                    await deliver_email_notification(db, event.id)
+                else:
+                    await deliver_email_notification_direct(db, user_id, project_id, "session", event_type, title, body, merged_meta)
 
         return event
     except Exception as err:
@@ -144,6 +204,40 @@ async def emit_session_notification(
         except Exception:
             pass
         return None
+
+
+async def deliver_email_notification_direct(
+    db: AsyncSession,
+    user_id: str,
+    project_id: Optional[str],
+    source_type: str,
+    event_type: str,
+    title: str,
+    body: str,
+    metadata: Optional[Dict[str, Any]]
+) -> bool:
+    try:
+        user_res = await db.execute(select(User).where(User.id == user_id))
+        user = user_res.scalar_one_or_none()
+        if not user or not user.email:
+            return False
+
+        subject = build_notification_subject(source_type, event_type, metadata)
+        body_text = build_notification_body(source_type, event_type, metadata)
+
+        from services.email import _base_template, send_email_wrapper
+        html_content = _base_template(
+            title=title,
+            body=body_text,
+            cta_text="View in STAGE",
+            cta_url=os.environ.get("APP_PUBLIC_URL", "https://stage.io")
+        )
+
+        send_email_wrapper(subject, user.email, html_content, body_text)
+        return True
+    except Exception as e:
+        logger.warning(f"[STAGE Email] Direct email notification delivery failed: {e}")
+        return False
 
 
 async def deliver_email_notification(db: AsyncSession, notification_id: str, max_attempts: int = 3) -> bool:
@@ -164,7 +258,31 @@ async def deliver_email_notification(db: AsyncSession, notification_id: str, max
         )
         attempt_num = (attempts_res.scalar() or 0) + 1
 
-        # Simulate provider send attempt
+        # Retrieve user email
+        if not event.user_id:
+            logger.info(f"[STAGE Email] Notification {notification_id} has no user_id associated.")
+            return False
+
+        user_res = await db.execute(select(User).where(User.id == event.user_id))
+        recipient = user_res.scalar_one_or_none()
+        if not recipient or not recipient.email:
+            logger.warning(f"[STAGE Email] No recipient email found for user {event.user_id}")
+            return False
+
+        subject = build_notification_subject(event.source_type, event.event_type, event.metadata_json)
+        body_text = build_notification_body(event.source_type, event.event_type, event.metadata_json)
+
+        from services.email import _base_template, send_email_wrapper
+        html_content = _base_template(
+            title=event.title,
+            body=body_text,
+            cta_text="View in STAGE",
+            cta_url=os.environ.get("APP_PUBLIC_URL", "https://stage.io")
+        )
+
+        # Call existing email service helper to deliver SMTP or Resend email
+        send_email_wrapper(subject, recipient.email, html_content, body_text)
+
         provider_msg_id = f"msg_stage_{notification_id[:8]}_{attempt_num}"
         now = datetime.utcnow()
 

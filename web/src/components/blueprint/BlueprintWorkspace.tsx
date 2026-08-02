@@ -16,13 +16,29 @@ import { BlueprintCommentThread } from './BlueprintCommentThread'
 import { BlueprintCommentComposer } from './BlueprintCommentComposer'
 import { BlueprintActivityPanel } from './BlueprintActivityPanel'
 import { BlueprintSummaryModal } from './BlueprintSummaryModal'
+import { ReviewerSuggestionsPanel } from './ReviewerSuggestionsPanel'
 
 interface BlueprintWorkspaceProps {
   projectId: string
+  sessionId?: string
 }
 
-export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
-  const { setSessionId, setLiveFrameUrl, undo, redo, past, future, loadPersistedEdits } = useBlueprintStore()
+// Client-side cache for fast re-hydration
+const projectCacheMap = new Map<string, { project: any; sessions: any; timestamp: number }>()
+const CACHE_TTL_MS = 2 * 60 * 1000 // 2 minutes
+
+export function BlueprintWorkspace({ projectId, sessionId: propSessionId }: BlueprintWorkspaceProps) {
+  const {
+    setSessionId,
+    setLiveFrameUrl,
+    undo,
+    redo,
+    past,
+    future,
+    loadPersistedEdits,
+    setIsWorkspaceLoading,
+    isSuggestionsOpen
+  } = useBlueprintStore()
   const {
     isThreadPanelOpen,
     isComposingComment,
@@ -34,7 +50,6 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
   // Global Keyboard Shortcuts (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing inside an input, textarea, or contenteditable field
       const activeEl = document.activeElement
       if (
         activeEl &&
@@ -51,18 +66,30 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
       if (isCmdOrCtrl && !e.altKey) {
         if (e.key.toLowerCase() === 'z') {
           if (e.shiftKey) {
-            // Redo: Ctrl+Shift+Z / Cmd+Shift+Z
             e.preventDefault()
             if (future.length > 0) redo()
           } else {
-            // Undo: Ctrl+Z / Cmd+Z
             e.preventDefault()
             if (past.length > 0) undo()
           }
         } else if (e.key.toLowerCase() === 'y' && !isMac) {
-          // Redo: Ctrl+Y (Windows)
           e.preventDefault()
           if (future.length > 0) redo()
+        }
+      }
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        const selectedTarget = useBlueprintStore.getState().selectedTarget
+        if (selectedTarget) {
+          e.preventDefault()
+          const direction = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 'next' : 'prev'
+          const iframe = document.querySelector('iframe') as HTMLIFrameElement
+          if (iframe?.contentWindow) {
+            iframe.contentWindow.postMessage({
+              type: 'STAGE_SELECT_SIBLING',
+              direction
+            }, '*')
+          }
         }
       }
     }
@@ -75,25 +102,55 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
     if (!projectId) return
 
     let isCancelled = false
+    const startTime = performance.now()
+    setIsWorkspaceLoading(true)
 
     const initBlueprintData = async () => {
       try {
-        // Load persisted Blueprint edits and comments for project
-        await loadPersistedEdits(projectId)
-        await loadComments(projectId)
+        // Check cache first for rapid re-hydration
+        const cached = projectCacheMap.get(projectId)
+        const isCacheValid = cached && Date.now() - cached.timestamp < CACHE_TTL_MS
 
-        // 1. Fetch project details
-        const project = await api.projects.get(projectId)
+        let project = cached?.project || null
+        let sessions = cached?.sessions || null
+
+        if (isCacheValid) {
+          // Parallelize edits and comments fetch while using cached project details
+          await Promise.all([
+            loadPersistedEdits(projectId).catch(() => {}),
+            loadComments(projectId).catch(() => {})
+          ])
+        } else {
+          // Parallelize all initial network requests concurrently (avoid waterfall)
+          const [, , projRes, sessRes] = await Promise.all([
+            loadPersistedEdits(projectId).catch(() => {}),
+            loadComments(projectId).catch(() => {}),
+            api.projects.get(projectId).catch((err) => {
+              console.warn('[BlueprintWorkspace] Project fetch error:', err)
+              return null
+            }),
+            api.sessions.getSessions(projectId).catch((err) => {
+              console.warn('[BlueprintWorkspace] Sessions fetch error:', err)
+              return []
+            })
+          ])
+
+          project = projRes
+          sessions = sessRes
+
+          if (project) {
+            projectCacheMap.set(projectId, { project, sessions, timestamp: Date.now() })
+          }
+        }
+
         const targetUrl = project?.url || 'https://example.com'
-
-        // 2. Fetch sessions for this project
-        const sessions = await api.sessions.getSessions(projectId)
         let activeSessionId: string | null = null
 
-        if (Array.isArray(sessions) && sessions.length > 0) {
+        if (propSessionId) {
+          activeSessionId = propSessionId
+        } else if (Array.isArray(sessions) && sessions.length > 0) {
           activeSessionId = sessions[0].id
         } else {
-          // Create a session for this project if none exists
           try {
             const newSession = await api.sessions.createSession({
               project_id: projectId,
@@ -111,7 +168,6 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
           if (activeSessionId) setSessionId(activeSessionId)
           if (targetUrl) setLiveFrameUrl(targetUrl)
 
-          // Update initial frame model with real project title and URL
           useBlueprintStore.setState((state) => ({
             frames: state.frames.map((f, idx) =>
               idx === 0
@@ -124,9 +180,16 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
                 : f
             )
           }))
+
+          const durationMs = Math.round(performance.now() - startTime)
+          console.log(`[STAGE Perf] Canvas Initial Hydration: ${durationMs}ms (cached: ${!!isCacheValid})`)
         }
       } catch (err) {
         console.error('[BlueprintWorkspace] Error initializing project session:', err)
+      } finally {
+        if (!isCancelled) {
+          setIsWorkspaceLoading(false)
+        }
       }
     }
 
@@ -134,7 +197,7 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
     return () => {
       isCancelled = true
     }
-  }, [projectId, setSessionId, setLiveFrameUrl, loadPersistedEdits, loadComments])
+  }, [projectId, setSessionId, setLiveFrameUrl, loadPersistedEdits, loadComments, setIsWorkspaceLoading])
 
   return (
     <div className="h-screen w-full flex flex-col overflow-hidden bg-[#070a12] font-sans antialiased select-none relative">
@@ -169,6 +232,11 @@ export function BlueprintWorkspace({ projectId }: BlueprintWorkspaceProps) {
         {/* Right STAGE Activity Feed Panel */}
         {useBlueprintActivityStore((state) => state.isActivityPanelOpen) && (
           <BlueprintActivityPanel projectId={projectId} />
+        )}
+
+        {/* Right Reviewer Suggestions Panel */}
+        {isSuggestionsOpen && (
+          <ReviewerSuggestionsPanel projectId={projectId} />
         )}
       </div>
 

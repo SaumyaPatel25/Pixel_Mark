@@ -136,6 +136,8 @@ async def update_preferences(
     user_id = current_user.id if current_user else "anonymous_user"
     pref = await get_or_create_preferences(db, user_id, payload.project_id)
 
+    if payload.in_app_enabled is not None:
+        pref.in_app_enabled = payload.in_app_enabled
     if payload.email_enabled is not None:
         pref.email_enabled = payload.email_enabled
     if payload.digest_enabled is not None:

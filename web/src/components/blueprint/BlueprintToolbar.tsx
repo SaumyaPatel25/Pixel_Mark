@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useUIStore } from '@/store/uiStore'
 import {
   ArrowLeft,
   MousePointer,
@@ -27,7 +28,10 @@ import {
   FileText,
   Activity,
   Sparkles,
-  Lock
+  Lock,
+  Monitor,
+  Tablet,
+  Smartphone
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useBlueprintStore, BlueprintTool } from '@/store/blueprintStore'
@@ -67,7 +71,9 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
     redo,
     resetToBase,
     saveStatus,
-    saveBlueprintEdits
+    saveBlueprintEdits,
+    viewportMode,
+    setViewportMode
   } = useBlueprintStore()
 
   const [isChangesetOpen, setIsChangesetOpen] = useState(false)
@@ -75,6 +81,22 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
   const [publishName, setPublishName] = useState('')
   const [showPublishModal, setShowPublishModal] = useState(false)
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
+  const [isFrameDropdownOpen, setIsFrameDropdownOpen] = useState(false)
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false)
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.frame-dropdown-container')) {
+        setIsFrameDropdownOpen(false)
+      }
+      if (!target.closest('.export-dropdown-container')) {
+        setIsExportDropdownOpen(false)
+      }
+    }
+    document.addEventListener('click', handleOutsideClick)
+    return () => document.removeEventListener('click', handleOutsideClick)
+  }, [])
 
   const canUndo = past.length > 0
   const canRedo = future.length > 0
@@ -159,8 +181,9 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
       <div className="flex items-center gap-3">
         <Link
           href={`/project/${projectId}`}
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors"
+          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950"
           title="Back to Project"
+          aria-label="Go back to project dashboard"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Project</span>
@@ -169,8 +192,14 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
         <div className="h-4 w-px bg-slate-800" />
 
         {/* Frame switcher dropdown */}
-        <div className="relative group">
-          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium text-slate-200 hover:border-slate-700 transition-colors">
+        <div className="relative frame-dropdown-container">
+          <button
+            onClick={() => setIsFrameDropdownOpen(!isFrameDropdownOpen)}
+            aria-haspopup="listbox"
+            aria-expanded={isFrameDropdownOpen}
+            aria-label="Switch active artboard frame"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium text-slate-200 hover:border-slate-700 transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950"
+          >
             <span className="w-2 h-2 rounded-full bg-cyan-400" />
             <span className="max-w-[140px] truncate">
               {currentFrame ? currentFrame.title : 'Select Frame'}
@@ -179,20 +208,25 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           </button>
           
           {/* Dropdown list */}
-          <div className="absolute left-0 top-full mt-1 w-48 bg-[#0f172a] border border-slate-800 rounded-xl shadow-xl py-1 hidden group-hover:block z-50">
-            {frames.map((frame) => (
-              <button
-                key={frame.id}
-                onClick={() => setSelectedFrameId(frame.id)}
-                className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800/70 transition-colors ${
-                  frame.id === selectedFrameId ? 'text-cyan-400 font-semibold bg-cyan-500/10' : 'text-slate-300'
-                }`}
-              >
-                <span className="truncate">{frame.title}</span>
-                {frame.id === selectedFrameId && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
-              </button>
-            ))}
-          </div>
+          {isFrameDropdownOpen && (
+            <div className="absolute left-0 top-full mt-1 w-48 bg-[#0f172a] border border-slate-800 rounded-xl shadow-xl py-1 z-50">
+              {frames.map((frame) => (
+                <button
+                  key={frame.id}
+                  onClick={() => {
+                    setSelectedFrameId(frame.id)
+                    setIsFrameDropdownOpen(false)
+                  }}
+                  className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800/70 transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+                    frame.id === selectedFrameId ? 'text-cyan-400 font-semibold bg-cyan-500/10' : 'text-slate-300'
+                  }`}
+                >
+                  <span className="truncate">{frame.title}</span>
+                  {frame.id === selectedFrameId && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -238,14 +272,17 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           badge={useBlueprintCollaborationStore.getState().unresolvedCommentCount > 0 ? String(useBlueprintCollaborationStore.getState().unresolvedCommentCount) : undefined}
         />
         <button
+          id="activity-toggle-btn"
           onClick={() => useBlueprintActivityStore.getState().toggleActivityPanel()}
-          className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm cursor-pointer"
+          className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm cursor-pointer focus:ring-2 focus:ring-cyan-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950"
           title="Open STAGE Activity Feed"
+          aria-label="Open STAGE Activity Feed"
         >
           <Activity className="w-3.5 h-3.5 text-cyan-400" />
           <span className="hidden sm:inline">Activity</span>
         </button>
         <button
+          id="ai-summary-btn"
           onClick={() => {
             const summaryStore = useBlueprintSummaryStore.getState()
             if (!summaryStore.activeSummary) {
@@ -254,8 +291,9 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
               summaryStore.toggleSummaryModal(true)
             }
           }}
-          className="px-2.5 py-1.5 rounded-lg bg-purple-950/40 border border-purple-500/30 hover:bg-purple-900/40 text-purple-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm cursor-pointer"
+          className="px-2.5 py-1.5 rounded-lg bg-purple-950/40 border border-purple-500/30 hover:bg-purple-900/40 text-purple-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm cursor-pointer focus:ring-2 focus:ring-purple-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950"
           title="Generate STAGE AI Change Summary"
+          aria-label="Generate STAGE AI Change Summary"
         >
           <Sparkles className="w-3.5 h-3.5 text-purple-400" />
           <span className="hidden sm:inline">AI Summary</span>
@@ -278,12 +316,14 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           <button
             onClick={() => saveBlueprintEdits(projectId)}
             disabled={saveStatus === 'saving' || (!isDirty && saveStatus === 'saved')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all shadow-md ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all shadow-md focus:ring-2 focus:ring-cyan-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950 ${
               isDirty
                 ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
                 : 'bg-slate-900 text-slate-400 border border-slate-800 disabled:opacity-60'
             }`}
             title="Save Blueprint Edits to Project"
+            aria-label={isDirty ? "Save active blueprint changes" : "Blueprint edits saved"}
+            aria-live="polite"
           >
             {saveStatus === 'saving' ? (
               <>
@@ -309,45 +349,62 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           </button>
 
           {/* Export JSON / CSS / Markdown Dropdown */}
-          <div className="relative group">
+          <div className="relative export-dropdown-container">
             <button
-              className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+              onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
+              aria-haspopup="menu"
+              aria-expanded={isExportDropdownOpen}
+              aria-label="Export options"
+              className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950"
               title="Export Blueprint (JSON / CSS / Markdown)"
             >
               <Download className="w-3.5 h-3.5" />
             </button>
 
-            <div className="absolute right-0 top-full mt-1 w-52 bg-[#0f172a] border border-slate-800 rounded-xl shadow-xl py-1 hidden group-hover:block z-50">
-              <button
-                onClick={handleExportJson}
-                className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-between"
-              >
-                <span>Export JSON</span>
-                <span className="text-[10px] font-mono text-cyan-400">.json</span>
-              </button>
-              <button
-                onClick={handleExportCss}
-                className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-between"
-              >
-                <span>Export CSS</span>
-                <span className="text-[10px] font-mono text-emerald-400">.css</span>
-              </button>
-              <button
-                onClick={handleExportMarkdown}
-                className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-between border-t border-slate-800"
-              >
-                <span>Markdown Summary</span>
-                <span className="text-[10px] font-mono text-purple-400">.md</span>
-              </button>
-            </div>
+            {isExportDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1 w-52 bg-[#0f172a] border border-slate-800 rounded-xl shadow-xl py-1 z-50">
+                <button
+                  onClick={() => {
+                    handleExportJson()
+                    setIsExportDropdownOpen(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-between focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <span>Export JSON</span>
+                  <span className="text-[10px] font-mono text-cyan-400">.json</span>
+                </button>
+                <button
+                  onClick={() => {
+                    handleExportCss()
+                    setIsExportDropdownOpen(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-between focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <span>Export CSS</span>
+                  <span className="text-[10px] font-mono text-emerald-400">.css</span>
+                </button>
+                <button
+                  onClick={() => {
+                    handleExportMarkdown()
+                    setIsExportDropdownOpen(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-between border-t border-slate-800 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <span>Markdown Summary</span>
+                  <span className="text-[10px] font-mono text-purple-400">.md</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Changeset Summary Button */}
         <button
+          id="changeset-summary-btn"
           onClick={() => setIsChangesetOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950"
           title="View Changeset Summary"
+          aria-label={`View changeset summary with ${pendingMutations.length} mutations`}
         >
           <Layers className="w-3.5 h-3.5 text-cyan-400" />
           <span className="hidden md:inline">Summary</span>
@@ -361,8 +418,9 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           <button
             onClick={undo}
             disabled={!canUndo}
-            className="p-1 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 rounded hover:bg-slate-800 transition-colors"
+            className="p-1 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 rounded hover:bg-slate-800 transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none"
             title="Undo Edit (Ctrl+Z)"
+            aria-label="Undo last edit"
           >
             <Undo2 className="w-3.5 h-3.5" />
           </button>
@@ -370,8 +428,9 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           <button
             onClick={redo}
             disabled={!canRedo}
-            className="p-1 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 rounded hover:bg-slate-800 transition-colors"
+            className="p-1 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 rounded hover:bg-slate-800 transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none"
             title="Redo Edit (Ctrl+Shift+Z)"
+            aria-label="Redo last edit"
           >
             <Redo2 className="w-3.5 h-3.5" />
           </button>
@@ -381,8 +440,9 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           <button
             onClick={handleReset}
             disabled={!canReset}
-            className="p-1 text-rose-400 hover:text-rose-300 disabled:opacity-30 disabled:hover:text-rose-400 rounded hover:bg-rose-500/10 transition-colors"
+            className="p-1 text-rose-400 hover:text-rose-300 disabled:opacity-30 disabled:hover:text-rose-400 rounded hover:bg-rose-500/10 transition-colors focus:ring-2 focus:ring-rose-500 focus:outline-none"
             title="Reset All Edits to Baseline"
+            aria-label="Reset all local blueprint edits to baseline"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
@@ -390,29 +450,66 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
 
         <div className="h-4 w-px bg-slate-800" />
 
+        {/* Elementor-Style Responsive Viewport Switcher */}
+        <div className="flex items-center gap-0.5 bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
+          <button
+            onClick={() => setViewportMode('desktop')}
+            className={`p-1 rounded transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+              viewportMode === 'desktop' ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+            title="Desktop Viewport (1280px)"
+            aria-label="Switch to desktop viewport width"
+          >
+            <Monitor className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setViewportMode('tablet')}
+            className={`p-1 rounded transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+              viewportMode === 'tablet' ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+            title="Tablet Viewport (768px)"
+            aria-label="Switch to tablet viewport width"
+          >
+            <Tablet className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setViewportMode('mobile')}
+            className={`p-1 rounded transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+              viewportMode === 'mobile' ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+            title="Mobile Viewport (375px)"
+            aria-label="Switch to mobile viewport width"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
         {/* Zoom controls */}
-        <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800 text-xs text-slate-300">
+        <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800 text-xs text-slate-300 font-sans">
           <button
             onClick={() => setZoom((z) => z - 0.1)}
-            className="p-1 hover:text-white rounded hover:bg-slate-800 transition-colors"
+            className="p-1 hover:text-white rounded hover:bg-slate-800 transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none"
             title="Zoom Out"
+            aria-label="Zoom out"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
-          <span className="w-12 text-center font-mono font-semibold text-cyan-400">
+          <span className="w-12 text-center font-mono font-semibold text-cyan-400" aria-live="polite">
             {Math.round(zoom * 100)}%
           </span>
           <button
             onClick={() => setZoom((z) => z + 0.1)}
-            className="p-1 hover:text-white rounded hover:bg-slate-800 transition-colors"
+            className="p-1 hover:text-white rounded hover:bg-slate-800 transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none"
             title="Zoom In"
+            aria-label="Zoom in"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={resetViewport}
-            className="p-1 text-slate-500 hover:text-slate-300 rounded hover:bg-slate-800 transition-colors ml-0.5"
+            className="p-1 text-slate-500 hover:text-slate-300 rounded hover:bg-slate-800 transition-colors ml-0.5 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
             title="Reset Zoom & Pan"
+            aria-label="Reset zoom and viewport alignment"
           >
             <RotateCcw className="w-3 h-3" />
           </button>
@@ -421,11 +518,12 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
         {/* Preview mode toggle */}
         <button
           onClick={() => setPreviewMode(!previewMode)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none ${
             previewMode
               ? 'bg-purple-600/20 border-purple-500/50 text-purple-300'
               : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
           }`}
+          aria-label={previewMode ? "Exit live preview mode" : "Enter live preview mode"}
         >
           <Eye className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">{previewMode ? 'Exit Preview' : 'Preview'}</span>
@@ -433,13 +531,15 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
 
         {/* Inspector Panel Toggle Button */}
         <button
+          id="inspector-toggle-btn"
           onClick={toggleInspector}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
             isInspectorOpen
               ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300 shadow-sm'
               : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
           }`}
           title={isInspectorOpen ? 'Close Inspector Panel' : 'Open Inspector Panel'}
+          aria-label={isInspectorOpen ? "Close style property inspector" : "Open style property inspector"}
         >
           <Sliders className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Inspector</span>
@@ -447,9 +547,11 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
 
         {/* Publish Handoff Button */}
         <button
+          id="publish-btn"
           onClick={() => setShowPublishModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-colors shadow-lg shadow-cyan-950/40"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-colors shadow-lg shadow-cyan-950/40 focus:ring-2 focus:ring-cyan-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950"
           title="Publish Read-Only Blueprint Handoff"
+          aria-label="Publish read-only blueprint handoff"
         >
           <Send className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Publish</span>
@@ -465,112 +567,208 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
 
       {/* Publish Handoff Modal */}
       {showPublishModal && (
-        <div className="fixed inset-0 z-50 bg-[#070a12]/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#0d1322] border border-cyan-500/30 rounded-2xl shadow-2xl p-6 text-slate-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Send className="w-4 h-4 text-cyan-400" />
-                <span>Publish Blueprint Handoff</span>
-              </h3>
-              <button
-                onClick={() => {
-                  setShowPublishModal(false)
-                  setPublishedUrl(null)
-                }}
-                className="text-slate-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            {publishedUrl ? (
-              <div className="space-y-4">
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs space-y-1">
-                  <span className="font-bold block">✓ Publication Published Successfully!</span>
-                  <p className="text-slate-400">Share this read-only handoff link with clients or developers.</p>
-                </div>
-
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-xs truncate text-cyan-300 select-all">
-                  {publishedUrl}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <a
-                    href={publishedUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 py-2 text-center rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
-                  >
-                    Open Handoff Page
-                  </a>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(publishedUrl)
-                      alert('Copied handoff link!')
-                    }}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
-                  >
-                    Copy Link
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handlePublishSubmit} className="space-y-4">
-                <p className="text-xs text-slate-400">
-                  Publishing creates a stable, read-only handoff snapshot of your active mutations for developers and clients.
-                </p>
-
-                <div>
-                  <label className="text-[11px] font-mono text-slate-300 block mb-1">
-                    Publication Title
-                  </label>
-                  <input
-                    type="text"
-                    value={publishName}
-                    onChange={(e) => setPublishName(e.target.value)}
-                    placeholder={`e.g. Hero Section V1 Handoff (${new Date().toLocaleDateString()})`}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-cyan-500 font-sans"
-                  />
-                </div>
-
-                {isDirty && (
-                  <p className="text-[11px] text-amber-400 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
-                    ⚠ Unsaved edits will be automatically saved before publishing.
-                  </p>
-                )}
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowPublishModal(false)}
-                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isPublishing}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-all shadow-md disabled:opacity-50"
-                  >
-                    {isPublishing ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Publishing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Create Release</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
+        <PublishModal
+          projectId={projectId}
+          isDirty={isDirty}
+          saveBlueprintEdits={saveBlueprintEdits}
+          handlePublishSubmit={handlePublishSubmit}
+          isPublishing={isPublishing}
+          publishName={publishName}
+          setPublishName={setPublishName}
+          publishedUrl={publishedUrl}
+          setPublishedUrl={setPublishedUrl}
+          onClose={() => {
+            setShowPublishModal(false)
+            setPublishedUrl(null)
+          }}
+        />
       )}
     </header>
+  )
+}
+
+interface PublishModalProps {
+  projectId: string
+  isDirty: boolean
+  saveBlueprintEdits: (projectId: string) => Promise<void>
+  handlePublishSubmit: (e: React.FormEvent) => Promise<void>
+  isPublishing: boolean
+  publishName: string
+  setPublishName: (val: string) => void
+  publishedUrl: string | null
+  setPublishedUrl: (val: string | null) => void
+  onClose: () => void
+}
+
+function PublishModal({
+  projectId,
+  isDirty,
+  saveBlueprintEdits,
+  handlePublishSubmit,
+  isPublishing,
+  publishName,
+  setPublishName,
+  publishedUrl,
+  setPublishedUrl,
+  onClose
+}: PublishModalProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+      
+      if (e.key === 'Tab' && containerRef.current) {
+        const focusableElements = containerRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex="0"], a'
+        )
+        if (focusableElements.length === 0) return
+        const firstElement = focusableElements[0] as HTMLElement
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            lastElement.focus()
+            e.preventDefault()
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            firstElement.focus()
+            e.preventDefault()
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    
+    // Focus first focusable element
+    setTimeout(() => {
+      if (containerRef.current) {
+        const focusable = containerRef.current.querySelector(
+          'button, [href], input, select, textarea, [tabindex="0"], a'
+        ) as HTMLElement
+        if (focusable) focusable.focus()
+      }
+    }, 50)
+
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
+      const trigger = document.getElementById('publish-btn')
+      if (trigger) {
+        trigger.focus()
+      }
+    }
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-55 bg-[#070a12]/80 backdrop-blur-md flex items-center justify-center p-4">
+      <div
+        ref={containerRef}
+        className="w-full max-w-md bg-[#0d1322] border border-cyan-500/30 rounded-2xl shadow-2xl p-6 text-slate-200 space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <Send className="w-4 h-4 text-cyan-400" />
+            <span>Publish Blueprint Handoff</span>
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+            aria-label="Close publish modal"
+          >
+            ✕
+          </button>
+        </div>
+
+        {publishedUrl ? (
+          <div className="space-y-4">
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs space-y-1">
+              <span className="font-bold block">✓ Publication Published Successfully!</span>
+              <p className="text-slate-400">Share this read-only handoff link with clients or developers.</p>
+            </div>
+
+            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-xs truncate text-cyan-300 select-all">
+              {publishedUrl}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href={publishedUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-2 text-center rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+              >
+                Open Handoff Page
+              </a>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(publishedUrl)
+                  useUIStore.getState().addToast('Copied handoff link!', 'success')
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+              >
+                Copy Link
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handlePublishSubmit} className="space-y-4">
+            <p className="text-xs text-slate-400">
+              Publishing creates a stable, read-only handoff snapshot of your active mutations for developers and clients.
+            </p>
+
+            <div>
+              <label className="text-[11px] font-mono text-slate-300 block mb-1">
+                Publication Title
+              </label>
+              <input
+                type="text"
+                value={publishName}
+                onChange={(e) => setPublishName(e.target.value)}
+                placeholder={`e.g. Hero Section V1 Handoff (${new Date().toLocaleDateString()})`}
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-cyan-500 font-sans"
+              />
+            </div>
+
+            {isDirty && (
+              <p className="text-[11px] text-amber-400 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                ⚠ Unsaved edits will be automatically saved before publishing.
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPublishing}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-all shadow-md disabled:opacity-50 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+              >
+                {isPublishing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Publishing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Create Release</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -592,13 +790,15 @@ function ToolButton({
   const isActive = activeTool === tool
   return (
     <button
+      id={`${tool}-tool-btn`}
       onClick={onClick}
-      className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+      className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950 ${
         isActive
           ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
           : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
       }`}
       title={label}
+      aria-label={label}
     >
       {icon}
       {badge && (

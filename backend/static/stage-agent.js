@@ -161,7 +161,15 @@
 
     const pmBase = window.__STAGE_BASE__ || (window.__STAGE_SESSION__?.proxy_base_url) || (window.__STAGE__?.proxy_base_url);
     if (pmBase) {
-      return `${pmBase}/asset?url=${encodeURIComponent(absoluteUrl)}`;
+      try {
+        const parsedProxy = new URL(absoluteUrl);
+        const scheme = parsedProxy.protocol.replace(':', '');
+        const host = parsedProxy.host;
+        const path = parsedProxy.pathname.slice(1) + parsedProxy.search + parsedProxy.hash;
+        return `${pmBase}/asset/${scheme}/${host}/${path}`;
+      } catch (e) {
+        return `${pmBase}/asset?url=${encodeURIComponent(absoluteUrl)}`;
+      }
     }
     return url;
   }
@@ -215,6 +223,30 @@
     this._method = method;
     return originalXHROpen.apply(this, [method, url, ...args]);
   };
+
+  try {
+    const originalWorker = window.Worker;
+    window.Worker = function(scriptURL, options) {
+      if (scriptURL && typeof scriptURL === 'string') {
+        scriptURL = rewriteAssetUrl(scriptURL);
+      } else if (scriptURL instanceof URL) {
+        scriptURL = new URL(rewriteAssetUrl(scriptURL.href));
+      }
+      return new originalWorker(scriptURL, options);
+    };
+  } catch(e) {}
+
+  try {
+    const originalSharedWorker = window.SharedWorker;
+    window.SharedWorker = function(scriptURL, options) {
+      if (scriptURL && typeof scriptURL === 'string') {
+        scriptURL = rewriteAssetUrl(scriptURL);
+      } else if (scriptURL instanceof URL) {
+        scriptURL = new URL(rewriteAssetUrl(scriptURL.href));
+      }
+      return new originalSharedWorker(scriptURL, options);
+    };
+  } catch(e) {}
 
   const originalXHRSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.send = function(...args) {
@@ -2059,9 +2091,19 @@
       }
     }
 
+    if (data.type === "STAGE_SELECT_SIBLING") {
+      if (window.__STAGE_EDIT_MODE__ && typeof window.__STAGE_EDIT_MODE__.selectSibling === "function") {
+        window.__STAGE_EDIT_MODE__.selectSibling(data.direction);
+      }
+    }
+
     if (data.type === "STAGE_RECONCILE_MUTATIONS") {
       try {
         var mutations = data.mutations || [];
+
+        // Put everything back to its original layout position first
+        restoreMovedElements();
+
         // Remove previously inserted elements
         var inserted = document.querySelectorAll('[data-blueprint-inserted="true"]');
         for (var i = 0; i < inserted.length; i++) {
@@ -2071,23 +2113,61 @@
         // Re-apply current mutations in order
         for (var j = 0; j < mutations.length; j++) {
           var mut = mutations[j];
-          var targetEl = document.querySelector(mut.targetSelector);
-          if (targetEl && mut.htmlPayload) {
-            var tempDiv = document.createElement('div');
-            tempDiv.innerHTML = mut.htmlPayload;
-            var newEl = tempDiv.firstElementChild || tempDiv;
-            if (newEl && newEl.setAttribute) {
-              newEl.setAttribute('data-blueprint-inserted', 'true');
-            }
 
-            if (mut.actionType === 'replace') {
-              targetEl.replaceWith(newEl);
-            } else if (mut.actionType === 'before' && targetEl.parentNode) {
-              targetEl.parentNode.insertBefore(newEl, targetEl);
-            } else if (mut.actionType === 'after' && targetEl.parentNode) {
-              targetEl.parentNode.insertBefore(newEl, targetEl.nextSibling);
-            } else if (mut.actionType === 'inside') {
-              targetEl.appendChild(newEl);
+          if (mut.actionType === 'move') {
+            var sourceEl = document.querySelector(mut.targetSelector);
+            if (sourceEl) {
+              // Record original parent and next sibling so we can restore it later
+              moveHistory.push({
+                selector: mut.targetSelector,
+                parent: sourceEl.parentNode,
+                nextSibling: sourceEl.nextSibling
+              });
+              
+              try {
+                var payload = JSON.parse(mut.htmlPayload);
+                var targetParent = document.querySelector(payload.targetParentSelector);
+                if (targetParent) {
+                  if (payload.action === 'before' || payload.action === 'after') {
+                    var siblingEl = document.querySelector(payload.siblingSelector);
+                    if (siblingEl && siblingEl.parentNode) {
+                      if (payload.action === 'before') {
+                        siblingEl.parentNode.insertBefore(sourceEl, siblingEl);
+                      } else {
+                        siblingEl.parentNode.insertBefore(sourceEl, siblingEl.nextSibling);
+                      }
+                    }
+                  } else if (payload.action === 'inside') {
+                    if (typeof payload.targetIndex === 'number' && payload.targetIndex >= 0 && payload.targetIndex < targetParent.children.length) {
+                      targetParent.insertBefore(sourceEl, targetParent.children[payload.targetIndex]);
+                    } else {
+                      targetParent.appendChild(sourceEl);
+                    }
+                  }
+                }
+              } catch (e) {
+                console.warn("[STAGE Agent] Failed to parse move payload:", e);
+              }
+            }
+          } else {
+            var targetEl = document.querySelector(mut.targetSelector);
+            if (targetEl && mut.htmlPayload) {
+              var tempDiv = document.createElement('div');
+              tempDiv.innerHTML = mut.htmlPayload;
+              var newEl = tempDiv.firstElementChild || tempDiv;
+              if (newEl && newEl.setAttribute) {
+                newEl.setAttribute('data-blueprint-inserted', 'true');
+              }
+
+              if (mut.actionType === 'replace') {
+                targetEl.replaceWith(newEl);
+              } else if (mut.actionType === 'before' && targetEl.parentNode) {
+                targetEl.parentNode.insertBefore(newEl, targetEl);
+              } else if (mut.actionType === 'after' && targetEl.parentNode) {
+                targetEl.parentNode.insertBefore(newEl, targetEl.nextSibling);
+              } else if (mut.actionType === 'inside') {
+                targetEl.appendChild(newEl);
+              }
             }
           }
         }
@@ -2540,6 +2620,17 @@
   var hoverLabelEl = null;
   var selectBoxEl = null;
 
+  var isDragging = false;
+  var draggedElement = null;
+  var dragHandleEl = null;
+  var insertionIndicatorEl = null;
+  var moveHistory = [];
+  var dragRafId = null;
+  var lastDragEvent = null;
+  var currentDropTarget = null;
+  var currentDropPosition = null;
+  var isValidDrop = false;
+
   function ensureOverlayElements() {
     if (containerEl && document.body && document.body.contains(containerEl)) return;
 
@@ -2561,6 +2652,15 @@
     selectBoxEl = document.createElement('div');
     selectBoxEl.id = SELECT_BOX_ID;
     selectBoxEl.style.cssText = 'position:fixed;pointer-events:none;box-sizing:border-box;outline:2px solid #a855f7 !important;outline-offset:-2px;background:rgba(168,85,247,0.12);display:none;z-index:2147483647;';
+
+    // Drag handle element on top-left of the selectBoxEl
+    dragHandleEl = document.createElement('div');
+    dragHandleEl.id = 'stage-select-drag-handle';
+    dragHandleEl.style.cssText = 'position:absolute;top:-20px;left:0;width:18px;height:18px;background:#a855f7;color:white;cursor:grab;pointer-events:auto;z-index:2147483647;display:flex;align-items:center;justify-content:center;border-radius:4px 4px 0 0;box-shadow:0 -1px 3px rgba(0,0,0,0.2);';
+    dragHandleEl.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="9" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>';
+    selectBoxEl.appendChild(dragHandleEl);
+
+    dragHandleEl.addEventListener('mousedown', onDragHandleMouseDown);
 
     containerEl.appendChild(hoverBoxEl);
     containerEl.appendChild(hoverLabelEl);
@@ -2724,6 +2824,16 @@
       selectBoxEl.style.width = rect.width + 'px';
       selectBoxEl.style.height = rect.height + 'px';
       selectBoxEl.style.display = 'block';
+
+      if (dragHandleEl) {
+        if (rect.top < 24) {
+          dragHandleEl.style.top = '0px';
+          dragHandleEl.style.borderRadius = '0 0 4px 0';
+        } else {
+          dragHandleEl.style.top = '-20px';
+          dragHandleEl.style.borderRadius = '4px 4px 0 0';
+        }
+      }
     } catch (err) {
       console.log("[STAGE Agent] updateSelectBox skipped invalid target", { error: err.message, target: el });
       if (selectBoxEl) selectBoxEl.style.display = 'none';
@@ -2780,7 +2890,14 @@
     window.parent.postMessage({
       type: 'STAGE_EDIT_ELEMENT_SELECTED',
       tag: tag,
-      selector: selector
+      selector: selector,
+      outerHTML: target.outerHTML,
+      innerText: target.innerText,
+      computedStyles: {
+        color: window.getComputedStyle(target).color,
+        backgroundColor: window.getComputedStyle(target).backgroundColor,
+        fontSize: window.getComputedStyle(target).fontSize
+      }
     }, '*');
   }
 
@@ -2789,6 +2906,65 @@
     if (!editModeActive) return;
     if (e.key === 'Escape') {
       deselect();
+      return;
+    }
+
+    // Ignore if typing in text inputs/textareas
+    var activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+    if (activeTag === 'input' || activeTag === 'textarea' || document.activeElement.getAttribute('contenteditable') === 'true') {
+      return;
+    }
+
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectSibling('next');
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectSibling('prev');
+    }
+  }
+
+  function selectSibling(direction) {
+    if (!selectedElement) return;
+    var parent = selectedElement.parentElement;
+    if (!parent) return;
+
+    var children = Array.from(parent.children).filter(function(child) {
+      return child.nodeType === Node.ELEMENT_NODE &&
+             !isSTAGENode(child) &&
+             isElementVisible(child);
+    });
+
+    var index = children.indexOf(selectedElement);
+    if (index === -1) return;
+
+    var nextIndex = index;
+    if (direction === 'next') {
+      nextIndex = (index + 1) % children.length;
+    } else if (direction === 'prev') {
+      nextIndex = (index - 1 + children.length) % children.length;
+    }
+
+    var sibling = children[nextIndex];
+    if (sibling && sibling !== selectedElement) {
+      selectedElement = sibling;
+      updateSelectBox(selectedElement);
+
+      var selector = typeof getCSSSelector === 'function' ? getCSSSelector(sibling) : sibling.tagName.toLowerCase();
+      var tag = sibling.tagName.toLowerCase();
+
+      window.parent.postMessage({
+        type: 'STAGE_EDIT_ELEMENT_SELECTED',
+        tag: tag,
+        selector: selector,
+        outerHTML: sibling.outerHTML,
+        innerText: sibling.innerText,
+        computedStyles: {
+          color: window.getComputedStyle(sibling).color,
+          backgroundColor: window.getComputedStyle(sibling).backgroundColor,
+          fontSize: window.getComputedStyle(sibling).fontSize
+        }
+      }, '*');
     }
   }
 
@@ -2814,6 +2990,219 @@
     selectedElement = null;
     if (selectBoxEl) selectBoxEl.style.display = 'none';
     window.parent.postMessage({ type: 'STAGE_EDIT_ELEMENT_DESELECTED' }, '*');
+  }
+
+  function onDragHandleMouseDown(e) {
+    if (e.button !== 0) return; // Only left click
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!selectedElement) return;
+
+    // Disallow moving critical structural elements
+    if (['HTML', 'HEAD', 'BODY'].includes(selectedElement.tagName)) {
+      console.log("[STAGE Agent] Moving structural element blocked:", selectedElement.tagName);
+      return;
+    }
+
+    isDragging = true;
+    draggedElement = selectedElement;
+
+    document.body.style.cursor = 'grabbing';
+    draggedElement.style.opacity = '0.5';
+
+    ensureInsertionIndicator();
+
+    document.addEventListener('mousemove', onDragMouseMove, true);
+    document.addEventListener('mouseup', onDragMouseUp, true);
+  }
+
+  function onDragMouseMove(e) {
+    lastDragEvent = e;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (dragRafId) return;
+
+    dragRafId = requestAnimationFrame(function() {
+      dragRafId = null;
+      if (!isDragging || !lastDragEvent) return;
+
+      var x = lastDragEvent.clientX;
+      var y = lastDragEvent.clientY;
+
+      var indicatorDisp = insertionIndicatorEl.style.display;
+      insertionIndicatorEl.style.display = 'none';
+      var selectBoxDisp = selectBoxEl.style.display;
+      selectBoxEl.style.display = 'none';
+      var hoverBoxDisp = hoverBoxEl.style.display;
+      hoverBoxEl.style.display = 'none';
+
+      var rawTarget = document.elementFromPoint(x, y);
+
+      insertionIndicatorEl.style.display = indicatorDisp;
+      selectBoxEl.style.display = selectBoxDisp;
+      hoverBoxEl.style.display = hoverBoxDisp;
+
+      var target = normalizeHoverTarget(rawTarget, null);
+
+      currentDropTarget = null;
+      currentDropPosition = null;
+      isValidDrop = false;
+
+      if (!target || isSTAGENode(target) || ['HTML', 'HEAD'].includes(target.tagName)) {
+        updateInsertionIndicator(null, null, false);
+        document.body.style.cursor = 'not-allowed';
+        return;
+      }
+
+      if (target === draggedElement || draggedElement.contains(target)) {
+        updateInsertionIndicator(target, 'inside', false);
+        document.body.style.cursor = 'not-allowed';
+        return;
+      }
+
+      var rect = target.getBoundingClientRect();
+      var pctY = (y - rect.top) / rect.height;
+
+      var isContainer = ['DIV', 'SECTION', 'ARTICLE', 'MAIN', 'ASIDE', 'HEADER', 'FOOTER', 'UL', 'OL', 'FORM', 'NAV'].includes(target.tagName);
+
+      var position = 'after';
+      if (isContainer && pctY > 0.25 && pctY < 0.75) {
+        position = 'inside';
+      } else if (pctY <= 0.5) {
+        position = 'before';
+      } else {
+        position = 'after';
+      }
+
+      if (target.tagName === 'BODY') {
+        position = 'inside';
+      }
+
+      currentDropTarget = target;
+      currentDropPosition = position;
+      isValidDrop = true;
+
+      document.body.style.cursor = 'grabbing';
+      updateInsertionIndicator(target, position, true);
+    });
+  }
+
+  function onDragMouseUp(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    document.removeEventListener('mousemove', onDragMouseMove, true);
+    document.removeEventListener('mouseup', onDragMouseUp, true);
+
+    if (dragRafId) {
+      cancelAnimationFrame(dragRafId);
+      dragRafId = null;
+    }
+
+    isDragging = false;
+    document.body.style.cursor = '';
+    if (draggedElement) {
+      draggedElement.style.opacity = '';
+    }
+
+    if (insertionIndicatorEl) {
+      insertionIndicatorEl.style.display = 'none';
+    }
+
+    if (isValidDrop && draggedElement && currentDropTarget && currentDropPosition) {
+      var sourceSelector = typeof getCSSSelector === 'function' ? getCSSSelector(draggedElement) : draggedElement.tagName.toLowerCase();
+      var targetParent = null;
+      var siblingSelector = null;
+      var targetIndex = 0;
+
+      if (currentDropPosition === 'inside') {
+        targetParent = currentDropTarget;
+        targetIndex = targetParent.children.length;
+      } else {
+        targetParent = currentDropTarget.parentNode;
+        siblingSelector = typeof getCSSSelector === 'function' ? getCSSSelector(currentDropTarget) : currentDropTarget.tagName.toLowerCase();
+        var childrenArray = Array.prototype.slice.call(targetParent.children);
+        var targetIdxInChildren = childrenArray.indexOf(currentDropTarget);
+        targetIndex = (currentDropPosition === 'before') ? targetIdxInChildren : targetIdxInChildren + 1;
+      }
+
+      var targetParentSelector = typeof getCSSSelector === 'function' ? getCSSSelector(targetParent) : targetParent.tagName.toLowerCase();
+
+      window.parent.postMessage({
+        type: 'STAGE_DOM_ELEMENT_MOVED',
+        sourceSelector: sourceSelector,
+        targetParentSelector: targetParentSelector,
+        action: currentDropPosition,
+        siblingSelector: siblingSelector,
+        targetIndex: targetIndex
+      }, '*');
+
+      setTimeout(function() {
+        updateSelectBox(draggedElement);
+      }, 50);
+    }
+
+    draggedElement = null;
+    currentDropTarget = null;
+    currentDropPosition = null;
+    isValidDrop = false;
+  }
+
+  function ensureInsertionIndicator() {
+    if (insertionIndicatorEl && document.body.contains(insertionIndicatorEl)) return;
+    insertionIndicatorEl = document.createElement('div');
+    insertionIndicatorEl.id = 'stage-insertion-indicator';
+    insertionIndicatorEl.style.cssText = 'position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483647;transition:none;';
+    (document.body || document.documentElement).appendChild(insertionIndicatorEl);
+  }
+
+  function updateInsertionIndicator(target, position, isValid) {
+    if (!target || !position) {
+      if (insertionIndicatorEl) insertionIndicatorEl.style.display = 'none';
+      return;
+    }
+
+    ensureInsertionIndicator();
+    var rect = target.getBoundingClientRect();
+
+    if (!isValid) {
+      insertionIndicatorEl.style.cssText = 'position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483647;transition:none;' +
+        'left:' + rect.left + 'px;top:' + rect.top + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;' +
+        'border:2px solid #ef4444 !important;background:rgba(239, 68, 68, 0.15) !important;display:block;';
+      return;
+    }
+
+    if (position === 'inside') {
+      insertionIndicatorEl.style.cssText = 'position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483647;transition:none;' +
+        'left:' + rect.left + 'px;top:' + rect.top + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;' +
+        'border:2px solid #3b82f6 !important;background:rgba(59, 130, 246, 0.15) !important;display:block;';
+    } else {
+      var topY = (position === 'before') ? (rect.top - 2) : (rect.bottom - 2);
+      insertionIndicatorEl.style.cssText = 'position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483647;transition:none;' +
+        'left:' + rect.left + 'px;top:' + topY + 'px;width:' + rect.width + 'px;height:4px;' +
+        'background:#3b82f6 !important;border:none !important;display:block;box-shadow:0 1px 3px rgba(59,130,246,0.5);';
+    }
+  }
+
+  function restoreMovedElements() {
+    for (var i = moveHistory.length - 1; i >= 0; i--) {
+      var item = moveHistory[i];
+      var el = document.querySelector(item.selector);
+      if (el) {
+        var origParent = item.parent;
+        var origNextSibling = item.nextSibling;
+        if (origParent && document.body.contains(origParent)) {
+          if (origNextSibling && document.body.contains(origNextSibling)) {
+            origParent.insertBefore(el, origNextSibling);
+          } else {
+            origParent.appendChild(el);
+          }
+        }
+      }
+    }
+    moveHistory = [];
   }
 
   // Memory map for storing element's original inline/computed style value before first mutation
@@ -3008,6 +3397,18 @@
     window.removeEventListener('scroll', onScrollOrResize);
     window.removeEventListener('resize', onScrollOrResize);
 
+    if (isDragging) {
+      document.removeEventListener('mousemove', onDragMouseMove, true);
+      document.removeEventListener('mouseup', onDragMouseUp, true);
+      isDragging = false;
+    }
+    if (document.body) document.body.style.cursor = '';
+    if (draggedElement) draggedElement.style.opacity = '';
+    if (insertionIndicatorEl && insertionIndicatorEl.parentNode) {
+      insertionIndicatorEl.parentNode.removeChild(insertionIndicatorEl);
+      insertionIndicatorEl = null;
+    }
+
     if (hoverRafId) { cancelAnimationFrame(hoverRafId); hoverRafId = null; }
     if (scrollResizeRafId) { cancelAnimationFrame(scrollResizeRafId); scrollResizeRafId = null; }
 
@@ -3033,7 +3434,8 @@
     applyStyle: applyLiveStylePreview,
     replayBatch: replaySavedEditsBatch,
     resetSection: resetSectionProperties,
-    resetElementAll: resetElementAll
+    resetElementAll: resetElementAll,
+    selectSibling: selectSibling
   };
 
   // Notify parent that agent is ready

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Sparkles,
   Type,
@@ -36,6 +36,59 @@ export function BlueprintPresetLibraryPanel() {
 
   const [activeCategory, setActiveCategory] = useState<string>('All')
   const [successNotice, setSuccessNotice] = useState<string | null>(null)
+
+  const containerRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isLibraryOpen) return
+    
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        toggleLibrary()
+      }
+      
+      if (e.key === 'Tab' && containerRef.current) {
+        const focusableElements = containerRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex="0"], [role="button"]'
+        )
+        if (focusableElements.length === 0) return
+        const firstElement = focusableElements[0] as HTMLElement
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            lastElement.focus()
+            e.preventDefault()
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            firstElement.focus()
+            e.preventDefault()
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+
+    // Focus first focusable element
+    setTimeout(() => {
+      if (containerRef.current) {
+        const focusable = containerRef.current.querySelector(
+          'button, [href], input, select, textarea, [tabindex="0"], [role="button"]'
+        ) as HTMLElement
+        if (focusable) focusable.focus()
+      }
+    }, 50)
+
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
+      const trigger = document.getElementById('library-toggle-btn')
+      if (trigger) {
+        trigger.focus()
+      }
+    }
+  }, [isLibraryOpen, toggleLibrary])
 
   if (!isLibraryOpen) return null
 
@@ -93,7 +146,10 @@ export function BlueprintPresetLibraryPanel() {
   const canInsertInside = selectedTarget ? !isInlineTag : true
 
   return (
-    <div className="w-80 bg-[#0d1322] border-r border-cyan-950/60 flex flex-col text-slate-200 select-none z-10 shrink-0 shadow-2xl">
+    <div 
+      ref={containerRef}
+      className="w-80 bg-[#0d1322] border-r border-cyan-950/60 flex flex-col text-slate-200 select-none z-10 shrink-0 shadow-2xl"
+    >
       {/* Header */}
       <div className="h-10 px-4 border-b border-cyan-950/50 flex items-center justify-between text-xs font-semibold text-slate-300 bg-[#090d16]">
         <div className="flex items-center gap-2">
@@ -166,6 +222,26 @@ export function BlueprintPresetLibraryPanel() {
           return (
             <div
               key={preset.id}
+              tabIndex={0}
+              role="button"
+              aria-pressed={isSelected}
+              onKeyDown={(e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                  e.preventDefault()
+                  setSelectedPresetId(preset.id)
+                  if (selectedTarget) {
+                    addMutation({
+                      targetSelector: selectedTarget.selector,
+                      actionType: insertionMode,
+                      presetId: preset.id,
+                      presetName: preset.name,
+                      htmlPayload: preset.htmlTemplate
+                    })
+                    setSuccessNotice(`Applied "${preset.name}" (${insertionMode})`)
+                    setTimeout(() => setSuccessNotice(null), 3000)
+                  }
+                }
+              }}
               onClick={() => {
                 setSelectedPresetId(preset.id)
                 if (selectedTarget) {
@@ -180,7 +256,7 @@ export function BlueprintPresetLibraryPanel() {
                   setTimeout(() => setSuccessNotice(null), 3000)
                 }
               }}
-              className={`p-3 rounded-xl border cursor-pointer transition-all ${
+              className={`p-3 rounded-xl border cursor-pointer transition-all focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
                 isSelected
                   ? 'bg-cyan-500/10 border-cyan-500/50 ring-1 ring-cyan-500/30 shadow-lg'
                   : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'

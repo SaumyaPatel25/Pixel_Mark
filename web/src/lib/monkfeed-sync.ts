@@ -1,19 +1,14 @@
-interface User {
-  id: string
-  email: string
-  name?: string | null
-}
-
-export function syncMonkfeedLogin(user: User) {
+export const syncMonkfeedLogin = (user: any) => {
   if (typeof window !== 'undefined') {
-    const event = new CustomEvent('monkfeed-login', { detail: user })
-    window.dispatchEvent(event)
+    window.dispatchEvent(new CustomEvent('monkfeed:login', { detail: user }));
   }
-}
+};
 
-export function syncMonkfeedLogout() {
+export const syncMonkfeedLogout = () => {
   if (typeof window !== 'undefined') {
-    const event = new CustomEvent('monkfeed-logout')
-    window.dispatchEvent(event)
+    window.dispatchEvent(new CustomEvent('monkfeed:logout'));
   }
-}
+};
+
+export const syncMonkFeedLogin = syncMonkfeedLogin;
+export const syncMonkFeedLogout = syncMonkfeedLogout;
