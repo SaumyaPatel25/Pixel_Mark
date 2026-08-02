@@ -3,17 +3,20 @@ from fastapi.responses import RedirectResponse
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
+from sqlalchemy.orm import selectinload
 from database import AsyncSessionLocal
 from models import User, Organization, OrgMember, RoleEnum, AuthToken, UserIdentity
 from schemas import (
     RegisterRequest, LoginRequest, TokenResponse, UserOut, MessageResponse,
-    VerifyEmailRequest, RequestPasswordResetRequest, ResetPasswordRequest, ResendVerificationRequest
+    VerifyEmailRequest, RequestPasswordResetRequest, ResetPasswordRequest, ResendVerificationRequest,
+    UpdateProfileRequest, UpdateOnboardingStateRequest
 )
 from auth import hash_password, verify_password, create_access_token
 from dependencies import get_db, get_current_user
 from config import settings
 from services.email import send_verification_email, send_password_reset_email, send_login_link_email
 from services.tokens import create_token, consume_token
+from services.identity_resolver import resolve_canonical_user
 from ratelimit import rate_limit
 from pydantic import BaseModel
 import uuid
@@ -242,76 +245,19 @@ async def handle_oauth_user_login(
     provider_user_id: str,
     email: str,
     name: str,
-    db: AsyncSession
+    db: AsyncSession,
+    avatar_url: Optional[str] = None
 ) -> RedirectResponse:
-    # 1. Lookup identity
-    result = await db.execute(
-        select(UserIdentity).where(
-            UserIdentity.provider == provider,
-            UserIdentity.provider_user_id == provider_user_id
-        )
-    )
-    identity = result.scalar_one_or_none()
-    
-    if identity:
-        user_res = await db.execute(select(User).where(User.id == identity.user_id))
-        user = user_res.scalar_one_or_none()
-        if not user:
-            return RedirectResponse(url=f"{settings.frontend_url}/auth/oauth-callback?error=user_not_found")
-        
-        if not user.is_verified:
-            user.is_verified = True
-            db.add(user)
-            await db.commit()
-            
-        token = create_access_token({"sub": user.id})
-        return RedirectResponse(url=f"{settings.frontend_url}/auth/oauth-callback?token={token}")
-        
-    # 2. Check if user with same email exists
-    user_res = await db.execute(select(User).where(User.email == email))
-    user = user_res.scalar_one_or_none()
-    
-    if user:
-        if not user.is_verified:
-            # Block account takeover from unverified emails
-            return RedirectResponse(url=f"{settings.frontend_url}/auth/oauth-callback?error=link_unverified_email&email={email}")
-            
-        new_identity = UserIdentity(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            provider=provider,
-            provider_user_id=provider_user_id,
-            provider_email=email
-        )
-        db.add(new_identity)
-        await db.commit()
-        
-        token = create_access_token({"sub": user.id})
-        return RedirectResponse(url=f"{settings.frontend_url}/auth/oauth-callback?token={token}")
-        
-    # 3. Create new user
-    new_user = User(
-        id=str(uuid.uuid4()),
-        email=email,
-        hashed_password=hash_password(secrets.token_hex(16)),
-        name=name,
-        is_verified=True
-    )
-    org = Organization(id=str(uuid.uuid4()), name=f"{name}'s workspace", slug=str(uuid.uuid4())[:8])
-    membership = OrgMember(id=str(uuid.uuid4()), org_id=org.id, user_id=new_user.id, role=RoleEnum.owner)
-    
-    new_identity = UserIdentity(
-        id=str(uuid.uuid4()),
-        user_id=new_user.id,
+    user = await resolve_canonical_user(
+        db=db,
         provider=provider,
         provider_user_id=provider_user_id,
-        provider_email=email
+        email=email,
+        name=name,
+        avatar_url=avatar_url,
+        email_verified=True
     )
-    
-    db.add_all([new_user, org, membership, new_identity])
-    await db.commit()
-    
-    token = create_access_token({"sub": new_user.id})
+    token = create_access_token({"sub": user.id})
     return RedirectResponse(url=f"{settings.frontend_url}/auth/oauth-callback?token={token}")
 @router.get("/oauth/github/start")
 async def github_start(request: Request):
@@ -371,6 +317,7 @@ async def github_callback(request: Request, code: str, state: str, db: AsyncSess
         
         provider_user_id = profile.get("id")
         name = profile.get("name") or profile.get("login") or "GitHub User"
+        avatar_url = profile.get("avatar_url")
         email = profile.get("email")
         
         if not email:
@@ -387,12 +334,49 @@ async def github_callback(request: Request, code: str, state: str, db: AsyncSess
         if not email or not provider_user_id:
             return RedirectResponse(url=f"{settings.frontend_url}/auth/oauth-callback?error=missing_email_or_id")
             
-        return await handle_oauth_user_login("github", str(provider_user_id), email, name, db)
+        return await handle_oauth_user_login("github", str(provider_user_id), email, name, db, avatar_url=avatar_url)
 
 @router.get("/me", response_model=UserOut)
-async def me(current_user: User = Depends(get_current_user)):
-    return current_user
+async def me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(User).options(selectinload(User.identities)).where(User.id == current_user.id)
+    )
+    user = result.scalar_one_or_none() or current_user
+    return user
 
+@router.patch("/me", response_model=UserOut)
+async def update_profile(
+    data: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if data.name is not None:
+        current_user.name = data.name.strip()
+    if data.avatar_url is not None:
+        current_user.avatar_url = data.avatar_url.strip()
+
+    db.add(current_user)
+    await db.commit()
+
+    result = await db.execute(
+        select(User).options(selectinload(User.identities)).where(User.id == current_user.id)
+    )
+    return result.scalar_one()
+
+@router.put("/me/onboarding", response_model=UserOut)
+async def update_onboarding_state(
+    data: UpdateOnboardingStateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    current_user.onboarding_state_json = data.onboarding_state
+    db.add(current_user)
+    await db.commit()
+
+    result = await db.execute(
+        select(User).options(selectinload(User.identities)).where(User.id == current_user.id)
+    )
+    return result.scalar_one()
 
 class FirebaseSyncRequest(BaseModel):
     id_token: str
@@ -433,68 +417,68 @@ async def firebase_sync(data: FirebaseSyncRequest, db: AsyncSession = Depends(ge
         
     fb_user = users_list[0]
     email = fb_user.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Firebase user has no email address.")
+
     email_verified = fb_user.get("emailVerified", False)
     display_name = fb_user.get("displayName") or data.name or email.split("@")[0]
+    avatar_url = fb_user.get("photoUrl")
     provider_user_id = fb_user.get("localId")
-    
-    # Lookup user by email
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        # Create a new user record
-        user = User(
-            id=str(uuid.uuid4()),
-            email=email,
-            hashed_password=hash_password(secrets.token_hex(16)),
-            name=display_name,
-            is_verified=email_verified
-        )
-        org = Organization(id=str(uuid.uuid4()), name=f"{display_name}'s workspace", slug=str(uuid.uuid4())[:8])
-        membership = OrgMember(id=str(uuid.uuid4()), org_id=org.id, user_id=user.id, role=RoleEnum.owner)
-        
-        # Link user to Firebase Identity
-        identity = UserIdentity(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            provider="firebase",
-            provider_user_id=provider_user_id,
-            provider_email=email
-        )
-        
-        db.add_all([user, org, membership, identity])
-        await db.commit()
-        await db.refresh(user)
-    else:
-        # Update user's name or verification status if it changed
-        if user.is_verified != email_verified:
-            user.is_verified = email_verified
-            db.add(user)
-            
-        # Ensure UserIdentity exists for Firebase
-        ident_result = await db.execute(
+
+    # Detect underlying provider from Firebase providerUserInfo if present
+    provider_info = fb_user.get("providerUserInfo", [])
+    primary_provider = "firebase"
+    if provider_info:
+        p_id = provider_info[0].get("providerId", "")
+        if "google" in p_id:
+            primary_provider = "google"
+        elif "github" in p_id:
+            primary_provider = "github"
+        elif "password" in p_id or "emailLink" in p_id:
+            primary_provider = "email_link"
+
+    user = await resolve_canonical_user(
+        db=db,
+        provider=primary_provider,
+        provider_user_id=provider_user_id,
+        email=email,
+        name=display_name,
+        avatar_url=avatar_url,
+        email_verified=email_verified
+    )
+
+    # Ensure "firebase" provider identity link also exists if primary_provider was specific
+    if primary_provider != "firebase":
+        ident_res = await db.execute(
             select(UserIdentity).where(
+                UserIdentity.user_id == user.id,
                 UserIdentity.provider == "firebase",
                 UserIdentity.provider_user_id == provider_user_id
             )
         )
-        if not ident_result.scalar_one_or_none():
-            identity = UserIdentity(
+        if not ident_res.scalar_one_or_none():
+            fb_ident = UserIdentity(
                 id=str(uuid.uuid4()),
                 user_id=user.id,
                 provider="firebase",
                 provider_user_id=provider_user_id,
-                provider_email=email
+                provider_email=email.strip().lower(),
+                email_verified=email_verified
             )
-            db.add(identity)
-        await db.commit()
-        await db.refresh(user)
-        
+            db.add(fb_ident)
+            await db.commit()
+
+    # Eagerly load user.identities for response serialization
+    user_res = await db.execute(
+        select(User).options(selectinload(User.identities)).where(User.id == user.id)
+    )
+    user_with_identities = user_res.scalar_one()
+
     token = create_access_token({"sub": user.id})
     return ExtendedTokenResponse(
         access_token=token,
         token_type="bearer",
-        user=UserOut.model_validate(user)
+        user=UserOut.model_validate(user_with_identities)
     )
 
 

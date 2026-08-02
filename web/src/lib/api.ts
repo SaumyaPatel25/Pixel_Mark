@@ -314,6 +314,18 @@ export const api = {
         body: JSON.stringify({ email }),
       }))
     },
+    async updateProfile(name?: string, avatarUrl?: string) {
+      return apiQueue.enqueueWrite('Updating profile...', () => request('/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ name, avatar_url: avatarUrl }),
+      }))
+    },
+    async updateOnboardingState(onboardingState: Record<string, any>) {
+      return apiQueue.enqueueWrite('Updating onboarding state...', () => request('/auth/me/onboarding', {
+        method: 'PUT',
+        body: JSON.stringify({ onboarding_state: onboardingState }),
+      }))
+    },
   },
 
   // PROJECTS

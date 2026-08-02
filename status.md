@@ -1,16 +1,53 @@
 # Repository Documentation Status
 
 ## Current phase
-- Dated Entry: Auth Session Persistence + Logout + GitHub OAuth + Product Tour Fix
-- Phase: 46
+- Dated Entry: Canonical User Identity Linking Across Auth Providers
+- Phase: 47
 - Status: Completed
-- Last updated timestamp: 2026-08-02T16:16:00Z
-- Note: Scoped strictly to Firebase Auth session handling, provider config, and onboarding trigger logic. Billing, Blueprint, session review, proxy, and notification systems remain 100% untouched.
+- Last updated timestamp: 2026-08-02T16:41:00Z
+- Note: Scoped strictly to canonical user identity resolution and data persistence. Billing, Blueprint, session review, proxy, and notification systems remain 100% untouched.
 
-## Task Execution Summary: Auth Session Persistence + Logout + GitHub OAuth + Product Tour Fix
-- **Task Title**: Auth Session Persistence + Logout + GitHub OAuth + Product Tour Fix
+## Task Execution Summary: Canonical User Identity Linking Across Auth Providers
+- **Task Title**: Canonical User Identity Linking Across Auth Providers
 - **Status**: Completed
+- **Files Added**:
+  - `backend/services/identity_resolver.py`
+  - `backend/tests/test_identity_linking.py`
 - **Files Changed**:
+  - `backend/models/core.py`
+  - `backend/schemas/core.py`
+  - `backend/routes/auth.py`
+  - `web/src/lib/api.ts`
+  - `web/src/store/authStore.ts`
+  - `web/src/store/onboardingStore.ts`
+  - `web/src/app/(dashboard)/DashboardLayoutClient.tsx`
+  - `web/src/app/settings/profile/page.tsx`
+  - `status.md`
+
+### Root Cause Found:
+Prior to this fix, authentication endpoints (`handle_oauth_user_login` and `firebase_sync`) looked up user records using case-sensitive email equality or raw Firebase `localId` without checking existing provider links. Furthermore, onboarding tour progress was stored purely in client local storage, and profile identities were not serialized or linked across Google SSO, GitHub OAuth, and Email Link login methods. Consequently, logging in via different providers or logging out gave the appearance of lost project data and reset tour states.
+
+### How Identity Resolution Now Works:
+- **Centralized Identity Resolver (`backend/services/identity_resolver.py`)**:
+  1. Searches `user_identities` table by `(provider, provider_user_id)`. If matched, returns the existing canonical `User`.
+  2. If not matched by provider ID, searches `users` table by case-insensitive verified email (`func.lower(User.email) == normalized_email`).
+  3. If a canonical user exists with the same verified email, automatically creates a `UserIdentity` record linking the new provider to the existing `User.id` and updates `last_login_at` and `is_verified`.
+  4. If no user exists, creates a new canonical `User`, an owner workspace `Organization` + `OrgMember`, and a `UserIdentity` link.
+- **Data Ownership & Persistence**:
+  - All workspace projects, sessions, drafts, and onboarding state (`onboarding_state_json`) are owned directly by the canonical `User.id`.
+  - Session logout clears only browser session cookies and in-memory JWT tokens; database user records, workspace projects, and preferences remain 100% intact.
+  - Upon relogin with any connected provider (Google, GitHub, or Email Link), the frontend hydrates the user's canonical profile, linked security providers (`user.identities`), workspace projects, and product tour state from `users.onboarding_state_json`.
+
+### Confirmations:
+- **Data Persistence**: Confirmed session logout clears only transient tokens and does **NOT** erase persisted user data or database records.
+- **Provider Parity**: Confirmed Google, GitHub, and Email Link logins with the same verified email resolve to the exact same canonical `User.id` and workspace.
+- **STAGE Core Safety**: Entitlement checks (`services/plan_capabilities.py`), Blueprint Canvas mutation pipeline, session review marker logic, proxy engine, and notification system remain **100% untouched**.
+
+### Known Limitations:
+- Account linking relies on trusted, verified email addresses. Unverified emails will not merge existing accounts to prevent account takeover vectors.
+
+### Next Step:
+- Auth regression tests for identity linking and provider parity
   - `web/src/lib/firebase.ts`
   - `web/src/store/authStore.ts`
   - `web/src/lib/api.ts`

@@ -30,14 +30,15 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       setIsSidebarCollapsed(true)
     }
   }, [pathname])
-  const { 
-    startOnboarding, 
-    hydrateFromLocalStorage,
+  const {
+    startOnboarding,
     isOnboardingActive,
     isCompleted,
     isDismissed,
     setDismissed,
-    userRole
+    userRole,
+    hydrateFromUserProfile,
+    hydrateFromLocalStorage
   } = useOnboardingStore()
 
   const { projects, loading: projectsLoading, fetchProjects } = useProjectStore()
@@ -45,10 +46,10 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
 
   useEffect(() => {
     // Restore saved onboarding state on mount when user is resolved
-    if (user?.id) {
-      hydrateFromLocalStorage(user.id)
+    if (user) {
+      hydrateFromUserProfile(user)
     }
-  }, [user?.id, hydrateFromLocalStorage])
+  }, [user, hydrateFromUserProfile])
 
   // Fetch projects when user session is resolved
   useEffect(() => {

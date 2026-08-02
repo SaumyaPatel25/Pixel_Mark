@@ -43,6 +43,7 @@ interface OnboardingState {
   toggleChecklist: (collapsed?: boolean) => void;
   setShowCompletionModal: (show: boolean) => void;
   setDismissed: (dismissed: boolean) => void;
+  hydrateFromUserProfile: (user: any) => void;
   hydrateFromLocalStorage: (userId?: string | null) => void;
 }
 
@@ -391,6 +392,30 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   setDismissed: (dismissed) => {
     set({ isDismissed: dismissed });
     saveToLocalStorage({ ...get(), isDismissed: dismissed });
+  },
+
+  hydrateFromUserProfile: (user: any) => {
+    if (!user) return;
+    const userId = user.id;
+
+    if (user.onboarding_state_json && typeof user.onboarding_state_json === 'object') {
+      const parsed = user.onboarding_state_json;
+      set({
+        currentUserId: userId,
+        isOnboardingActive: parsed.isOnboardingActive || false,
+        currentStepIndex: parsed.currentStepIndex || 0,
+        userRole: parsed.userRole || null,
+        checklist: parsed.checklist || {},
+        isChecklistCollapsed: parsed.isChecklistCollapsed || false,
+        showCompletionModal: parsed.showCompletionModal || false,
+        isDismissed: parsed.isDismissed || false,
+        isCompleted: parsed.isCompleted || false,
+      });
+      return;
+    }
+
+    // Fall back to local storage if DB profile json is empty
+    get().hydrateFromLocalStorage(userId);
   },
 
   hydrateFromLocalStorage: (userId?: string | null) => {

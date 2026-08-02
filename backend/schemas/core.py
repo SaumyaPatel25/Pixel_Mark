@@ -17,11 +17,38 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+class ProviderIdentityOut(BaseModel):
+    id: str
+    provider: str
+    provider_user_id: str
+    provider_email: str
+    email_verified: bool = True
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class UserOut(BaseModel):
     id: str
     email: str
-    name: Optional[str]
-    class Config: from_attributes = True
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    is_verified: bool = True
+    created_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
+    onboarding_state_json: Optional[Dict[str, Any]] = None
+    preferences_json: Optional[Dict[str, Any]] = None
+    identities: List[ProviderIdentityOut] = []
+
+    class Config:
+        from_attributes = True
+
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+class UpdateOnboardingStateRequest(BaseModel):
+    onboarding_state: Dict[str, Any]
 
 class UserAIProviderConfigRead(BaseModel):
     id: str

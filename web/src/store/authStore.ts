@@ -4,10 +4,26 @@ import { api } from '@/lib/api'
 import { posthog } from '@/lib/posthog'
 import { syncMonkfeedLogin, syncMonkfeedLogout } from '@/lib/monkfeed-sync'
 
-interface User {
+export interface LinkedProvider {
+  id: string
+  provider: string
+  provider_user_id: string
+  provider_email: string
+  email_verified: boolean
+  created_at?: string | null
+}
+
+export interface User {
   id: string
   email: string
   name?: string | null
+  avatar_url?: string | null
+  is_verified?: boolean
+  created_at?: string | null
+  last_login_at?: string | null
+  onboarding_state_json?: Record<string, any> | null
+  preferences_json?: Record<string, any> | null
+  identities?: LinkedProvider[]
 }
 
 interface AuthState {

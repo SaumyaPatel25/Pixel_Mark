@@ -45,15 +45,21 @@ class User(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
-    name: Mapped[str] = mapped_column(String, nullable=True)
+    name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    last_login_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    onboarding_state_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    preferences_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
-    verification_token: Mapped[str] = mapped_column(String, nullable=True)
-    verification_token_expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
-    reset_token: Mapped[str] = mapped_column(String, nullable=True)
-    reset_token_expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
+    verification_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    verification_token_expires_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    reset_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    reset_token_expires_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
     org_memberships: Mapped[list["OrgMember"]] = relationship(back_populates="user")
     ai_provider_configs: Mapped[list["UserAIProviderConfig"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    identities: Mapped[list["UserIdentity"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 class UserAIProviderConfig(Base):
     __tablename__ = "user_ai_provider_configs"
@@ -269,10 +275,14 @@ class UserIdentity(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    provider: Mapped[str] = mapped_column(String, nullable=False)  # google | github
+    provider: Mapped[str] = mapped_column(String, nullable=False)  # google | github | email_link | firebase
     provider_user_id: Mapped[str] = mapped_column(String, nullable=False)
     provider_email: Mapped[str] = mapped_column(String, nullable=False)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="identities")
 
 
 class Waitlist(Base):
