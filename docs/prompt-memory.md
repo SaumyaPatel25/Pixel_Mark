@@ -1,0 +1,23 @@
+# Prompt Memory: Repository Audit & Documentation Generation
+
+- **Date**: 2026-08-03
+- **Title**: Phase 1 & 2 Documentation Audit & Generation
+- **Summary**:
+  - Read the entire repository to understand architecture, logic, and state.
+  - Generate a file inventory grouped by domain area.
+  - Create/update `status.md` with an audit summary.
+  - Create extensive documentation files (`README.md`, `architecture.md`, `system-design.md`, `api.md`, `logic.md`, `memory.md`, `db.md`, `tech-stack.md`).
+  - Maintain absolute accuracy without guessing; denote uncertainties.
+  - Use "STAGE" branding exclusively.
+- **Affected Files**:
+  - `status.md`
+  - `docs/prompt-memory.md`
+  - `README.md`
+  - `docs/architecture.md`
+  - `docs/system-design.md`
+  - `docs/api.md`
+  - `docs/logic.md`
+  - `docs/memory.md`
+  - `docs/db.md`
+  - `docs/tech-stack.md`
+- **Current Status**: Phase 1 (Repository Audit) is complete. Pending user approval of the implementation plan to begin Phase 2 (Documentation Creation).

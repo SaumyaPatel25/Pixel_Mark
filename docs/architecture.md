@@ -1,146 +1,45 @@
-# System Architecture
+# Architecture Overview
 
-## 1. Technical Architecture Stack
-STAGE is partitioned into a decoupled frontend client app and a Python backend server.
+The STAGE platform is designed around a decoupled architecture separating the presentation layer, the API/proxy layer, and the persistence layer. 
 
-```mermaid
-graph LR
-    subgraph Frontend Client (Vercel)
-        UI[React 19 / Next.js 16] <--> Zustand[Zustand Stores]
-        UI <--> WS_Client[WebSocket Client]
-    end
-    
-    subgraph Backend Server (Railway)
-        FastAPI[FastAPI API Gateway] <--> Middleware[Proxy / SSRF Middleware]
-        FastAPI <--> RT[Realtime connection manager]
-        RT <--> Redis[Redis Pub/Sub]
-        FastAPI <--> Cache[InMemory Cache]
-        FastAPI <--> Database[PostgreSQL / SQLite]
-    end
-```
+## System Boundaries
 
----
+1. **Frontend Client (Next.js)**
+   - Responsible for rendering the user dashboard, billing UI, and the outer shell of the collaboration workspace.
+   - Manages local client state (Zustand) and Firebase authentication tokens.
+2. **Backend API & Proxy (FastAPI)**
+   - Responsible for enforcing authorization, querying the database, broadcasting realtime events, and proxying third-party websites.
+   - Houses the core business logic, including entitlement resolution and notification formatting.
+3. **Target Website (External)**
+   - The user's live website or staging environment that is proxied and injected with the STAGE collaboration agent.
+4. **Data Persistence (PostgreSQL)**
+   - The canonical source of truth for all users, projects, sessions, comments, and Blueprint mutations.
 
-## 2. Frontend Architecture
-The frontend is constructed using **Next.js 16 (App Router)** and **React 19**. 
-- **App Entry Points**: `web/src/app/layout.tsx` (Global styles, providers, and HTML wrappers) and `web/src/app/page.tsx` (Root landing page).
-- **Route Layout Groups**:
-  - `(auth)`: Login, registration, password resets, and verification screens.
-  - `(dashboard)`: Core user workspaces (Dashboard, Projects, Sessions list).
-  - `(public)`: Public review reports (`/report/[sessionId]`).
-- **Interactive Audiences**:
-  - Developers access reviews at `/project/[id]`.
-  - External reviewers access sessions via token-redirected paths `/review/[token]`.
-- **State Management**: **Zustand** stores (`web/src/store/`) handle auth session state, active projects lists, UI drawers states, and marker actions.
-- **Client Realtime Synchronizer**: `web/src/hooks/useRealtimeSync.ts` (manages general cursor syncing) and `web/src/lib/useSessionSocket.ts` (manages session-scoped event subscriptions).
+## Request & Data Flow (Proxy Injection)
 
----
+The core value proposition of STAGE relies on its reverse proxy flow:
 
-## 3. Backend Architecture
-The backend is a **FastAPI** web framework running on **Uvicorn**.
-- **Server Entry Point**: `backend/main.py` binds endpoints, CORS, database lifespan hooks, and fallbacks.
-- **Service/Module Boundaries**:
-  - **Auth Service**: `backend/auth.py` and `backend/routes/auth.py` handle Argon2 password hashing, JWT signing, and GitHub OAuth callback handshakes.
-  - **Proxy Engine**: Intercepts unregistered requests using a custom HTTP middleware, resolving target domains and rewriting HTML scripts (`backend/utils/proxy_rewriter.py`).
-  - **Marker Service**: Coordinates placement logic, coordinate validation invariants (`backend/markers/service.py`), and transactional inserts (`backend/markers/repository.py`).
-  - **Realtime Service**: Manages active WebSocket connections (`backend/realtime/connection_manager.py`) and channels messages via Redis (`backend/realtime/redis_broadcaster.py`).
+1. **Initialization**: The user creates a `Project` and a `Session` with a target URL.
+2. **Iframe Mount**: The Next.js frontend mounts an `<iframe>` pointing to the backend API (`/proxy/session/{session_id}/path`).
+3. **Proxy Fetch**: FastAPI receives the request, validates the session, and uses an asynchronous `httpx` client to fetch the raw HTML/assets from the target website.
+4. **HTML Rewriting**: The backend intercepts the response (`rewrite_html`) and injects a script tag pointing to `stage-agent.js` (and CSS). 
+5. **Streaming**: The modified HTML is returned to the iframe. 
+6. **Agent Execution**: Inside the iframe, `stage-agent.js` initializes. It establishes a `postMessage` channel with the outer Next.js shell to relay DOM selections, mutations, and marker coordinates.
 
----
+## Key Modules
 
-## 4. Authentication and Authorization Flow
-Reviewers use secure query-string tokens (`share_token`), whereas developers authenticate using Firebase identity verification synchronized with the STAGE backend.
+### Frontend Modules
+- `(dashboard)`: The main authenticated user area.
+- `blueprint`: The complex Canvas workspace containing toolbars, property inspectors, and the live frame.
+- `store`: Zustand state slices dividing domains (e.g., `blueprintStore.ts`, `authStore.ts`).
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant App as Next.js Client
-    participant FB as Firebase Auth SDK
-    participant Auth as FastAPI Auth Router
-    participant DB as Neon DB / SQLite
+### Backend Modules
+- `proxy`: Handles SSRF protection, asset resolution, domain whitelisting, and HTML rewriting.
+- `routers/canvas.py`: Manages the CRUD operations for Blueprint edits, publications, and comments.
+- `services/identity_resolver.py`: Maps external OAuth providers (Firebase) to canonical internal database identities.
+- `realtime`: Manages WebSocket connections for multi-user presence, broadcasting cursor coordinates and activity feed events.
 
-    User->>App: Input Email & Password / Click Google Sign-In
-    alt Email/Password Sign-Up
-        App->>FB: createUserWithEmailAndPassword()
-        FB-->>App: Firebase User Profile (unverified)
-        App->>FB: sendEmailVerification()
-        App->>User: Show Verification notice screen
-        User->>FB: Click verification link in email
-    else Google Sign-In / Already Verified Login
-        App->>FB: signInWithPopup() / signInWithEmailAndPassword()
-    end
-    App->>FB: getIdToken()
-    FB-->>App: Firebase ID Token (JWT)
-    App->>Auth: POST /auth/firebase-sync {id_token}
-    Auth->>Auth: REST accounts:lookup call to Google Identity API
-    Auth->>DB: Upsert User profile & link UserIdentity
-    DB-->>Auth: Saved User record
-    Auth->>Auth: Sign STAGE Access Token (JWT HS256)
-    Auth-->>App: Access Token + User Details
-    App->>App: Write Cookie (stagetoken) & Store State
-    App->>User: Redirect to Dashboard
-```
-
-- **Firebase Sync**: The client receives a Firebase ID Token, which is sent to the backend `/auth/firebase-sync` endpoint. The backend validates it securely via REST and upserts the `User` and `UserIdentity` records before issuing a standard `stagetoken` session token.
-- **API Key Flow**: If the header token prefix is `pm_`, the system hashes the key (`services.crypto.hash_token`) and validates it against `api_keys` in the database.
-- **Role Scoping**: Access is gated using `require_role(minimum_role)` dependencies, matching Guest, Member, Admin, and Owner to membership schemas.
-
----
-
-## 5. Request Lifecycle (Proxy & Fallback Engine)
-The proxy engine dynamically rewrites assets, Next.js RSC streams, and HTML layouts.
-
-```mermaid
-graph TD
-    Request[HTTP Request received by Backend] --> Router{Match API prefixes?}
-    
-    Router -- Yes (Reserved) --> REST[Dispatch to FastAPI Router Route]
-    Router -- No (Fallback) --> IP{Resolve Session ID from Referer/Cookie/IP}
-    
-    IP -- Not Found --> Reject[Return 404/401]
-    IP -- Found session_id --> Target[Resolve Base Target URL]
-    
-    Target --> SSRF{Safe Host? is_ssrf_safe?}
-    SSRF -- No (Private IP) --> Block[Return 403 Forbidden]
-    SSRF -- Yes --> Domain{Match Scope? is_domain_allowed?}
-    
-    Domain -- No (Escape Attempt) --> Block2[Return 403 Forbidden]
-    Domain -- Yes --> CacheCheck{Is Asset in Cache?}
-    
-    CacheCheck -- Yes --> CacheHit[Return from cache with Cache-Control headers]
-    CacheCheck -- No --> Fetch[Fetch Target Website dynamically]
-    
-    Fetch --> Rewrite{Is response HTML?}
-    Rewrite -- Yes --> Parser[Rewrite script src & href urls] --> Send[Return UTF-8 HTML with Session Cookies]
-    Rewrite -- No --> CacheStore[Store in cache if non-HTML asset] --> Send2[Return raw media/JSON/JS]
-```
-
----
-
-## 6. Realtime Synchronization Topology
-STAGE utilizes **Redis Pub/Sub** to link multiple instances horizontally.
-
-```mermaid
-graph TD
-    subgraph FastAPI Instance 1
-        WS1[WebSocket Connection A] <--> RT1[Connection Manager 1]
-    end
-    subgraph FastAPI Instance 2
-        WS2[WebSocket Connection B] <--> RT2[Connection Manager 2]
-    end
-    
-    RT1 <--> Redis[Redis Pub/Sub Channel 'session:id']
-    RT2 <--> Redis
-```
-
-1. **Client Action**: Client A creates a marker -> calls `/sessions/{id}/markers`.
-2. **Commit & Broadcast**: FastAPI Instance 1 commits the marker to the Database, then publishes the `marker_created` event payload to the Redis channel `session:{id}`.
-3. **Instance Propagation**: All connected instances subscribed to `session:{id}` receive the message from Redis.
-4. **WebSocket Delivery**: Connection Manager 1 and Connection Manager 2 push the JSON payload to WebSockets A and B.
-
----
-
-## 7. Caching and Observability
-- **Caching**: Implemented as a memory dictionary `InMemoryCache` (`backend/services/cache.py`). Key entries are invalidated on resource mutations (`cache.invalidate(f"user:{id}:*")`).
-- **Telemetry**: Global dictionary `SYSTEM_METRICS` logs session recycling counts, fallback occurrences, and idle connection shutdowns. Access metrics at `/metrics` (gated by auth).
-- **Error Handling**: Custom handler wrapper `errors.py` intercepts `AppError`, `RequestValidationError`, and raw exceptions to format unified JSON responses.
+## Major Risks & Constraints
+- **CORS & Asset Resolution**: Complex modern web applications (like React/Next.js SPA targets) often utilize absolute URLs or dynamic module imports. The proxy engine must carefully resolve relative paths and handle strict CSP headers stripped during the fetch phase.
+- **SSRF (Server-Side Request Forgery)**: Because the backend proxy fetches arbitrary URLs on behalf of the user, it is critical to enforce strict SSRF guards (`is_ssrf_safe`) to prevent internal network scanning.
+- **Iframe Sandboxing**: Security constraints prevent direct cross-origin DOM access. The architecture relies entirely on `postMessage` bridging between the host (Next.js) and the agent (`stage-agent.js`).
