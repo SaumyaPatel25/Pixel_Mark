@@ -175,73 +175,90 @@ async def create_checkout(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if payload.plan_type == "enterprise":
-        raise HTTPException(
-            status_code=400,
-            detail="Enterprise plan is custom-managed. Please click 'Let's talk' to contact our team directly."
+    try:
+        if payload.plan_type == "enterprise":
+            raise HTTPException(
+                status_code=400,
+                detail="Enterprise plan is custom-managed. Please click 'Let's talk' to contact our team directly."
+            )
+
+        if payload.plan_type != "dev_team":
+            raise HTTPException(status_code=400, detail="Invalid plan_type requested. Solopreneur plan is temporarily unavailable.")
+
+        target_org_id = await resolve_user_org_id(db, current_user, payload.org_id)
+        early_bird_applied = False
+        requested_plan = "dev_team"
+        discount_code = None
+
+        # Atomic lock on early bird counter to prevent race conditions past 50
+        res = await db.execute(
+            select(EarlyBirdCounterModel)
+            .where(EarlyBirdCounterModel.id == "dev_team_early_bird")
+            .with_for_update()
         )
+        counter = res.scalar_one_or_none()
+        if not counter:
+            counter = EarlyBirdCounterModel(id="dev_team_early_bird", claimed_count=0, max_limit=50)
+            db.add(counter)
+            await db.flush()
 
-    if payload.plan_type != "dev_team":
-        raise HTTPException(status_code=400, detail="Invalid plan_type requested. Solopreneur plan is temporarily unavailable.")
+        if counter.claimed_count < 50:
+            counter.claimed_count += 1
+            early_bird_applied = True
+            requested_plan = "dev_team_early_bird"
+            discount_code = settings.dodo_discount_code_dev_team_early_bird
+            await db.commit()
 
-    target_org_id = await resolve_user_org_id(db, current_user, payload.org_id)
-    early_bird_applied = False
-    requested_plan = "dev_team"
-    discount_code = None
+        product_id = settings.dodo_product_id_dev_team
 
-    # Atomic lock on early bird counter to prevent race conditions past 50
-    res = await db.execute(
-        select(EarlyBirdCounterModel)
-        .where(EarlyBirdCounterModel.id == "dev_team_early_bird")
-        .with_for_update()
-    )
-    counter = res.scalar_one_or_none()
-    if not counter:
-        counter = EarlyBirdCounterModel(id="dev_team_early_bird", claimed_count=0, max_limit=50)
-        db.add(counter)
-        await db.flush()
+        customer = await dodo_client.create_customer(email=current_user.email, name=current_user.name or current_user.email)
+        customer_id = customer.get("customer_id") or customer.get("id") or f"cust_{current_user.id[:8]}"
 
-    if counter.claimed_count < 50:
-        counter.claimed_count += 1
-        early_bird_applied = True
-        requested_plan = "dev_team_early_bird"
-        discount_code = settings.dodo_discount_code_dev_team_early_bird
+        redirect_url = f"{settings.frontend_url}/billing/success?org_id={target_org_id}&plan={requested_plan}"
+
+        # Store customer ID in subscription immediately for webhook mapping fallback
+        sub = await get_or_create_subscription(db, target_org_id)
+        sub.dodo_customer_id = customer_id
         await db.commit()
 
-    product_id = settings.dodo_product_id_dev_team
+        logger.info(f"[STAGE Billing Checkout] Initiated checkout for org_id={target_org_id}, user_id={current_user.id}, customer_id={customer_id}, plan_type={requested_plan}")
 
-    customer = await dodo_client.create_customer(email=current_user.email, name=current_user.name or current_user.email)
-    customer_id = customer.get("customer_id") or customer.get("id") or f"cust_{current_user.id[:8]}"
+        session = await dodo_client.create_checkout_session(
+            product_id=product_id,
+            customer_id=customer_id,
+            discount_code=discount_code,
+            redirect_url=redirect_url,
+            metadata={
+                "org_id": target_org_id,
+                "user_id": current_user.id,
+                "plan_type": requested_plan,
+                "early_bird_applied": str(early_bird_applied)
+            }
+        )
 
-    redirect_url = f"{settings.frontend_url}/billing/success?org_id={target_org_id}&plan={requested_plan}"
-
-    # Store customer ID in subscription immediately for webhook mapping fallback
-    sub = await get_or_create_subscription(db, target_org_id)
-    sub.dodo_customer_id = customer_id
-    await db.commit()
-
-    logger.info(f"[STAGE Billing Checkout] Initiated checkout for org_id={target_org_id}, user_id={current_user.id}, customer_id={customer_id}, plan_type={requested_plan}")
-
-    session = await dodo_client.create_checkout_session(
-        product_id=product_id,
-        customer_id=customer_id,
-        discount_code=discount_code,
-        redirect_url=redirect_url,
-        metadata={
-            "org_id": target_org_id,
-            "user_id": current_user.id,
-            "plan_type": requested_plan,
-            "early_bird_applied": str(early_bird_applied)
-        }
-    )
-
-    return CheckoutResponse(
-        checkout_url=session.get("checkout_url", f"https://test.checkout.dodopayments.com/buy/{product_id}"),
-        session_id=session.get("session_id", f"cs_test_{target_org_id[:8]}"),
-        plan_type=requested_plan,
-        early_bird_applied=early_bird_applied,
-        is_test_mode=(settings.dodo_environment == "test_mode")
-    )
+        return CheckoutResponse(
+            checkout_url=session.get("checkout_url", f"https://test.checkout.dodopayments.com/buy/{product_id}"),
+            session_id=session.get("session_id", f"cs_test_{target_org_id[:8]}"),
+            plan_type=requested_plan,
+            early_bird_applied=early_bird_applied,
+            is_test_mode=(settings.dodo_environment == "test_mode")
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        logger.error(f"[STAGE Diagnostic Checkout Error]: {e}\n{tb}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": f"Diagnostic: {str(e)}",
+                "traceback": tb,
+                "dodo_base_url": getattr(dodo_client, "base_url", None),
+                "is_mock": getattr(dodo_client, "is_mock", None),
+                "plan_type": payload.plan_type
+            }
+        )
 
 
 class SyncCheckoutRequest(BaseModel):
