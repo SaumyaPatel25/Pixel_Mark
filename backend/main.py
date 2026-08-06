@@ -105,6 +105,8 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:8765",
     "http://localhost:8765",
     "https://tailwindcss.com",
+    "https://stage.entrext.com",
+    "https://web-zeta-sable-82.vercel.app",
 ]
 
 if settings.frontend_url and settings.frontend_url not in ALLOWED_ORIGINS:
@@ -388,7 +390,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"https://.*\.tailwindcss\.com",
+    allow_origin_regex=r"https://.*\.tailwindcss\.com|https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

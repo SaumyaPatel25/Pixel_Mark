@@ -91,39 +91,12 @@ export default function LoginClient() {
     }
   };
 
-  const handleGithubSignIn = async () => {
+  const handleGithubSignIn = () => {
     setError(null);
     setPhase('submitting');
-    try {
-      githubProvider.addScope('user:email');
-      const result = await signInWithPopup(auth, githubProvider);
-      const fbUser = result.user;
-
-      const idToken = await fbUser.getIdToken();
-      const { firebaseSync } = useAuthStore.getState();
-      await firebaseSync(idToken, fbUser.displayName || undefined);
-
-      trackEvent({ action: 'github_login', category: 'auth' });
-      setPhase('success');
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 1200);
-    } catch (err: any) {
-      console.warn('[Auth] Firebase GitHub sign-in notice:', err);
-      if (err.code === 'auth/account-exists-with-different-credential') {
-        setError('An account already exists with the same email using a different sign-in method.');
-        setPhase('error');
-        setTimeout(() => setPhase('projecting'), 2000);
-      } else if (err.code === 'auth/popup-closed-by-user') {
-        setError('GitHub login popup was closed.');
-        setPhase('error');
-        setTimeout(() => setPhase('projecting'), 1500);
-      } else {
-        // Direct backend GitHub OAuth authorization fallback
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '') : 'http://127.0.0.1:8000';
-        window.location.href = `${baseUrl}/auth/oauth/github/start`;
-      }
-    }
+    trackEvent({ action: 'github_login', category: 'auth' });
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '') : 'http://127.0.0.1:8000';
+    window.location.href = `${baseUrl}/auth/oauth/github/start`;
   };
 
   const handleResend = async () => {

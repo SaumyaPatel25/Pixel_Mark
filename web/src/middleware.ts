@@ -52,6 +52,18 @@ const AUTH_ONLY_ROUTES = [
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
+  const host = request.headers.get('host')
+  const isVercelProd = process.env.VERCEL_ENV === 'production'
+
+  // Enforce canonical domain redirect for non-canonical production traffic, allowing both old and new domains
+  const allowedHosts = ['stage.entrext.com', 'web-zeta-sable-82.vercel.app']
+  if (isVercelProd && host && !allowedHosts.includes(host)) {
+    return NextResponse.redirect(
+      new URL(path + request.nextUrl.search, 'https://stage.entrext.com'),
+      301
+    )
+  }
+
   // Read developer auth token from cookies. Supports new 'stagetoken' and fallback to legacy 'pm_token'/'pmtoken'.
   // TODO: Remove legacy cookie support after migration window.
   const token = request.cookies.get('stagetoken')?.value || 
