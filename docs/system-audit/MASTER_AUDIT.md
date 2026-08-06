@@ -13,7 +13,7 @@ The application follows a decoupled client-server architecture:
 - **Frontend:** Next.js (TypeScript) web application utilizing the App Router.
 - **Database:** PostgreSQL (Neon) with SQLAlchemy ORM.
 - **Realtime:** FastAPI WebSockets coupled with a broadcast manager for live sync of markers.
-- **Hosting/Deployment:** Designed for deployment on Vercel (Frontend) and Railway (Backend).
+- **Hosting/Deployment:** Designed for deployment on Vercel (Frontend) and Render (Backend).
 
 ## Current Actual Maturity Level
 - **Overall Status:** *Alpha / Partially Implemented.*
@@ -59,7 +59,7 @@ This document maps the critical directories and files within the STAGE repositor
 - `docs/` - System audit and documentation files.
 - `tests/` - Standalone test scripts (Python `verify_suite.py`, `e2e_test.py`).
 - `.github/` & `.vercel/` - CI/CD and deployment configurations.
-- `railway.toml` - Production backend deployment configuration.
+- Deprecated: deprecated `render.toml` - Production backend deployment configuration.
 
 ## Backend (`backend/`)
 ### Core Entrypoints
@@ -205,7 +205,7 @@ This document describes the structure and state of the STAGE frontend.
 
 ## State & API Architecture
 - **API Client (`src/lib/api.ts`):**
-  - A centralized fetch wrapper used to make calls to the `NEXT_PUBLIC_API_URL` (usually the Railway backend).
+  - A centralized fetch wrapper used to make calls to the `NEXT_PUBLIC_API_URL` (usually the Render backend).
   - Handles auth token injection natively.
 - **Request Batching (`src/lib/apiQueue.ts`):**
   - Implements a queuing mechanism (`enqueueRead`, `enqueueWrite`) to debounce/batch API requests, likely introduced to mitigate rate-limiting or duplicate requests during React strict-mode renders.
@@ -213,7 +213,7 @@ This document describes the structure and state of the STAGE frontend.
   - Zustand is intended to be used for global state (e.g., marker data, UI toggles).
 
 ## WebSocket Subscription Model
-- The frontend connects to the FastAPI websocket route (e.g., `wss://stage-production.up.railway.app/websocket/...`).
+- The frontend connects to the FastAPI websocket route (e.g., `wss://pixel-mark.onrender.com/websocket/...`).
 - Client-side hooks manage reconnection logic and parse incoming JSON broadcast messages to update marker positions and statuses in real-time.
 
 ## Areas of Shell-only UI
@@ -372,9 +372,9 @@ This document outlines the real-time collaboration architecture of STAGE.
 2. **Local State vs Server Truth:** 
    - The frontend often optimistically updates its local Zustand store before the backend confirms the DB write. If the DB write fails (e.g., validation error), the frontend might not roll back, resulting in ghost markers that disappear on refresh.
 3. **Ping/Pong Heartbeats:** 
-   - `main.py` recently added `last_heartbeat_at` to the `Session` table, suggesting an attempt to track active presence, but zombie WebSocket connections on Railway are a known issue.
+   - `main.py` recently added `last_heartbeat_at` to the `Session` table, suggesting an attempt to track active presence, but zombie WebSocket connections on Render are a known issue.
 4. **Scaling Issues:** 
-   - The current `ConnectionManager` stores connections in memory (`dict`). If the backend scales horizontally to multiple Uvicorn workers or Railway instances, WebSockets will fail because events broadcast on Worker A won't reach clients connected to Worker B (requires Redis Pub/Sub).
+   - The current `ConnectionManager` stores connections in memory (`dict`). If the backend scales horizontally to multiple Uvicorn workers or Render instances, WebSockets will fail because events broadcast on Worker A won't reach clients connected to Worker B (requires Redis Pub/Sub).
 
 ---
 - **Confidence Level:** High (Standard FastAPI WS patterns identified).
@@ -517,7 +517,7 @@ This matrix maps the intended features of STAGE against their actual implementat
 | WebSocket Live Sync | Real-time transmission of marker updates. | Working | Working | Fragile | Low | No | Memory-bound to single instance. Zombie connections prevalent. |
 | Canvas / Command Center | The iframe viewer where developers see target sites. | Working | Working | Fragile | Medium | No | Highly vulnerable to CORS and framebusting by target sites (like Google). |
 | AI Triage / Summary | Auto-categorize and summarize feedback using LLMs. | Stubbed | Shell | Missing | None | No | Ambitious roadmap feature, currently just API shells. |
-| Deployment Health | Seamless transition from local dev to Vercel/Railway prod. | - | - | Broken | Low | No | Hardcoded localhost URLs and differing DB schemas cause frequent prod crashes. |
+| Deployment Health | Seamless transition from local dev to Vercel/Render prod. | - | - | Broken | Low | No | Hardcoded localhost URLs and differing DB schemas cause frequent prod crashes. |
 
 ---
 - **Confidence Level:** High
@@ -586,7 +586,7 @@ This document highlights critical areas of STAGE that are failing in production,
 
 ### WebSocket Scaling
 - **Symptoms:** Intermittent marker sync failure in production.
-- **Root Cause:** The `ConnectionManager` is an in-memory dictionary. If Railway spins up multiple replica containers (or Uvicorn workers), clients connected to Worker A cannot broadcast to clients on Worker B.
+- **Root Cause:** The `ConnectionManager` is an in-memory dictionary. If Render spins up multiple replica containers (or Uvicorn workers), clients connected to Worker A cannot broadcast to clients on Worker B.
 - **Severity:** CRITICAL (for scaling)
 - **Fix Direction:** Implement Redis Pub/Sub as a backing message broker for the WebSocket manager.
 
@@ -641,7 +641,7 @@ This document enforces a strict cross-check between the intended product archite
 ## 4. Environment & Deployment
 - **What should exist:**
   - Explicit separation of environment variables (`NEXT_PUBLIC_API_URL`).
-  - Production deployments smoothly connect the Vercel frontend to the Railway backend.
+  - Production deployments smoothly connect the Vercel frontend to the Render backend.
 - **What actually exists:**
   - Hardcoded `localhost:8765` origins have occasionally slipped into production code due to rushed git commits (recently patched in `ProjectCard.tsx`).
 - **What should not exist:**
@@ -696,7 +696,7 @@ This document serves as the operational runbook for compiling, running, and diag
 
 ## 2. Production Deployment
 
-### Backend (Railway)
+### Backend (Render)
 - **Framework:** Deployed via Nixpacks (using `nixpacks.toml` and `Procfile`).
 - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 - **Env Vars Required:**
@@ -707,7 +707,7 @@ This document serves as the operational runbook for compiling, running, and diag
 ### Frontend (Vercel)
 - **Framework:** Next.js Serverless Edge
 - **Env Vars Required:**
-  - `NEXT_PUBLIC_API_URL` (e.g., `https://stage-production.up.railway.app`)
+  - `NEXT_PUBLIC_API_URL` (e.g., `https://pixel-mark.onrender.com`)
 
 ## 3. Common Failure Points & Quick Smokes
 - **Symptom:** App hangs on login or shows 401s constantly.
@@ -715,11 +715,11 @@ This document serves as the operational runbook for compiling, running, and diag
 - **Symptom:** Dashboard 500 error when clicking a project.
   - *Fix:* The backend schema is likely out of sync with the DB model. Run a quick check on the `/projects/` endpoint via the Swagger `/docs` to see exactly which field is causing the `AttributeError`.
 - **Symptom:** Markers drop but don't show up for other users.
-  - *Fix:* Inspect the network tab for `WebSocket` connections. Ensure it says `101 Switching Protocols`. If it drops instantly, the Railway instance may be memory-bound or the `session_id` logic failed.
+  - *Fix:* Inspect the network tab for `WebSocket` connections. Ensure it says `101 Switching Protocols`. If it drops instantly, the Render instance may be memory-bound or the `session_id` logic failed.
 
 ---
 - **Confidence Level:** High
-- **Evidence Source:** Standard ASGI/Next.js practices combined with the repo's actual config files (`railway.toml`, `.vercel`).
+- **Evidence Source:** Standard ASGI/Next.js practices combined with the repo's actual config files (deprecated `render.toml`, `.vercel`).
 - **Next File to Read:** `15-recommended-repair-order.md`
 
 
@@ -857,7 +857,7 @@ This document highlights critical unknowns that cannot be proven definitively fr
 
 ## 5. Security of Proxy Fallback
 - **The Unknown:** Does the `proxy_fallback_middleware` inadvertently turn the STAGE backend into an open proxy? 
-- **The Risk:** High. If malicious actors realize they can append a forged `Referer` header with a fake `session_id`, they might be able to use the Railway server to proxy malicious traffic or bypass IP blocks.
+- **The Risk:** High. If malicious actors realize they can append a forged `Referer` header with a fake `session_id`, they might be able to use the Render server to proxy malicious traffic or bypass IP blocks.
 
 ---
 - **Confidence Level:** High

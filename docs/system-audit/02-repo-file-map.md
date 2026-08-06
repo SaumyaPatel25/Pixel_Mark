@@ -9,7 +9,7 @@ This document maps the critical directories and files within the STAGE repositor
 - `docs/` - System audit and documentation files.
 - `tests/` - Standalone test scripts (Python `verify_suite.py`, `e2e_test.py`).
 - `.github/` & `.vercel/` - CI/CD and deployment configurations.
-- `railway.toml` - Production backend deployment configuration.
+- Deprecated: deprecated `render.toml` - Production backend deployment configuration.
 
 ## Backend (`backend/`)
 ### Core Entrypoints

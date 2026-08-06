@@ -3,7 +3,7 @@ import pytest
 import uuid
 
 import os
-RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
+BACKEND_URL = os.environ.get("BACKEND_URL", "https://pixel-mark.onrender.com")
 state = {
     "token": None,
     "project_id": None,
@@ -17,7 +17,7 @@ async def setup_auth():
     async with httpx.AsyncClient(timeout=10) as client:
         # Register
         resp = await client.post(
-            f"{RAILWAY_URL}/auth/register",
+            f"{BACKEND_URL}/auth/register",
             json={"email": email, "password": "QaTest1234!", "name": "Chain Tester"}
         )
         assert resp.status_code == 200
@@ -27,7 +27,7 @@ async def test_create_project():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.post(
-            f"{RAILWAY_URL}/projects/",
+            f"{BACKEND_URL}/projects/",
             json={"name": "QA Project", "url": "https://staging.test.com"},
             headers=headers
         )
@@ -41,7 +41,7 @@ async def test_create_project():
 async def test_list_projects_contains_new():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        response = await client.get(f"{RAILWAY_URL}/projects/", headers=headers)
+        response = await client.get(f"{BACKEND_URL}/projects/", headers=headers)
         assert response.status_code in [200, 201]
         project_ids = [p["id"] for p in response.json()]
         assert state["project_id"] in project_ids
@@ -50,7 +50,7 @@ async def test_list_projects_contains_new():
 async def test_get_project_by_id():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        response = await client.get(f"{RAILWAY_URL}/projects/{state['project_id']}", headers=headers)
+        response = await client.get(f"{BACKEND_URL}/projects/{state['project_id']}", headers=headers)
         assert response.status_code in [200, 201]
         assert response.json()["id"] == state["project_id"]
         print("Get Project By ID: PASS")
@@ -59,7 +59,7 @@ async def test_update_project_name():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.patch(
-            f"{RAILWAY_URL}/projects/{state['project_id']}",
+            f"{BACKEND_URL}/projects/{state['project_id']}",
             json={"name": "QA Project Updated"},
             headers=headers
         )
@@ -71,7 +71,7 @@ async def test_create_session():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.post(
-            f"{RAILWAY_URL}/sessions/",
+            f"{BACKEND_URL}/sessions/",
             json={"project_id": state["project_id"], "title": "QA Session"},
             headers=headers
         )
@@ -85,7 +85,7 @@ async def test_create_session():
 async def test_list_sessions_for_project():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        response = await client.get(f"{RAILWAY_URL}/sessions/project/{state['project_id']}", headers=headers)
+        response = await client.get(f"{BACKEND_URL}/sessions/project/{state['project_id']}", headers=headers)
         assert response.status_code in [200, 201]
         session_ids = [s["id"] for s in response.json()]
         assert state["session_id"] in session_ids
@@ -110,7 +110,7 @@ async def test_create_marker_with_full_context():
             "network_errors": [{"url": "/api/order", "status": 500}],
             "priority": "high"
         }
-        response = await client.post(f"{RAILWAY_URL}/markers/", json=marker_data, headers=headers)
+        response = await client.post(f"{BACKEND_URL}/markers/", json=marker_data, headers=headers)
         assert response.status_code in [200, 201]
         data = response.json()
         assert data["title"] == marker_data["title"]
@@ -121,7 +121,7 @@ async def test_create_marker_with_full_context():
 async def test_marker_default_status_is_open():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        response = await client.get(f"{RAILWAY_URL}/markers/session/{state['session_id']}", headers=headers)
+        response = await client.get(f"{BACKEND_URL}/markers/session/{state['session_id']}", headers=headers)
         assert response.status_code in [200, 201]
         markers = response.json()
         marker = next(m for m in markers if m["id"] == state["marker_id"])
@@ -132,7 +132,7 @@ async def test_update_marker_to_in_progress():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.patch(
-            f"{RAILWAY_URL}/markers/{state['marker_id']}",
+            f"{BACKEND_URL}/markers/{state['marker_id']}",
             json={"status": "in_progress"},
             headers=headers
         )
@@ -144,7 +144,7 @@ async def test_update_marker_priority_to_critical():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.patch(
-            f"{RAILWAY_URL}/markers/{state['marker_id']}",
+            f"{BACKEND_URL}/markers/{state['marker_id']}",
             json={"priority": "critical"},
             headers=headers
         )
@@ -156,7 +156,7 @@ async def test_resolve_marker():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         response = await client.patch(
-            f"{RAILWAY_URL}/markers/{state['marker_id']}",
+            f"{BACKEND_URL}/markers/{state['marker_id']}",
             json={"status": "resolved"},
             headers=headers
         )
@@ -167,7 +167,7 @@ async def test_resolve_marker():
 async def test_marker_context_fields_preserved():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        response = await client.get(f"{RAILWAY_URL}/markers/session/{state['session_id']}", headers=headers)
+        response = await client.get(f"{BACKEND_URL}/markers/session/{state['session_id']}", headers=headers)
         assert response.status_code in [200, 201]
         markers = response.json()
         marker = next(m for m in markers if m["id"] == state["marker_id"])
@@ -180,7 +180,7 @@ async def test_marker_context_fields_preserved():
 async def test_delete_marker():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        response = await client.delete(f"{RAILWAY_URL}/markers/{state['marker_id']}", headers=headers)
+        response = await client.delete(f"{BACKEND_URL}/markers/{state['marker_id']}", headers=headers)
         assert response.status_code in [200, 201]
         assert response.json()["deleted"] is True
         print("Delete Marker: PASS")
@@ -188,7 +188,7 @@ async def test_delete_marker():
 async def test_marker_gone_after_delete():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        response = await client.get(f"{RAILWAY_URL}/markers/session/{state['session_id']}", headers=headers)
+        response = await client.get(f"{BACKEND_URL}/markers/session/{state['session_id']}", headers=headers)
         assert response.status_code in [200, 201]
         marker_ids = [m["id"] for m in response.json()]
         assert state["marker_id"] not in marker_ids

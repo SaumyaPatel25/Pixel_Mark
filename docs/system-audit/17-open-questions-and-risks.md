@@ -21,7 +21,7 @@ This document highlights critical unknowns that cannot be proven definitively fr
 
 ## 5. Security of Proxy Fallback
 - **The Unknown:** Does the `proxy_fallback_middleware` inadvertently turn the STAGE backend into an open proxy? 
-- **The Risk:** High. If malicious actors realize they can append a forged `Referer` header with a fake `session_id`, they might be able to use the Railway server to proxy malicious traffic or bypass IP blocks.
+- **The Risk:** High. If malicious actors realize they can append a forged `Referer` header with a fake `session_id`, they might be able to use the Render server to proxy malicious traffic or bypass IP blocks.
 
 ---
 - **Confidence Level:** High

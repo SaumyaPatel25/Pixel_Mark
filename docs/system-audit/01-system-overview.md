@@ -9,7 +9,7 @@ The application follows a decoupled client-server architecture:
 - **Frontend:** Next.js (TypeScript) web application utilizing the App Router.
 - **Database:** PostgreSQL (Neon) with SQLAlchemy ORM.
 - **Realtime:** FastAPI WebSockets coupled with a broadcast manager for live sync of markers.
-- **Hosting/Deployment:** Designed for deployment on Vercel (Frontend) and Railway (Backend).
+- **Hosting/Deployment:** Designed for deployment on Vercel (Frontend) and Render (Backend).
 
 ## Current Actual Maturity Level
 - **Overall Status:** *Alpha / Partially Implemented.*

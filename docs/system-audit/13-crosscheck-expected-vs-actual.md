@@ -38,7 +38,7 @@ This document enforces a strict cross-check between the intended product archite
 ## 4. Environment & Deployment
 - **What should exist:**
   - Explicit separation of environment variables (`NEXT_PUBLIC_API_URL`).
-  - Production deployments smoothly connect the Vercel frontend to the Railway backend.
+  - Production deployments smoothly connect the Vercel frontend to the Render backend.
 - **What actually exists:**
   - Hardcoded `localhost:8765` origins have occasionally slipped into production code due to rushed git commits (recently patched in `ProjectCard.tsx`).
 - **What should not exist:**

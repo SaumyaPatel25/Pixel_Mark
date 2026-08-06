@@ -63,4 +63,4 @@ graph TD
 
 ### INFERRED
 - Local E2E testing using local SQLite databases (`backend/test.db` / `backend/stage.db`).
-- Build pipeline assumptions via `nixpacks.toml` and `railway.toml`.
+- Build pipeline assumptions via `nixpacks.toml` and deprecated `render.toml`.

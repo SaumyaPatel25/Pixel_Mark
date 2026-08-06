@@ -14,7 +14,7 @@ STAGE runs on a split cloud deployment model:
                              │
             ┌────────────────┴────────────────┐
             ▼                                 ▼
-      [Vercel Edge CDN]               [Railway Containers]
+      [Vercel Edge CDN]               [Render Containers]
             │                                 │
             ▼                                 ▼
     Next.js Web Client               FastAPI Uvicorn Nodes
@@ -25,7 +25,7 @@ STAGE runs on a split cloud deployment model:
 ```
 
 - **Frontend Application**: Hosted on **Vercel** for global Edge CDN delivery, optimized Next.js routing, and static asset streaming.
-- **Backend Application**: Hosted on **Railway** inside Dockerized containers, utilizing Uvicorn for asynchronous requests execution.
+- **Backend Application**: Hosted on **Render** inside Dockerized containers, utilizing Uvicorn for asynchronous requests execution.
 - **Database Layer**: **Neon Serverless PostgreSQL** database.
 - **Caching & Broker Layer**: **Upstash Serverless Redis** for Pub/Sub messaging.
 
@@ -37,19 +37,19 @@ STAGE runs on a split cloud deployment model:
 - **Build Command**: `next build`
 - **Output Directory**: `.next`
 - **Vercel Environment Variables**:
-  - `NEXT_PUBLIC_API_URL`: Fully qualified domain URL of the Railway API gateway (e.g. `https://api.stage.io`).
+  - `NEXT_PUBLIC_API_URL`: Fully qualified domain URL of the Render API gateway (e.g. `https://api.stage.io`).
   - `NEXT_PUBLIC_WS_BASE`: WebSocket server URL (e.g. `wss://api.stage.io`).
   - `NEXT_PUBLIC_POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_HOST`: Product analytics variables.
 
 ---
 
-## 3. Backend Deployment (Railway)
-Railway builds the backend using either Nixpacks (via `nixpacks.toml`) or a standard Dockerfile configuration:
+## 3. Backend Deployment (Render)
+Render builds the backend using either Nixpacks (via `nixpacks.toml`) or a standard Dockerfile configuration:
 - **Build Provider**: Python.
 - **Root Directory**: `backend/`
 - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-- **Railway Configuration Variables**:
-  - `PORT`: Automatically assigned by Railway.
+- **Render Configuration Variables**:
+  - `PORT`: Automatically assigned by Render.
   - `DATABASE_URL`: Connection string to the production PostgreSQL/Neon DB.
   - `REDIS_URL`: Connection string to Upstash Redis for horizontal clustering.
   - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: GitHub OAuth app keys.
@@ -65,7 +65,7 @@ Deployments trigger automatically on branch updates:
    - Detects modifications under `/web/`.
    - Runs TypeScript compilation checks (`tsc`) and Next.js builds.
    - Deploys the build to production if successful.
-3. **Railway CI Hooks**:
+3. **Render CI Hooks**:
    - Detects modifications under `/backend/`.
    - Provisions python runtime containers, installs `requirements.txt` dependencies, and starts the uvicorn service.
    - Applies database schema migrations (`alembic upgrade head`) at startup.
@@ -73,7 +73,7 @@ Deployments trigger automatically on branch updates:
 ---
 
 ## 5. Operations, Monitoring, and Logging
-- **Container Logs**: Streamed directly to Railway's dashboards. Custom log configurations are configured in `backend/logger.py`.
+- **Container Logs**: Streamed directly to Render's dashboards. Custom log configurations are configured in `backend/logger.py`.
 - **System Metrics**: Server health check endpoints (`/metrics`) expose the following metrics:
   - Cache hit rate (`cache_hit_ratio`).
   - Active proxy fallbacks count.

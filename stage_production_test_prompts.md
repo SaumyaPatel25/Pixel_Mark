@@ -1,13 +1,13 @@
 
 # STAGE — Production Testing IDE Prompts
 # Paste each into Cursor / Windsurf / Claude Dev / Copilot Chat
-# Run in order. Replace YOUR_RAILWAY_URL and YOUR_VERCEL_URL before running.
+# Run in order. Replace YOUR_BACKEND_URL and YOUR_VERCEL_URL before running.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BEFORE YOU START — SET THESE TWO VARIABLES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-RAILWAY_URL = "https://YOUR-BACKEND.up.railway.app"
+BACKEND_URL = "https://pixel-mark.onrender.com"
 VERCEL_URL  = "https://YOUR-FRONTEND.vercel.app"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -16,7 +16,7 @@ PROMPT 1 — Infrastructure & Health Tests
 
 You are a senior QA engineer testing a deployed production SaaS backend.
 
-Tech stack: FastAPI backend on Railway, Next.js frontend on Vercel, NeonDB (Postgres).
+Tech stack: FastAPI backend on Render, Next.js frontend on Vercel, NeonDB (Postgres).
 
 Task:
 Create tests/test_01_infrastructure.py
@@ -24,14 +24,14 @@ Create tests/test_01_infrastructure.py
 Test these exactly:
 
 1. test_backend_health
-   GET {RAILWAY_URL}/health
+   GET {BACKEND_URL}/health
    Assert: status 200
    Assert: response JSON has "status" == "ok"
    Assert: response JSON has "version" == "2.0.0"
    Assert: response time < 3 seconds
 
 2. test_backend_docs_accessible
-   GET {RAILWAY_URL}/docs
+   GET {BACKEND_URL}/docs
    Assert: status 200
    Assert: response contains "swagger" or "openapi" (case insensitive)
 
@@ -46,20 +46,20 @@ Test these exactly:
    Assert: response contains "sign in" or "login" (case insensitive)
 
 5. test_cors_headers_present
-   OPTIONS {RAILWAY_URL}/health
+   OPTIONS {BACKEND_URL}/health
    Headers: Origin: {VERCEL_URL}
    Assert: response has Access-Control-Allow-Origin header
    Assert: value is not empty
 
 6. test_backend_response_time
-   GET {RAILWAY_URL}/health (10 times in a loop)
+   GET {BACKEND_URL}/health (10 times in a loop)
    Assert: all responses < 5 seconds
    Print: average response time
 
 Rules:
 - Use httpx for all requests
 - timeout=10 on every request
-- RAILWAY_URL and VERCEL_URL at top of file as constants
+- BACKEND_URL and VERCEL_URL at top of file as constants
 - Print pass/fail clearly for each test
 - pytest compatible
 
@@ -77,7 +77,7 @@ Use a unique email per test run: f"qatest_{uuid.uuid4().hex[:6]}@stage.dev"
 Tests:
 
 1. test_register_new_user
-   POST {RAILWAY_URL}/auth/register
+   POST {BACKEND_URL}/auth/register
    Body: {email, password: "QaTest1234!", name: "QA Tester"}
    Assert: status 200
    Assert: "access_token" in response
@@ -89,41 +89,41 @@ Tests:
    Assert: "detail" in response JSON
 
 3. test_login_success
-   POST {RAILWAY_URL}/auth/login
+   POST {BACKEND_URL}/auth/login
    Same credentials
    Assert: status 200
    Assert: "access_token" in response
    Update token in state dict
 
 4. test_login_wrong_password
-   POST {RAILWAY_URL}/auth/login
+   POST {BACKEND_URL}/auth/login
    Wrong password
    Assert: status 401
 
 5. test_login_nonexistent_email
-   POST {RAILWAY_URL}/auth/login
+   POST {BACKEND_URL}/auth/login
    email: "nobody@nowhere.com"
    Assert: status 401
 
 6. test_get_me_with_token
-   GET {RAILWAY_URL}/auth/me
+   GET {BACKEND_URL}/auth/me
    Header: Authorization: Bearer {token}
    Assert: status 200
    Assert: response has id, email, name
    Assert: email matches registered email
 
 7. test_get_me_no_token
-   GET {RAILWAY_URL}/auth/me
+   GET {BACKEND_URL}/auth/me
    No auth header
    Assert: status 403
 
 8. test_get_me_invalid_token
-   GET {RAILWAY_URL}/auth/me
+   GET {BACKEND_URL}/auth/me
    Header: Authorization: Bearer fake.invalid.token
    Assert: status 401
 
 9. test_get_me_expired_token
-   GET {RAILWAY_URL}/auth/me
+   GET {BACKEND_URL}/auth/me
    Header: Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwiZXhwIjoxfQ.fake
    Assert: status 401
 
@@ -399,13 +399,13 @@ You are a senior QA engineer.
 Task:
 Create tests/test_06_websocket.py
 
-WebSocket URL: replace https:// with wss:// in RAILWAY_URL
-Example: wss://stage-backend.up.railway.app/ws/session/{session_id}
+WebSocket URL: replace https:// with wss:// in BACKEND_URL
+Example: wss://pixel-mark.onrender.com/ws/session/{session_id}
 
 Tests (all async, use asyncio.run()):
 
 1. test_websocket_connects
-   Connect to wss://{RAILWAY_WS}/ws/session/test-session-001
+   Connect to wss://{BACKEND_WS}/ws/session/test-session-001
    Assert: connection established without error
    Close cleanly
    Assert: no exception thrown
@@ -447,7 +447,7 @@ Tests (all async, use asyncio.run()):
 Rules:
 - Use websockets library (pip install websockets)
 - All async tests wrapped in asyncio.run()
-- RAILWAY_WS_URL = RAILWAY_URL.replace("https://", "wss://")
+- BACKEND_WS_URL = BACKEND_URL.replace("https://", "wss://")
 - timeout=5 on all recv() calls via asyncio.wait_for
 - pytest compatible (use @pytest.mark.asyncio or asyncio.run wrapper)
 
@@ -671,9 +671,9 @@ Create tests/run_all_tests.py
 
 This is a master runner script that:
 
-1. Reads RAILWAY_URL and VERCEL_URL from environment or prompts user if not set
+1. Reads BACKEND_URL and VERCEL_URL from environment or prompts user if not set
 2. Runs a quick connectivity check:
-   - Can reach RAILWAY_URL/health?
+   - Can reach BACKEND_URL/health?
    - Can reach VERCEL_URL?
    - If either fails, print clear error and exit with code 1
 3. Runs all test files in order using subprocess:

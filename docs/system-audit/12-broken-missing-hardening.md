@@ -54,7 +54,7 @@ This document highlights critical areas of STAGE that are failing in production,
 
 ### WebSocket Scaling
 - **Symptoms:** Intermittent marker sync failure in production.
-- **Root Cause:** The `ConnectionManager` is an in-memory dictionary. If Railway spins up multiple replica containers (or Uvicorn workers), clients connected to Worker A cannot broadcast to clients on Worker B.
+- **Root Cause:** The `ConnectionManager` is an in-memory dictionary. If Render spins up multiple replica containers (or Uvicorn workers), clients connected to Worker A cannot broadcast to clients on Worker B.
 - **Severity:** CRITICAL (for scaling)
 - **Fix Direction:** Implement Redis Pub/Sub as a backing message broker for the WebSocket manager.
 

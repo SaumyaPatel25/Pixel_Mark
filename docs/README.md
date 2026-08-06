@@ -36,7 +36,7 @@ STAGE serves as a **Visual QA OS**. It allows developers, product managers, and 
 
 ### 🚀 DevOps & QA Engineers
 - [Development Guide](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/development-guide.md): How to spin up backend/frontend services locally, seed database, and execute tests.
-- [Deployment & Operations](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/deployment-and-operations.md): Build pipelines, hosting environments (Vercel, Railway), and env specifications.
+- [Deployment & Operations](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/deployment-and-operations.md): Build pipelines, hosting environments (Vercel, Render), and env specifications.
 - [Security & Privacy](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/security-and-privacy.md): SSRF/SSRF redirects safeguards, domain constraints, encryption keys, and API rate limiting.
 
 ### 🤖 Future AI Agents
@@ -61,7 +61,7 @@ STAGE serves as a **Visual QA OS**. It allows developers, product managers, and 
 | [Integrations](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/integrations.md) | External CDNs, GitHub OAuth, Neon database, Resend email |
 | [Development Guide](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/development-guide.md) | Set up, run, seed, and debug commands |
 | [Testing & Quality](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/testing-and-quality.md) | Vitest, Pytest, E2E playbooks, code quality gaps |
-| [Deployment & Operations](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/deployment-and-operations.md) | CI/CD, build constraints, Railway configurations |
+| [Deployment & Operations](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/deployment-and-operations.md) | CI/CD, build constraints, Render configurations |
 | [Security & Privacy](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/security-and-privacy.md) | Auth tokens, CORS, SSRF guards, domain-scopes |
 | [Technical Debt & Risks](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/technical-debt-and-risks.md) | Codebase debt files, vulnerabilities, remediation |
 | [AI Agent Hand-off](file:///c:/Users/saumy/OneDrive/Desktop/Entrext/docs/ai-agent-handoff.md) | Operational checklist for subsequent AI interventions |

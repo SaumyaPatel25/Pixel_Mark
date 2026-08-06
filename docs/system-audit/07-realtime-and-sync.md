@@ -21,9 +21,9 @@ This document outlines the real-time collaboration architecture of STAGE.
 2. **Local State vs Server Truth:** 
    - The frontend often optimistically updates its local Zustand store before the backend confirms the DB write. If the DB write fails (e.g., validation error), the frontend might not roll back, resulting in ghost markers that disappear on refresh.
 3. **Ping/Pong Heartbeats:** 
-   - `main.py` recently added `last_heartbeat_at` to the `Session` table, suggesting an attempt to track active presence, but zombie WebSocket connections on Railway are a known issue.
+   - `main.py` recently added `last_heartbeat_at` to the `Session` table, suggesting an attempt to track active presence, but zombie WebSocket connections on Render are a known issue.
 4. **Scaling Issues:** 
-   - The current `ConnectionManager` stores connections in memory (`dict`). If the backend scales horizontally to multiple Uvicorn workers or Railway instances, WebSockets will fail because events broadcast on Worker A won't reach clients connected to Worker B (requires Redis Pub/Sub).
+   - The current `ConnectionManager` stores connections in memory (`dict`). If the backend scales horizontally to multiple Uvicorn workers or Render instances, WebSockets will fail because events broadcast on Worker A won't reach clients connected to Worker B (requires Redis Pub/Sub).
 
 ---
 - **Confidence Level:** High (Standard FastAPI WS patterns identified).

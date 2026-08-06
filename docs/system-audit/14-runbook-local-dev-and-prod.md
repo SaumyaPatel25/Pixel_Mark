@@ -27,7 +27,7 @@ This document serves as the operational runbook for compiling, running, and diag
 
 ## 2. Production Deployment
 
-### Backend (Railway)
+### Backend (Render)
 - **Framework:** Deployed via Nixpacks (using `nixpacks.toml` and `Procfile`).
 - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 - **Env Vars Required:**
@@ -38,7 +38,7 @@ This document serves as the operational runbook for compiling, running, and diag
 ### Frontend (Vercel)
 - **Framework:** Next.js Serverless Edge
 - **Env Vars Required:**
-  - `NEXT_PUBLIC_API_URL` (e.g., `https://stage-production.up.railway.app`)
+  - `NEXT_PUBLIC_API_URL` (e.g., `https://pixel-mark.onrender.com`)
 
 ## 3. Common Failure Points & Quick Smokes
 - **Symptom:** App hangs on login or shows 401s constantly.
@@ -46,9 +46,9 @@ This document serves as the operational runbook for compiling, running, and diag
 - **Symptom:** Dashboard 500 error when clicking a project.
   - *Fix:* The backend schema is likely out of sync with the DB model. Run a quick check on the `/projects/` endpoint via the Swagger `/docs` to see exactly which field is causing the `AttributeError`.
 - **Symptom:** Markers drop but don't show up for other users.
-  - *Fix:* Inspect the network tab for `WebSocket` connections. Ensure it says `101 Switching Protocols`. If it drops instantly, the Railway instance may be memory-bound or the `session_id` logic failed.
+  - *Fix:* Inspect the network tab for `WebSocket` connections. Ensure it says `101 Switching Protocols`. If it drops instantly, the Render instance may be memory-bound or the `session_id` logic failed.
 
 ---
 - **Confidence Level:** High
-- **Evidence Source:** Standard ASGI/Next.js practices combined with the repo's actual config files (`railway.toml`, `.vercel`).
+- **Evidence Source:** Standard ASGI/Next.js practices combined with the repo's actual config files (deprecated `render.toml`, `.vercel`).
 - **Next File to Read:** `15-recommended-repair-order.md`

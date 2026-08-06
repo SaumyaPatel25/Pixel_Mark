@@ -5,19 +5,19 @@ import pytest
 import uuid
 
 import os
-RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
-RAILWAY_WS = RAILWAY_URL.replace("https://", "wss://")
+BACKEND_URL = os.environ.get("BACKEND_URL", "https://pixel-mark.onrender.com")
+BACKEND_WS = BACKEND_URL.replace("https://", "wss://")
 
 async def test_websocket_connects():
     session_id = f"test-session-{uuid.uuid4().hex[:6]}"
-    uri = f"{RAILWAY_WS}/ws/session/{session_id}"
+    uri = f"{BACKEND_WS}/ws/session/{session_id}"
     async with websockets.connect(uri) as websocket:
         pass
         print(f"\nWebSocket Connect: PASS ({uri})")
 
 async def test_websocket_broadcast_two_clients():
     session_id = f"test-session-{uuid.uuid4().hex[:6]}"
-    uri = f"{RAILWAY_WS}/ws/session/{session_id}"
+    uri = f"{BACKEND_WS}/ws/session/{session_id}"
     
     async with websockets.connect(uri) as ws1, \
                websockets.connect(uri) as ws2:
@@ -34,7 +34,7 @@ async def test_websocket_broadcast_two_clients():
 
 async def test_websocket_broadcast_three_clients():
     session_id = f"test-session-{uuid.uuid4().hex[:6]}"
-    uri = f"{RAILWAY_WS}/ws/session/{session_id}"
+    uri = f"{BACKEND_WS}/ws/session/{session_id}"
     
     async with websockets.connect(uri) as ws1, \
                websockets.connect(uri) as ws2, \
@@ -54,8 +54,8 @@ async def test_websocket_different_sessions_isolated():
     session_a = f"session-A-{uuid.uuid4().hex[:4]}"
     session_b = f"session-B-{uuid.uuid4().hex[:4]}"
     
-    uri_a = f"{RAILWAY_WS}/ws/session/{session_a}"
-    uri_b = f"{RAILWAY_WS}/ws/session/{session_b}"
+    uri_a = f"{BACKEND_WS}/ws/session/{session_a}"
+    uri_b = f"{BACKEND_WS}/ws/session/{session_b}"
     
     async with websockets.connect(uri_a) as ws_a, \
                websockets.connect(uri_b) as ws_b:
@@ -71,7 +71,7 @@ async def test_websocket_different_sessions_isolated():
 
 async def test_websocket_json_message_types():
     session_id = f"test-types-{uuid.uuid4().hex[:6]}"
-    uri = f"{RAILWAY_WS}/ws/session/{session_id}"
+    uri = f"{BACKEND_WS}/ws/session/{session_id}"
     
     async with websockets.connect(uri) as ws1, \
                websockets.connect(uri) as ws2:
@@ -87,14 +87,14 @@ async def test_websocket_json_message_types():
 
 async def test_websocket_project_connects():
     project_id = f"{uuid.uuid4()}"
-    uri = f"{RAILWAY_WS}/ws/{project_id}"
+    uri = f"{BACKEND_WS}/ws/{project_id}"
     async with websockets.connect(uri) as websocket:
         pass
         print(f"\nWebSocket Project Connect: PASS ({uri})")
 
 async def test_websocket_reconnect():
     session_id = f"test-reconnect-{uuid.uuid4().hex[:6]}"
-    uri = f"{RAILWAY_WS}/ws/session/{session_id}"
+    uri = f"{BACKEND_WS}/ws/session/{session_id}"
     
     # Connect and disconnect
     async with websockets.connect(uri) as ws:

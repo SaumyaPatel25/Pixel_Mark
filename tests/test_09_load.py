@@ -5,11 +5,11 @@ import pytest
 import uuid
 
 import os
-RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
+BACKEND_URL = os.environ.get("BACKEND_URL", "https://pixel-mark.onrender.com")
 
 async def test_concurrent_health_checks():
     async with httpx.AsyncClient(timeout=10) as client:
-        tasks = [client.get(f"{RAILWAY_URL}/health") for _ in range(50)]
+        tasks = [client.get(f"{BACKEND_URL}/health") for _ in range(50)]
         start_time = time.time()
         responses = await asyncio.gather(*tasks)
         duration = time.time() - start_time
@@ -26,7 +26,7 @@ async def test_concurrent_registrations():
             uid = uuid.uuid4().hex[:6]
             return {"email": f"load_{uid}@test.com", "password": "Pass1234!", "name": "Load Tester"}
             
-        tasks = [client.post(f"{RAILWAY_URL}/auth/register", json=make_user()) for _ in range(10)]
+        tasks = [client.post(f"{BACKEND_URL}/auth/register", json=make_user()) for _ in range(10)]
         start_time = time.time()
         responses = await asyncio.gather(*tasks)
         duration = time.time() - start_time
@@ -42,24 +42,24 @@ async def test_rapid_marker_creation():
     async with httpx.AsyncClient(timeout=20) as client:
         # Setup
         email = f"rapid_{uuid.uuid4().hex[:6]}@test.com"
-        resp = await client.post(f"{RAILWAY_URL}/auth/register", json={"email": email, "password": "Pass1234!", "name": "Rapid"})
+        resp = await client.post(f"{BACKEND_URL}/auth/register", json={"email": email, "password": "Pass1234!", "name": "Rapid"})
         token = resp.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
         
-        resp = await client.post(f"{RAILWAY_URL}/projects/", json={"name": "Rapid Project"}, headers=headers)
+        resp = await client.post(f"{BACKEND_URL}/projects/", json={"name": "Rapid Project"}, headers=headers)
         pid = resp.json()["id"]
         
-        resp = await client.post(f"{RAILWAY_URL}/sessions/", json={"project_id": pid, "title": "Rapid Session"}, headers=headers)
+        resp = await client.post(f"{BACKEND_URL}/sessions/", json={"project_id": pid, "title": "Rapid Session"}, headers=headers)
         sid = resp.json()["id"]
         
         # Sequentially create 20 markers
         start_time = time.time()
         for i in range(20):
-            await client.post(f"{RAILWAY_URL}/markers/", json={"session_id": sid, "title": f"Marker {i}"}, headers=headers)
+            await client.post(f"{BACKEND_URL}/markers/", json={"session_id": sid, "title": f"Marker {i}"}, headers=headers)
         duration = time.time() - start_time
         
         # Verify
-        resp = await client.get(f"{RAILWAY_URL}/markers/session/{sid}", headers=headers)
+        resp = await client.get(f"{BACKEND_URL}/markers/session/{sid}", headers=headers)
         assert len(resp.json()) == 20
         
         print(f"Rapid Marker Creation (20 markers): PASS ({duration:.2f}s)")

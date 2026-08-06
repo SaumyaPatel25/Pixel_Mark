@@ -3,7 +3,7 @@ import pytest
 import uuid
 
 import os
-RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
+BACKEND_URL = os.environ.get("BACKEND_URL", "https://pixel-mark.onrender.com")
 state = {
     "email": f"qatest_{uuid.uuid4().hex[:6]}@stage.dev",
     "password": "QaTest1234!",
@@ -14,7 +14,7 @@ state = {
 async def test_register_new_user():
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(
-            f"{RAILWAY_URL}/auth/register",
+            f"{BACKEND_URL}/auth/register",
             json={
                 "email": state["email"],
                 "password": state["password"],
@@ -31,7 +31,7 @@ async def test_register_new_user():
 async def test_register_duplicate_rejected():
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(
-            f"{RAILWAY_URL}/auth/register",
+            f"{BACKEND_URL}/auth/register",
             json={
                 "email": state["email"],
                 "password": state["password"],
@@ -46,7 +46,7 @@ async def test_register_duplicate_rejected():
 async def test_login_success():
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(
-            f"{RAILWAY_URL}/auth/login",
+            f"{BACKEND_URL}/auth/login",
             json={
                 "email": state["email"],
                 "password": state["password"]
@@ -62,7 +62,7 @@ async def test_login_success():
 async def test_login_wrong_password():
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(
-            f"{RAILWAY_URL}/auth/login",
+            f"{BACKEND_URL}/auth/login",
             json={
                 "email": state["email"],
                 "password": "WrongPassword123!"
@@ -75,7 +75,7 @@ async def test_login_wrong_password():
 async def test_login_nonexistent_email():
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(
-            f"{RAILWAY_URL}/auth/login",
+            f"{BACKEND_URL}/auth/login",
             json={
                 "email": "nobody@nowhere.com",
                 "password": state["password"]
@@ -88,7 +88,7 @@ async def test_login_nonexistent_email():
 async def test_get_me_with_token():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        response = await client.get(f"{RAILWAY_URL}/auth/me", headers=headers)
+        response = await client.get(f"{BACKEND_URL}/auth/me", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert "id" in data
@@ -99,7 +99,7 @@ async def test_get_me_with_token():
 @pytest.mark.asyncio
 async def test_get_me_no_token():
     async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.get(f"{RAILWAY_URL}/auth/me")
+        response = await client.get(f"{BACKEND_URL}/auth/me")
         # FastAPI/OAuth2 usually returns 401 or 403 depending on implementation
         assert response.status_code in [401, 403]
         print("Get Me No Token Rejected: PASS")
@@ -108,7 +108,7 @@ async def test_get_me_no_token():
 async def test_get_me_invalid_token():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": "Bearer fake.invalid.token"}
-        response = await client.get(f"{RAILWAY_URL}/auth/me", headers=headers)
+        response = await client.get(f"{BACKEND_URL}/auth/me", headers=headers)
         assert response.status_code == 401
         print("Get Me Invalid Token Rejected: PASS")
 
@@ -117,6 +117,6 @@ async def test_get_me_expired_token():
     async with httpx.AsyncClient(timeout=10) as client:
         # Fake expired token structure
         headers = {"Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwiZXhwIjoxfQ.fake"}
-        response = await client.get(f"{RAILWAY_URL}/auth/me", headers=headers)
+        response = await client.get(f"{BACKEND_URL}/auth/me", headers=headers)
         assert response.status_code == 401
         print("Get Me Expired Token Rejected: PASS")

@@ -20,7 +20,7 @@ This document describes the structure and state of the STAGE frontend.
 
 ## State & API Architecture
 - **API Client (`src/lib/api.ts`):**
-  - A centralized fetch wrapper used to make calls to the `NEXT_PUBLIC_API_URL` (usually the Railway backend).
+  - A centralized fetch wrapper used to make calls to the `NEXT_PUBLIC_API_URL` (usually the Render backend).
   - Handles auth token injection natively.
 - **Request Batching (`src/lib/apiQueue.ts`):**
   - Implements a queuing mechanism (`enqueueRead`, `enqueueWrite`) to debounce/batch API requests, likely introduced to mitigate rate-limiting or duplicate requests during React strict-mode renders.
@@ -28,7 +28,7 @@ This document describes the structure and state of the STAGE frontend.
   - Zustand is intended to be used for global state (e.g., marker data, UI toggles).
 
 ## WebSocket Subscription Model
-- The frontend connects to the FastAPI websocket route (e.g., `wss://stage-production.up.railway.app/websocket/...`).
+- The frontend connects to the FastAPI websocket route (e.g., `wss://pixel-mark.onrender.com/websocket/...`).
 - Client-side hooks manage reconnection logic and parse incoming JSON broadcast messages to update marker positions and statuses in real-time.
 
 ## Areas of Shell-only UI

@@ -9,9 +9,9 @@ from playwright.sync_api import sync_playwright
 import websockets
 
 # Configuration
-RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://stage-production.up.railway.app")
+BACKEND_URL = os.environ.get("BACKEND_URL", "https://pixel-mark.onrender.com")
 VERCEL_URL = os.environ.get("VERCEL_URL", "https://web-zeta-sable-82.vercel.app")
-RAILWAY_WS = RAILWAY_URL.replace("https://", "wss://")
+BACKEND_WS = BACKEND_URL.replace("https://", "wss://")
 
 # State
 state = {
@@ -31,14 +31,14 @@ state = {
 @pytest.mark.asyncio
 async def test_01_backend_health():
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(f"{RAILWAY_URL}/health")
+        resp = await client.get(f"{BACKEND_URL}/health")
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
 @pytest.mark.asyncio
 async def test_02_backend_docs():
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(f"{RAILWAY_URL}/docs")
+        resp = await client.get(f"{BACKEND_URL}/docs")
         assert resp.status_code == 200
         assert "swagger" in resp.text.lower()
 
@@ -53,7 +53,7 @@ async def test_03_frontend_root():
 async def test_04_cors_headers():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Origin": VERCEL_URL}
-        resp = await client.options(f"{RAILWAY_URL}/health", headers=headers)
+        resp = await client.options(f"{BACKEND_URL}/health", headers=headers)
         assert "access-control-allow-origin" in resp.headers
         assert resp.headers["access-control-allow-origin"] == VERCEL_URL
 
@@ -63,7 +63,7 @@ async def test_04_cors_headers():
 async def test_05_register():
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.post(
-            f"{RAILWAY_URL}/auth/register",
+            f"{BACKEND_URL}/auth/register",
             json={"email": state["email"], "password": state["password"], "name": "Full Tester"}
         )
         assert resp.status_code == 200
@@ -74,7 +74,7 @@ async def test_05_register():
 async def test_06_login():
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.post(
-            f"{RAILWAY_URL}/auth/login",
+            f"{BACKEND_URL}/auth/login",
             json={"email": state["email"], "password": state["password"]}
         )
         assert resp.status_code == 200
@@ -84,7 +84,7 @@ async def test_06_login():
 async def test_07_auth_me():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        resp = await client.get(f"{RAILWAY_URL}/auth/me", headers=headers)
+        resp = await client.get(f"{BACKEND_URL}/auth/me", headers=headers)
         assert resp.status_code == 200
         assert resp.json()["email"] == state["email"]
 
@@ -95,7 +95,7 @@ async def test_08_create_project():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         resp = await client.post(
-            f"{RAILWAY_URL}/projects/",
+            f"{BACKEND_URL}/projects/",
             json={"name": "System Test Project", "url": "https://test.com"},
             headers=headers
         )
@@ -106,7 +106,7 @@ async def test_08_create_project():
 async def test_09_list_projects():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        resp = await client.get(f"{RAILWAY_URL}/projects/", headers=headers)
+        resp = await client.get(f"{BACKEND_URL}/projects/", headers=headers)
         assert resp.status_code == 200
         ids = [p["id"] for p in resp.json()]
         assert state["project_id"] in ids
@@ -118,7 +118,7 @@ async def test_10_create_session():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         resp = await client.post(
-            f"{RAILWAY_URL}/sessions/",
+            f"{BACKEND_URL}/sessions/",
             json={"project_id": state["project_id"], "title": "System Session"},
             headers=headers
         )
@@ -139,7 +139,7 @@ async def test_11_create_marker():
             "viewport": {"width": 1920, "height": 1080},
             "console_errors": ["Init failed"]
         }
-        resp = await client.post(f"{RAILWAY_URL}/markers/", json=marker_data, headers=headers)
+        resp = await client.post(f"{BACKEND_URL}/markers/", json=marker_data, headers=headers)
         assert resp.status_code in [200, 201]
         state["marker_id"] = resp.json()["id"]
 
@@ -147,7 +147,7 @@ async def test_11_create_marker():
 async def test_12_list_project_markers():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
-        resp = await client.get(f"{RAILWAY_URL}/markers/project/{state['project_id']}", headers=headers)
+        resp = await client.get(f"{BACKEND_URL}/markers/project/{state['project_id']}", headers=headers)
         assert resp.status_code == 200
         ids = [m["id"] for m in resp.json()]
         assert state["marker_id"] in ids
@@ -159,11 +159,11 @@ async def test_13_exports():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         # Markdown
-        resp = await client.get(f"{RAILWAY_URL}/export/session/{state['session_id']}/markdown", headers=headers)
+        resp = await client.get(f"{BACKEND_URL}/export/session/{state['session_id']}/markdown", headers=headers)
         assert resp.status_code == 200
         assert "System Bug" in resp.text
         # JSON
-        resp = await client.get(f"{RAILWAY_URL}/export/session/{state['session_id']}/json", headers=headers)
+        resp = await client.get(f"{BACKEND_URL}/export/session/{state['session_id']}/json", headers=headers)
         assert resp.status_code == 200
         assert isinstance(resp.json(), list)
 
@@ -175,7 +175,7 @@ async def test_14_share_links():
         headers = {"Authorization": f"Bearer {state['token']}"}
         # Create
         resp = await client.post(
-            f"{RAILWAY_URL}/shares/",
+            f"{BACKEND_URL}/shares/",
             json={"session_id": state["session_id"], "can_comment": True, "password": "pass"},
             headers=headers
         )
@@ -183,7 +183,7 @@ async def test_14_share_links():
         state["share_token"] = resp.json()["token"]
         state["share_id"] = resp.json()["id"]
         # Access
-        resp = await client.post(f"{RAILWAY_URL}/shares/access/{state['share_token']}", json={"password": "pass"})
+        resp = await client.post(f"{BACKEND_URL}/shares/access/{state['share_token']}", json={"password": "pass"})
         assert resp.status_code == 200
         assert resp.json()["session_id"] == state["session_id"]
 
@@ -194,13 +194,13 @@ async def test_15_canvas():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         # Fetch (initializes defaults)
-        resp = await client.get(f"{RAILWAY_URL}/canvas/project/{state['project_id']}", headers=headers)
+        resp = await client.get(f"{BACKEND_URL}/canvas/project/{state['project_id']}", headers=headers)
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["frames"]) > 0
         state["frame_id"] = data["frames"][0]["id"]
         # Update
-        resp = await client.patch(f"{RAILWAY_URL}/canvas/frames/{state['frame_id']}", json={"position_x": 999}, headers=headers)
+        resp = await client.patch(f"{BACKEND_URL}/canvas/frames/{state['frame_id']}", json={"position_x": 999}, headers=headers)
         assert resp.status_code == 200
         assert resp.json()["position_x"] == 999
 
@@ -208,7 +208,7 @@ async def test_15_canvas():
 
 @pytest.mark.asyncio
 async def test_16_websocket():
-    uri = f"{RAILWAY_WS}/ws/{state['project_id']}"
+    uri = f"{BACKEND_WS}/ws/{state['project_id']}"
     async with websockets.connect(uri) as ws:
         assert ws.open
         # Heartbeat/Isolation check
@@ -239,7 +239,7 @@ async def test_99_cleanup():
     async with httpx.AsyncClient(timeout=10) as client:
         headers = {"Authorization": f"Bearer {state['token']}"}
         # Delete Marker
-        await client.delete(f"{RAILWAY_URL}/markers/{state['marker_id']}", headers=headers)
+        await client.delete(f"{BACKEND_URL}/markers/{state['marker_id']}", headers=headers)
         # Delete Project (cascade handles session/shares)
-        resp = await client.delete(f"{RAILWAY_URL}/projects/{state['project_id']}", headers=headers)
+        resp = await client.delete(f"{BACKEND_URL}/projects/{state['project_id']}", headers=headers)
         assert resp.status_code == 200

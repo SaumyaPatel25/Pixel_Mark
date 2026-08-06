@@ -29,5 +29,5 @@ Located in `backend/`.
 
 ## Build & Deployment Tools
 - **Frontend Hosting**: Vercel (configured via `vercel.json`).
-- **Backend Hosting**: Railway / Render (configured via `railway.toml`, `nixpacks.toml`, `render.yaml`, and `Dockerfile`).
+- **Backend Hosting**: Render (configured via `render.yaml` and `Dockerfile`).
 - **CI/CD**: Uses standard `pytest` for backend regression testing and `vitest` for frontend unit testing.

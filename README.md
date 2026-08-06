@@ -69,7 +69,7 @@ The Next.js frontend serves the dashboard, settings, and the outer shell of the 
 
 ## Deployment Overview
 - **Frontend**: Configured for seamless deployment on Vercel (`vercel.json`).
-- **Backend**: Configured for deployment on Railway (`railway.toml`, `nixpacks.toml`) or Render (`render.yaml`).
+- **Backend**: Configured for deployment on Render (`render.yaml`).
 - **Database**: Neon serverless Postgres.
 
 ## Deep Dive Documentation

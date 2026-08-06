@@ -83,7 +83,7 @@ If a critical production error is detected (Auth failing, DB locking up, proxy r
 
 1. **Rollback Backend Code**:
    - Revert production branch to the last verified release tag (`git checkout tags/v1.4.2`).
-   - Trigger instant production rebuild via Railway/Render panel.
+   - Trigger instant production rebuild via Render Dashboard.
 2. **Database Schema State Recovery**:
    - If the database structure needs restoration, execute standard schema rollback:
      ```sql

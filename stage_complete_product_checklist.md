@@ -4,13 +4,13 @@
 SECTION 1 — CORE INFRASTRUCTURE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[x] Backend deployed and running on Railway/Render
+[x] Backend deployed and running on Render
 [x] Frontend deployed on Vercel
 [ ] Database on NeonDB/Supabase with all migrations applied
 [x] /health returns { status: "ok" }
 [x] No localhost references in any production env var
 [x] FRONTEND_URL matches the deployed app URL exactly
-[ ] CORS configured for deployed frontend domain (Pending: missing CORS_ORIGINS in Railway)
+[ ] CORS configured for deployed frontend domain (Pending: missing CORS_ORIGINS in Render)
 [x] Agent script publicly accessible at stable URL
 [ ] All env vars set: DATABASE_URL, SECRET_KEY, FRONTEND_URL, ALLOWED_ORIGINS, PROXY_AGENT_SCRIPT_URL (Pending: Frontend missing NEXT_PUBLIC_API_URL, Backend missing CORS_ORIGINS)
 

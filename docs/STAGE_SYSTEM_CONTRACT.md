@@ -38,7 +38,7 @@ STAGE is a collaborative QA review and visual feedback platform. It allows devel
 
 ### Deployment Topology
 * **Frontend Host:** Next.js deployed on Vercel.
-* **Backend Host:** FastAPI service deployed on Railway.
+* **Backend Host:** FastAPI service deployed on Render.
 * **Database Host:** PostgreSQL instance deployed on Neon.
 * **Pub/Sub Layer:** Redis server (used for inter-process WebSocket synchronization).
 

@@ -1,7 +1,7 @@
 import httpx
 import uuid
 
-RAILWAY_URL = "https://stage-production.up.railway.app"
+RAILWAY_URL = "https://pixel-mark.onrender.com"
 
 def main():
     email = f"qatest_{uuid.uuid4().hex[:6]}@stage.dev"

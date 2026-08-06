@@ -19,7 +19,7 @@ This matrix maps the intended features of STAGE against their actual implementat
 | WebSocket Live Sync | Real-time transmission of marker updates. | Working | Working | Fragile | Low | No | Memory-bound to single instance. Zombie connections prevalent. |
 | Canvas / Command Center | The iframe viewer where developers see target sites. | Working | Working | Fragile | Medium | No | Highly vulnerable to CORS and framebusting by target sites (like Google). |
 | AI Triage / Summary | Auto-categorize and summarize feedback using LLMs. | Stubbed | Shell | Missing | None | No | Ambitious roadmap feature, currently just API shells. |
-| Deployment Health | Seamless transition from local dev to Vercel/Railway prod. | - | - | Broken | Low | No | Hardcoded localhost URLs and differing DB schemas cause frequent prod crashes. |
+| Deployment Health | Seamless transition from local dev to Vercel/Render prod. | - | - | Broken | Low | No | Hardcoded localhost URLs and differing DB schemas cause frequent prod crashes. |
 
 ---
 - **Confidence Level:** High
