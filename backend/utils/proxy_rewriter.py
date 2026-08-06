@@ -48,6 +48,15 @@ window.__PM__ = {{
   ready: false
 }};
 
+// Suppress Next.js Hydration Errors from polluting the console and STAGE overlay
+window.addEventListener('error', function(e) {
+  var msg = (e.error && e.error.message) || e.message || '';
+  if (msg.indexOf('Minified React error #418') !== -1 || msg.indexOf('Minified React error #423') !== -1 || msg.indexOf('Hydration failed') !== -1) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+}, true);
+
 // Register message listener IMMEDIATELY — before agent loads
 window.addEventListener('message', function(e) {{
   if (!e.data || !e.data.type) return;
@@ -739,6 +748,59 @@ def inject_agent(html: str, agent_url: str) -> str:
     return html + agent_tag
 
 
+# ── STEP 7 ────────────────────────────────────────────────────────────────────
+def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_url: str) -> str:
+    """
+    Rewrites <link rel="stylesheet">, <link rel="preload" as="font">, and inline <style> blocks
+    to route through the proxy's asset endpoint, bypassing font CORS restrictions.
+    """
+    parsed = urllib.parse.urlparse(page_url)
+    target_origin = f"{parsed.scheme}://{parsed.netloc}"
+    
+    def link_replacer(match):
+        tag = match.group(0)
+        is_stylesheet = re.search(r'rel=["\']stylesheet["\']', tag, re.IGNORECASE)
+        is_font_preload = re.search(r'rel=["\']preload["\']', tag, re.IGNORECASE) and re.search(r'as=["\']font["\']', tag, re.IGNORECASE)
+        
+        if not (is_stylesheet or is_font_preload):
+            return tag
+            
+        href_match = re.search(r'href=["\']([^"\']+)["\']', tag, re.IGNORECASE)
+        if not href_match:
+            return tag
+            
+        href = href_match.group(1)
+        if href.startswith("data:") or "proxy/session" in href:
+            return tag
+            
+        resolved_url = urllib.parse.urljoin(target_origin, href)
+        parsed_res = urllib.parse.urlparse(resolved_url)
+        
+        proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
+        if parsed_res.query:
+            proxy_url += f"?{parsed_res.query}"
+            
+        return tag[:href_match.start(1)] + proxy_url + tag[href_match.end(1):]
+
+    def style_replacer(match):
+        content = match.group(0)
+        def url_replacer(m):
+            url = m.group(1)
+            if url.startswith("data:") or "proxy/session" in url:
+                return m.group(0)
+            resolved_url = urllib.parse.urljoin(target_origin, url)
+            parsed_res = urllib.parse.urlparse(resolved_url)
+            proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
+            if parsed_res.query:
+                proxy_url += f"?{parsed_res.query}"
+            return f"url('{proxy_url}')"
+        return re.sub(r'url\([\'"]?([^\'"\)]+)[\'"]?\)', url_replacer, content, flags=re.IGNORECASE)
+
+    html = re.sub(r'<link\s+[^>]+>', link_replacer, html, flags=re.IGNORECASE)
+    html = re.sub(r'<style[^>]*>[\s\S]*?</style>', style_replacer, html, flags=re.IGNORECASE)
+    return html
+
+
 # ── Main entry point ───────────────────────────────────────────────────────────
 def rewrite_html(
     html: str,
@@ -756,6 +818,9 @@ def rewrite_html(
         f"[PROXY_REWRITE] Starting HTML rewrite for session={session_id}, "
         f"page_url={page_url}, snapshot={snapshot_mode}"
     )
+
+    # Rewrite stylesheets and fonts to use proxy before other shims
+    html = proxy_stylesheets_and_fonts(html, api_base, session_id, page_url)
 
     # snapshot_mode: strip all script tags so runtime JS doesn't execute
     if snapshot_mode:
