@@ -13,6 +13,7 @@ import uuid
 import os
 import hashlib
 from typing import Optional, Tuple, Dict, Any, List
+from datetime import datetime
 from proxy.runtime_policy import check_third_party_policy, get_failure_fallback_response
 from proxy.asset_resolver import resolve_asset_url, get_asset_failure_fallback
 
