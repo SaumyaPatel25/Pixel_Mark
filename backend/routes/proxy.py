@@ -266,7 +266,7 @@ async def proxy_rsc_request(request: Request, target_url: str) -> Response:
         k: v for k, v in request.headers.items()
         if k.lower().startswith("next-") or k.lower() == "rsc"
     }
-    client = httpx.AsyncClient(verify=False, timeout=30.0)
+    client = httpx.AsyncClient(verify=False, timeout=30.0, follow_redirects=True)
     req = client.build_request(
         request.method, target_url, headers=headers_to_pass
     )

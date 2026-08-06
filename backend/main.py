@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, Request
 import os
+from datetime import datetime
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -197,7 +198,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
                                     parsed_base = urllib.parse.urlparse(base_url)
                                     from fastapi.responses import StreamingResponse
                                     from routes.proxy import prepare_proxy_response
-                                    client = httpx.AsyncClient(verify=False, timeout=30.0)
+                                    client = httpx.AsyncClient(verify=False, timeout=30.0, follow_redirects=True)
                                     headers = {
                                         k: v for k, v in request.headers.items()
                                         if k.lower() not in ("host", "connection", "accept-encoding")
