@@ -1,8 +1,26 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 
 
-const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE?.replace(/\/$/, '')
-  || 'ws://localhost:8765'
+const getWsBase = () => {
+  const wsBase = process.env.NEXT_PUBLIC_WS_BASE
+  if (wsBase && wsBase.trim() !== '') {
+    return wsBase.replace(/\/$/, '')
+  }
+  const apiBase = process.env.NEXT_PUBLIC_API_URL
+  if (apiBase && apiBase.trim() !== '') {
+    return apiBase
+      .replace(/^https:/, 'wss:')
+      .replace(/^http:/, 'ws:')
+      .replace(/\/$/, '')
+  }
+  if (typeof window !== 'undefined') {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${proto}//${window.location.host}`
+  }
+  return 'ws://localhost:8765'
+}
+
+const WS_BASE = getWsBase()
 
 const MAX_RETRIES = 4
 const BACKOFF_BASE_MS = 1500   // 1.5s, 3s, 6s, 12s
