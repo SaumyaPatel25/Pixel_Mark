@@ -86,6 +86,23 @@ def is_domain_allowed(url: str, base_url: str, allow_external_assets: bool = Tru
         # Subdomain match (e.g. sub.example.com under example.com)
         target_host = parsed_target.netloc.lower()
         base_host = parsed_base.netloc.lower()
+        
+        # Bypass domain scoping for our own proxy domain / localhost (e.g. static resources)
+        target_host_clean = target_host.split(":")[0]
+        import os
+        api_base = os.getenv("API_BASE", "")
+        allowed_proxy_hosts = {"pixel-mark.onrender.com", "localhost", "127.0.0.1"}
+        if api_base:
+            try:
+                parsed_api = urllib.parse.urlparse(api_base)
+                api_host = parsed_api.hostname or parsed_api.netloc
+                if api_host:
+                    allowed_proxy_hosts.add(api_host.lower().split(":")[0])
+            except Exception:
+                pass
+        if target_host_clean in allowed_proxy_hosts or any(target_host_clean.endswith("." + h) for h in allowed_proxy_hosts):
+            return True
+
         if target_host == base_host or target_host.endswith("." + base_host):
             return True
             

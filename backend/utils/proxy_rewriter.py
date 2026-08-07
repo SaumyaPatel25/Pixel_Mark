@@ -49,13 +49,30 @@ window.__PM__ = {{
 }};
 
 // Suppress Next.js Hydration Errors from polluting the console and STAGE overlay
-window.addEventListener('error', function(e) {
+window.addEventListener('error', function(e) {{
   var msg = (e.error && e.error.message) || e.message || '';
-  if (msg.indexOf('Minified React error #418') !== -1 || msg.indexOf('Minified React error #423') !== -1 || msg.indexOf('Hydration failed') !== -1) {
+  if (msg.indexOf('Minified React error #418') !== -1 || msg.indexOf('Minified React error #423') !== -1 || msg.indexOf('Hydration failed') !== -1) {{
     e.preventDefault();
     e.stopImmediatePropagation();
-  }
-}, true);
+  }}
+}}, true);
+
+// Patch console.error to filter out Next.js hydration logs
+(function() {{
+  var origError = console.error;
+  console.error = function() {{
+    var msg = arguments[0];
+    if (typeof msg === 'string' && (
+      msg.indexOf('Minified React error #418') !== -1 || 
+      msg.indexOf('Minified React error #423') !== -1 || 
+      msg.indexOf('Hydration failed') !== -1 ||
+      msg.indexOf('suppressHydrationWarning') !== -1
+    )) {{
+      return;
+    }}
+    return origError.apply(this, arguments);
+  }};
+}})();
 
 // Register message listener IMMEDIATELY — before agent loads
 window.addEventListener('message', function(e) {{
@@ -106,6 +123,15 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     if (trimmed.includes('/proxy/session/')) {{
       return url;
     }}
+    
+    // Bypass rewriting if the URL is on the proxy origin itself
+    try {{
+      const parsed = new URL(url, window.location.href);
+      const proxyHost = new URL(window.__STAGE_PROXY_ORIGIN__).host.toLowerCase();
+      if (parsed.host.toLowerCase() === proxyHost) {{
+        return url;
+      }}
+    }} catch(e) {{}}
     
     let absoluteUrl = url;
     try {{
@@ -476,6 +502,82 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     return getLogicalUrlObject().href;
   }};
   
+  // Rewrite CSS rules containing url(...)
+  function rewriteCSS(cssText) {{
+    if (!cssText || typeof cssText !== 'string') return cssText;
+    return cssText.replace(/url\((['"]?)([^\'")\\]+)\1\)/gi, function(match, quote, url) {{
+      return "url('" + rewriteUrl(url) + "')";
+    }});
+  }}
+
+  // 1. Patch CSSStyleSheet.prototype.insertRule
+  try {{
+    const originalInsertRule = CSSStyleSheet.prototype.insertRule;
+    CSSStyleSheet.prototype.insertRule = function(rule, index) {{
+      return originalInsertRule.call(this, rewriteCSS(rule), index);
+    }};
+  }} catch(e) {{}}
+
+  // 2. Patch Node.prototype.textContent & Element.prototype.innerHTML for <style> elements
+  try {{
+    const nodeTextDesc = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+    if (nodeTextDesc && nodeTextDesc.set) {{
+      Object.defineProperty(Node.prototype, 'textContent', {{
+        get: function() {{ return nodeTextDesc.get.call(this); }},
+        set: function(val) {{
+          let value = val;
+          if (this.tagName && this.tagName.toLowerCase() === 'style') {{
+            value = rewriteCSS(val);
+          }}
+          nodeTextDesc.set.call(this, value);
+        }},
+        configurable: true
+      }});
+    }}
+  }} catch(e) {{}}
+
+  try {{
+    const elementHTMLDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    if (elementHTMLDesc && elementHTMLDesc.set) {{
+      Object.defineProperty(Element.prototype, 'innerHTML', {{
+        get: function() {{ return elementHTMLDesc.get.call(this); }},
+        set: function(val) {{
+          let value = val;
+          if (this.tagName && this.tagName.toLowerCase() === 'style') {{
+            value = rewriteCSS(val);
+          }}
+          elementHTMLDesc.set.call(this, value);
+        }},
+        configurable: true
+      }});
+    }}
+  }} catch(e) {{}}
+
+  // 3. Patch CSSStyleDeclaration.prototype.setProperty and cssText
+  try {{
+    const originalSetProperty = CSSStyleDeclaration.prototype.setProperty;
+    CSSStyleDeclaration.prototype.setProperty = function(property, value, priority) {{
+      let val = value;
+      if (typeof val === 'string' && val.includes('url(')) {{
+        val = rewriteCSS(val);
+      }}
+      return originalSetProperty.call(this, property, val, priority);
+    }};
+  }} catch(e) {{}}
+
+  try {{
+    const cssTextDesc = Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype, 'cssText');
+    if (cssTextDesc && cssTextDesc.set) {{
+      Object.defineProperty(CSSStyleDeclaration.prototype, 'cssText', {{
+        get: function() {{ return cssTextDesc.get.call(this); }},
+        set: function(val) {{
+          cssTextDesc.set.call(this, rewriteCSS(val));
+        }},
+        configurable: true
+      }});
+    }}
+  }} catch(e) {{}}
+
   // Ensure window.lastpageurl is set initially
   window.lastpageurl = window.__STAGE_TARGET_URL__;
 }})();
