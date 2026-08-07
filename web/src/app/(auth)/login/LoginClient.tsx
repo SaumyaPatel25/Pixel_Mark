@@ -43,6 +43,16 @@ export default function LoginClient() {
     }
   }, [user, phase, searchParams]);
 
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      setPhase('projecting');
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
@@ -85,18 +95,43 @@ export default function LoginClient() {
         window.location.href = '/dashboard';
       }, 1200);
     } catch (err: any) {
-      setError(err.message || 'Google sign-in failed');
-      setPhase('error');
-      setTimeout(() => setPhase('projecting'), 1500);
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        setError('Sign-in was cancelled.');
+        setPhase('projecting');
+      } else {
+        setError(err.message || 'Google sign-in failed');
+        setPhase('error');
+        setTimeout(() => setPhase('projecting'), 1500);
+      }
     }
   };
 
-  const handleGithubSignIn = () => {
+  const handleGithubSignIn = async () => {
     setError(null);
     setPhase('submitting');
     trackEvent({ action: 'github_login', category: 'auth' });
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '') : 'http://127.0.0.1:8000';
-    window.location.href = `${baseUrl}/auth/oauth/github/start`;
+    try {
+      const result = await signInWithPopup(auth, githubProvider);
+      const fbUser = result.user;
+
+      const idToken = await fbUser.getIdToken();
+      const { firebaseSync } = useAuthStore.getState();
+      await firebaseSync(idToken, fbUser.displayName || undefined);
+
+      setPhase('success');
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1200);
+    } catch (err: any) {
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        setError('Sign-in was cancelled.');
+        setPhase('projecting');
+      } else {
+        setError(err.message || 'GitHub sign-in failed');
+        setPhase('error');
+        setTimeout(() => setPhase('projecting'), 1500);
+      }
+    }
   };
 
   const handleResend = async () => {
