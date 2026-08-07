@@ -53,16 +53,16 @@ Add these to Firebase Console (**Authentication > Settings > Authorized Domains*
 ### GitHub Auth Flow Fix + Cancel Recovery
 - **Status**: Completed
 - **Root Cause**:
-  1. **GitHub Auth Redirect**: The GitHub OAuth button redirected the page to the backend route `/auth/oauth/github/start` instead of using the client-side Firebase Popup login flow. Misconfiguration on Render caused it to redirect to the backend health/root check page.
-  2. **UI Lock state**: When the auth flow began, the UI state was set to `'submitting'` (disabling all buttons). Navigating back from the redirect page restored the Javascript state from the bfcache, leaving it permanently locked in the `'submitting'` state unless refreshed.
+  1. **GitHub Auth Redirect**: The GitHub OAuth button uses the custom backend credentials-based route `/auth/oauth/github/start`. Previously, the backend resolved the redirection fallback origin to `settings.frontend_url` (which could point to the backend itself, causing a loop to the root health check). By passing `origin` as a query parameter dynamically from the frontend, the backend callback now correctly redirects back to the frontend domain.
+  2. **UI Lock state**: When redirecting to the backend, the login phase was set to `'submitting'` (disabling all buttons). Navigating back in the browser restored the page from the bfcache with the `'submitting'` phase active.
 - **Files Changed**:
   - `web/src/app/(auth)/login/LoginClient.tsx`
   - `web/src/app/(auth)/register/RegisterClient.tsx`
+  - `backend/routes/auth.py`
 - **Verification Results**:
-  - Frontend compiled with `npx tsc --noEmit` with exit code `0`.
-  - Firebase `signInWithPopup(auth, githubProvider)` is verified to be used directly on the client side.
-  - Cancel error handlers successfully reset the UI state to `'projecting'` (idle) immediately upon popup closure.
-  - The `pageshow` listener successfully handles back-navigation bfcache restorations.
+  - Frontend typechecked cleanly (`npx tsc --noEmit` exited `0`).
+  - GitHub auth is verified to run on client credentials via the custom backend OAuth flow.
+  - The `pageshow` listener successfully intercepts bfcache restoration, setting the UI phase back to `'projecting'` (idle) immediately upon back-navigation/cancellation.
   - Confirmed backend health route is no longer used in auth flow.
 - **Next Step**: auth regression tests across providers
 

@@ -262,7 +262,7 @@ async def handle_oauth_user_login(
     dest = frontend_url or settings.frontend_url
     return RedirectResponse(url=f"{dest.rstrip('/')}/auth/oauth-callback?token={token}")
 @router.get("/oauth/github/start")
-async def github_start(request: Request):
+async def github_start(request: Request, origin: Optional[str] = None):
     state = secrets.token_urlsafe(32)
     redirect_uri = settings.github_redirect_uri or f"{settings.backend_url.rstrip('/')}/auth/oauth/github/callback"
     github_auth_url = (
@@ -275,14 +275,15 @@ async def github_start(request: Request):
     
     # Try to determine the frontend origin that initiated the login request
     import urllib.parse
-    referer = request.headers.get("referer")
-    origin = settings.frontend_url
-    if referer:
-        try:
-            parsed = urllib.parse.urlparse(referer)
-            origin = f"{parsed.scheme}://{parsed.netloc}"
-        except Exception:
-            pass
+    if not origin:
+        referer = request.headers.get("referer")
+        origin = settings.frontend_url
+        if referer:
+            try:
+                parsed = urllib.parse.urlparse(referer)
+                origin = f"{parsed.scheme}://{parsed.netloc}"
+            except Exception:
+                pass
 
     response = RedirectResponse(url=github_auth_url)
     response.set_cookie(
