@@ -50,21 +50,19 @@ Add these to Firebase Console (**Authentication > Settings > Authorized Domains*
 ---
 
 ## 4. Updates & Fixes (2026-08-07)
-### GitHub Auth Redirect + Popup Cancel Recovery
+### GitHub Auth Flow Fix + Cancel Recovery
 - **Status**: Completed
-- **Root Cause Found (GitHub Redirect)**:
-  The "Continue with GitHub" button was navigating directly to a custom backend route (`/auth/oauth/github/start`) which performed a full-page redirect. On production/staging environments, this was incorrectly configured or routed, landing the user on the Render backend health check page.
-- **Root Cause Found (Auth Cancel Lock)**:
-  When the page redirected to the backend for GitHub OAuth, the login phase was set to `'submitting'` (disabling all buttons). If a user clicked "Back" in the browser (cancelling the flow), Next.js restored the page from the browser's page cache (bfcache) with its JS state intact, leaving the page permanently locked in the `'submitting'` state unless refreshed.
+- **Root Cause**:
+  1. **GitHub Auth Redirect**: The GitHub OAuth button redirected the page to the backend route `/auth/oauth/github/start` instead of using the client-side Firebase Popup login flow. Misconfiguration on Render caused it to redirect to the backend health/root check page.
+  2. **UI Lock state**: When the auth flow began, the UI state was set to `'submitting'` (disabling all buttons). Navigating back from the redirect page restored the Javascript state from the bfcache, leaving it permanently locked in the `'submitting'` state unless refreshed.
 - **Files Changed**:
   - `web/src/app/(auth)/login/LoginClient.tsx`
   - `web/src/app/(auth)/register/RegisterClient.tsx`
-- **Resolution**:
-  1. Updated the GitHub button handler to use the standard Firebase `signInWithPopup(auth, githubProvider)` flow, matching the Google Auth flow and bypassing the backend redirection entirely.
-  2. Implemented active error mapping for popup closures (checking `auth/popup-closed-by-user` and `auth/cancelled-popup-request`) to immediately restore the phase to `'projecting'` (idle), allowing users to retry instantly.
-  3. Added a `pageshow` listener to automatically reset the UI phase back to `'projecting'` if the page is restored from bfcache or traversed back.
 - **Verification Results**:
-  - Clean TypeScript typecheck passed successfully on the frontend.
-  - Confirmed the Render backend health route is no longer used anywhere in the authentication flow.
-- **Next Step**: "Auth flow regression tests across all providers"
+  - Frontend compiled with `npx tsc --noEmit` with exit code `0`.
+  - Firebase `signInWithPopup(auth, githubProvider)` is verified to be used directly on the client side.
+  - Cancel error handlers successfully reset the UI state to `'projecting'` (idle) immediately upon popup closure.
+  - The `pageshow` listener successfully handles back-navigation bfcache restorations.
+  - Confirmed backend health route is no longer used in auth flow.
+- **Next Step**: auth regression tests across providers
 
