@@ -21,7 +21,10 @@ def run_services():
         "-m", "uvicorn", "backend.main:app",
         "--host", "0.0.0.0",
         "--port", "8765",
-        "--reload"
+        "--reload",
+        "--reload-exclude", "scratch",
+        "--reload-exclude", "*.py.bak",
+        "--reload-exclude", "*.log"
     ]
     
     # 2. Frontend Command

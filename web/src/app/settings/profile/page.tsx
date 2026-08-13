@@ -43,6 +43,12 @@ export default function ProfileSettingsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [inviteError, setInviteError] = useState<string | null>(null)
 
+  // Plan Code Redemption State
+  const [redemptionCode, setRedemptionCode] = useState('')
+  const [redeeming, setRedeeming] = useState(false)
+  const [redemptionMessage, setRedemptionMessage] = useState<string | null>(null)
+  const [redemptionError, setRedemptionError] = useState<string | null>(null)
+
   useEffect(() => {
     if (user?.name) {
       setName(user.name)
@@ -101,6 +107,27 @@ export default function ProfileSettingsPage() {
     navigator.clipboard.writeText(link)
     setCopiedId(inviteId)
     setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const handleRedeemCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!redemptionCode.trim()) return
+    setRedeeming(true)
+    setRedemptionMessage(null)
+    setRedemptionError(null)
+    try {
+      const res = await api.billing.redeemCode(redemptionCode.trim())
+      setRedemptionMessage(res.message || 'Code successfully redeemed!')
+      setRedemptionCode('')
+      await plan.fetchBillingStatus()
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
+    } catch (err: any) {
+      setRedemptionError(err.message || 'Failed to redeem plan code.')
+    } finally {
+      setRedeeming(false)
+    }
   }
 
   const caps = plan.capabilities
@@ -192,8 +219,14 @@ export default function ProfileSettingsPage() {
             <div className="flex items-center gap-2">
               {caps.is_paid ? (
                 <span className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-600 to-pm-accent text-white text-xs font-extrabold shadow-md flex items-center gap-1.5 uppercase tracking-wider font-mono">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{caps.plan_type === 'dev_team_early_bird' ? 'Dev Team Early Bird (25% OFF)' : caps.plan_type.toUpperCase()}</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>
+                    {caps.plan_type === 'stage_team'
+                      ? 'STAGE Team (Internal)'
+                      : caps.plan_type === 'dev_team_early_bird'
+                      ? 'Dev Team Early Bird (25% OFF)'
+                      : caps.plan_type.toUpperCase()}
+                  </span>
                 </span>
               ) : (
                 <span className="px-3.5 py-1.5 rounded-full bg-pm-surface-2 border border-pm-border text-pm-muted text-xs font-bold font-mono uppercase tracking-wider">
@@ -224,7 +257,7 @@ export default function ProfileSettingsPage() {
                   <span>Developer Seats</span>
                 </span>
                 <span className="font-mono font-extrabold text-pm-text">
-                  {caps.seats_used} / {caps.seats_allowed} seats
+                  {caps.plan_type === 'stage_team' || caps.plan_type === 'enterprise' ? 'Unlimited Seats' : `${caps.seats_used} / ${caps.seats_allowed} seats`}
                 </span>
               </div>
 
@@ -232,12 +265,14 @@ export default function ProfileSettingsPage() {
               <div className="w-full h-2.5 bg-pm-bg rounded-full overflow-hidden border border-pm-border">
                 <div 
                   className="h-full bg-pm-accent transition-all duration-500" 
-                  style={{ width: `${Math.min(100, (caps.seats_used / caps.seats_allowed) * 100)}%` }}
+                  style={{ width: `${caps.plan_type === 'stage_team' || caps.plan_type === 'enterprise' ? 100 : Math.min(100, (caps.seats_used / caps.seats_allowed) * 100)}%` }}
                 />
               </div>
 
               <p className="text-[11px] text-pm-muted">
-                {caps.seats_remaining > 0 
+                {caps.plan_type === 'stage_team' 
+                  ? 'Unlimited internal developer seats available.'
+                  : caps.seats_remaining > 0 
                   ? `${caps.seats_remaining} developer seats remaining in this organization.`
                   : 'All developer seats claimed in your organization.'}
               </p>
@@ -251,7 +286,7 @@ export default function ProfileSettingsPage() {
                   <span>Projects Limit</span>
                 </span>
                 <span className="font-mono font-extrabold text-pm-text">
-                  {caps.projects_used} / {caps.projects_allowed} projects
+                  {caps.plan_type === 'stage_team' || caps.plan_type === 'enterprise' ? 'Unlimited Projects' : `${caps.projects_used} / ${caps.projects_allowed} projects`}
                 </span>
               </div>
 
@@ -259,12 +294,14 @@ export default function ProfileSettingsPage() {
               <div className="w-full h-2.5 bg-pm-bg rounded-full overflow-hidden border border-pm-border">
                 <div 
                   className="h-full bg-pm-accent transition-all duration-500" 
-                  style={{ width: `${Math.min(100, (caps.projects_used / caps.projects_allowed) * 100)}%` }}
+                  style={{ width: `${caps.plan_type === 'stage_team' || caps.plan_type === 'enterprise' ? 100 : Math.min(100, (caps.projects_used / caps.projects_allowed) * 100)}%` }}
                 />
               </div>
 
               <p className="text-[11px] text-pm-muted">
-                {caps.projects_remaining > 0 
+                {caps.plan_type === 'stage_team'
+                  ? 'Unlimited project creation enabled for STAGE Team.'
+                  : caps.projects_remaining > 0 
                   ? `${caps.projects_remaining} project slots remaining in this plan.`
                   : 'Project limit reached for your plan.'}
               </p>
@@ -353,6 +390,47 @@ export default function ProfileSettingsPage() {
               </div>
             )}
           </div>
+        </section>
+
+        {/* Code Redemption Section */}
+        <section className="bg-pm-surface border border-pm-border rounded-3xl p-8 shadow-sm">
+          <div className="mb-6">
+            <h2 className="text-xs font-extrabold text-pm-text/40 uppercase tracking-[0.2em] font-sans mb-1">
+              Redeem Plan Code
+            </h2>
+            <p className="text-xs text-pm-muted">
+              Enter an admin-generated promo or beta redemption code to instantly upgrade your organization plan.
+            </p>
+          </div>
+
+          <form onSubmit={handleRedeemCode} className="space-y-4 max-w-md">
+            {redemptionMessage && (
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 text-xs font-bold">
+                {redemptionMessage}
+              </div>
+            )}
+            {redemptionError && (
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs font-bold">
+                {redemptionError}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <input
+                value={redemptionCode}
+                onChange={(e) => setRedemptionCode(e.target.value)}
+                placeholder="e.g. STAGE-XXXX-XXXX"
+                className="flex-1 bg-pm-bg border border-pm-border hover:border-pm-border-bright rounded-xl px-4 py-3 text-sm text-pm-text focus:outline-none focus:border-pm-accent focus:ring-1 focus:ring-pm-accent/20 shadow-inner transition-all font-mono uppercase"
+              />
+              <button
+                type="submit"
+                disabled={redeeming || !redemptionCode.trim()}
+                className="px-6 bg-pm-accent hover:bg-pm-accent-bright disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md transition-all active:scale-[0.98] cursor-pointer"
+              >
+                {redeeming ? 'Redeeming...' : 'Redeem'}
+              </button>
+            </div>
+          </form>
         </section>
 
         {/* 3. Team Invites Management (Billing Owner / Admin / Paid Users) */}

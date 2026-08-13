@@ -8,12 +8,14 @@ import { useDOMEditStore } from '@/store/domEditStore'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Loader2, ArrowLeft, Monitor, Pin, Plus, X, Check,
+  ArrowLeft, Monitor, Pin, Plus, X, Check,
   AlertTriangle, ChevronDown, MousePointer2, Layers,
   Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil, Share2, Minimize2, Maximize2
 } from 'lucide-react'
+import { StageSpinner, StageLoader } from '@/components/ui/StageLoader'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
-import { api } from '@/lib/api'
+import { api, getApiBaseUrl } from '@/lib/api'
+import { getProxyPageUrl } from '@/utils/proxyRoutes'
 import { cn } from '@/lib/utils'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
 import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist'
@@ -320,12 +322,28 @@ export function AuditSurface({
   domEditAvailable = false
 }: AuditSurfaceProps) {
   const { canUseBlueprintDomEdit } = usePlan()
+  const addToast = useUIStore(s => s.addToast)
+  const API_BASE = getApiBaseUrl()
+  const [initialProxyUrl, setInitialProxyUrl] = useState<string | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const isDraggingExitFocusRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const containerRectRef = useRef<DOMRect | null>(null)
-  const [iframeReady, setIframeReady] = useState(false)
+  const lastOverlayEmitRef = useRef(0)
+  type ReadinessState = 'idle' | 'document-loading' | 'document-loaded' | 'agent-ready' | 'site-ready' | 'degraded-ready' | 'failed'
+  const [readinessState, setReadinessState] = useState<ReadinessState>(() => {
+    if (typeof window !== 'undefined' && sessionId) {
+      if (sessionStorage.getItem(`stage_session_ready_${sessionId}`) === 'true') {
+        return 'site-ready'
+      }
+    }
+    return 'idle'
+  })
+
+  const iframeReady = readinessState !== 'idle' && readinessState !== 'document-loading'
+  const siteReady = readinessState === 'site-ready' || readinessState === 'degraded-ready'
+  const [isHeavyMode, setIsHeavyMode] = useState(false)
 
   const screenshotMode = useScreenshotStore(state => state.screenshotMode)
   const screenshotPermission = useScreenshotStore(state => state.screenshotPermission)
@@ -345,12 +363,37 @@ export function AuditSurface({
   const [currentTitle, setCurrentTitle] = useState('')
   const [rendererType, setRendererType] = useState('dom')
   const [pageHistory, setPageHistory] = useState<{ url: string; title: string; rendererType: string }[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const isLoading = readinessState !== 'site-ready' && readinessState !== 'degraded-ready' && readinessState !== 'failed'
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [failedAssets, setFailedAssets] = useState<{ url: string; critical: boolean }[]>([])
   const [degradedAssets, setDegradedAssets] = useState<{ url: string; tagName: string }[]>([])
   const [bootTimeout, setBootTimeout] = useState(false)
   const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+
+  useEffect(() => {
+    if (readinessState === 'site-ready' || readinessState === 'degraded-ready') {
+      useSessionStore.getState().setSiteReady(true)
+      if (sessionId) {
+        sessionStorage.setItem(`stage_session_ready_${sessionId}`, 'true')
+      }
+    }
+  }, [readinessState, sessionId])
+
+  // Safety timeout for loading state
+  useEffect(() => {
+    if (readinessState !== 'site-ready' && readinessState !== 'degraded-ready' && readinessState !== 'failed' && readinessState !== 'idle') {
+      const timer = setTimeout(() => {
+        if (readinessState === 'agent-ready' || readinessState === 'document-loaded') {
+          console.warn('[STAGE] Safety timeout reached — transitioning to degraded-ready')
+          setReadinessState('degraded-ready')
+        } else {
+          console.error('[STAGE] Safety timeout reached — transitioning to failed')
+          setReadinessState('failed')
+        }
+      }, 10000)
+      return () => clearTimeout(timer)
+    }
+  }, [readinessState])
 
   useEffect(() => {
     const handleGlobalMessage = (e: MessageEvent) => {
@@ -959,6 +1002,7 @@ export function AuditSurface({
         if (session && session.current_page_url) {
           console.log('[AuditSurface Init] Initializing currentUrl from session:', session.current_page_url)
           setCurrentUrl(session.current_page_url)
+          setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, session.current_page_url, shareToken))
           return
         }
 
@@ -970,6 +1014,7 @@ export function AuditSurface({
           const sorted = [...visits].sort((a, b) => (a.page_order || 0) - (b.page_order || 0))
           console.log('[AuditSurface Init] Initializing currentUrl from visits:', sorted[0].page_url)
           setCurrentUrl(sorted[0].page_url)
+          setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, sorted[0].page_url, shareToken))
           return
         }
 
@@ -977,16 +1022,23 @@ export function AuditSurface({
         if (initialUrl) {
           console.log('[AuditSurface Init] Initializing currentUrl from initialUrl prop:', initialUrl)
           setCurrentUrl(initialUrl)
+          setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, initialUrl, shareToken))
         } else if (projectId) {
           const project = await api.projects.get(projectId)
           if (!active) return
           if (project && project.url) {
             console.log('[AuditSurface Init] Initializing currentUrl from project:', project.url)
             setCurrentUrl(project.url)
+            setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, project.url, shareToken))
+          } else {
+            setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, null, shareToken))
           }
+        } else {
+          setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, null, shareToken))
         }
       } catch (err) {
         console.error('[AuditSurface Init] Failed to resolve initial url:', err)
+        setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, null, shareToken))
       }
     }
 
@@ -995,19 +1047,20 @@ export function AuditSurface({
     return () => {
       active = false
     }
-  }, [sessionId, projectId])
+  }, [sessionId, projectId, shareToken, API_BASE])
 
   // Removed legacy hydration useEffect since useMarkerStore.loadSessionMarkers handles this canonical list
 
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
-  const proxyUrl = `${API_BASE}/proxy/session/${sessionId}${shareToken ? `?share_token=${shareToken}` : ''}`
+  // proxyUrl is null until loadInitialUrl resolves — never falls back to ''
+  // so the iframe is never mounted with src="" or src="/proxy/session/{id}"
+  const proxyUrl: string | null = initialProxyUrl
 
   const handleSelectPage = useCallback((url: string) => {
-    setIsLoading(true)
+    setReadinessState('document-loading')
     setFailedAssets([])
     if (iframeRef.current) {
-      const shareParam = shareToken ? `&share_token=${shareToken}` : ''
-      iframeRef.current.src = `${API_BASE}/proxy/session/${sessionId}/page?url=${encodeURIComponent(url)}${shareParam}`
+      const newSrc = getProxyPageUrl(API_BASE, sessionId, url, shareToken)
+      if (newSrc) iframeRef.current.src = newSrc
     }
   }, [sessionId, shareToken, API_BASE])
 
@@ -1257,7 +1310,12 @@ export function AuditSurface({
           setScrollPos({ x: data.scrollX || 0, y: data.scrollY || 0 })
           setRendererType(data.rendererType || 'dom')
           useSessionStore.getState().setRendererType(data.rendererType || 'dom')
-          setIsLoading(false)
+          setReadinessState(current => {
+            if (current === 'document-loaded' || current === 'document-loading' || current === 'idle') {
+              return 'agent-ready'
+            }
+            return current
+          })
           setPageHistory(prev => {
             if (prev.length > 0 && prev[prev.length - 1].url === data.url) return prev
             return [...prev, { url: data.url, title: data.title || '', rendererType: data.rendererType || 'dom' }]
@@ -1299,6 +1357,12 @@ export function AuditSurface({
           useSessionStore.getState().setRendererType(rType);
           setRendererType(rType);
 
+          // Read heavy_mode flag from agent
+          if (data.heavy_mode !== undefined) {
+            setIsHeavyMode(!!data.heavy_mode);
+            useSessionStore.getState().setHeavyMode(!!data.heavy_mode);
+          }
+
           // Resize event injection after 1000ms delay in heavy mode
           if (rType !== 'dom') {
             setTimeout(() => {
@@ -1325,6 +1389,20 @@ export function AuditSurface({
           break
         }
 
+        case 'STAGE_SITE_READY': {
+          setReadinessState('site-ready')
+          if (data.heavy_mode !== undefined) {
+            setIsHeavyMode(!!data.heavy_mode);
+          }
+          break;
+        }
+
+        case 'STAGE_WEBGL_FAILED': {
+          console.warn('[AuditSurface] WebGL context creation failed in proxied site. 3D layers may be degraded.')
+          addToast('WebGL rendering is unavailable on this site. 3D elements may appear static.', 'info')
+          break;
+        }
+
         case 'STAGE_NAV':
           try {
             api.sessions.recordVisit(
@@ -1338,6 +1416,17 @@ export function AuditSurface({
             }).catch(err => {
               console.error('[AuditSurface] Background page visit recording failed:', err)
             })
+
+            // For non-SPA navigations (full page links), reload the iframe through the proxy.
+            // For SPA pushState-style nav (is_spa=true), the iframe already loaded the new content
+            // via history.pushState so only update URL/title state.
+            if (!data.is_spa && !data.isspa) {
+              setReadinessState('document-loading')
+              if (iframeRef.current) {
+                const newSrc = getProxyPageUrl(API_BASE, sessionId, data.page_url, shareToken)
+                if (newSrc) iframeRef.current.src = newSrc
+              }
+            }
 
             setCurrentUrl(data.page_url)
             if (data.page_title) {
@@ -1354,8 +1443,7 @@ export function AuditSurface({
           break
 
         case 'STAGE_PAGE_UNLOAD':
-          setIsLoading(true)
-          setIframeReady(false)
+          setReadinessState('document-loading')
           setFailedAssets([])
           setScrollPos({ x: 0, y: 0 })
           break
@@ -1828,14 +1916,15 @@ export function AuditSurface({
   // ─── Page back navigation ─────────────────────────────────────────────────
   const handleGoBack = () => {
     if (pageHistory.length <= 1) return
-    setIsLoading(true)
+    setReadinessState('document-loading')
     setFailedAssets([])
     const newHistory = [...pageHistory]
     newHistory.pop()
     const prevPage = newHistory[newHistory.length - 1]
     setPageHistory(newHistory)
     if (iframeRef.current) {
-      iframeRef.current.src = `${API_BASE}/proxy/session/${sessionId}/page?url=${encodeURIComponent(prevPage.url)}`
+      const newSrc = getProxyPageUrl(API_BASE, sessionId, prevPage.url, shareToken)
+      if (newSrc) iframeRef.current.src = newSrc
     }
   }
 
@@ -1920,14 +2009,16 @@ export function AuditSurface({
       tooltipRef.current.style.transform = `translate3d(${localX + 14}px, ${localY + 14}px, 0)`
     }
 
-    // Relay cursor position to iframe so cursor-reactive effects (spotlight,
-    // WebGL mouse-follow, canvas trails) keep working while the overlay is
-    // intercepting pointer events in feedback / manual-placement mode.
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        { type: 'STAGE_CURSOR_MOVE', x: localX, y: localY },
-        '*'
-      )
+    // Relay cursor position to iframe, throttled to 30ms to avoid event storms
+    const now = Date.now()
+    if (now - lastOverlayEmitRef.current >= 30) {
+      lastOverlayEmitRef.current = now
+      if (iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(
+          { type: 'STAGE_CURSOR_MOVE', x: localX, y: localY },
+          '*'
+        )
+      }
     }
   }
 
@@ -2418,19 +2509,35 @@ export function AuditSurface({
               : ""
           )}
         >
-          <iframe
-            ref={iframeRef}
-            src={proxyUrl}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-            allow="accelerometer; autoplay; xr-spatial-tracking; clipboard-read; clipboard-write"
-            className="ph-no-capture"
-            style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', pointerEvents: 'auto', display: 'block' }}
-            onLoad={() => {
-              setIsLoading(false)
-              setIframeReady(true)
-            }}
-            title="Proxied review site"
-          />
+          {/* Only mount the iframe once a valid proxy URL with ?url= is available.
+              Never render <iframe src=""> — React will warn and the browser will
+              navigate the parent frame to the current page URL. */}
+          {proxyUrl ? (
+            <iframe
+              ref={iframeRef}
+              src={proxyUrl}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+              allow="accelerometer; autoplay; xr-spatial-tracking; clipboard-read; clipboard-write"
+              className="ph-no-capture"
+              style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', pointerEvents: 'auto', display: 'block' }}
+              onLoad={() => {
+                setReadinessState(current => {
+                  if (current === 'document-loading' || current === 'idle') {
+                    return 'document-loaded'
+                  }
+                  return current
+                })
+              }}
+              title="Proxied review site"
+            />
+          ) : (
+            // Stable placeholder that reserves layout space while the proxy URL resolves.
+            // Fixed dimensions prevent CLS; bg matches the dark surface.
+            <div
+              style={{ width: '100%', height: '100%', minHeight: '100%', background: '#0a0a0f', display: 'block' }}
+              aria-label="Loading review session…"
+            />
+          )}
 
           {/* Subtle non-critical asset failure warning banner */}
           {failedAssets.length > 0 && !failedAssets.some(a => a.critical) && (
@@ -2448,8 +2555,7 @@ export function AuditSurface({
                 <button
                   onClick={() => {
                     setFailedAssets([])
-                    setIsLoading(true)
-                    setIframeReady(false)
+                    setReadinessState('document-loading')
                     if (iframeRef.current) {
                       iframeRef.current.src = iframeRef.current.src
                     }
@@ -2461,7 +2567,7 @@ export function AuditSurface({
                 <button
                   onClick={() => {
                     setFailedAssets([])
-                    setIsLoading(true)
+                    setReadinessState('document-loading')
                     if (iframeRef.current) {
                       const currentSrc = new URL(iframeRef.current.src)
                       currentSrc.searchParams.set("snapshot_mode", "true")
@@ -2495,7 +2601,7 @@ export function AuditSurface({
                 <button
                   onClick={() => {
                     setFailedAssets([])
-                    setIsLoading(true)
+                    setReadinessState('document-loading')
                     if (iframeRef.current) {
                       iframeRef.current.src = iframeRef.current.src
                     }
@@ -2507,7 +2613,7 @@ export function AuditSurface({
                 <button
                   onClick={() => {
                     setFailedAssets([])
-                    setIsLoading(true)
+                    setReadinessState('document-loading')
                     if (iframeRef.current) {
                       const currentSrc = new URL(iframeRef.current.src)
                       currentSrc.searchParams.set("snapshot_mode", "true")
@@ -2607,21 +2713,39 @@ export function AuditSurface({
             }}
           />
 
-          {/* ── Loading overlay ─────────────────────────────────────────── */}
+          {/* ── STAGE Unified Activation Loader ──────────────────────── */}
           {isLoading && (
-            <div className="absolute inset-0 bg-[#0a0a0f]/80 backdrop-blur-md flex flex-col items-center justify-center z-48">
-              <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Loading page…</p>
+            <div className="absolute inset-0 bg-[#05050d]/95 backdrop-blur-xl flex flex-col items-center justify-center z-49 select-none animate-in fade-in duration-200">
+              <StageLoader />
+              {/* Label */}
+              <p className="text-[11px] font-black uppercase tracking-[0.35em] text-white/95 mt-8 mb-2">Preparing Review Workspace</p>
+              <p className="text-[9px] font-medium uppercase tracking-widest text-white/40 h-4">
+                {readinessState === 'document-loading' && 'Resolving proxy secure connection…'}
+                {readinessState === 'document-loaded' && 'HTML received. Initializing reviewer tools…'}
+                {readinessState === 'agent-ready' && 'Stabilizing dynamic layout surfaces…'}
+                {readinessState === 'idle' && 'Initializing session…'}
+              </p>
+              {/* Subtle progress bar */}
+              <div className="mt-8 w-48 h-[2px] rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-purple-500 to-fuchsia-500 transition-all duration-300"
+                  style={{
+                    width: readinessState === 'document-loading' ? '30%' :
+                           readinessState === 'document-loaded' ? '60%' :
+                           readinessState === 'agent-ready' ? '90%' : '10%'
+                  }}
+                />
+              </div>
             </div>
           )}
 
           {/* ── Failure Recovery Overlay ─────────────────────────────── */}
-          {(isStalled || bootTimeout) && (
+          {readinessState === 'failed' && (
             <div className="absolute inset-0 bg-[#0a0a0f]/95 backdrop-blur-md flex flex-col items-center justify-center z-50 p-8 text-center select-text animate-in fade-in">
               <AlertTriangle className="w-12 h-12 text-amber-500 mb-4 animate-bounce" />
               <h3 className="text-white text-base font-black uppercase tracking-wider mb-2">Session Load Failed</h3>
               <p className="text-white/40 text-[10px] max-w-md leading-relaxed mb-6 uppercase tracking-wider">
-                The proxied review site is taking longer than expected to load or a critical error occurred. You can retry the proxy, use a static snapshot, or open the original site.
+                The proxied review site is taking longer than expected to load or a critical connection error occurred. You can retry the proxy, use a static snapshot, or open the original site.
               </p>
               
               {/* Failed Network Assets */}
@@ -2641,9 +2765,8 @@ export function AuditSurface({
               <div className="flex gap-4 flex-wrap justify-center">
                 <button
                   onClick={() => {
-                    setIsLoading(true);
-                    setIsStalled(false);
-                    setBootTimeout(false);
+                    setFailedAssets([])
+                    setReadinessState('document-loading')
                     if (iframeRef.current) {
                       iframeRef.current.src = iframeRef.current.src; // Reload
                     }
@@ -2654,9 +2777,8 @@ export function AuditSurface({
                 </button>
                 <button
                   onClick={() => {
-                    setIsLoading(false);
-                    setIsStalled(false);
-                    setBootTimeout(false);
+                    setFailedAssets([])
+                    setReadinessState('document-loading')
                     if (iframeRef.current) {
                       const currentSrc = new URL(iframeRef.current.src);
                       currentSrc.searchParams.set("snapshot_mode", "true");
@@ -2828,7 +2950,7 @@ export function AuditSurface({
           )}
 
           {/* Unstable Frame Rate Detected floating alert */}
-          {fps !== null && fps < 20 && rendererType !== 'dom' && (
+          {fps !== null && fps < 20 && ['webgl', 'webgl2', 'canvas2d', 'mixed'].includes(rendererType) && (
             isFrameAlertCollapsed ? (
               <motion.button
                 drag
@@ -2863,7 +2985,7 @@ export function AuditSurface({
                   </button>
                   <button
                     onClick={() => {
-                      setIsLoading(true)
+                      setReadinessState('document-loading')
                       if (iframeRef.current) {
                         const currentSrc = new URL(iframeRef.current.src)
                         currentSrc.searchParams.set("snapshot_mode", "true")
@@ -2896,7 +3018,7 @@ export function AuditSurface({
         className={cn(
           "bg-[#0d0d14] flex flex-col z-[2147483647] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] absolute",
           // Mobile bottom sheet structure
-          "bottom-0 left-0 right-0 w-full h-[60dvh] max-h-[60dvh] rounded-t-[32px] border-t border-white/5",
+          "bottom-0 left-0 right-0 w-full h-[60dvh] max-h-[60dvh] rounded-t-[32px] border-t border-slate-200 dark:border-white/5",
           // Desktop/Tablet side panel
           "md:top-0 md:bottom-0 md:right-0 md:left-auto md:w-96 md:h-full md:rounded-t-none md:border-l md:border-t-0",
           isDrawerOpen
@@ -2906,27 +3028,27 @@ export function AuditSurface({
       >
 
         {/* Drawer header */}
-        <div className="p-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
+        <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
               <Pin className="w-4 h-4 text-purple-400" />
             </div>
             <div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-white">
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">
                 {isSubmitted ? 'Feedback Item' : isResolved ? 'Fixed Feedback ✓' : 'Leave Feedback'}
               </h3>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={cn(
                   "px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest text-[7px]",
-                  isResolved ? "bg-green-500/10 border border-green-500/20 text-green-400" :
-                  isSubmitted ? "bg-teal-500/10 border border-teal-500/20 text-teal-400" :
-                  isFailed ? "bg-rose-500/10 border border-rose-500/20 text-rose-400" :
-                  "bg-purple-500/10 border border-purple-500/20 text-purple-400"
+                  isResolved ? "bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400" :
+                  isSubmitted ? "bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400" :
+                  isFailed ? "bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400" :
+                  "bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-400"
                 )}>
                   {activeMarker?.status || 'draft'}
                 </span>
                 {activeMarker?.id && (
-                  <span className="font-mono text-[7px] text-white/30">
+                  <span className="font-mono text-[7px] text-slate-500 dark:text-white/30">
                     ID: {activeMarker.id}
                   </span>
                 )}
@@ -2936,7 +3058,7 @@ export function AuditSurface({
           <button
             onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null); setManualPlacementMode(false); setFeedbackModeActive(false) }}
             aria-label="Close feedback drawer"
-            className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            className="p-1.5 rounded-lg text-slate-400 dark:text-white/30 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none"
           >
             <X className="w-4 h-4" />
           </button>
@@ -2947,18 +3069,18 @@ export function AuditSurface({
             <div className="p-5 flex flex-col gap-5 flex-1">
 
             {/* ── Collapsible Panel: Screenshot (Phase 3.5 Upgrade) ─── */}
-            <div className="border-b border-white/5 pb-2">
+            <div className="border-b border-slate-200 dark:border-white/5 pb-2">
               <button
                 type="button"
                 onClick={() => setScreenshotPanelExpanded(p => !p)}
-                className="w-full flex items-center justify-between py-2 text-left hover:text-white transition-all focus:outline-none"
+                className="w-full flex items-center justify-between py-2 text-left hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
               >
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Screenshot Evidence</span>
-                <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", screenshotPanelExpanded ? "rotate-180" : "")} />
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50">Screenshot Evidence</span>
+                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", screenshotPanelExpanded ? "rotate-180" : "")} />
               </button>
               {screenshotPanelExpanded && (
                 <div className="mt-2.5">
-                  <div className="flex items-center gap-2 mb-3 bg-white/5 p-1 rounded-xl w-fit">
+                  <div className="flex items-center gap-2 mb-3 bg-slate-100 dark:bg-white/5 p-1 rounded-xl w-fit">
                     {(['element', 'fullpage', 'region'] as const).map(mode => (
                       <button
                         key={mode}
@@ -2968,7 +3090,7 @@ export function AuditSurface({
                           "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
                           screenshotMode === mode
                             ? "bg-purple-600 text-white"
-                            : "text-white/40 hover:text-white/70 hover:bg-white/10"
+                            : "text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white/70 hover:bg-slate-200 dark:hover:bg-white/10"
                         )}
                       >
                         {mode === 'element' ? 'Elem (E)' : mode === 'fullpage' ? 'Full (F)' : 'Region (R)'}
@@ -2979,7 +3101,7 @@ export function AuditSurface({
                     if (pendingRegionCaptureId === activeMarker?.id) {
                       return (
                         <div className="flex flex-col items-center justify-center p-6 bg-purple-500/5 border border-purple-500/20 rounded-2xl gap-2 min-h-[120px]">
-                          <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+                          <StageSpinner size={20} variant="accent" />
                           <span className="text-[9px] font-black uppercase tracking-widest text-purple-400">Select a region to capture</span>
                         </div>
                       )
@@ -2993,9 +3115,9 @@ export function AuditSurface({
                       const hasLoadError = imgErrorId === (activeMarker?.id || 'current')
                       if (hasLoadError) {
                         return (
-                          <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-2xl min-h-[120px] gap-2">
+                          <div className="flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] rounded-2xl min-h-[120px] gap-2">
                             <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Failed to load screenshot</span>
-                            <span className="text-[8.5px] text-white/30 font-mono">Image load crashed</span>
+                            <span className="text-[8.5px] text-slate-400 dark:text-white/30 font-mono">Image load crashed</span>
                           </div>
                         )
                       }
@@ -3003,12 +3125,12 @@ export function AuditSurface({
                         <div className="space-y-2">
                           <div className="flex justify-between items-center px-1 mb-2">
                             <div className="flex items-center gap-2">
-                              <span className="text-[8px] font-black uppercase tracking-widest text-white/40">
+                              <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40">
                                 {needsRecaptureMap.current[activeMarker?.id || ''] ? '⚠️ Position changed' : 'Image Preview'}
                               </span>
                               {isRecapturing[activeMarker?.id || ''] && (
-                                <span className="flex items-center gap-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1.5 py-0.5 rounded text-[8px] font-mono animate-pulse">
-                                  <Loader2 className="w-2 h-2 animate-spin" />
+                                <span className="flex items-center gap-1.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1.5 py-0.5 rounded text-[8px] font-mono animate-pulse">
+                                  <StageSpinner size={8} variant="accent" />
                                   Updating screenshot…
                                 </span>
                               )}
@@ -3021,7 +3143,7 @@ export function AuditSurface({
                                   "flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
                                   needsRecaptureMap.current[activeMarker?.id || '']
                                     ? "bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20 animate-pulse"
-                                    : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                                    : "bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white"
                                 )}
                                 title="Retake Screenshot"
                               >
@@ -3034,7 +3156,7 @@ export function AuditSurface({
                                   "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
                                   isDrawingModeActive
                                     ? "bg-purple-600/20 text-purple-400 border border-purple-500/30"
-                                    : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                                    : "bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white"
                                 )}
                               >
                                 <Pencil className="w-3 h-3" />
@@ -3053,7 +3175,7 @@ export function AuditSurface({
                               }}
                             />
                           ) : (
-                            <div className="relative rounded-xl overflow-hidden border border-white/10">
+                            <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-white/10">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={annotatedScreenshotUrl || screenshotUrl}
@@ -3065,7 +3187,7 @@ export function AuditSurface({
                             </div>
                           )}
 
-                          <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-white/30 px-1">
+                          <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 px-1">
                             <span>Page snapshot at capture time</span>
                             <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded text-[7px] font-mono">
                               Source: {source}
@@ -3075,15 +3197,15 @@ export function AuditSurface({
                       )
                     } else if (isScreenshotPending) {
                       return (
-                        <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-2xl gap-2 min-h-[120px]">
-                          <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Generating screenshot...</span>
+                        <div className="flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] rounded-2xl gap-2 min-h-[120px]">
+                          <StageSpinner size={20} variant="accent" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40">Generating screenshot...</span>
                         </div>
                       )
                     } else {
                       return (
-                        <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-2xl min-h-[100px] gap-3">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-white/30">Screenshot unavailable</span>
+                        <div className="flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] rounded-2xl min-h-[100px] gap-3">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30">Screenshot unavailable</span>
                           {screenshotPermission !== 'granted' && (
                             <button
                               type="button"
@@ -3104,14 +3226,14 @@ export function AuditSurface({
             </div>
 
             {/* ── Collapsible Panel: DOM Snapshot (Phase 3.5 Upgrade) ── */}
-            <div className="border-b border-white/5 pb-2">
+            <div className="border-b border-slate-200 dark:border-white/5 pb-2">
               <button
                 type="button"
                 onClick={() => setDomPanelExpanded(p => !p)}
-                className="w-full flex items-center justify-between py-2 text-left hover:text-white transition-all focus:outline-none"
+                className="w-full flex items-center justify-between py-2 text-left hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
               >
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/50">DOM Snapshot</span>
-                <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", domPanelExpanded ? "rotate-180" : "")} />
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50">DOM Snapshot</span>
+                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", domPanelExpanded ? "rotate-180" : "")} />
               </button>
               {domPanelExpanded && (
                 <div className="mt-2.5 space-y-3">
@@ -3153,7 +3275,7 @@ export function AuditSurface({
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
                             <span className="font-mono text-[10px] text-purple-300 bg-purple-900/20 px-2 py-0.5 rounded-md font-bold">&lt;{tag.toLowerCase()}&gt;</span>
-                            {elemId && <span className="font-mono text-[9px] text-white/40">#{elemId}</span>}
+                            {elemId && <span className="font-mono text-[9px] text-slate-500 dark:text-white/40">#{elemId}</span>}
                           </div>
                           {selector && (
                             <code className="text-[9px] text-emerald-400 font-mono block break-all leading-normal">{selector}</code>
@@ -3162,53 +3284,53 @@ export function AuditSurface({
 
                         {/* innerText preview */}
                         {innerText && (
-                          <div className="text-[10px] text-white/60 bg-white/[0.01] border border-white/[0.04] p-2.5 rounded-xl leading-relaxed italic">
+                          <div className="text-[10px] text-slate-700 dark:text-white/60 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-2.5 rounded-xl leading-relaxed italic">
                             "{innerText.slice(0, 120)}{innerText.length > 120 ? '...' : ''}"
                           </div>
                         )}
 
                         {/* Computed Styles */}
                         <div className="space-y-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/25 block">Computed Styles</span>
+                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/25 block">Computed Styles</span>
                           {stylesToDisplay.length > 0 ? (
-                            <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono bg-white/[0.01] border border-white/[0.04] p-2 rounded-xl">
+                            <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-2 rounded-xl">
                               {stylesToDisplay.map((s, idx) => (
-                                <div key={idx} className="flex justify-between border-b border-white/[0.03] pb-1">
-                                  <span className="text-white/40">{s.label}:</span>
+                                <div key={idx} className="flex justify-between border-b border-slate-100 dark:border-white/[0.03] pb-1">
+                                  <span className="text-slate-500 dark:text-white/40">{s.label}:</span>
                                   <span className="text-purple-300 font-bold truncate max-w-[100px]">{s.value}</span>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-[9px] text-white/30 italic pl-1">No computed styles available</span>
+                            <span className="text-[9px] text-slate-400 dark:text-white/30 italic pl-1">No computed styles available</span>
                           )}
                         </div>
 
                         {/* Ancestor chain breadcrumb */}
                         <div className="space-y-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/20 block">Ancestor Breadcrumb</span>
-                          <div className="text-[9px] font-mono text-white/60 bg-white/[0.01] border border-white/[0.04] p-2 rounded-xl break-all">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/20 block">Ancestor Breadcrumb</span>
+                          <div className="text-[9px] font-mono text-slate-700 dark:text-white/60 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-2 rounded-xl break-all">
                             {breadcrumb}
                           </div>
                         </div>
 
                         {/* Bounding Box */}
                         {bbox && (
-                          <div className="text-[9px] font-mono text-white/40 pl-1">
+                          <div className="text-[9px] font-mono text-slate-500 dark:text-white/40 pl-1">
                             Bounds: {Math.round(bbox.width || 0)}×{Math.round(bbox.height || 0)} px @ ({Math.round(bbox.left || bbox.x || 0)}, {Math.round(bbox.top || bbox.y || 0)})
                           </div>
                         )}
 
                         {/* Collapsible innerHTML */}
                         {innerHTML && (
-                          <div className="border border-white/5 rounded-xl overflow-hidden mt-2">
+                          <div className="border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden mt-2">
                             <button
                               type="button"
                               onClick={() => setInnerHTMLPanelExpanded(p => !p)}
-                              className="w-full flex items-center justify-between px-3 py-1.5 bg-white/[0.02] hover:bg-white/[0.04] text-[9px] font-bold uppercase tracking-wider text-white/40 focus:outline-none"
+                              className="w-full flex items-center justify-between px-3 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-white/[0.02] dark:hover:bg-white/[0.04] text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 focus:outline-none"
                             >
                               <span>View innerHTML</span>
-                              <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", innerHTMLPanelExpanded ? "rotate-180" : "")} />
+                              <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", innerHTMLPanelExpanded ? "rotate-180" : "")} />
                             </button>
                             {innerHTMLPanelExpanded && (
                               <div className="p-3 bg-black/40 text-[9px] font-mono text-emerald-400 break-all whitespace-pre-wrap max-h-48 overflow-y-auto">
@@ -3232,19 +3354,19 @@ export function AuditSurface({
 
               if (!isCanvasRenderer) return null
               return (
-                <div className="border-b border-white/5 pb-2">
+                <div className="border-b border-slate-200 dark:border-white/5 pb-2">
                   <button
                     type="button"
                     onClick={() => setCanvasPanelExpanded(p => !p)}
-                    className="w-full flex items-center justify-between py-2 text-left hover:text-white transition-all focus:outline-none"
+                    className="w-full flex items-center justify-between py-2 text-left hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
                   >
-                    <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Canvas & WebGL Details</span>
-                    <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", canvasPanelExpanded ? "rotate-180" : "")} />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50">Canvas & WebGL Details</span>
+                    <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", canvasPanelExpanded ? "rotate-180" : "")} />
                   </button>
                   {canvasPanelExpanded && (
-                    <div className="mt-2.5 space-y-2.5 bg-white/[0.01] border border-white/[0.04] p-3 rounded-2xl">
+                    <div className="mt-2.5 space-y-2.5 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-3 rounded-2xl">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-white/40">Context Type:</span>
+                        <span className="text-[10px] text-slate-500 dark:text-white/40">Context Type:</span>
                         <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase">
                           {canvasDom?.activeContextType || canvasCtx?.type || 'unknown'}
                         </span>
@@ -3258,32 +3380,32 @@ export function AuditSurface({
                       
                       {canvasDom?.boundingBox && (
                         <div className="flex justify-between">
-                          <span className="text-[10px] text-white/40">CSS Rect Size:</span>
-                          <span className="text-[10px] font-mono text-white/70">
+                          <span className="text-[10px] text-slate-500 dark:text-white/40">CSS Rect Size:</span>
+                          <span className="text-[10px] font-mono text-slate-700 dark:text-white/70">
                             {Math.round(canvasDom.boundingBox.width)}×{Math.round(canvasDom.boundingBox.height)} px
                           </span>
                         </div>
                       )}
 
                       {canvasCtx?.hit_detail && (
-                        <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/25 block">Three.js Intersect Hit</span>
+                        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-white/5 space-y-1">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/25 block">Three.js Intersect Hit</span>
                           {canvasCtx.hit_detail.object_name && (
                             <div className="flex justify-between text-[9px]">
-                              <span className="text-white/40">Object Name:</span>
+                              <span className="text-slate-500 dark:text-white/40">Object Name:</span>
                               <span className="font-mono text-purple-300">{canvasCtx.hit_detail.object_name}</span>
                             </div>
                           )}
                           {canvasCtx.hit_detail.object_type && (
                             <div className="flex justify-between text-[9px]">
-                              <span className="text-white/40">Object Type:</span>
-                              <span className="font-mono text-white/70">{canvasCtx.hit_detail.object_type}</span>
+                              <span className="text-slate-500 dark:text-white/40">Object Type:</span>
+                              <span className="font-mono text-slate-700 dark:text-white/70">{canvasCtx.hit_detail.object_type}</span>
                             </div>
                           )}
                           {canvasCtx.hit_detail.distance !== undefined && (
                             <div className="flex justify-between text-[9px]">
-                              <span className="text-white/40">Distance:</span>
-                              <span className="font-mono text-white/70">{Number(canvasCtx.hit_detail.distance).toFixed(2)}</span>
+                              <span className="text-slate-500 dark:text-white/40">Distance:</span>
+                              <span className="font-mono text-slate-700 dark:text-white/70">{Number(canvasCtx.hit_detail.distance).toFixed(2)}</span>
                             </div>
                           )}
                         </div>
@@ -3295,14 +3417,14 @@ export function AuditSurface({
             })()}
 
             {/* ── Collapsible Panel: Diagnostics (Phase 3.5 Upgrade) ─── */}
-            <div className="border-b border-white/5 pb-2">
+            <div className="border-b border-slate-200 dark:border-white/5 pb-2">
               <button
                 type="button"
                 onClick={() => setDiagnosticsPanelExpanded(p => !p)}
-                className="w-full flex items-center justify-between py-2 text-left hover:text-white transition-all focus:outline-none"
+                className="w-full flex items-center justify-between py-2 text-left hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
               >
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Diagnostics & Logs</span>
-                <ChevronDown className={cn("w-3.5 h-3.5 text-white/30 transition-transform", diagnosticsPanelExpanded ? "rotate-180" : "")} />
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50">Diagnostics & Logs</span>
+                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", diagnosticsPanelExpanded ? "rotate-180" : "")} />
               </button>
               {diagnosticsPanelExpanded && (
                 <div className="mt-2.5 space-y-3">
@@ -3311,15 +3433,15 @@ export function AuditSurface({
                     const browserInfo = activeMarker?.browser || captureCtx?.browser_info
                     if (!browserInfo) return null
                     return (
-                      <div className="bg-white/[0.01] border border-white/[0.04] p-2.5 rounded-xl text-[10px] space-y-1">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white/20 block">Browser environment</span>
+                      <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-2.5 rounded-xl text-[10px] space-y-1">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/20 block">Browser environment</span>
                         <div className="flex justify-between">
-                          <span className="text-white/40">Browser:</span>
-                          <span className="text-white/70">{browserInfo.name || 'Unknown'} {browserInfo.version || ''}</span>
+                          <span className="text-slate-500 dark:text-white/40">Browser:</span>
+                          <span className="text-slate-700 dark:text-white/70">{browserInfo.name || 'Unknown'} {browserInfo.version || ''}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-white/40">OS:</span>
-                          <span className="text-white/70">{browserInfo.os || 'Unknown'}</span>
+                          <span className="text-slate-500 dark:text-white/40">OS:</span>
+                          <span className="text-slate-700 dark:text-white/70">{browserInfo.os || 'Unknown'}</span>
                         </div>
                       </div>
                     )
@@ -3354,7 +3476,7 @@ export function AuditSurface({
 
             {/* ── Issue Title ─────────────────────────────────────────── */}
             <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">
                 Issue Title <span className="text-purple-400">*</span>
               </label>
               <input
@@ -3364,13 +3486,13 @@ export function AuditSurface({
                 placeholder="e.g. Navigation overlaps logo, Button hover broken"
                 value={issueTitle}
                 onChange={(e) => setIssueTitle(e.target.value)}
-                className="w-full h-11 bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
             {/* ── Issue Type picker ───────────────────────────────────── */}
             <div className="space-y-2.5">
-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-white/40 block">
                 Issue Type <span className="text-purple-400">*</span>
               </label>
               <div className="grid grid-cols-2 gap-1.5">
@@ -3388,7 +3510,7 @@ export function AuditSurface({
                         "h-9 rounded-xl font-bold text-[9px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 px-2 focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
                         active
                           ? `${issueTypeColorMap[t.color]} shadow-lg`
-                          : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.07] hover:text-white/70'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 dark:bg-white/[0.03] dark:border-white/[0.06] dark:text-white/40 dark:hover:bg-white/[0.07] dark:hover:text-white/70'
                       )}
                     >
                       {t.icon}
@@ -3397,15 +3519,15 @@ export function AuditSurface({
                   )
                 })}
               </div>
-              <p className="text-[9px] text-white/30 leading-relaxed pl-0.5">
+              <p className="text-[9px] text-slate-500 dark:text-white/30 leading-relaxed pl-0.5">
                 {ISSUE_TYPES.find(t => t.value === issueType)?.description}
               </p>
             </div>
 
             {/* ── Note text area ──────────────────────────────────────── */}
             <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
-                Describe the problem <span className="text-white/20">(optional)</span>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-white/40 block">
+                Describe the problem <span className="text-slate-500 dark:text-white/20">(optional)</span>
               </label>
               <textarea
                 rows={4}
@@ -3413,14 +3535,14 @@ export function AuditSurface({
                 placeholder="What's wrong here? e.g. 'Button doesn't respond on mobile', 'Text overlaps the image'…"
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 p-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 p-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
             {/* ── Status picker (Phase 5 Workflow) ───────────────────────── */}
             {isSubmitted && (
               <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">Status</label>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">Status</label>
                 <div className="relative">
                   <select
                     disabled={isFormReadOnly}
@@ -3430,7 +3552,7 @@ export function AuditSurface({
                       setStatusVal(newStatus)
                       console.log(`[OBSERVABILITY] [STATUS_CHANGE_DRAFT] Draft status changed to: ${newStatus}`)
                     }}
-                    className="w-full h-11 bg-[#0f0f15] border border-white/[0.08] text-white px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 dark:bg-[#0f0f15] dark:border-white/[0.08] dark:text-white px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none"
                   >
                     <option value="new">Waiting</option>
                     <option value="triaged">Triaged</option>
@@ -3438,7 +3560,7 @@ export function AuditSurface({
                     <option value="resolved">Fixed ✓</option>
                     <option value="dismissed">Dismissed</option>
                   </select>
-                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-white/40">
+                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </div>
@@ -3447,7 +3569,7 @@ export function AuditSurface({
 
             {/* ── Severity picker ─────────────────────────────────────── */}
             <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">Severity</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">Severity</label>
               <div className="grid grid-cols-4 gap-1.5">
                 {(['low', 'medium', 'high', 'critical'] as Severity[]).map((s) => (
                   <button
@@ -3463,7 +3585,7 @@ export function AuditSurface({
                           s === 'high' ? 'bg-orange-600 border-orange-500 text-white shadow-lg' :
                           s === 'medium' ? 'bg-purple-600 border-purple-500 text-white shadow-lg' :
                           'bg-blue-600 border-blue-500 text-white shadow-lg'
-                        : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.07] hover:text-white/60'
+                        : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:bg-white/[0.03] dark:border-white/[0.06] dark:text-white/40 dark:hover:bg-white/[0.07] dark:hover:text-white/60'
                     )}
                   >
                     {s === 'medium' ? 'Needs Work' : s === 'low' ? 'Looks Good' : s}
@@ -3474,8 +3596,8 @@ export function AuditSurface({
 
             {/* ── Optional Tags ────────────────────────────────────────── */}
             <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
-                Tags <span className="text-white/25">(optional, comma-separated)</span>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">
+                Tags <span className="text-slate-400 dark:text-white/25">(optional, comma-separated)</span>
               </label>
               <input
                 type="text"
@@ -3483,15 +3605,15 @@ export function AuditSurface({
                 placeholder="e.g. mobile, bug, layout"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
-                className="w-full h-11 bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
             {/* ── Coordinates (read-only) ──────────────────────────────── */}
             {captureCtx && (
-              <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex items-center justify-between">
-                <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Pin Coordinates</span>
-                <span className="font-mono text-[9px] text-white/35">
+              <div className="bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/[0.04] rounded-xl p-3 flex items-center justify-between">
+                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/20">Pin Coordinates</span>
+                <span className="font-mono text-[9px] text-slate-500 dark:text-white/35">
                   ({captureCtx.x}, {captureCtx.y})
                 </span>
               </div>
@@ -3499,7 +3621,7 @@ export function AuditSurface({
           </div>
 
           {/* ── Submit actions ─────────────────────────────────────────── */}
-          <div className="p-5 border-t border-white/5 flex flex-col gap-2 flex-shrink-0">
+          <div className="p-5 border-t border-slate-200 dark:border-white/5 flex flex-col gap-2 flex-shrink-0">
             {submitSuccess ? (
               <div className="h-12 w-full rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center gap-2 text-emerald-400 font-extrabold text-[10px] uppercase tracking-wider animate-pulse">
                 <Check className="w-4 h-4" />
@@ -3523,7 +3645,7 @@ export function AuditSurface({
                     className="h-12 w-full rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/40 disabled:text-white/30 text-white font-extrabold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-950/30 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                   >
                     {isSubmitting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <StageSpinner size={16} variant="white" />
                     ) : isSubmitted ? (
                       <><Check className="w-3.5 h-3.5" /> Update Feedback</>
                     ) : (
@@ -3561,7 +3683,7 @@ export function AuditSurface({
             <button
               type="button"
               onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null); setManualPlacementMode(false); setFeedbackModeActive(false) }}
-              className="h-10 w-full rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] text-white/50 hover:text-white/80 font-black text-[9px] uppercase tracking-widest transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              className="h-10 w-full rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-white/[0.03] dark:hover:bg-white/[0.07] text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80 font-black text-[9px] uppercase tracking-widest transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none"
             >
               Cancel
             </button>

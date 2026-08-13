@@ -108,6 +108,9 @@ export function BlueprintActivityPanel({ projectId }: BlueprintActivityPanelProp
 
   return (
     <aside className="w-80 border-l border-slate-800 bg-[#0d1322]/95 backdrop-blur-xl flex flex-col h-full shadow-2xl z-30 select-none animate-in slide-in-from-right duration-200">
+      <div role="status" aria-live="polite" className="sr-only">
+        {isLoading ? 'Loading activity events...' : `${events.length} activity events loaded.`}
+      </div>
       {/* Header */}
       <div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
         <div className="flex items-center gap-2">

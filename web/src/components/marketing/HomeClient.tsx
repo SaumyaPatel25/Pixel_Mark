@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMotionValue, useSpring } from 'framer-motion';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
@@ -118,14 +118,22 @@ export default function HomeClient() {
     if (typeof document !== 'undefined') {
       document.body.classList.add('homepage-active');
     }
+    
+    let ticking = false;
     const handleMouseMove = (e: MouseEvent) => {
-      // Offset the coordinate by half the size of the glow element (250px)
-      // to keep it centered on the cursor
-      mouseX.set(e.clientX - 250);
-      mouseY.set(e.clientY - 250);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          // Offset the coordinate by half the size of the glow element (250px)
+          // to keep it centered on the cursor
+          mouseX.set(e.clientX - 250);
+          mouseY.set(e.clientY - 250);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => {
       if (typeof document !== 'undefined') {
         document.body.classList.remove('homepage-active');
@@ -133,6 +141,12 @@ export default function HomeClient() {
       window.removeEventListener('mousemove', handleMouseMove);
     };
   }, [mouseX, mouseY]);
+
+  const processSection = React.useMemo(() => isDark ? <HowItWorksSection /> : <StoryProcessSection />, [isDark]);
+  const outcomeSection = React.useMemo(() => <OutcomeSection />, []);
+  const closingCTASection = React.useMemo(() => <ClosingCTASection />, []);
+  const entrextSection = React.useMemo(() => <EntrextSection />, []);
+  const footerSection = React.useMemo(() => <MarketingFooter />, []);
 
   return (
     <div
@@ -151,13 +165,13 @@ export default function HomeClient() {
             isHeroTextComplete={isHeroTextComplete}
             onHeroTextComplete={() => setIsHeroTextComplete(true)}
           />
-          {loadStage >= 1 && (isDark ? <HowItWorksSection /> : <StoryProcessSection />)}
+          {loadStage >= 1 && processSection}
           {loadStage >= 2 && <UseCasesSection onHoverChange={setHoveredPosition} />}
-          {loadStage >= 3 && <OutcomeSection />}
-          {loadStage >= 4 && <ClosingCTASection />}
-          {loadStage >= 4 && <EntrextSection />}
+          {loadStage >= 3 && outcomeSection}
+          {loadStage >= 4 && closingCTASection}
+          {loadStage >= 4 && entrextSection}
         </main>
-        {loadStage >= 4 && <MarketingFooter />}
+        {loadStage >= 4 && footerSection}
       </div>
     </div>
   );

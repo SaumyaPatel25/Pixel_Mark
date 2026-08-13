@@ -88,7 +88,7 @@ export default function StoryProcessSection() {
     <section 
       id="product-journey" 
       className="relative py-32 bg-transparent overflow-hidden border-t border-pm-border/30"
-      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 1000px' }}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 1500px' }}
     >
       {/* Soft atmospheric gradient washes */}
       <div className="absolute top-1/2 left-0 -translate-y-1/2 w-[500px] h-[500px] bg-[#E2F3F5]/10 rounded-full blur-[100px] pointer-events-none z-0" />

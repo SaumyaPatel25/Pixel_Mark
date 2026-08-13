@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from database import AsyncSessionLocal
 from models import User, OrgMember, RoleEnum, ApiKey
 from auth import decode_token
@@ -33,12 +34,12 @@ async def get_current_user_optional(
             api_key = result.scalar_one_or_none()
             if not api_key:
                 return None
-            user_result = await db.execute(select(User).where(User.id == api_key.user_id))
+            user_result = await db.execute(select(User).options(selectinload(User.identities)).where(User.id == api_key.user_id))
             return user_result.scalar_one_or_none()
         else:
             payload = decode_token(token)
             user_id = payload.get("sub")
-            result = await db.execute(select(User).where(User.id == user_id))
+            result = await db.execute(select(User).options(selectinload(User.identities)).where(User.id == user_id))
             return result.scalar_one_or_none()
     except Exception:
         return None
@@ -71,7 +72,7 @@ async def get_current_user(
         await db.commit()
         
         # Load user
-        user_result = await db.execute(select(User).where(User.id == api_key.user_id))
+        user_result = await db.execute(select(User).options(selectinload(User.identities)).where(User.id == api_key.user_id))
         user = user_result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
@@ -83,7 +84,7 @@ async def get_current_user(
         except Exception:
             raise HTTPException(status_code=401, detail="Invalid or expired token")
         user_id = payload.get("sub")
-        result = await db.execute(select(User).where(User.id == user_id))
+        result = await db.execute(select(User).options(selectinload(User.identities)).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=401, detail="User not found")

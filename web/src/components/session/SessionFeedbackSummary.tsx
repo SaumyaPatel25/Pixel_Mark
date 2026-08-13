@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useMemo, useState, useEffect } from 'react'
-import { api } from '@/lib/api'
+import { api, getApiBaseUrl } from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Users, Activity, CheckCircle2, Circle, AlertCircle, BarChart3, LineChart } from 'lucide-react'
 import { Marker } from '@/types/markers'
@@ -12,7 +12,7 @@ interface SessionFeedbackSummaryProps {
   sessionTitle?: string
 }
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+const API_BASE = getApiBaseUrl()
 const WS_BASE = API_BASE.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:')
 
 export function useSessionLiveStats(sessionId: string | null) {
@@ -243,6 +243,10 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
 
   return (
     <div className="bg-pm-surface border border-pm-border rounded-3xl p-6 shadow-md hover:shadow-lg transition-all space-y-6 select-none flex flex-col justify-between relative overflow-hidden min-h-[360px]">
+      <div role="status" aria-live="polite" className="sr-only">
+        {`Session analytics loaded. ${stats.total} total feedback pins.`}
+      </div>
+
       {/* Glow highlight */}
       <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-400 via-[#253B80] to-indigo-500" />
 

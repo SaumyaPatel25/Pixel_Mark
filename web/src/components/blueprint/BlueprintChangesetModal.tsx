@@ -6,6 +6,7 @@ import { useBlueprintStore } from '@/store/blueprintStore'
 import { useBlueprintCollaborationStore, PublicationStatus } from '@/store/blueprintCollaborationStore'
 import { useBlueprintSummaryStore } from '@/store/blueprintSummaryStore'
 import { api } from '@/lib/api'
+import { triggerFileDownload } from './BlueprintToolbar'
 import { cn } from '@/lib/utils'
 
 interface BlueprintChangesetModalProps {
@@ -114,12 +115,11 @@ export function BlueprintChangesetModal({
   const handleExportMarkdown = async () => {
     try {
       const mdText = await api.blueprint.exportMarkdown(projectId)
-      const blob = new Blob([typeof mdText === 'string' ? mdText : JSON.stringify(mdText)], { type: 'text/markdown' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `stage-blueprint-handoff-${projectId}.md`
-      a.click()
+      triggerFileDownload(
+        `stage-blueprint-handoff-${projectId}.md`,
+        typeof mdText === 'string' ? mdText : JSON.stringify(mdText),
+        'text/markdown'
+      )
     } catch (err) {
       console.error('[STAGE Blueprint] Failed to export markdown:', err)
     }

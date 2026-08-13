@@ -47,6 +47,7 @@ export default function PricingPage() {
 
   const isEarlyBirdActive = earlyBirdSlotsRemaining > 0
   const isDevTeamActive = isPaid && (currentPlan === 'dev_team' || currentPlan === 'dev_team_early_bird')
+  const isStageTeamActive = currentPlan === 'stage_team'
   const isFreeActive = !isPaid && (!currentPlan || currentPlan === 'free' || currentPlan === 'none')
 
   return (
@@ -58,8 +59,16 @@ export default function PricingPage() {
         
         {/* Header Banner */}
         <div className="text-center space-y-4 max-w-3xl mx-auto pb-10">
+          {/* Internal STAGE Team Banner */}
+          {isStageTeamActive && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-xs font-mono font-extrabold uppercase tracking-wider shadow-lg">
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Current Active Plan: STAGE Team (Internal Entitlement Tier)</span>
+            </div>
+          )}
+
           {/* Test Mode Badge */}
-          {isTestMode && (
+          {isTestMode && !isStageTeamActive && (
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-xs font-mono font-extrabold uppercase tracking-wider animate-pulse">
               <Zap className="w-3.5 h-3.5" />
               <span>STAGE Dodo Test Mode (Sandbox Environment)</span>

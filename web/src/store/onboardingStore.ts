@@ -30,6 +30,7 @@ interface OnboardingState {
   isDismissed: boolean;
   isCompleted: boolean;
   currentUserId: string | null;
+  currentOrgId: string | null;
   
   // Actions
   startOnboarding: (role: OnboardingRole) => void;
@@ -43,8 +44,8 @@ interface OnboardingState {
   toggleChecklist: (collapsed?: boolean) => void;
   setShowCompletionModal: (show: boolean) => void;
   setDismissed: (dismissed: boolean) => void;
-  hydrateFromUserProfile: (user: any) => void;
-  hydrateFromLocalStorage: (userId?: string | null) => void;
+  hydrateFromUserProfile: (user: any, orgId?: string | null) => void;
+  hydrateFromLocalStorage: (userId?: string | null, orgId?: string | null) => void;
 }
 
 // Developer steps definition
@@ -183,8 +184,10 @@ export const reviewerSteps: OnboardingStep[] = [
   }
 ];
 
-const getStorageKey = (userId?: string | null) => {
-  return userId ? `stage_onboarding_state_${userId}` : 'pm_onboarding_state';
+const getStorageKey = (userId?: string | null, orgId?: string | null) => {
+  const u = userId || 'anonymous';
+  const o = orgId || 'default';
+  return `stage_onboarding_state_${u}_${o}`;
 };
 
 const saveToLocalStorage = (state: Partial<OnboardingState>) => {
@@ -199,7 +202,7 @@ const saveToLocalStorage = (state: Partial<OnboardingState>) => {
     isDismissed: state.isDismissed,
     isCompleted: state.isCompleted,
   };
-  const key = getStorageKey(state.currentUserId);
+  const key = getStorageKey(state.currentUserId, state.currentOrgId);
   localStorage.setItem(key, JSON.stringify(data));
 };
 
@@ -213,6 +216,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   isDismissed: false,
   isCompleted: false,
   currentUserId: null,
+  currentOrgId: null,
 
   startOnboarding: (role) => {
     const initialChecklist: Record<string, boolean> = role === 'developer' ? {
@@ -394,14 +398,18 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     saveToLocalStorage({ ...get(), isDismissed: dismissed });
   },
 
-  hydrateFromUserProfile: (user: any) => {
+  hydrateFromUserProfile: (user: any, orgId?: string | null) => {
     if (!user) return;
     const userId = user.id;
+    const resolvedOrgId = orgId || 'default';
+
+    set({ currentUserId: userId, currentOrgId: resolvedOrgId });
 
     if (user.onboarding_state_json && typeof user.onboarding_state_json === 'object') {
       const parsed = user.onboarding_state_json;
       set({
         currentUserId: userId,
+        currentOrgId: resolvedOrgId,
         isOnboardingActive: parsed.isOnboardingActive || false,
         currentStepIndex: parsed.currentStepIndex || 0,
         userRole: parsed.userRole || null,
@@ -415,19 +423,21 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     }
 
     // Fall back to local storage if DB profile json is empty
-    get().hydrateFromLocalStorage(userId);
+    get().hydrateFromLocalStorage(userId, resolvedOrgId);
   },
 
-  hydrateFromLocalStorage: (userId?: string | null) => {
+  hydrateFromLocalStorage: (userId?: string | null, orgId?: string | null) => {
     if (typeof window === 'undefined') return;
     const targetUserId = userId !== undefined ? userId : get().currentUserId;
-    const key = getStorageKey(targetUserId);
+    const targetOrgId = orgId !== undefined ? orgId : get().currentOrgId;
+    const key = getStorageKey(targetUserId, targetOrgId);
     const saved = localStorage.getItem(key);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         set({
           currentUserId: targetUserId || null,
+          currentOrgId: targetOrgId || null,
           isOnboardingActive: parsed.isOnboardingActive || false,
           currentStepIndex: parsed.currentStepIndex || 0,
           userRole: parsed.userRole || null,
@@ -442,9 +452,10 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
         console.error('Failed to parse onboarding local storage:', e);
       }
     }
-    // Clean default state if no record exists for this user ID
+    // Clean default state if no record exists for this user ID + org ID
     set({
       currentUserId: targetUserId || null,
+      currentOrgId: targetOrgId || null,
       isOnboardingActive: false,
       currentStepIndex: 0,
       userRole: null,

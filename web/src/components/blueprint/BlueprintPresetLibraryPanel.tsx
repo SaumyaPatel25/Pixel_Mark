@@ -16,6 +16,7 @@ import {
   ArrowUp,
   ArrowDown,
   CornerDownRight,
+  Search,
   RefreshCw,
   X
 } from 'lucide-react'
@@ -35,6 +36,7 @@ export function BlueprintPresetLibraryPanel() {
   } = useBlueprintStore()
 
   const [activeCategory, setActiveCategory] = useState<string>('All')
+  const [searchQuery, setSearchQuery] = useState<string>('')
   const [successNotice, setSuccessNotice] = useState<string | null>(null)
 
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -94,9 +96,17 @@ export function BlueprintPresetLibraryPanel() {
 
   const categories = ['All', 'Typography', 'Buttons', 'Cards', 'Sections', 'Media']
 
-  const filteredPresets = PRESET_LIBRARY.filter((p) =>
-    activeCategory === 'All' ? true : p.category === activeCategory
-  )
+  const filteredPresets = PRESET_LIBRARY.filter((p) => {
+    const matchesCategory = activeCategory === 'All' || p.category === activeCategory
+    if (!matchesCategory) return false
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.toLowerCase()
+    return (
+      p.name.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q) ||
+      p.previewText.toLowerCase().includes(q)
+    )
+  })
 
   const selectedPreset = PRESET_LIBRARY.find((p) => p.id === selectedPresetId)
 
@@ -150,6 +160,10 @@ export function BlueprintPresetLibraryPanel() {
       ref={containerRef}
       className="w-80 bg-[#0d1322] border-r border-cyan-950/60 flex flex-col text-slate-200 select-none z-10 shrink-0 shadow-2xl"
     >
+      <div role="status" aria-live="polite" className="sr-only">
+        {successNotice || `${filteredPresets.length} presets available.`}
+      </div>
+
       {/* Header */}
       <div className="h-10 px-4 border-b border-cyan-950/50 flex items-center justify-between text-xs font-semibold text-slate-300 bg-[#090d16]">
         <div className="flex items-center gap-2">
@@ -188,6 +202,29 @@ export function BlueprintPresetLibraryPanel() {
             <span>Click an element in DOM Edit mode to pick target</span>
           </div>
         )}
+      </div>
+
+      {/* Search Input Bar */}
+      <div className="p-2 border-b border-slate-800 bg-slate-950/40">
+        <div className="relative flex items-center">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search presets..."
+            className="w-full pl-8 pr-7 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-sans"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 text-slate-400 hover:text-slate-200 text-xs p-0.5"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Success Notification */}

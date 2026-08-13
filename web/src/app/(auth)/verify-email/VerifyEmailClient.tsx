@@ -5,7 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { Loader2, CheckCircle2, XCircle, Mail, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Mail, ArrowRight } from 'lucide-react';
+import { StageLoader } from '@/components/ui/StageLoader';
 import Link from 'next/link';
 
 export default function VerifyEmailClient() {
@@ -83,7 +84,7 @@ export default function VerifyEmailClient() {
 
         {status === 'loading' && (
           <div className="space-y-4 py-8 flex flex-col items-center">
-            <Loader2 className="w-16 h-16 text-cyan-500 animate-spin mx-auto" />
+            <StageLoader size="sm" text="Verifying" />
             <h2 className="text-xl font-bold tracking-tight">Verifying your email</h2>
             <p className="text-sm text-white/40 leading-relaxed max-w-xs mx-auto">
               Please wait while we confirm your verification signature...

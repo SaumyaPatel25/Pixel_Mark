@@ -3,6 +3,8 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckSquare, ChevronDown, ChevronUp, Check, Play, Trophy, Sparkles, X } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
+import { useBillingStore } from '@/store/useBillingStore';
 import { useOnboardingStore, OnboardingRole } from '@/store/onboardingStore';
 import { Button } from '@/components/ui/button';
 
@@ -57,9 +59,15 @@ export function OnboardingChecklist({ isSidebarCollapsed = true }: OnboardingChe
     hydrateFromLocalStorage
   } = useOnboardingStore();
 
+  const user = useAuthStore(s => s.user);
+  const subscription = useBillingStore(s => s.subscription);
+  const orgId = subscription?.org_id || 'default';
+
   useEffect(() => {
-    hydrateFromLocalStorage();
-  }, [hydrateFromLocalStorage]);
+    if (user) {
+      hydrateFromLocalStorage(user.id, orgId);
+    }
+  }, [user, orgId, hydrateFromLocalStorage]);
 
   if (!userRole || isDismissed) return null;
 

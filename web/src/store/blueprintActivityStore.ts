@@ -90,8 +90,11 @@ export const useBlueprintActivityStore = create<BlueprintActivityState>((set, ge
       })
 
       const newItems = res.items || []
+      const existingIds = new Set(events.map((e) => e.id))
+      const uniqueNewItems = newItems.filter((e: any) => !existingIds.has(e.id))
+
       set({
-        events: [...events, ...newItems],
+        events: [...events, ...uniqueNewItems],
         hasMore: !!res.has_more,
         nextCursor: res.next_cursor || null
       })

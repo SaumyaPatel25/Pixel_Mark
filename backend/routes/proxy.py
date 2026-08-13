@@ -54,6 +54,27 @@ def get_active_ip_session(client_host: str) -> Optional[str]:
             return None
     return val
 
+import asyncio
+
+async def fetch_task(client: httpx.AsyncClient, method: str, url: str, **kwargs) -> httpx.Response:
+    if method == "POST":
+        return await client.post(url, **kwargs)
+    elif method == "OPTIONS":
+        return await client.options(url, **kwargs)
+    else:
+        return await client.get(url, **kwargs)
+
+async def send_with_cancellation(client: httpx.AsyncClient, request: Request, method: str, url: str, **kwargs) -> httpx.Response:
+    task = asyncio.create_task(fetch_task(client, method, url, **kwargs))
+    while not task.done():
+        if await request.is_disconnected():
+            task.cancel()
+            logger.info(f"[CLIENT_ABORT] Client disconnected. Cancelling upstream fetch to {url}")
+            raise HTTPException(status_code=499, detail="Client Closed Request")
+        await asyncio.sleep(0.05)
+    return await task
+
+
 # Async helper to record/upsert PageVisits cleanly
 async def record_page_visit(
     db: AsyncSession,
@@ -357,7 +378,7 @@ async def proxy_initial(
             "X-STAGE-Session": session_id
         }
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
-            resp = await client.get(base_url, headers=headers)
+            resp = await send_with_cancellation(client, request, "GET", base_url, headers=headers)
             
             if resp.status_code >= 400:
                 return prepare_proxy_response(Response(
@@ -433,13 +454,30 @@ async def proxy_initial(
 @router.get("/session/{session_id}/page")
 async def proxy_page(
     session_id: str,
-    url: str,
     request: Request,
+    url: Optional[str] = Query(None),
     parent_page_id: str = Query(None),
     share_token: str = Query(None),
     snapshot_mode: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
+    # ── Phase 5: Explicit 400 for missing url ────────────────────────────────
+    # FastAPI would return 422 for a missing required param; we return 400 with
+    # a diagnostic message that makes the broken frontend call obvious in logs.
+    if not url or not url.strip():
+        logger.error(
+            f"[PROXY_PAGE] Missing required 'url' query parameter. "
+            f"session_id={session_id} path={request.url.path} "
+            f"client={request.client.host if request.client else 'unknown'}"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Missing required 'url' query parameter. "
+                "The proxy page route requires a non-empty target URL: "
+                f"/proxy/session/{session_id}/page?url=https%3A%2F%2Fexample.com"
+            )
+        )
     from utils.guardrails import check_navigation_loop
     check_navigation_loop(request)
 
@@ -458,12 +496,16 @@ async def proxy_page(
         link = await validate_public_access(session_id, share_token, db)
         share_link_id = link.id
  
+    t_req_start = time.perf_counter()
+
     # Enforce domain scoping and SSRF safety
+    t_ssrf_start = time.perf_counter()
     if not is_ssrf_safe(url):
         raise HTTPException(status_code=403, detail="SSRF target blocked: Loopback or private IP ranges are restricted.")
     if not is_domain_allowed(url, base_url):
         raise HTTPException(status_code=403, detail="Navigation blocked: Exiting session allowed domain boundary.")
- 
+    t_ssrf_ms = (time.perf_counter() - t_ssrf_start) * 1000
+
     # Check if request is Next.js React Server Component (RSC) streaming request
     is_rsc_request = "rsc" in request.headers or any(k.lower().startswith("next-") for k in request.headers.keys())
     if is_rsc_request:
@@ -474,8 +516,10 @@ async def proxy_page(
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "X-STAGE-Session": session_id
         }
+        t_fetch_start = time.perf_counter()
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
-            resp = await client.get(url, headers=headers)
+            resp = await send_with_cancellation(client, request, "GET", url, headers=headers)
+            t_fetch_ms = (time.perf_counter() - t_fetch_start) * 1000
             
             if resp.status_code >= 400:
                 return prepare_proxy_response(Response(
@@ -509,6 +553,7 @@ async def proxy_page(
                     await db.commit()
                     logger.info(f"[PROXY_REWRITE] Next.js detected via signature in proxy_page. Flipping conservative_render_mode=True for session={session_id}")
                 
+                t_rewrite_start = time.perf_counter()
                 rewritten_html = rewrite_html(
                     html=resp.text, 
                     session_id=session_id, 
@@ -517,6 +562,16 @@ async def proxy_page(
                     api_base=api_base,
                     conservative_render_mode=session.conservative_render_mode,
                     snapshot_mode=snapshot_mode
+                )
+                t_rewrite_ms = (time.perf_counter() - t_rewrite_start) * 1000
+                t_total_ms = (time.perf_counter() - t_req_start) * 1000
+                
+                parsed_host = urllib.parse.urlparse(url).netloc
+                logger.info(
+                    f"[PROXY_TIMING] session={session_id} host={parsed_host} "
+                    f"ssrf_ms={t_ssrf_ms:.2f} fetch_ms={t_fetch_ms:.2f} rewrite_ms={t_rewrite_ms:.2f} "
+                    f"total_ms={t_total_ms:.2f} status={resp.status_code} "
+                    f"bytes_before={len(resp.content)} bytes_after={len(rewritten_html.encode('utf-8'))}"
                 )
                 
                 response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
@@ -725,11 +780,11 @@ async def handle_proxy_asset_request(
                 
                 if request.method == "POST":
                     body = await request.body()
-                    resp = await client.post(current_url, content=body, headers=headers)
+                    resp = await send_with_cancellation(client, request, "POST", current_url, content=body, headers=headers)
                 elif request.method == "OPTIONS":
-                    resp = await client.options(current_url, headers=headers)
+                    resp = await send_with_cancellation(client, request, "OPTIONS", current_url, headers=headers)
                 else:
-                    resp = await client.get(current_url, headers=headers)
+                    resp = await send_with_cancellation(client, request, "GET", current_url, headers=headers)
 
                 if resp.status_code in (301, 302, 303, 307, 308):
                     redirect_url = resp.headers.get("location", "")
@@ -899,4 +954,45 @@ async def post_page_visit(
         parent_page_id=parent_page_id
     )
     return pv
+
+
+@router.api_route("/session/{session_id}/{path:path}", methods=["GET", "POST", "OPTIONS"])
+async def catch_all_proxy(
+    session_id: str,
+    path: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID format")
+
+    base_url, project_id, session = await resolve_session_base_url(session_id, db)
+    
+    # Check referer to resolve relative requests (e.g. if page is at a subpath)
+    referer = request.headers.get("referer", "")
+    target_page_url = base_url
+    if referer:
+        parsed_referer = urllib.parse.urlparse(referer)
+        # Check if the referer is from our session proxy context
+        if "proxy/session" in parsed_referer.path:
+            query_params = urllib.parse.parse_qs(parsed_referer.query)
+            if 'url' in query_params:
+                target_page_url = query_params['url'][0]
+
+    # Build target absolute URL
+    query_str = request.url.query
+    url_path = path
+    if query_str:
+        url_path = f"{url_path}?{query_str}"
+        
+    resolved_url = urllib.parse.urljoin(target_page_url, url_path)
+    
+    # Log catch-all routing decision
+    logger.info(f"[PROXY CATCH-ALL] session_id={session_id}, path={path}, referer={referer}, resolved_url={resolved_url}")
+    
+    # Forward the request to handle_proxy_asset_request
+    return await handle_proxy_asset_request(session_id, resolved_url, request, db)
+
 

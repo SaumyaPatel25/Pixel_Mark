@@ -21,6 +21,15 @@ const nextConfig: NextConfig = {
       },
     ]
   },
+  async rewrites() {
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8765').replace(/\/$/, '');
+    return [
+      {
+        source: '/proxy/:path*',
+        destination: `${apiBase}/proxy/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

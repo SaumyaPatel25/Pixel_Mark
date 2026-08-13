@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Globe, RefreshCw, AlertCircle, Eye, MousePointerClick } from 'lucide-react'
 import { getApiBaseUrl } from '@/lib/api'
+import { getProxyPageUrl } from '@/utils/proxyRoutes'
 import { useBlueprintStore, BlueprintDOMTarget, inferTargetKind } from '@/store/blueprintStore'
 import { useBlueprintCollaborationStore } from '@/store/blueprintCollaborationStore'
 
@@ -25,15 +26,27 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
   } = useBlueprintStore()
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [iframeLoaded, setIframeLoaded] = useState(false)
+  const [agentReady, setAgentReady] = useState(false)
+  const [webglFailed, setWebglFailed] = useState(false)
   const [hasError, setHasError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const isLoading = !iframeLoaded || !agentReady
+
+  // Safety fallback for slow agent initialization
+  useEffect(() => {
+    if (iframeLoaded && !agentReady) {
+      const timer = setTimeout(() => {
+        console.warn('[STAGE] Agent ready timeout fallback triggered.')
+        setAgentReady(true)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [iframeLoaded, agentReady])
 
   // Determine proxy src URL
   const apiBase = getApiBaseUrl()
-  const proxySrc = sessionId
-    ? `${apiBase}/proxy/session/${sessionId}`
-    : null
+  const proxySrc = sessionId ? getProxyPageUrl(apiBase, sessionId, url) : null
 
   // 1. Send Edit Mode state to Iframe when activeTool changes
   useEffect(() => {
@@ -63,11 +76,31 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
     )
   }, [pendingMutations, reloadKey])
 
+  const lastHoveredSelectorRef = useRef<string | null>(null)
+  const hoverRafRef = useRef<number | null>(null)
+
   // 3. Listen for postMessage events from iframe stage-agent.js
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       const data = e.data
       if (!data || typeof data !== 'object') return
+
+      if (data.type === 'STAGE_WEBGL_FAILED') {
+        setWebglFailed(true)
+        return
+      }
+
+      if (data.type === 'STAGE_AGENT_READY') {
+        setAgentReady(true)
+        setBaselineSnapshot()
+        try {
+          const iframeWindow = iframeRef.current?.contentWindow
+          if (iframeWindow && activeTool === 'dom-edit') {
+            iframeWindow.postMessage({ type: 'STAGE_ENABLE_EDIT_MODE' }, '*')
+          }
+        } catch (_) {}
+        return
+      }
 
       if (
         data.type === 'STAGE_EDIT_ELEMENT_SELECTED' ||
@@ -115,10 +148,13 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
       }
 
       if (data.type === 'STAGE_DOM_TARGET_HOVERED') {
-        if (data.selector) {
-          setHoveredTarget({
-            selector: data.selector,
-            tag: (data.tag || 'div').toLowerCase()
+        const sel = data.selector
+        const tag = (data.tag || 'div').toLowerCase()
+        if (sel && sel !== lastHoveredSelectorRef.current) {
+          lastHoveredSelectorRef.current = sel
+          if (hoverRafRef.current) cancelAnimationFrame(hoverRafRef.current)
+          hoverRafRef.current = requestAnimationFrame(() => {
+            setHoveredTarget({ selector: sel, tag })
           })
         }
       }
@@ -142,31 +178,27 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
     }
 
     window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
+    return () => {
+      window.removeEventListener('message', handleMessage)
+      if (hoverRafRef.current) cancelAnimationFrame(hoverRafRef.current)
+    }
   }, [setSelectedTarget, setHoveredTarget, url, selectedFrameId, activeTool, addMutation])
 
   const handleIframeLoad = () => {
-    setIsLoading(false)
+    setIframeLoaded(true)
     setHasError(false)
-
-    // Capture baseline snapshot on initial page load
-    setBaselineSnapshot()
-
-    try {
-      const iframeWindow = iframeRef.current?.contentWindow
-      if (iframeWindow && activeTool === 'dom-edit') {
-        iframeWindow.postMessage({ type: 'STAGE_ENABLE_EDIT_MODE' }, '*')
-      }
-    } catch (_) {}
   }
 
   const handleIframeError = () => {
-    setIsLoading(false)
+    setIframeLoaded(true)
+    setAgentReady(true)
     setHasError(true)
   }
 
   const handleRefresh = () => {
-    setIsLoading(true)
+    setIframeLoaded(false)
+    setAgentReady(false)
+    setWebglFailed(false)
     setHasError(false)
     setReloadKey((prev) => prev + 1)
   }
@@ -188,6 +220,11 @@ export function BlueprintLiveFrame({ url, sessionId, width, height }: BlueprintL
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {webglFailed && (
+            <span className="flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse shrink-0">
+              WebGL Fallback Active
+            </span>
+          )}
           {activeTool === 'dom-edit' && (
             <span className="flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
               <MousePointerClick className="w-3 h-3" />

@@ -1,4 +1,5 @@
 import React from 'react'
+import { getApiBaseUrl } from '@/lib/api'
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import SettingsShell from '@/components/SettingsShell'
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   }
 }
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+const API_BASE = getApiBaseUrl()
 
 async function getApiKeysServerSide() {
   try {

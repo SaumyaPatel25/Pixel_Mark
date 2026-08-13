@@ -7,6 +7,139 @@ from sqlalchemy import select, func
 from models import User, UserIdentity, Organization, OrgMember, RoleEnum
 from auth import hash_password
 
+
+def is_entrext_domain(email: str) -> bool:
+    """
+    Strictly verifies if an email belongs to the entrext.com domain.
+    Normalizes by trimming and lowercasing, and checks for exact domain match after '@'.
+    Guards against 'notentrext.com' or 'entrext.com.evil.com'.
+    """
+    if not email or not isinstance(email, str):
+        return False
+    normalized = email.strip().lower()
+    parts = normalized.split("@")
+    if len(parts) != 2:
+        return False
+    return parts[1] == "entrext.com"
+
+
+def _get_founder_emails():
+    """Returns the set of all founder emails (lowercase) from config."""
+    try:
+        from config import settings
+        raw = getattr(settings, "stage_founder_emails", "") or getattr(settings, "stage_founder_email", "") or ""
+        return {e.strip().lower() for e in raw.split(",") if e.strip()}
+    except Exception:
+        return {"saumyavishwam@gmail.com", "saumya@entrext.com", "saumyapatel25@gmail.com"}
+
+
+async def ensure_domain_and_founder_entitlement(user: User, db: AsyncSession, auth_provider: Optional[str] = None) -> None:
+    """
+    Auto-provisions stage_team entitlement for @entrext.com domain verified users or founder emails.
+    Runs idempotently on signup and every login. Writes audit log on change.
+    """
+    from models.core import SubscriptionModel, EntitlementAuditLogModel, Organization
+    from services.plan_capabilities import invalidate_org_plan_cache
+
+    if not user or not user.email:
+        return
+
+    email_clean = user.email.strip().lower()
+    founder_emails = _get_founder_emails()
+    is_domain_match = is_entrext_domain(email_clean)
+    is_founder_match = email_clean in founder_emails
+
+    if not (is_domain_match or is_founder_match):
+        return
+
+    # Security check: Ensure user email is verified before auto-granting domain entitlement
+    # (unless it's an explicit founder account)
+    if is_domain_match and not user.is_verified and not is_founder_match:
+        return
+
+    # Find personal workspace organization
+    mem_res = await db.execute(select(OrgMember).where(OrgMember.user_id == user.id))
+    memberships = mem_res.scalars().all()
+    if not memberships:
+        return
+
+    # Target user's primary/owner workspace
+    target_org_id = memberships[0].org_id
+    for m in memberships:
+        if getattr(m, "role", None) == RoleEnum.owner:
+            target_org_id = m.org_id
+            break
+
+    # Mark Organization as internal
+    org_res = await db.execute(select(Organization).where(Organization.id == target_org_id))
+    org = org_res.scalar_one_or_none()
+    if org and not org.is_internal:
+        org.is_internal = True
+        db.add(org)
+
+    # Resolve or create subscription record
+    sub_res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == target_org_id))
+    sub = sub_res.scalar_one_or_none()
+
+    source_label = "domain_auto_provision" if is_domain_match else "founder_auto_provision"
+    old_plan = sub.plan_type if sub else "none"
+
+    if sub:
+        if sub.plan_type != "stage_team" or sub.status != "active":
+            sub.plan_type = "stage_team"
+            sub.status = "active"
+            sub.seats_allowed = 9999
+            sub.projects_allowed = 9999
+            sub.plan_source = source_label
+            sub.dodo_customer_id = "stage_team_internal"
+            sub.is_test_mode = True
+            db.add(sub)
+
+            # Audit log entry
+            audit_log = EntitlementAuditLogModel(
+                actor_id=user.id,
+                actor_email=user.email,
+                target_org_id=target_org_id,
+                target_user_id=user.id,
+                old_tier=old_plan,
+                new_tier="stage_team",
+                reason=f"Auto-provisioned {source_label} (provider: {auth_provider or 'login_sync'})"
+            )
+            db.add(audit_log)
+            await db.commit()
+            invalidate_org_plan_cache(target_org_id)
+    else:
+        new_sub = SubscriptionModel(
+            id=str(uuid.uuid4()),
+            org_id=target_org_id,
+            plan_type="stage_team",
+            status="active",
+            seats_allowed=9999,
+            projects_allowed=9999,
+            plan_source=source_label,
+            dodo_customer_id="stage_team_internal",
+            is_test_mode=True,
+        )
+        db.add(new_sub)
+
+        audit_log = EntitlementAuditLogModel(
+            actor_id=user.id,
+            actor_email=user.email,
+            target_org_id=target_org_id,
+            target_user_id=user.id,
+            old_tier="none",
+            new_tier="stage_team",
+            reason=f"Auto-provisioned {source_label} on creation (provider: {auth_provider or 'login_sync'})"
+        )
+        db.add(audit_log)
+        await db.commit()
+        invalidate_org_plan_cache(target_org_id)
+
+
+async def _ensure_founder_plan(user: User, db: AsyncSession) -> None:
+    await ensure_domain_and_founder_entitlement(user, db)
+
+
 async def resolve_canonical_user(
     db: AsyncSession,
     provider: str,
@@ -53,6 +186,7 @@ async def resolve_canonical_user(
             db.add(identity)
             await db.commit()
             await db.refresh(user)
+            await _ensure_founder_plan(user, db)
             return user
 
     # 2. Next, search for an existing canonical User by verified email (case-insensitive)
@@ -94,6 +228,7 @@ async def resolve_canonical_user(
         db.add(user)
         await db.commit()
         await db.refresh(user)
+        await _ensure_founder_plan(user, db)
         return user
 
     # 3. No existing user record -> Create new canonical User & personal workspace Organization
@@ -132,4 +267,6 @@ async def resolve_canonical_user(
     db.add_all([new_user, org, membership, new_identity])
     await db.commit()
     await db.refresh(new_user)
+    # Auto-promote founder on first login
+    await _ensure_founder_plan(new_user, db)
     return new_user

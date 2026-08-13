@@ -9,7 +9,7 @@ interface BlueprintFrameProps {
   frame: BlueprintFrameNode
 }
 
-export function BlueprintFrame({ frame }: BlueprintFrameProps) {
+export const BlueprintFrame = React.memo(function BlueprintFrame({ frame }: BlueprintFrameProps) {
   const {
     selectedFrameId,
     setSelectedFrameId,
@@ -20,15 +20,20 @@ export function BlueprintFrame({ frame }: BlueprintFrameProps) {
   } = useBlueprintStore()
 
   const [surfaceMode, setSurfaceMode] = useState<'live' | 'mock'>('live')
+  const [isActivated, setIsActivated] = useState(false)
 
   const isFrameSelected = selectedFrameId === frame.id && !selectedNodeId
   const effectiveWidth =
     viewportMode === 'mobile' ? 375 : viewportMode === 'tablet' ? 768 : frame.width
 
+  // Should live frame be mounted? Mount if selected, explicitly activated, or if it's the active frame
+  const shouldMountLive = surfaceMode === 'live' && (isFrameSelected || isActivated || selectedFrameId === null)
+
   const handleFrameClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation()
     setSelectedFrameId(frame.id)
     setSelectedNodeId(null)
+    setIsActivated(true)
   }
 
   return (
@@ -73,6 +78,7 @@ export function BlueprintFrame({ frame }: BlueprintFrameProps) {
               onClick={(e) => {
                 e.stopPropagation()
                 setSurfaceMode('live')
+                setIsActivated(true)
               }}
               className={`px-2 py-0.5 rounded font-semibold transition-colors flex items-center gap-1 ${
                 surfaceMode === 'live'
@@ -112,12 +118,35 @@ export function BlueprintFrame({ frame }: BlueprintFrameProps) {
       {/* Frame Body Surface */}
       <div className="flex-1 w-full h-full overflow-hidden relative">
         {surfaceMode === 'live' ? (
-          <BlueprintLiveFrame
-            url={frame.url || 'https://example.com'}
-            sessionId={frame.sessionId}
-            width={frame.width}
-            height={frame.height}
-          />
+          shouldMountLive ? (
+            <BlueprintLiveFrame
+              url={frame.url || 'https://example.com'}
+              sessionId={frame.sessionId}
+              width={frame.width}
+              height={frame.height}
+            />
+          ) : (
+            <div className="w-full h-full bg-[#080d1a] border border-slate-800/40 p-6 flex flex-col justify-between select-none">
+              <div className="space-y-4 opacity-50">
+                <div className="h-6 bg-slate-800/80 rounded-lg w-2/3" />
+                <div className="h-3 bg-slate-800/50 rounded w-1/2" />
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="h-20 bg-slate-800/40 rounded-xl border border-slate-800/60" />
+                  <div className="h-20 bg-slate-800/40 rounded-xl border border-slate-800/60" />
+                  <div className="h-20 bg-slate-800/40 rounded-xl border border-slate-800/60" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-4 border-t border-slate-800/40">
+                <span className="flex items-center gap-1.5 font-medium text-slate-400">
+                  <Globe className="w-3.5 h-3.5 text-cyan-400/80" />
+                  {frame.url || 'Live Web Page'}
+                </span>
+                <span className="px-2 py-1 rounded bg-slate-800/80 text-cyan-400 font-semibold text-[10px] uppercase tracking-wider group-hover:bg-cyan-500 group-hover:text-slate-950 transition-all">
+                  Click to Activate Live Edit
+                </span>
+              </div>
+            </div>
+          )
         ) : (
           <div className="p-6 space-y-6 overflow-y-auto h-full">
             {frame.elements.length === 0 ? (
@@ -153,7 +182,7 @@ export function BlueprintFrame({ frame }: BlueprintFrameProps) {
       )}
     </div>
   )
-}
+})
 
 function RenderNode({
   node,

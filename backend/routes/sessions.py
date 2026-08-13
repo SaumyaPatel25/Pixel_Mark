@@ -288,6 +288,12 @@ async def delete_session(
     project_id = session.project_id
     session_title = session.title
 
+    from markers.models import Marker
+    from sqlalchemy import delete
+    
+    # Pre-delete markers to avoid SQLAlchemy relationship backref SET NULL constraint violations on nullable=False FK
+    await db.execute(delete(Marker).where(Marker.session_id == session_id))
+
     await db.delete(session)
     await db.commit()
 
@@ -766,6 +772,4 @@ async def send_report_email(
         logging.getLogger("stage.sessions").warning(f"[STAGE Notification] Failed to emit export_ready event: {ne}")
 
     return {"status": "queued", "message": f"Report email queueing to {data.email}..."}
-
-
 

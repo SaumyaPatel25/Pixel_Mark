@@ -7,35 +7,74 @@ import json
 logger = logging.getLogger("stage.proxy_rewriter")
 
 
+def _target_origin(page_url: str) -> str:
+    """
+    Returns the canonical origin (scheme + host, no trailing slash) of a page URL.
+    e.g. 'https://sohospace.entrext.in/pricing' → 'https://sohospace.entrext.in'
+    """
+    parsed = urllib.parse.urlparse(page_url)
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
 # ── STEP 1 ────────────────────────────────────────────────────────────────────
 def inject_bootstrap(html: str, page_url: str, session_id: str, proxy_base_url: str, api_base: str) -> str:
     """
     Injects a bootstrap script as the FIRST <script> inside <head>.
     If <head> exists, prepend to head. If missing, create one.
-    Exposes __STAGE_SESSION_ID__, __STAGE_PROXY_ORIGIN__, __STAGE_TRANSPORT_URL__,
-    __STAGE_TARGET_URL__ and window.STAGE globals.
+
+    Exposes:
+      window.__STAGE_SESSION_ID__
+      window.__STAGE_PROXY_ORIGIN__       — proxy app origin (http://localhost:8765)
+      window.__STAGE_TARGET_URL__         — real current page URL on the target site
+      window.__STAGE_TARGET_ORIGIN__      — real target site origin (https://target.com)
+      window.__STAGE_TRANSPORT_URL__      — proxy session URL for this page
+      window.STAGE_TARGET_URL             — alias (no underscores) per public API contract
+      window.STAGE_TARGET_ORIGIN          — alias (no underscores) per public API contract
+      window.STAGE_SESSION_ID             — alias (no underscores) per public API contract
+      window.STAGE.*                      — structured session object
+      window.__PM__.*                     — legacy DOM-edit object
     """
+    origin = _target_origin(page_url)
+
     # Safe JSON serializations to prevent injection/syntax errors
     escaped_session = json.dumps(str(session_id))
     escaped_proxy_origin = json.dumps(api_base.rstrip('/'))
+    escaped_target_origin = json.dumps(origin)
     escaped_logical_target_url = json.dumps(page_url)
-    
+
     transport_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/page?url={urllib.parse.quote(page_url)}"
     escaped_transport_url = json.dumps(transport_url)
-    
+
     bootstrap = f"""<!-- STAGE_BOOTSTRAP_START -->
 <script>
+// ─── STAGE URL Model ──────────────────────────────────────────────────────────
+// These three globals are the canonical source of truth for URL identity inside
+// the proxy context. The injected agent and all client-side shims read ONLY
+// these values — never window.location.href — for page tracking and analytics.
+//
+//   STAGE_TARGET_URL     = real page URL on the target site (analytics / page visits)
+//   STAGE_TARGET_ORIGIN  = real target site origin (asset URL resolution base)
+//   STAGE_SESSION_ID     = STAGE session identifier
+//   __STAGE_PROXY_ORIGIN__ = proxy app origin (do NOT use for asset URLs)
+
 window.__STAGE_SESSION_ID__ = {escaped_session};
 window.__STAGE_PROXY_ORIGIN__ = {escaped_proxy_origin};
-window.__STAGE_TRANSPORT_URL__ = {escaped_transport_url};
+window.__STAGE_TARGET_ORIGIN__ = {escaped_target_origin};
 window.__STAGE_TARGET_URL__ = {escaped_logical_target_url};
+window.__STAGE_TRANSPORT_URL__ = {escaped_transport_url};
 window.__STAGE_BASE__ = window.__STAGE_PROXY_ORIGIN__ + '/proxy/session/' + window.__STAGE_SESSION_ID__;
+
+// Public canonical aliases (no double-underscores) — used by agent and external consumers
+window.STAGE_SESSION_ID = window.__STAGE_SESSION_ID__;
+window.STAGE_TARGET_URL = window.__STAGE_TARGET_URL__;
+window.STAGE_TARGET_ORIGIN = window.__STAGE_TARGET_ORIGIN__;
 
 window.STAGE = window.STAGE || {{}};
 window.STAGE.sessionId = window.__STAGE_SESSION_ID__;
 window.STAGE.pageUrl = window.__STAGE_TARGET_URL__;
-window.STAGE.transportUrl = window.__STAGE_TRANSPORT_URL__;
 window.STAGE.targetUrl = window.__STAGE_TARGET_URL__;
+window.STAGE.targetOrigin = window.__STAGE_TARGET_ORIGIN__;
+window.STAGE.transportUrl = window.__STAGE_TRANSPORT_URL__;
 
 window.__PM__ = {{
   domEditMode: false,
@@ -51,11 +90,36 @@ window.__PM__ = {{
 // Suppress Next.js Hydration Errors from polluting the console and STAGE overlay
 window.addEventListener('error', function(e) {{
   var msg = (e.error && e.error.message) || e.message || '';
+  // Absorb Next.js hydration errors
   if (msg.indexOf('Minified React error #418') !== -1 || msg.indexOf('Minified React error #423') !== -1 || msg.indexOf('Hydration failed') !== -1) {{
     e.preventDefault();
     e.stopImmediatePropagation();
+    return;
+  }}
+  // Absorb cross-origin SecurityErrors from third-party scripts (e.g. frame-busting
+  // widgets like Memberstack that read window.top.location.href). We log them for
+  // debugging but prevent them from cascading and breaking subsequent script execution.
+  if (e.error instanceof DOMException && e.error.name === 'SecurityError') {{
+    console.warn('[STAGE] Absorbed cross-origin SecurityError from third-party script:', msg);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return;
+  }}
+  if (msg.indexOf('SecurityError') !== -1 && (msg.indexOf('Location') !== -1 || msg.indexOf('cross-origin') !== -1 || msg.indexOf('blocked a frame') !== -1)) {{
+    console.warn('[STAGE] Absorbed cross-origin error:', msg);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return;
   }}
 }}, true);
+
+window.addEventListener('unhandledrejection', function(e) {{
+  var msg = e.reason && (e.reason.message || String(e.reason));
+  if (msg && (msg.indexOf('SecurityError') !== -1 || msg.indexOf('cross-origin') !== -1)) {{
+    console.warn('[STAGE] Absorbed unhandled cross-origin rejection:', msg);
+    e.preventDefault();
+  }}
+}});
 
 // Patch console.error to filter out Next.js hydration logs
 (function() {{
@@ -63,8 +127,8 @@ window.addEventListener('error', function(e) {{
   console.error = function() {{
     var msg = arguments[0];
     if (typeof msg === 'string' && (
-      msg.indexOf('Minified React error #418') !== -1 || 
-      msg.indexOf('Minified React error #423') !== -1 || 
+      msg.indexOf('Minified React error #418') !== -1 ||
+      msg.indexOf('Minified React error #423') !== -1 ||
       msg.indexOf('Hydration failed') !== -1 ||
       msg.indexOf('suppressHydrationWarning') !== -1
     )) {{
@@ -77,9 +141,9 @@ window.addEventListener('error', function(e) {{
 // Register message listener IMMEDIATELY — before agent loads
 window.addEventListener('message', function(e) {{
   if (!e.data || !e.data.type) return;
-  
+
   var type = e.data.type;
-  
+
   if (type === 'STAGE_ACTIVATE_DOM_EDIT') {{
     window.__PM__.domEditMode = true;
     if (window.__PM__.ready) {{
@@ -90,13 +154,13 @@ window.addEventListener('message', function(e) {{
     // Confirm receipt
     window.parent.postMessage({{ type: 'STAGE_AGENT_ACK', action: 'activate_dom_edit' }}, '*');
   }}
-  
+
   if (type === 'STAGE_DEACTIVATE_DOM_EDIT') {{
     window.__PM__.domEditMode = false;
     if (window.__PM__.deactivate) window.__PM__.deactivate();
     window.parent.postMessage({{ type: 'STAGE_AGENT_ACK', action: 'deactivate_dom_edit' }}, '*');
   }}
-  
+
   if (type === 'STAGE_REPLAY_EDITS') {{
     var edits = e.data.edits || [];
     edits.forEach(function(edit) {{
@@ -109,67 +173,120 @@ window.addEventListener('message', function(e) {{
 }});
 
 console.debug("[STAGE URL Model] targetUrl=" + window.__STAGE_TARGET_URL__);
+console.debug("[STAGE URL Model] targetOrigin=" + window.__STAGE_TARGET_ORIGIN__);
 console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__);
 
 (function() {{
-  const proxyBase = window.__STAGE_PROXY_ORIGIN__ + '/proxy/session/' + window.__STAGE_SESSION_ID__;
+  // ─── Key architectural rule (enforced here) ───────────────────────────────
+  //
+  //   DOCUMENTS  → navigate through the session proxy route
+  //   ASSETS     → resolve to absolute target origin URLs, fetched via asset proxy
+  //   TRACKING   → always use window.STAGE_TARGET_URL / window.__STAGE_TARGET_URL__
+  //
+  // The rewriteUrl() function below implements this split.
+  // The History shim keeps window.__STAGE_TARGET_URL__ updated so tracking always
+  // reflects the real target page rather than the proxy transport URL.
 
+  const proxyBase = window.__STAGE_PROXY_ORIGIN__ + '/proxy/session/' + window.__STAGE_SESSION_ID__;
+  const targetOrigin = window.__STAGE_TARGET_ORIGIN__;
+
+  // ─── URL classifier ────────────────────────────────────────────────────────
+  // Returns 'navigation' or 'asset' for a resolved absolute URL.
+  // Navigation URLs are page documents; asset URLs are scripts/styles/fonts/images.
+  const ASSET_EXTENSIONS = new Set([
+    '.js', '.mjs', '.cjs', '.ts', '.tsx',
+    '.css', '.scss', '.sass', '.less',
+    '.woff', '.woff2', '.ttf', '.eot', '.otf',
+    '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.ico', '.avif',
+    '.mp4', '.webm', '.ogg', '.mp3', '.wav',
+    '.json', '.xml', '.wasm',
+    '.glb', '.gltf', '.hdr', '.exr', '.fbx', '.bin',
+    '.pdf', '.zip', '.map'
+  ]);
+
+  function getExtension(path) {{
+    var parts = path.split('?')[0].split('#')[0].split('.');
+    if (parts.length < 2) return '';
+    return '.' + parts[parts.length - 1].toLowerCase();
+  }}
+
+  function isAssetUrl(absoluteUrl) {{
+    try {{
+      var p = new URL(absoluteUrl);
+      var ext = getExtension(p.pathname);
+      if (ext && ASSET_EXTENSIONS.has(ext)) return true;
+      // Next.js static chunks are always assets even without extension in path
+      if (p.pathname.startsWith('/_next/static/')) return true;
+      if (p.pathname.startsWith('/_next/image')) return true;
+      if (p.pathname.includes('/webpack-hmr')) return true;
+    }} catch(e) {{}}
+    return false;
+  }}
+
+  // ─── Core URL rewriter ─────────────────────────────────────────────────────
   function rewriteUrl(url) {{
     if (!url || typeof url !== 'string') return url;
     const trimmed = url.trim();
     if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('blob:') || trimmed.startsWith('javascript:')) {{
       return url;
     }}
+    // Already a proxy URL — pass through unchanged
     if (trimmed.includes('/proxy/session/')) {{
       return url;
     }}
-    
-    // Bypass rewriting if the URL is on the proxy origin itself
-    try {{
-      const parsed = new URL(url, window.location.href);
-      const proxyHost = new URL(window.__STAGE_PROXY_ORIGIN__).host.toLowerCase();
-      if (parsed.host.toLowerCase() === proxyHost) {{
-        return url;
-      }}
-    }} catch(e) {{}}
-    
+
+    // Resolve to absolute URL — use target URL as base so root-relative paths
+    // like /_next/static/... anchor against the target origin, not the proxy.
     let absoluteUrl = url;
     try {{
       absoluteUrl = new URL(url, window.__STAGE_TARGET_URL__).href;
     }} catch(e) {{
       return url;
     }}
-    
+
+    // Parse for origin comparison
+    let parsedAbsolute;
     try {{
-      const parsed = new URL(absoluteUrl);
-      const host = parsed.hostname.toLowerCase();
-      
-      const PASSTHROUGH_ORIGINS = [
-        'firebaseinstallations.googleapis.com',
-        'firebase.googleapis.com',
-        'identitytoolkit.googleapis.com',
-        'securetoken.googleapis.com',
-        'firebaseapp.com',
-        'auth0.com',
-        'accounts.google.com',
-        'www.google-analytics.com', 'google-analytics.com',
-        'www.googletagmanager.com', 'googletagmanager.com',
-        'connect.facebook.net', 'static.hotjar.com', 'script.hotjar.com',
-        'segment.io', 'api.segment.io'
-      ];
-      
-      const isExact = PASSTHROUGH_ORIGINS.some(o => host === o);
-      const isSuffix = PASSTHROUGH_ORIGINS.some(o => host.endsWith('.' + o));
-      const isGoogleCollect = (host === 'www.google.com' || host === 'google.com') && parsed.pathname.startsWith('/g/collect');
-      if (isExact || isSuffix || isGoogleCollect) return absoluteUrl;
+      parsedAbsolute = new URL(absoluteUrl);
+    }} catch(e) {{
+      return url;
+    }}
+
+    const absoluteHost = parsedAbsolute.hostname.toLowerCase();
+
+    // Analytics / third-party passthrough origins — never proxy-route these
+    const PASSTHROUGH_ORIGINS = [
+      'firebaseinstallations.googleapis.com',
+      'firebase.googleapis.com',
+      'identitytoolkit.googleapis.com',
+      'securetoken.googleapis.com',
+      'firebaseapp.com',
+      'auth0.com',
+      'accounts.google.com',
+      'www.google-analytics.com', 'google-analytics.com',
+      'www.googletagmanager.com', 'googletagmanager.com',
+      'connect.facebook.net', 'static.hotjar.com', 'script.hotjar.com',
+      'segment.io', 'api.segment.io'
+    ];
+
+    const isExact = PASSTHROUGH_ORIGINS.some(o => absoluteHost === o);
+    const isSuffix = PASSTHROUGH_ORIGINS.some(o => absoluteHost.endsWith('.' + o));
+    const isGoogleCollect = (absoluteHost === 'www.google.com' || absoluteHost === 'google.com') && parsedAbsolute.pathname.startsWith('/g/collect');
+    if (isExact || isSuffix || isGoogleCollect) return absoluteUrl;
+
+    // Bypass: URLs that are already on the proxy app origin itself
+    try {{
+      const proxyHost = new URL(window.__STAGE_PROXY_ORIGIN__).host.toLowerCase();
+      if (absoluteHost === proxyHost) return url;
     }} catch(e) {{}}
 
+    // Route through proxy asset endpoint — preserves absolute target URL in the path
+    // Format: /proxy/session/{{id}}/asset/{{scheme}}/{{host}}/{{path...}}
     try {{
-      const parsedProxy = new URL(absoluteUrl);
-      const scheme = parsedProxy.protocol.replace(':', '');
-      const host = parsedProxy.host;
-      const path = parsedProxy.pathname.slice(1) + parsedProxy.search + parsedProxy.hash;
-      return proxyBase + '/asset/' + scheme + '/' + host + '/' + path;
+      const scheme = parsedAbsolute.protocol.replace(':', '');
+      const host = parsedAbsolute.host;
+      const pathAndQuery = parsedAbsolute.pathname.slice(1) + parsedAbsolute.search + parsedAbsolute.hash;
+      return proxyBase + '/asset/' + scheme + '/' + host + '/' + pathAndQuery;
     }} catch(e) {{
       return proxyBase + '/asset?url=' + encodeURIComponent(absoluteUrl);
     }}
@@ -209,15 +326,38 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   }} catch(e) {{}}
 
   try {{
+    Object.defineProperty(HTMLScriptElement.prototype, 'integrity', {{
+      get: function() {{ return ''; }},
+      set: function() {{ /* ignore and strip */ }},
+      configurable: true
+    }});
+    Object.defineProperty(HTMLLinkElement.prototype, 'integrity', {{
+      get: function() {{ return ''; }},
+      set: function() {{ /* ignore and strip */ }},
+      configurable: true
+    }});
+  }} catch(e) {{}}
+
+  try {{
     const originalSetAttribute = Element.prototype.setAttribute;
     Element.prototype.setAttribute = function(name, value) {{
+      const lowerName = name.toLowerCase();
+      if (lowerName === 'integrity') {{
+        return; // Strip integrity attributes dynamically to prevent SRI blockages
+      }}
       let val = value;
       try {{
         const tagName = this.tagName.toLowerCase();
-        if ((tagName === 'link' && name.toLowerCase() === 'href') ||
-            (tagName === 'script' && name.toLowerCase() === 'src') ||
-            (tagName === 'img' && name.toLowerCase() === 'src')) {{
+        if ((tagName === 'link' && lowerName === 'href') ||
+            (tagName === 'script' && lowerName === 'src') ||
+            (tagName === 'img' && lowerName === 'src')) {{
           val = rewriteUrl(value);
+        }} else if (lowerName === 'srcset') {{
+          val = String(value).split(',').map(part => {{
+            const parts = part.trim().split(/\s+/);
+            if (parts[0]) parts[0] = rewriteUrl(parts[0]);
+            return parts.join(' ');
+          }}).join(', ');
         }}
       }} catch(e) {{}}
       return originalSetAttribute.call(this, name, val);
@@ -281,12 +421,38 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   const nativePushState = History.prototype.pushState;
   const nativeReplaceState = History.prototype.replaceState;
 
+  // ─── Capture native location getters BEFORE we patch them ─────────────────
+  // All internal shim functions must use these, never the patched window.location.*
+  // properties, to avoid infinite recursion (patched getter → getLogicalUrlObject
+  // → getCurrentLogicalUrl → patched getter → ...).
+  const _nativeLocationDesc = Object.getOwnPropertyDescriptor(window.location, 'search')
+    || Object.getOwnPropertyDescriptor(Location.prototype, 'search');
+  const _nativeSearch   = _nativeLocationDesc ? () => _nativeLocationDesc.get.call(window.location) : () => window.location.search;
+
+  const _nativePathnameDesc = Object.getOwnPropertyDescriptor(window.location, 'pathname')
+    || Object.getOwnPropertyDescriptor(Location.prototype, 'pathname');
+  const _nativePathname = _nativePathnameDesc ? () => _nativePathnameDesc.get.call(window.location) : () => window.location.pathname;
+
+  const _nativeHashDesc = Object.getOwnPropertyDescriptor(window.location, 'hash')
+    || Object.getOwnPropertyDescriptor(Location.prototype, 'hash');
+  const _nativeHash     = _nativeHashDesc ? () => _nativeHashDesc.get.call(window.location) : () => window.location.hash;
+
+  const _nativeHrefDesc = Object.getOwnPropertyDescriptor(window.location, 'href')
+    || Object.getOwnPropertyDescriptor(Location.prototype, 'href');
+  const _nativeHref     = _nativeHrefDesc ? () => _nativeHrefDesc.get.call(window.location) : () => window.location.href;
+
+  // Returns the real current page URL on the TARGET site (not the proxy URL).
+  // Always reads via native search getter to avoid circular patching.
   function getCurrentLogicalUrl() {{
     try {{
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(_nativeSearch());
       const urlParam = params.get('url');
       if (urlParam) {{
         return new URL(urlParam).href;
+      }}
+      const currentPath = _nativePathname() + _nativeSearch() + _nativeHash();
+      if (currentPath && !currentPath.startsWith('/proxy/session/')) {{
+        return new URL(currentPath, window.__STAGE_TARGET_ORIGIN__).href;
       }}
     }} catch (_) {{}}
     return window.__STAGE_TARGET_URL__;
@@ -298,7 +464,7 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
       const str = String(inputUrl);
       if (str.includes('/proxy/session/')) {{
         try {{
-          const absoluteProxyUrl = new URL(str, window.location.origin);
+          const absoluteProxyUrl = new URL(str, window.__STAGE_PROXY_ORIGIN__);
           const urlParam = absoluteProxyUrl.searchParams.get('url');
           if (urlParam) {{
             return new URL(urlParam).href;
@@ -316,49 +482,35 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     }}
   }}
 
-  function normalizeToTransportUrl(inputUrl) {{
+  function _nativeTransportPath() {{
+    // Returns the actual browser transport path using native (unpatched) getters.
+    return _nativePathname() + _nativeSearch() + _nativeHash();
+  }}
+
+  function extractLogicalRelativePath(inputUrl) {{
     try {{
-      if (inputUrl === null || inputUrl === undefined || String(inputUrl).trim() === '') {{
-        return window.location.pathname + window.location.search + window.location.hash;
-      }}
-      const str = String(inputUrl);
-      if (str.startsWith('/proxy/session/')) {{
-        return str;
-      }}
-      try {{
-        const parsedProxy = new URL(str);
-        if (parsedProxy.origin === window.__STAGE_PROXY_ORIGIN__ && parsedProxy.pathname.startsWith('/proxy/session/')) {{
-          return parsedProxy.pathname + parsedProxy.search + parsedProxy.hash;
-        }}
-      }} catch (_) {{}}
-
-      const resolved = new URL(str, window.__STAGE_TARGET_URL__);
-      const targetOrigin = new URL(window.__STAGE_TARGET_URL__).origin;
-
-      if (resolved.origin === targetOrigin) {{
-        return '/proxy/session/' + window.__STAGE_SESSION_ID__ + '/page?url=' + encodeURIComponent(resolved.href);
-      }} else {{
-        return window.location.pathname + window.location.search + window.location.hash;
-      }}
-    }} catch (e) {{
-      return window.location.pathname + window.location.search + window.location.hash;
+      const resolved = resolveLogicalTargetUrl(inputUrl);
+      const u = new URL(resolved);
+      return u.pathname + u.search + u.hash;
+    }} catch (_) {{
+      return '/';
     }}
   }}
 
-  function safeCallNativePushReplace(nativeMethod, state, unused, safeTransportUrl) {{
+  function safeCallNativePushReplace(nativeMethod, state, unused, relativePath) {{
     const baseTag = document.querySelector('base');
     const originalHref = baseTag ? baseTag.getAttribute('href') : null;
-    
+
     if (baseTag) {{
       baseTag.removeAttribute('href'); // Temporarily remove base href so URL resolves relative to document origin (localhost:8765) without SecurityError
     }}
-    
+
     try {{
-      nativeMethod.call(this, state, unused || '', safeTransportUrl);
+      nativeMethod.call(this, state, unused || '', relativePath);
     }} catch (err) {{
       console.warn("[STAGE History Shim] Failed native call", err);
       try {{
-        nativeMethod.call(this, state, unused || '', window.location.pathname + window.location.search);
+        nativeMethod.call(this, state, unused || '', _nativePathname() + _nativeSearch());
       }} catch (_) {{}}
     }} finally {{
       if (baseTag && originalHref !== null) {{
@@ -367,12 +519,21 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     }}
   }}
 
+  // Align initial browser URL path to the target relative path immediately so
+  // Next.js / React Router read the logical pathname on initialisation.
+  try {{
+    const _initTarget = new URL(window.__STAGE_TARGET_URL__);
+    const _initRelativePath = _initTarget.pathname + _initTarget.search + _initTarget.hash;
+    safeCallNativePushReplace.call(history, nativeReplaceState, history.state, '', _initRelativePath);
+  }} catch (_) {{}}
+
   History.prototype.pushState = function(state, unused, url) {{
     const logicalTargetUrl = resolveLogicalTargetUrl(url);
-    const safeTransportUrl = normalizeToTransportUrl(url);
-    console.debug("[STAGE History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=pushState");
-    safeCallNativePushReplace.call(this, nativePushState, state, unused, safeTransportUrl);
+    const relativePath = extractLogicalRelativePath(url);
+    console.debug("[STAGE History Shim] input=" + url + " logical=" + logicalTargetUrl + " relativePath=" + relativePath + " type=pushState");
+    safeCallNativePushReplace.call(this, nativePushState, state, unused, relativePath);
     window.__STAGE_TARGET_URL__ = logicalTargetUrl;
+    window.STAGE_TARGET_URL = logicalTargetUrl;
     if (window.STAGE) {{
       window.STAGE.pageUrl = logicalTargetUrl;
       window.STAGE.targetUrl = logicalTargetUrl;
@@ -380,24 +541,25 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     try {{
       const baseTag = document.querySelector('base');
       if (baseTag) {{
-        baseTag.setAttribute('href', logicalTargetUrl);
+        baseTag.setAttribute('href', window.__STAGE_TARGET_ORIGIN__ + '/');
       }}
     }} catch (_) {{}}
     window.dispatchEvent(new CustomEvent('stage:navigation', {{
       detail: {{
         type: 'pushState',
         logicalTargetUrl: logicalTargetUrl,
-        transportUrl: safeTransportUrl
+        relativePath: relativePath
       }}
     }}));
   }};
 
   History.prototype.replaceState = function(state, unused, url) {{
     const logicalTargetUrl = resolveLogicalTargetUrl(url);
-    const safeTransportUrl = normalizeToTransportUrl(url);
-    console.debug("[STAGE History Shim] input=" + url + " logical=" + logicalTargetUrl + " transport=" + safeTransportUrl + " type=replaceState");
-    safeCallNativePushReplace.call(this, nativeReplaceState, state, unused, safeTransportUrl);
+    const relativePath = extractLogicalRelativePath(url);
+    console.debug("[STAGE History Shim] input=" + url + " logical=" + logicalTargetUrl + " relativePath=" + relativePath + " type=replaceState");
+    safeCallNativePushReplace.call(this, nativeReplaceState, state, unused, relativePath);
     window.__STAGE_TARGET_URL__ = logicalTargetUrl;
+    window.STAGE_TARGET_URL = logicalTargetUrl;
     if (window.STAGE) {{
       window.STAGE.pageUrl = logicalTargetUrl;
       window.STAGE.targetUrl = logicalTargetUrl;
@@ -405,14 +567,14 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     try {{
       const baseTag = document.querySelector('base');
       if (baseTag) {{
-        baseTag.setAttribute('href', logicalTargetUrl);
+        baseTag.setAttribute('href', window.__STAGE_TARGET_ORIGIN__ + '/');
       }}
     }} catch (_) {{}}
     window.dispatchEvent(new CustomEvent('stage:navigation', {{
       detail: {{
         type: 'replaceState',
         logicalTargetUrl: logicalTargetUrl,
-        transportUrl: safeTransportUrl
+        relativePath: relativePath
       }}
     }}));
   }};
@@ -422,8 +584,9 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
 
   window.addEventListener('popstate', function() {{
     const logicalTargetUrl = getCurrentLogicalUrl();
-    const transportUrl = window.location.pathname + window.location.search + window.location.hash;
+    const transportUrl = _nativeTransportPath();
     window.__STAGE_TARGET_URL__ = logicalTargetUrl;
+    window.STAGE_TARGET_URL = logicalTargetUrl;
     if (window.STAGE) {{
       window.STAGE.pageUrl = logicalTargetUrl;
       window.STAGE.targetUrl = logicalTargetUrl;
@@ -431,7 +594,7 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     try {{
       const baseTag = document.querySelector('base');
       if (baseTag) {{
-        baseTag.setAttribute('href', logicalTargetUrl);
+        baseTag.setAttribute('href', window.__STAGE_TARGET_ORIGIN__ + '/');
       }}
     }} catch (_) {{}}
     console.debug("[STAGE History Shim] input=" + window.location.href + " logical=" + logicalTargetUrl + " transport=" + transportUrl + " type=popstate");
@@ -468,7 +631,7 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   const define = (obj, prop, getter) => {{
     try {{ Object.defineProperty(obj, prop, {{ get: getter, configurable: true }}); }} catch(e) {{}}
   }};
-  
+
   define(document, 'URL', () => getLogicalUrlObject().href);
   define(document, 'documentURI', () => getLogicalUrlObject().href);
   define(document, 'baseURI', () => getLogicalUrlObject().href);
@@ -501,13 +664,73 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   window.__STAGE_GET_LOGICAL_URL__ = function() {{
     return getLogicalUrlObject().href;
   }};
-  
+
+  // ─── window.top / window.parent location guard ──────────────────────────
+  // Third-party scripts (Memberstack, Intercom, etc.) read window.top.location
+  // or window.parent.location which throws a SecurityError in a cross-origin iframe.
+  // We patch them to return the logical location object so the check succeeds
+  // without throwing, while keeping the page's own scripts functional.
+  (function() {{
+    var _safeTopLocation = {{
+      get href()     {{ return getLogicalUrlObject().href; }},
+      get origin()   {{ return getLogicalUrlObject().origin; }},
+      get protocol() {{ return getLogicalUrlObject().protocol; }},
+      get host()     {{ return getLogicalUrlObject().host; }},
+      get hostname() {{ return getLogicalUrlObject().hostname; }},
+      get pathname() {{ return getLogicalUrlObject().pathname; }},
+      get search()   {{ return getLogicalUrlObject().search; }},
+      get hash()     {{ return getLogicalUrlObject().hash; }},
+      toString: function() {{ return getLogicalUrlObject().href; }},
+      assign: function() {{}},
+      replace: function() {{}},
+      reload: function() {{}}
+    }};
+    // Patch window.top — safe accessor that catches SecurityError and returns our stub
+    try {{
+      Object.defineProperty(window, 'top', {{
+        get: function() {{
+          try {{ var t = window.parent; if (t === window) return window; }} catch(_) {{}}
+          // Return a stub that looks like window but has our safe location
+          return {{
+            location: _safeTopLocation,
+            document: {{}},
+            STAGE: window.STAGE,
+            __STAGE__: window.__STAGE__
+          }};
+        }},
+        configurable: true
+      }});
+    }} catch(_) {{}}
+    // Also patch window.parent.location in case top succeeds but parent.location throws
+    try {{
+      var _origParentDesc = Object.getOwnPropertyDescriptor(window, 'parent');
+      if (!_origParentDesc) {{
+        Object.defineProperty(window, 'parent', {{
+          get: function() {{
+            return {{ location: _safeTopLocation }};
+          }},
+          configurable: true
+        }});
+      }}
+    }} catch(_) {{}}
+  }})();
+
   // Rewrite CSS rules containing url(...)
   function rewriteCSS(cssText) {{
     if (!cssText || typeof cssText !== 'string') return cssText;
-    return cssText.replace(/url\((['"]?)([^\'")\\]+)\1\)/gi, function(match, quote, url) {{
-      return "url('" + rewriteUrl(url) + "')";
-    }});
+    try {{
+      // NOTE: The character class [^'")\\] requires exactly the chars shown.
+      // Previous bug: missing backslash before ] causing "missing /" SyntaxError.
+      return cssText.replace(/url\((['"]?)([^'"\\)]+)\1\)/gi, function(match, quote, url) {{
+        try {{
+          return "url('" + rewriteUrl(url) + "')";
+        }} catch(e) {{
+          return match; // Leave unchanged on error
+        }}
+      }});
+    }} catch(e) {{
+      return cssText; // Return unchanged if regex itself fails
+    }}
   }}
 
   // 1. Patch CSSStyleSheet.prototype.insertRule
@@ -714,6 +937,7 @@ def inject_cursor_relay_bridge(html: str) -> str:
 def inject_webgl_patch(html: str) -> str:
     """
     Forces preserveDrawingBuffer: true on WebGL/WebGL2 context creation so canvases can be captured.
+    Triggers STAGE_WEBGL_FAILED postMessage on context creation failures to handle degradation warning.
     """
     patch = """<script>
 (function() {
@@ -723,9 +947,20 @@ def inject_webgl_patch(html: str) -> str:
       try { this.__stage_context_type = type; } catch(_) {}
       var rest = Array.prototype.slice.call(arguments, 2);
       if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
-        var newAttribs = Object.assign({}, attribs || {}, { preserveDrawingBuffer: true });
-        var args = [type, newAttribs].concat(rest);
-        return _origGetContext.apply(this, args);
+        try {
+          var newAttribs = Object.assign({}, attribs || {}, { preserveDrawingBuffer: true });
+          var args = [type, newAttribs].concat(rest);
+          var ctx = _origGetContext.apply(this, args);
+          if (!ctx) {
+            console.warn('[STAGE] WebGL context creation failed. Degrading to static layer.');
+            window.parent.postMessage({ type: 'STAGE_WEBGL_FAILED' }, '*');
+          }
+          return ctx;
+        } catch(err) {
+          console.error('[STAGE] WebGL error:', err);
+          window.parent.postMessage({ type: 'STAGE_WEBGL_FAILED' }, '*');
+          return null;
+        }
       }
       return _origGetContext.apply(this, arguments);
     };
@@ -773,22 +1008,16 @@ def inject_sw_killer(html: str) -> str:
 
 
 # ── STEP 4 ────────────────────────────────────────────────────────────────────
-def inject_base_tag(html: str, target_url: str) -> str:
+def strip_or_fix_base_tag(html: str) -> str:
     """
-    Injects/updates a <base href="..."> tag pointing to the target URL.
+    Removes cross-origin <base href="..."> tags from the HTML.
+    Cross-origin <base> tags break window.history.pushState / replaceState in Chrome
+    with SecurityError: A history state object cannot be created for a document in another origin.
+    Removing cross-origin base tags keeps document.baseURI same-origin so React Router
+    and client-side SPA routing can freely update history state.
     """
     base_regex = re.compile(r'<base\s+[^>]*>', re.IGNORECASE)
-    if base_regex.search(html):
-        html = base_regex.sub(f'<base href="{target_url}">', html, count=1)
-    else:
-        base_tag = f'<base href="{target_url}">'
-        head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
-        if head_match:
-            idx = head_match.end()
-            html = html[:idx] + f"\n{base_tag}\n" + html[idx:]
-        else:
-            html = f"{base_tag}\n" + html
-    return html
+    return base_regex.sub('', html)
 
 
 # ── STEP 5 ────────────────────────────────────────────────────────────────────
@@ -842,6 +1071,9 @@ def inject_agent(html: str, agent_url: str) -> str:
     """
     if not agent_url:
         return html
+    # Check if stage-agent.js is already present in the HTML (exactly-once injection check)
+    if "stage-agent.js" in html:
+        return html
     agent_tag = f'<script src="{agent_url}" defer></script>'
     if "</body>" in html:
         return html.replace("</body>", f"{agent_tag}</body>", 1)
@@ -853,36 +1085,78 @@ def inject_agent(html: str, agent_url: str) -> str:
 # ── STEP 7 ────────────────────────────────────────────────────────────────────
 def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_url: str) -> str:
     """
-    Rewrites <link rel="stylesheet">, <link rel="preload" as="font">, and inline <style> blocks
-    to route through the proxy's asset endpoint, bypassing font CORS restrictions.
+    Rewrites <link rel="stylesheet">, <link rel="preload" as="font">,
+    <script src="...">, and inline <style> blocks to route through the
+    proxy's asset endpoint.
     """
-    parsed = urllib.parse.urlparse(page_url)
-    target_origin = f"{parsed.scheme}://{parsed.netloc}"
-    
+    origin = _target_origin(page_url)
+
+    def _make_asset_proxy_url(href: str) -> str:
+        """Build the proxy asset URL for a given href relative to the target origin."""
+        if href.startswith("data:") or href.startswith("blob:") or "proxy/session" in href:
+            return None
+        # Resolve against origin root so root-relative paths are correct
+        resolved_url = urllib.parse.urljoin(origin + '/', href.lstrip('/') if href.startswith('/') else href)
+        # For absolute URLs on a different origin, use as-is
+        if href.startswith('http://') or href.startswith('https://'):
+            resolved_url = href
+        parsed_res = urllib.parse.urlparse(resolved_url)
+        proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
+        if parsed_res.query:
+            proxy_url += f"?{parsed_res.query}"
+        return proxy_url
+
     def link_replacer(match):
         tag = match.group(0)
         is_stylesheet = re.search(r'rel=["\']stylesheet["\']', tag, re.IGNORECASE)
         is_font_preload = re.search(r'rel=["\']preload["\']', tag, re.IGNORECASE) and re.search(r'as=["\']font["\']', tag, re.IGNORECASE)
-        
-        if not (is_stylesheet or is_font_preload):
+        is_script_preload = re.search(r'rel=["\']preload["\']', tag, re.IGNORECASE) and re.search(r'as=["\']script["\']', tag, re.IGNORECASE)
+        is_modulepreload = re.search(r'rel=["\']modulepreload["\']', tag, re.IGNORECASE)
+
+        if not (is_stylesheet or is_font_preload or is_script_preload or is_modulepreload):
             return tag
-            
+
         href_match = re.search(r'href=["\']([^"\']+)["\']', tag, re.IGNORECASE)
         if not href_match:
             return tag
-            
+
         href = href_match.group(1)
-        if href.startswith("data:") or "proxy/session" in href:
+        proxy_url = _make_asset_proxy_url(href)
+        if proxy_url is None:
             return tag
-            
-        resolved_url = urllib.parse.urljoin(target_origin, href)
-        parsed_res = urllib.parse.urlparse(resolved_url)
-        
-        proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
-        if parsed_res.query:
-            proxy_url += f"?{parsed_res.query}"
-            
-        return tag[:href_match.start(1)] + proxy_url + tag[href_match.end(1):]
+
+        # Rewrite href
+        tag = tag[:href_match.start(1)] + proxy_url + tag[href_match.end(1):]
+
+        # Strip integrity and crossorigin attributes
+        tag = re.sub(r'\s+integrity=["\'][^"\']*["\']', '', tag, flags=re.IGNORECASE)
+        tag = re.sub(r'\s+crossorigin(?:=["\'][^"\']*["\'])?', '', tag, flags=re.IGNORECASE)
+        return tag
+
+    def script_src_replacer(match):
+        tag = match.group(0)
+        # Skip inline scripts (no src attr) and already-proxied scripts
+        src_match = re.search(r'\bsrc=["\']([^"\']+)["\']', tag, re.IGNORECASE)
+        if not src_match:
+            return tag
+
+        src = src_match.group(1)
+        # Never rewrite the STAGE agent itself
+        if "stage-agent.js" in src:
+            return tag
+        # Skip data: URLs and already-proxied
+        if src.startswith("data:") or "proxy/session" in src:
+            return tag
+
+        proxy_url = _make_asset_proxy_url(src)
+        if proxy_url is None:
+            return tag
+
+        tag = tag[:src_match.start(1)] + proxy_url + tag[src_match.end(1):]
+        # Strip SRI
+        tag = re.sub(r'\s+integrity=["\'][^"\']*["\']', '', tag, flags=re.IGNORECASE)
+        tag = re.sub(r'\s+crossorigin(?:=["\'][^"\']*["\'])?', '', tag, flags=re.IGNORECASE)
+        return tag
 
     def style_replacer(match):
         content = match.group(0)
@@ -890,16 +1164,110 @@ def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_
             url = m.group(1)
             if url.startswith("data:") or "proxy/session" in url:
                 return m.group(0)
-            resolved_url = urllib.parse.urljoin(target_origin, url)
+            resolved_url = urllib.parse.urljoin(origin + '/', url.lstrip('/') if url.startswith('/') else url)
+            if url.startswith('http://') or url.startswith('https://'):
+                resolved_url = url
             parsed_res = urllib.parse.urlparse(resolved_url)
             proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
             if parsed_res.query:
                 proxy_url += f"?{parsed_res.query}"
             return f"url('{proxy_url}')"
-        return re.sub(r'url\([\'"]?([^\'"\)]+)[\'"]?\)', url_replacer, content, flags=re.IGNORECASE)
+        return re.sub(r'url\([\'"]?([^\'"\\)]+)[\'"]?\)', url_replacer, content, flags=re.IGNORECASE)
 
     html = re.sub(r'<link\s+[^>]+>', link_replacer, html, flags=re.IGNORECASE)
+    html = re.sub(r'<script\b[^>]+>', script_src_replacer, html, flags=re.IGNORECASE)
     html = re.sub(r'<style[^>]*>[\s\S]*?</style>', style_replacer, html, flags=re.IGNORECASE)
+    return html
+
+
+# ── Media rewriting ───────────────────────────────────────────────────────────
+def proxy_media_attributes(html: str, api_base: str, session_id: str, page_url: str) -> str:
+    """
+    Rewrites src attributes on <img>, <video>, <audio>, <source>, <embed>, and data on <object>
+    to route through the proxy's asset endpoint.
+    """
+    origin = _target_origin(page_url)
+
+    def media_replacer(match):
+        tag = match.group(0)
+        src_match = re.search(r'\b(src|data)=["\']([^"\']+)["\']', tag, re.IGNORECASE)
+        if not src_match:
+            return tag
+        src_val = src_match.group(2)
+        if src_val.startswith("data:") or src_val.startswith("blob:") or "proxy/session" in src_val:
+            return tag
+        resolved_url = urllib.parse.urljoin(origin + '/', src_val.lstrip('/') if src_val.startswith('/') else src_val)
+        if src_val.startswith('http://') or src_val.startswith('https://'):
+            resolved_url = src_val
+        parsed_res = urllib.parse.urlparse(resolved_url)
+        proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
+        if parsed_res.query:
+            proxy_url += f"?{parsed_res.query}"
+        tag = tag[:src_match.start(2)] + proxy_url + tag[src_match.end(2):]
+        # Strip integrity/crossorigin
+        tag = re.sub(r'\s+integrity=["\'][^"\']*["\']', '', tag, flags=re.IGNORECASE)
+        tag = re.sub(r'\s+crossorigin(?:=["\'][^"\']*["\'])?', '', tag, flags=re.IGNORECASE)
+        return tag
+
+    return re.sub(r'<(?:img|video|audio|source|embed|object)\b[^>]+>', media_replacer, html, flags=re.IGNORECASE)
+
+
+# ── Srcset rewriting ──────────────────────────────────────────────────────────
+def proxy_srcset_attributes(html: str, api_base: str, session_id: str, page_url: str) -> str:
+    """
+    Rewrites srcset attributes on all elements (usually <img> or <source>) in the HTML
+    to route the image URLs through the proxy's asset endpoint.
+    """
+    origin = _target_origin(page_url)
+
+    def srcset_replacer(match):
+        tag = match.group(0)
+        srcset_match = re.search(r'srcset=["\']([^"\']+)["\']', tag, re.IGNORECASE)
+        if not srcset_match:
+            return tag
+
+        srcset_val = srcset_match.group(1)
+        parts = []
+        for part in srcset_val.split(','):
+            part = part.strip()
+            if not part:
+                continue
+            subparts = part.split()
+            if not subparts:
+                continue
+            url = subparts[0]
+            if not (url.startswith("data:") or "proxy/session" in url):
+                resolved_url = urllib.parse.urljoin(origin + '/', url.lstrip('/') if url.startswith('/') else url)
+                if url.startswith('http://') or url.startswith('https://'):
+                    resolved_url = url
+                parsed_res = urllib.parse.urlparse(resolved_url)
+                proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
+                if parsed_res.query:
+                    proxy_url += f"?{parsed_res.query}"
+                subparts[0] = proxy_url
+            parts.append(" ".join(subparts))
+
+        new_srcset = ", ".join(parts)
+        return tag[:srcset_match.start(1)] + new_srcset + tag[srcset_match.end(1):]
+
+    return re.sub(r'<[^>]+\bsrcset=["\'][^"\']+["\'][^>]*>', srcset_replacer, html, flags=re.IGNORECASE)
+
+
+# ── SRI stripping ─────────────────────────────────────────────────────────────
+def strip_sri_attributes(html: str) -> str:
+    """
+    Strips `integrity` and matching `crossorigin` attributes from ALL <link>,
+    <script>, and <img> tags in the rewritten HTML.
+    """
+    def _strip_sri(m: re.Match) -> str:
+        tag = m.group(0)
+        tag = re.sub(r'\s+integrity=["\'][^"\']*["\']', '', tag, flags=re.IGNORECASE)
+        tag = re.sub(r'\s+crossorigin(?:=["\'][^"\']*["\'])?', '', tag, flags=re.IGNORECASE)
+        return tag
+
+    html = re.sub(r'<link\b[^>]+>', _strip_sri, html, flags=re.IGNORECASE)
+    html = re.sub(r'<script\b[^>]+>', _strip_sri, html, flags=re.IGNORECASE)
+    html = re.sub(r'<img\b[^>]+>', _strip_sri, html, flags=re.IGNORECASE)
     return html
 
 
@@ -915,16 +1283,31 @@ def rewrite_html(
 ) -> str:
     """
     Rewrites a proxied HTML payload before it reaches the browser.
+
+    Architectural rules enforced here:
+      DOCUMENTS  → navigate through the session proxy route (/proxy/session/{id}/page?url=)
+      ASSETS     → resolve to absolute target origin URLs, fetched via asset proxy
+      TRACKING   → page_url is always the real target URL (never the proxy transport URL)
     """
     logger.info(
         f"[PROXY_REWRITE] Starting HTML rewrite for session={session_id}, "
-        f"page_url={page_url}, snapshot={snapshot_mode}"
+        f"page_url={page_url}, snapshot={snapshot_mode}, "
+        f"conservative={conservative_render_mode}"
     )
 
-    # Rewrite stylesheets and fonts to use proxy before other shims
+    # ── Phase 1: Rewrite static HTML asset references ─────────────────────────
     html = proxy_stylesheets_and_fonts(html, api_base, session_id, page_url)
+    html = proxy_media_attributes(html, api_base, session_id, page_url)
+    html = proxy_srcset_attributes(html, api_base, session_id, page_url)
 
-    # snapshot_mode: strip all script tags so runtime JS doesn't execute
+    # Strip SRI attributes globally
+    html = strip_sri_attributes(html)
+    logger.info("[PROXY_REWRITE] SRI integrity attributes stripped from all link/script tags")
+
+    # Strip any cross-origin <base> tag that could break window.history in the browser
+    html = strip_or_fix_base_tag(html)
+
+    # ── Phase 2: snapshot_mode — strip all script tags ────────────────────────
     if snapshot_mode:
         logger.info(
             "[PROXY_REWRITE] Snapshot Mode Active — stripping all script tags."
@@ -936,39 +1319,29 @@ def rewrite_html(
             flags=re.IGNORECASE,
         )
 
-    # Derive proxy base URL (full session path for the agent)
+    # ── Phase 3: Inject STAGE shims ───────────────────────────────────────────
     proxy_base_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}"
 
-    # Agent script URL — env override or default to /static/ path
     agent_script_url = os.getenv(
         "PROXY_AGENT_SCRIPT_URL",
         f"{api_base.rstrip('/')}/static/stage-agent.js",
     )
 
-    # 1. Bootstrap — window.__STAGE_TARGET_URL__, SESSION_ID, BASE
     if conservative_render_mode:
         logger.info("[PROXY_REWRITE] Conservative Render Mode Active - injecting scripts at the end of <head>")
-        
-        # Inject base tag first (still early)
-        html = inject_base_tag(html, page_url)
-        
-        # Build the combined script block of all stage shims
-        # We extract the script inner contents or just concatenate the tags
+
         bootstrap_script = inject_bootstrap("<html><head></head></html>", page_url, str(session_id), proxy_base_url, api_base)
         cursor_script = inject_cursor_relay_bridge("<html><head></head></html>")
         webgl_script = inject_webgl_patch("<html><head></head></html>")
         sw_script = inject_sw_killer("<html><head></head></html>")
         guard_script = inject_chunk_guard("<html><head></head></html>")
-        
-        # Extract the scripts from the dummy htmls
+
         def extract_script(h):
-            m = re.findall(r'<!--.*?-->|<script\b[^>]*>([\s\S]*?)</script>', h)
-            # Just grab the scripts
             scripts = []
             for item in re.finditer(r'(<!--.*?-->|<script\b[^>]*>[\s\S]*?</script>)', h):
                 scripts.append(item.group(1))
             return "\n".join(scripts)
-            
+
         combined_shims = "\n".join([
             extract_script(bootstrap_script),
             extract_script(cursor_script),
@@ -976,14 +1349,12 @@ def rewrite_html(
             extract_script(sw_script),
             extract_script(guard_script)
         ])
-        
-        # Inject at the beginning of <head>
+
         head_start_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
         if head_start_match:
             idx = head_start_match.end()
             html = html[:idx] + f"\n{combined_shims}\n" + html[idx:]
         else:
-            # Fallback if no head closing tag
             html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
             html = inject_cursor_relay_bridge(html)
             html = inject_webgl_patch(html)
@@ -994,13 +1365,13 @@ def rewrite_html(
         html = inject_cursor_relay_bridge(html)
         html = inject_webgl_patch(html)
         html = inject_sw_killer(html)
-        html = inject_base_tag(html, page_url)
         html = inject_chunk_guard(html)
 
-    # 6. Agent — append-only before </body>, never touch existing scripts
+    # ── Phase 4: Agent ────────────────────────────────────────────────────────
+    # Append-only before </body>, never touch existing scripts
     html = inject_agent(html, agent_script_url)
 
-    # Remove CSP / frame security meta tags (http-equiv fallback)
+    # ── Phase 5: Remove CSP / frame security meta tags ────────────────────────
     html = re.sub(
         r'<meta\s+[^>]*http-equiv=["\']?(?:content-security-policy|x-frame-options|frame-ancestors)["\']?[^>]*>',
         "",

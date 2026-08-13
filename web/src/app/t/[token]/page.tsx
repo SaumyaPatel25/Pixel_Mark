@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
+import { StageLoader } from '@/components/ui/StageLoader'
 
 const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
 
@@ -114,7 +115,7 @@ export default function TesterLanding() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (state === 'loading') return (
     <div className="min-h-screen bg-pm-bg flex items-center justify-center transition-colors duration-300">
-      <Loader2 className="w-8 h-8 animate-spin text-pm-accent" />
+      <StageLoader size="sm" />
     </div>
   )
 

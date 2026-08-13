@@ -156,5 +156,23 @@ export const useBlueprintPresenceStore = create<BlueprintPresenceState>((set, ge
     })
   },
 
+  clearStaleCursors: () => {
+    const now = Date.now()
+    set(state => {
+      let changed = false
+      const updatedMap: Record<string, BlueprintUserPresence> = {}
+      for (const [id, user] of Object.entries(state.activeUsers)) {
+        if (user.cursor && now - (user.cursor.lastUpdated || 0) > 15000) {
+          changed = true
+          const { cursor, ...rest } = user
+          updatedMap[id] = rest
+        } else {
+          updatedMap[id] = user
+        }
+      }
+      return changed ? { activeUsers: updatedMap } : state
+    })
+  },
+
   reset: () => set({ activeUsers: {}, isConnected: false })
 }))

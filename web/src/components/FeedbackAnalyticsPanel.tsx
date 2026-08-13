@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
-import { BarChart3, X, Loader2, Calendar, Users, Eye, Pin, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { BarChart3, X, Calendar, Users, Eye, Pin, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { StageLoader } from '@/components/ui/StageLoader'
 import { cn } from '@/lib/utils'
 
 interface FeedbackAnalyticsPanelProps {
@@ -47,9 +48,8 @@ export default function FeedbackAnalyticsPanel({ sessionId, onClose }: FeedbackA
 
   if (loading) {
     return (
-      <div className="h-full bg-[#0a0a0f] border-r border-white/5 flex flex-col items-center justify-center space-y-4 p-6 text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Loading Real-Time Analytics</p>
+      <div className="h-full bg-[#0a0a0f] border-r border-white/5 flex flex-col items-center justify-center gap-4 p-6">
+        <StageLoader size="sm" text="Analytics" />
       </div>
     )
   }

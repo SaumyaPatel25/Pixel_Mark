@@ -19,6 +19,7 @@ import {
 import SessionFeedbackSummary from '@/components/session/SessionFeedbackSummary'
 import { useOnboardingStore } from '@/store/onboardingStore'
 import { useUIStore } from '@/store/uiStore'
+import { useProjectStore } from '@/store/projectStore'
 
 function SessionsList() {
   const router = useRouter()
@@ -48,8 +49,10 @@ function SessionsList() {
     setIsLoading(true)
     setError(null)
     try {
+      const cachedProj = useProjectStore.getState().projects.find(p => p.id === projectId)
+      const fetchProjPromise = cachedProj ? Promise.resolve(cachedProj) : api.projects.get(projectId)
       const [projData, sessionsList] = await Promise.all([
-        api.projects.get(projectId),
+        fetchProjPromise,
         api.sessions.getSessions(projectId)
       ])
       setProject(projData)
@@ -212,7 +215,8 @@ function SessionsList() {
                     <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <Link
                         id="onboarding-audit-canvas-btn"
-                        href={`/project/${projectId}`}
+                        href={`/project/${projectId}?session=${s.id}`}
+                        prefetch={false}
                         title="Audit Canvas"
                         className="group h-10 px-4 rounded-xl bg-pm-accent-subtle hover:bg-pm-accent/20 border border-pm-border text-pm-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm whitespace-nowrap overflow-hidden"
                       >
@@ -220,7 +224,8 @@ function SessionsList() {
                         <span className="max-w-0 opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 transition-all duration-300 overflow-hidden">Audit Canvas</span>
                       </Link>
                       <Link
-                        href={`/sessions/${s.id}`}
+                        href={`/project/${projectId}?session=${s.id}&view=details`}
+                        prefetch={false}
                         title="Observation Details"
                         className="group h-10 px-4 rounded-xl bg-pm-surface border border-pm-border hover:bg-pm-surface-2 text-pm-muted hover:text-pm-text text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm whitespace-nowrap overflow-hidden"
                       >

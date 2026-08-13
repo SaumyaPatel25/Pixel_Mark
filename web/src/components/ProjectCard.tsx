@@ -2,9 +2,11 @@
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { motion, useMotionValue, useSpring, AnimatePresence } from 'framer-motion'
-import { Layout, Play, Share2, ExternalLink, Activity, FileText, Calendar, ShieldAlert, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
+import { Layout, Play, Share2, ExternalLink, Activity, FileText, Calendar, ShieldAlert, Trash2, AlertTriangle } from 'lucide-react'
+import { StageSpinner } from '@/components/ui/StageLoader'
 import { api } from '@/lib/api'
 import { useThemeStore } from '@/store/themeStore'
+import { useProjectStore } from '@/store/projectStore'
 
 function useIsDarkTheme() {
   const theme = useThemeStore((state) => state.theme)
@@ -220,30 +222,30 @@ export function ProjectCard({
     mouseY.set(e.clientY - rect.top)
   }
 
-  // Support local analytics load if project.markers is not pre-populated
-  const [localAnalytics, setLocalAnalytics] = useState<any>(propAnalytics)
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(!propAnalytics && (!project.markers || !project.markers.length))
+  const cachedAnalytics = useProjectStore((s) => s.projectAnalytics[project.id]?.data)
+  const fetchAnalyticsStore = useProjectStore((s) => s.fetchAnalytics)
+
+  const currentAnalytics = propAnalytics || cachedAnalytics
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(!currentAnalytics && (!project.markers || !project.markers.length))
 
   useEffect(() => {
-    if (propAnalytics || (project.markers && project.markers.length)) {
+    if (currentAnalytics || (project.markers && project.markers.length)) {
       setIsLoadingAnalytics(false)
-      return
     }
     let active = true
-    const fetchAnalytics = async () => {
+    const loadAnalytics = async () => {
       try {
-        const data = await api.projects.getAnalytics(project.id)
+        await fetchAnalyticsStore(project.id)
         if (active) {
-          setLocalAnalytics(data)
           setIsLoadingAnalytics(false)
         }
       } catch (err) {
         if (active) setIsLoadingAnalytics(false)
       }
     }
-    fetchAnalytics()
+    loadAnalytics()
     return () => { active = false }
-  }, [project.id, propAnalytics, project.markers])
+  }, [project.id, currentAnalytics, project.markers, fetchAnalyticsStore])
 
   // Resolve metrics from either project.markers OR localAnalytics
   const metrics = useMemo(() => {
@@ -272,13 +274,13 @@ export function ProjectCard({
       }
 
       return { total, resolved, pending, critical, activity }
-    } else if (localAnalytics) {
+    } else if (currentAnalytics) {
       return {
-        total: localAnalytics.total || 0,
-        resolved: localAnalytics.resolved || 0,
-        pending: (localAnalytics.total || 0) - (localAnalytics.resolved || 0),
-        critical: localAnalytics.by_severity?.P0 || 0,
-        activity: localAnalytics.activity || [0, 0, 0, 0, 0, 0, 0]
+        total: currentAnalytics.total || 0,
+        resolved: currentAnalytics.resolved || 0,
+        pending: (currentAnalytics.total || 0) - (currentAnalytics.resolved || 0),
+        critical: currentAnalytics.by_severity?.P0 || 0,
+        activity: currentAnalytics.activity || [0, 0, 0, 0, 0, 0, 0]
       }
     }
     return {
@@ -288,7 +290,7 @@ export function ProjectCard({
       critical: 0,
       activity: [0, 0, 0, 0, 0, 0, 0]
     }
-  }, [project.markers, localAnalytics])
+  }, [project.markers, currentAnalytics])
 
   // Compute status badge
   const status = useMemo(() => {
@@ -561,7 +563,7 @@ export function ProjectCard({
                       animate={{ opacity: 1, scale: 1 }}
                       className="h-8 w-8 rounded-xl bg-pm-surface-2 border border-pm-border text-rose-400 flex items-center justify-center"
                     >
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <StageSpinner size={14} variant="muted" />
                     </motion.div>
                   )}
                 </AnimatePresence>

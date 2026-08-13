@@ -15,9 +15,9 @@ import {
   X,
   Sparkles,
   Link as LinkIcon,
-  HelpCircle,
-  Loader2
+  HelpCircle
 } from 'lucide-react'
+import { StageLoader } from '@/components/ui/StageLoader'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -78,9 +78,8 @@ export default function ReviewReportPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
-        <p className="text-xs font-mono tracking-widest text-white/40 uppercase">Loading Review Report substrate...</p>
+      <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col items-center justify-center gap-6">
+        <StageLoader size="sm" text="Loading Report" />
       </div>
     )
   }

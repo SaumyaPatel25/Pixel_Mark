@@ -79,7 +79,7 @@ async def export_csv(session_id: str, db: AsyncSession = Depends(get_db), curren
     writer.writerow([
         "Marker Number", "ID", "Title", "Description", "Priority", 
         "Status", "Creator Name", "Creator Role", "Page URL", "Page Title", 
-        "Anchor Kind", "Renderer Type", "Created At", "Screenshot URL"
+        "Anchor Kind", "Renderer Type", "XPath", "CSS Selector", "Created At", "Screenshot URL"
     ])
     
     for idx, m in enumerate(markers):
@@ -96,6 +96,8 @@ async def export_csv(session_id: str, db: AsyncSession = Depends(get_db), curren
             m.page_title or "",
             m.anchor_kind,
             m.renderer_type or "",
+            m.target_xpath or "",
+            m.target_selector or "",
             m.created_at.isoformat() if m.created_at else "",
             m.screenshot_url or ""
         ])

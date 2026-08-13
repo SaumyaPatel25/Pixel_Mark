@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
+import { getApiBaseUrl } from '@/lib/api'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+const API_BASE = getApiBaseUrl()
 
 interface StatusState {
   api: 'checking' | 'healthy' | 'unhealthy'

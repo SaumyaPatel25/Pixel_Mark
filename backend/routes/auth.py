@@ -89,11 +89,13 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     
     if settings.auto_verify_users:
         token = create_access_token({"sub": user.id})
+        result = await db.execute(select(User).options(selectinload(User.identities)).where(User.id == user.id))
+        user_with_identities = result.scalar_one()
         return RegisterResponse(
             message="Registration successful. Direct login activated.",
             access_token=token,
             token_type="bearer",
-            user=UserOut.model_validate(user)
+            user=UserOut.model_validate(user_with_identities)
         )
         
     # Create verification token (24h = 1440 min)
@@ -128,12 +130,15 @@ async def verify_email(token: str = Query(...), db: AsyncSession = Depends(get_d
     user.is_verified = True
     db.add(user)
     await db.commit()
+
+    from services.identity_resolver import ensure_domain_and_founder_entitlement
+    await ensure_domain_and_founder_entitlement(user, db, auth_provider="email_verification")
     
     return MessageResponse(message="Email verified. You can now sign in.")
 
 @router.post("/login", response_model=ExtendedTokenResponse, dependencies=[Depends(rate_limit(10, 60))])
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == data.email))
+    result = await db.execute(select(User).options(selectinload(User.identities)).where(User.email == data.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -143,6 +148,9 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
             status_code=403,
             detail="Please verify your email before signing in."
         )
+
+    from services.identity_resolver import ensure_domain_and_founder_entitlement
+    await ensure_domain_and_founder_entitlement(user, db, auth_provider="email_password")
         
     token = create_access_token({"sub": user.id})
     return ExtendedTokenResponse(

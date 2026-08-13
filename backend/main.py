@@ -3,12 +3,13 @@ import os
 from datetime import datetime
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from database import engine, Base
 import asyncio
 import logging
-from routes import auth, projects, sessions, proxy, export, websocket, canvas, shares, flags, screenshot, blueprint_ws, notifications, billing, invites
+from routes import auth, projects, sessions, proxy, export, websocket, canvas, shares, flags, screenshot, blueprint_ws, notifications, billing, invites, admin, redemption
 from routers.share_links import router as share_links_router
 from routers.review import router as review_router
 from routers.ai import router as ai_router
@@ -60,17 +61,24 @@ async def lifespan(app: FastAPI):
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
                 from sqlalchemy import text
-                await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS past_due_since TIMESTAMPTZ;"))
-                await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';"))
-                # Check for allow_reviewer_dom_edit column
                 if "sqlite" in str(engine.url):
+                    try:
+                        await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN past_due_since TIMESTAMP;"))
+                    except Exception:
+                        pass
+                    try:
+                        await conn.execute(text("ALTER TABLE projects ADD COLUMN status VARCHAR DEFAULT 'active';"))
+                    except Exception:
+                        pass
                     try:
                         await conn.execute(text("ALTER TABLE projects ADD COLUMN allow_reviewer_dom_edit BOOLEAN DEFAULT 1;"))
                     except Exception:
                         pass
                 else:
+                    await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS past_due_since TIMESTAMPTZ;"))
+                    await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';"))
                     await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS allow_reviewer_dom_edit BOOLEAN DEFAULT 1;"))
-            logger.info("✓ Neon DB connection successful & tables verified!")
+            logger.info("✓ DB connection successful & tables verified!")
             break
         except Exception as e:
             logger.warning(f"⚠ Database connection attempt {i} failed: {e}")
@@ -396,6 +404,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # Mount static files
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(static_dir, exist_ok=True)
@@ -424,6 +434,8 @@ app.include_router(blueprint_ws.router)
 app.include_router(notifications.router)
 app.include_router(billing.router)
 app.include_router(invites.router)
+app.include_router(admin.router)
+app.include_router(redemption.router)
 
 @app.get("/health")
 async def health():

@@ -5,10 +5,11 @@ export function getApiBaseUrl(): string {
   if (envUrl && envUrl.trim() !== '') {
     return envUrl.replace(/\/$/, '')
   }
-  return 'http://127.0.0.1:8000'
+  return 'http://127.0.0.1:8765'
 }
 
 import { apiQueue } from './apiQueue'
+import { isPublicRoute, isAuthRoute } from './routes'
 
 function getCookie(name: string) {
   if (typeof document === 'undefined') return null;
@@ -73,8 +74,10 @@ export async function request(path: string, options: RequestInit = {}, isRetry =
           console.warn('[API] Background token refresh failed:', refreshErr)
         }
 
-        const isPublicPath = path.startsWith('/share-links/') || path.startsWith('/canvas/publications/token/')
-        if (!isPublicPath) {
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
+        const isPublicCurrentPage = isPublicRoute(currentPath) || path.startsWith('/share-links/') || path.startsWith('/canvas/publications/token/')
+        
+        if (!isPublicCurrentPage) {
           document.cookie = 'stagetoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
           document.cookie = 'pm_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
           document.cookie = 'pmtoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -82,7 +85,7 @@ export async function request(path: string, options: RequestInit = {}, isRetry =
           import('../store/authStore').then((mod) => {
             mod.useAuthStore.getState().logout()
           }).catch(() => {})
-          if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+          if (typeof window !== 'undefined' && !isAuthRoute(currentPath)) {
             window.location.href = '/login'
           }
         }
@@ -569,6 +572,37 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data)
       }))
+    },
+    async redeemCode(code: string) {
+      return apiQueue.enqueueWrite('Redeeming plan code...', () => request('/billing/redeem-code', {
+        method: 'POST',
+        body: JSON.stringify({ code })
+      }))
+    }
+  },
+
+  // ADMIN CONTROL PANEL
+  admin: {
+    async getUsers() {
+      return apiQueue.enqueueRead('Fetching admin user summary...', () => request('/admin/users'))
+    },
+    async overridePlan(data: { target_user_id?: string; target_org_id?: string; new_plan: string; is_manual_override?: boolean; notes?: string }) {
+      return apiQueue.enqueueWrite('Updating plan override...', () => request('/admin/override-plan', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }))
+    },
+    async togglePause(data: { target_org_id: string; is_paused: boolean; notes?: string }) {
+      return apiQueue.enqueueWrite('Toggling organization pause state...', () => request('/admin/toggle-pause', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }))
+    },
+    async getAuditLogs(limit = 50) {
+      return apiQueue.enqueueRead('Loading entitlement audit logs...', () => request(`/admin/audit-logs?limit=${limit}`))
+    },
+    async getRedemptions() {
+      return apiQueue.enqueueRead('Loading redemption code metrics...', () => request('/admin/redemptions'))
     }
   },
 

@@ -4,7 +4,8 @@
 import { useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { api } from '@/lib/api'
-import { Loader2, AlertCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
+import { StageLoader } from '@/components/ui/StageLoader'
 import { useProjectStore } from '@/store/projectStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
 import { useMarkerStore } from '@/store/markerStore'
@@ -82,7 +83,7 @@ export default function TesterPage() {
 
   if (isProjectLoading) return (
     <div className="flex h-screen items-center justify-center bg-[#0a0a0a]">
-      <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+      <StageLoader size="sm" />
     </div>
   )
 

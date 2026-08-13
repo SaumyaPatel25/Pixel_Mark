@@ -1,23 +1,14 @@
-# Prompt Memory: Repository Audit & Documentation Generation
+# Prompt Memory: Repository Audit & Mapping
 
-- **Date**: 2026-08-03
-- **Title**: Phase 1 & 2 Documentation Audit & Generation
+- **Date**: 2026-08-12
+- **Title**: Complete Repository Audit and Mapping
 - **Summary**:
-  - Read the entire repository to understand architecture, logic, and state.
-  - Generate a file inventory grouped by domain area.
-  - Create/update `status.md` with an audit summary.
-  - Create extensive documentation files (`README.md`, `architecture.md`, `system-design.md`, `api.md`, `logic.md`, `memory.md`, `db.md`, `tech-stack.md`).
-  - Maintain absolute accuracy without guessing; denote uncertainties.
-  - Use "STAGE" branding exclusively.
+  - Perform a complete, file-by-file audit of the entire repository structure.
+  - Expose architecture details (Frontend, Backend, Database, Auth, Billing, Realtime, Notifications).
+  - Map canonical sources of truth and identify duplicate or deprecated components (including Supabase references vs Firebase auth).
+  - Document risks, unpatched subsystems, and general codebase findings.
+  - Keep all implementation instructions strictly within "audit only" mode, no code changes.
 - **Affected Files**:
   - `status.md`
   - `docs/prompt-memory.md`
-  - `README.md`
-  - `docs/architecture.md`
-  - `docs/system-design.md`
-  - `docs/api.md`
-  - `docs/logic.md`
-  - `docs/memory.md`
-  - `docs/db.md`
-  - `docs/tech-stack.md`
-- **Current Status**: Phase 1 (Repository Audit) is complete. Pending user approval of the implementation plan to begin Phase 2 (Documentation Creation).
+- **Current Status**: Auditing files subsystem by subsystem. Phase 1 Audit Report in preparation.

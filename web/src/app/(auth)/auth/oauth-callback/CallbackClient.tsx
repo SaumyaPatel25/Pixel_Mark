@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { motion } from 'framer-motion';
 import { Loader2, XCircle, CheckCircle2 } from 'lucide-react';
+import { StageLoader } from '@/components/ui/StageLoader';
 import Link from 'next/link';
 
 export default function CallbackClient() {
@@ -77,7 +78,7 @@ export default function CallbackClient() {
 
         {status === 'loading' && (
           <div className="space-y-4 py-8 flex flex-col items-center">
-            <Loader2 className="w-16 h-16 text-purple-500 animate-spin mx-auto" />
+            <StageLoader size="sm" text="Verifying" />
             <h2 className="text-xl font-bold">Verifying credentials</h2>
             <p className="text-sm text-white/40">Securing your session token...</p>
           </div>

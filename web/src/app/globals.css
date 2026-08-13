@@ -55,8 +55,8 @@
   --pm-cyan:         #427CE6;
   --pm-cyan-subtle:  rgba(66, 124, 230, 0.06);
   --pm-text:         #1D264F;
-  --pm-text-muted:   #5B6794;
-  --pm-text-faint:   #9CA3AF;
+  --pm-text-muted:   #475569;
+  --pm-text-faint:   #5B6794;
   --pm-text-title:   #253B80;
   --pm-nav-bg:       rgba(250, 242, 242, 0.85);
   --pm-bg-trans-20:  rgba(250, 242, 242, 0.2);
@@ -265,6 +265,23 @@ html:not([data-theme="dark"]) {
   .bg-pm-accent,
   .bg-pm-accent-bright {
     color: #ffffff !important;
+  }
+
+  /* Ensure form elements have readable text colors (not white) in light theme */
+  input,
+  select,
+  textarea,
+  input.text-white,
+  select.text-white,
+  textarea.text-white {
+    color: var(--pm-text) !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder,
+  input.placeholder\:text-white\/20::placeholder,
+  textarea.placeholder\:text-white\/20::placeholder {
+    color: var(--pm-text-faint) !important;
   }
 }
 

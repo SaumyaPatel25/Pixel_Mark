@@ -222,29 +222,26 @@ const RandomHollowText = ({
     return () => clearInterval(interval);
   }, [text, isLightTheme, isHeroTextComplete, splitBy]);
 
-  if (!isLightTheme || !isHeroTextComplete) {
-    return <span className={`${fontClassName} ${solidClassName}`}>{text}</span>;
-  }
-
   const items = (splitBy === 'words' ? text.split(' ') : text.split('')).filter(item => item !== '');
 
   return (
     <span className={fontClassName}>
       {items.map((item, index) => {
-        const isHollow = hollowIndices.has(index);
+        const isHollow = isLightTheme && isHeroTextComplete && hollowIndices.has(index);
         
         return (
-          <span
-            key={index}
-            className={`inline-block transition-all duration-700 ease-out ${
-              isHollow ? 'text-transparent bg-none' : solidClassName
-            }`}
-            style={{
-              WebkitTextStroke: isHollow ? `1.5px ${strokeColor}` : '1.5px transparent',
-              marginRight: splitBy === 'words' && index < items.length - 1 ? '0.28em' : undefined,
-            }}
-          >
-            {item}
+          <span key={index} className="inline">
+            <span
+              className={`inline-block transition-all duration-700 ease-out ${
+                isHollow ? 'text-transparent bg-none' : solidClassName
+              }`}
+              style={{
+                WebkitTextStroke: isHollow ? `1.5px ${strokeColor}` : '1.5px transparent',
+              }}
+            >
+              {item}
+            </span>
+            {splitBy === 'words' && index < items.length - 1 && ' '}
           </span>
         );
       })}
@@ -283,56 +280,23 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
   }, [onHeroTextComplete]);
 
 
-  // Description typewriter still runs after mount to give a subtle progressive feel
-
-  // Typewriter effect for Description (txt3) after burst transition settles
+  // Snappy, performance-safe typewriter reveal for the description paragraph
   useEffect(() => {
     if (!isHeroTextComplete) return;
-
-    let active = true;
     const txt3 = "Instantly share secure, interactive review links to collect visual feedback, annotations, and QA bug reports directly on live web pages. The fastest way to sign off website changes.";
-
-    // Natural human typing delays per character
-    const getDelay = (char: string, nextChar: string): number => {
-      // Long pause after sentence-ending punctuation
-      if (char === '.' || char === '!') return 220;
-      // Medium pause after commas
-      if (char === ',') return 80;
-      // Short pause after other punctuation
-      if (char === ';' || char === ':') return 60;
-      // Pause before capital letter following a space (new phrase burst)
-      if (char === ' ' && nextChar && /[A-Z]/.test(nextChar)) return 45;
-      // Natural spacing between words
-      if (char === ' ') return 25;
-      // Occasional micro-hesitations to feel human
-      if (Math.random() < 0.03) return 35 + Math.random() * 20;
-      return 12 + Math.random() * 8; // Cruising speed: 12-20ms
-    };
-
-    let k = 0;
-    const typeTxt3 = () => {
-      if (!active) return;
-      if (k < txt3.length) {
-        setDescText(txt3.slice(0, k + 1));
-        const currentChar = txt3[k];
-        const nextChar = txt3[k + 1] ?? '';
-        const delay = getDelay(currentChar, nextChar);
-        k++;
-        setTimeout(typeTxt3, delay);
+    
+    let currentIdx = 0;
+    const interval = setInterval(() => {
+      currentIdx += 2;
+      if (currentIdx >= txt3.length) {
+        setDescText(txt3);
+        clearInterval(interval);
+      } else {
+        setDescText(txt3.slice(0, currentIdx));
       }
-    };
-
-    // Wait 1500ms for the fly-up burst spring to settle before starting description typing
-    const delayTimer = setTimeout(() => {
-      if (active) {
-        typeTxt3();
-      }
-    }, 1500);
-
-    return () => {
-      active = false;
-      clearTimeout(delayTimer);
-    };
+    }, 12);
+    
+    return () => clearInterval(interval);
   }, [isHeroTextComplete]);
 
 
@@ -929,8 +893,8 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                             text={headline2.substring(10)}
                             isLightTheme={isLightTheme}
                             isHeroTextComplete={isHeroTextComplete}
-                            strokeColor="#ec4899"
-                            solidClassName="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-pink-600"
+                            strokeColor={isLightTheme ? "#ec4899" : "#6366f1"}
+                            solidClassName={isLightTheme ? "text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-pink-600" : "text-pm-accent"}
                             fontClassName="font-serif italic font-semibold"
                           />
                         ) : (
@@ -955,12 +919,12 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
 
           {/* Supporting Copy */}
           <motion.p 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
             className="text-sm md:text-base text-pm-muted leading-relaxed max-w-2xl font-sans min-h-[3.2em] text-center"
           >
-            {descText}
-            {descText.length > 0 && descText.length < 188 && (
-              <span className="inline-block w-[3px] h-[0.95em] bg-pm-muted ml-1 align-middle animate-pulse" />
-            )}
+            {descText || "Instantly share secure, interactive review links to collect visual feedback, annotations, and QA bug reports directly on live web pages. The fastest way to sign off website changes."}
           </motion.p>
 
           {/* CTAs, Input, and Explainer Wrapper */}
@@ -1001,41 +965,46 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                 NO EXTENSION REQUIRED · FREE UNLIMITED CLIENT SESSIONS
               </p>
             </div>
-
-
+            
             {/* Trust Logos Row */}
-            <div className="flex flex-col items-center gap-4 pt-6 w-full max-w-lg border-t border-pm-border/30">
+            <div className="flex flex-col items-center gap-4 pt-6 w-full max-w-lg border-t border-pm-border/30 min-h-[68px]">
               <span className="text-[9px] font-mono text-pm-text-muted/80 uppercase tracking-widest">
                 Trusted by designers & developers using
               </span>
-              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 opacity-50 grayscale contrast-125">
+              <span className="sr-only">
+                Trusted by designers and developers at Acme, Bolt, Linear, Vercel, Stripe, and Figma.
+              </span>
+              <div 
+                className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 opacity-50 grayscale contrast-125"
+                aria-hidden="true"
+              >
                 {/* Acme Logo */}
-                <div className="flex items-center gap-1 font-display text-[9.5px] font-black tracking-tight text-pm-text">
+                <div className="flex items-center gap-1 font-display text-[9.5px] font-black tracking-tight text-pm-text w-[50px] h-[16px] justify-center">
                   <div className="w-3.5 h-3.5 rounded-sm bg-[#1D264F] flex items-center justify-center text-white text-[7.5px]">A</div>
                   <span>ACME</span>
                 </div>
                 {/* Bolt */}
-                <div className="flex items-center gap-0.5 font-display text-[9.5px] font-bold tracking-tight text-pm-text">
+                <div className="flex items-center gap-0.5 font-display text-[9.5px] font-bold tracking-tight text-pm-text w-[50px] h-[16px] justify-center">
                   <span className="text-yellow-600 font-extrabold text-[10px]">⚡</span>
                   <span>BOLT</span>
                 </div>
                 {/* Linear Style */}
-                <div className="flex items-center gap-1 font-display text-[9.5px] font-semibold tracking-wide text-pm-text">
+                <div className="flex items-center gap-1 font-display text-[9.5px] font-semibold tracking-wide text-pm-text w-[60px] h-[16px] justify-center">
                   <div className="w-3 h-3 rounded-full border border-pm-text flex items-center justify-center text-[5.5px] font-black">L</div>
                   <span>LINEAR</span>
                 </div>
                 {/* Vercel Style */}
-                <div className="flex items-center gap-1 font-display text-[9px] font-bold tracking-widest text-pm-text">
-                  <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 75 65"><polygon points="37.5,0 75,65 0,65"/></svg>
+                <div className="flex items-center gap-1 font-display text-[9px] font-bold tracking-widest text-pm-text w-[65px] h-[16px] justify-center">
+                  <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 75 65" width="10" height="10"><polygon points="37.5,0 75,65 0,65"/></svg>
                   <span>VERCEL</span>
                 </div>
                 {/* Stripe Style */}
-                <div className="flex items-center font-display text-[9.5px] font-extrabold tracking-tight text-pm-text">
+                <div className="flex items-center font-display text-[9.5px] font-extrabold tracking-tight text-pm-text w-[50px] h-[16px] justify-center">
                   <span>STRIPE</span>
                 </div>
                 {/* Figma Style */}
-                <div className="flex items-center gap-1 font-display text-[9.5px] font-semibold tracking-tight text-pm-text">
-                  <svg className="w-2.5 h-3 fill-current" viewBox="0 0 24 36"><path d="M12 0c-3.3 0-6 2.7-6 6v6c0 3.3 2.7 6 6 6s6-2.7 6-6V6c0-3.3-2.7-6-6-6zm0 18c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6zm-6-6c0-3.3 2.7-6 6-6s6 2.7 6 6v6H6v-6z"/></svg>
+                <div className="flex items-center gap-1 font-display text-[9.5px] font-semibold tracking-tight text-pm-text w-[55px] h-[16px] justify-center">
+                  <svg className="w-2.5 h-3 fill-current" viewBox="0 0 24 36" width="10" height="12"><path d="M12 0c-3.3 0-6 2.7-6 6v6c0 3.3 2.7 6 6 6s6-2.7 6-6V6c0-3.3-2.7-6-6-6zm0 18c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6zm-6-6c0-3.3 2.7-6 6-6s6 2.7 6 6v6H6v-6z"/></svg>
                   <span>FIGMA</span>
                 </div>
               </div>
@@ -1050,11 +1019,12 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
           className="w-full max-w-5xl mx-auto mt-16 flex flex-col items-center space-y-6 relative z-10"
         >
           {/* Cinematic Theatrical Spotlight glow */}
-          <div className="absolute -inset-16 bg-gradient-to-b from-pm-accent-glow via-transparent to-transparent rounded-[48px] blur-3xl pointer-events-none z-0" />
+          <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_top,var(--pm-accent-glow)_0%,transparent_70%)] rounded-[48px] pointer-events-none z-0 opacity-50" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-pm-bg opacity-0 rounded-[32px] pointer-events-none z-0 shadow-[0_48px_96px_-24px_var(--pm-accent-glow)]" />
           
-          <div className="absolute -top-20 -left-20 w-96 h-96 bg-[#FCE2E1]/20 rounded-full blur-[90px] pointer-events-none z-0 animate-pulse duration-[7000ms]" />
-          <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-[#C7B4D6]/20 rounded-full blur-[90px] pointer-events-none z-0 animate-pulse duration-[9000ms]" />
+          {/* Performance-friendly radial gradients instead of expensive CSS blurs */}
+          <div className="absolute -top-20 -left-20 w-96 h-96 bg-[radial-gradient(circle,rgba(252,226,225,0.3)_0%,transparent_60%)] pointer-events-none z-0 animate-pulse duration-[7000ms]" />
+          <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-[radial-gradient(circle,rgba(199,180,214,0.3)_0%,transparent_60%)] pointer-events-none z-0 animate-pulse duration-[9000ms]" />
           
           <StorySandbox />
         </div>

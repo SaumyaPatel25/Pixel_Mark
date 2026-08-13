@@ -100,7 +100,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       } catch {
         // Fallback to getBillingStatus
         data = await api.billing.getBillingStatus(orgId)
-        const isPaid = ['dev_team', 'dev_team_early_bird', 'enterprise'].includes(data.subscription?.plan_type) && data.subscription?.status === 'active'
+        const isPaid = ['stage_team', 'dev_team', 'dev_team_early_bird', 'enterprise'].includes(data.subscription?.plan_type) && data.subscription?.status === 'active'
         set({
           subscription: data.subscription,
           currentPlan: data.subscription?.plan_type || 'none',
@@ -124,8 +124,8 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         })
       }
     } catch (err) {
-      console.error('[STAGE Billing] Fetch status error:', err)
-      set({ isLoading: false })
+      console.warn('[STAGE Billing] Fetch status error (unauthenticated or fallback):', err)
+      set({ isLoading: false, hasHydrated: true })
     }
   },
 

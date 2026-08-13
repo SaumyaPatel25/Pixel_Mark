@@ -1,4 +1,4 @@
-export type PlanType = 'none' | 'free' | 'dev_team' | 'dev_team_early_bird' | 'enterprise';
+export type PlanType = 'none' | 'free' | 'dev_team' | 'dev_team_early_bird' | 'enterprise' | 'stage_team';
 export type FeatureName = 'blueprint_dom_edit' | 'create_project' | 'invite_teammates' | 'ai_triage';
 
 export interface PlanCapabilities {
@@ -33,7 +33,7 @@ export interface PlanCapabilities {
 export function isPaidPlan(planType?: string, status?: string): boolean {
   if (!planType || planType === 'none' || planType === 'free') return false;
   if (status && ['canceled', 'expired', 'none', 'incomplete'].includes(status)) return false;
-  return ['dev_team', 'dev_team_early_bird', 'enterprise'].includes(planType);
+  return ['stage_team', 'dev_team', 'dev_team_early_bird', 'enterprise'].includes(planType);
 }
 
 export function evaluateFeatureAccess(feature: FeatureName, caps: PlanCapabilities): boolean {

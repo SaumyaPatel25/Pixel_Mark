@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react'
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { getApiBaseUrl } from '@/lib/api'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+const API_BASE = getApiBaseUrl()
 
 export default function WaitlistForm() {
   const [email, setEmail] = useState('')

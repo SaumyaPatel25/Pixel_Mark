@@ -48,6 +48,18 @@ interface BlueprintToolbarProps {
   projectId: string
 }
 
+export function triggerFileDownload(filename: string, content: string | Blob, mimeType: string) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
   const { canUseBlueprintDomEdit } = usePlan()
   const {
@@ -55,6 +67,8 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
     setActiveTool,
     zoom,
     setZoom,
+    pan,
+    setPan,
     resetViewport,
     previewMode,
     setPreviewMode,
@@ -64,14 +78,15 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
     setSelectedFrameId,
     isInspectorOpen,
     toggleInspector,
-    past,
-    future,
-    pendingMutations,
     undo,
     redo,
-    resetToBase,
+    past,
+    future,
     saveStatus,
+    lastSavedAt,
     saveBlueprintEdits,
+    pendingMutations,
+    resetToBase,
     viewportMode,
     setViewportMode
   } = useBlueprintStore()
@@ -81,8 +96,12 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
   const [publishName, setPublishName] = useState('')
   const [showPublishModal, setShowPublishModal] = useState(false)
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
+  const [publishError, setPublishError] = useState<string | null>(null)
+  const [exportingFormat, setExportingFormat] = useState<'json' | 'css' | 'markdown' | null>(null)
   const [isFrameDropdownOpen, setIsFrameDropdownOpen] = useState(false)
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false)
+
+  const addToast = useUIStore((s) => s.addToast)
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -109,52 +128,67 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
   }
 
   const handleExportJson = async () => {
+    if (exportingFormat) return
+    setExportingFormat('json')
+    addToast('Exporting JSON edits...', 'info')
     try {
       const data = await api.blueprint.exportJson(projectId)
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `blueprint-edits-${projectId}.json`
-      a.click()
+      triggerFileDownload(`blueprint-edits-${projectId}.json`, JSON.stringify(data, null, 2), 'application/json')
+      addToast('JSON export downloaded successfully!', 'success')
     } catch (err) {
       console.error('Export JSON error:', err)
+      addToast('Failed to export JSON. Please try again.', 'error')
+    } finally {
+      setExportingFormat(null)
     }
   }
 
   const handleExportCss = async () => {
+    if (exportingFormat) return
+    setExportingFormat('css')
+    addToast('Exporting CSS styles...', 'info')
     try {
       const cssText = await api.blueprint.exportCss(projectId)
-      const blob = new Blob([typeof cssText === 'string' ? cssText : JSON.stringify(cssText)], { type: 'text/css' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `blueprint-edits-${projectId}.css`
-      a.click()
+      triggerFileDownload(
+        `blueprint-edits-${projectId}.css`,
+        typeof cssText === 'string' ? cssText : JSON.stringify(cssText),
+        'text/css'
+      )
+      addToast('CSS export downloaded successfully!', 'success')
     } catch (err) {
       console.error('Export CSS error:', err)
+      addToast('Failed to export CSS. Please try again.', 'error')
+    } finally {
+      setExportingFormat(null)
     }
   }
 
   const handleExportMarkdown = async () => {
+    if (exportingFormat) return
+    setExportingFormat('markdown')
+    addToast('Exporting Markdown handoff...', 'info')
     try {
       const mdText = await api.blueprint.exportMarkdown(projectId)
-      const blob = new Blob([typeof mdText === 'string' ? mdText : JSON.stringify(mdText)], { type: 'text/markdown' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `blueprint-handoff-${projectId}.md`
-      a.click()
+      triggerFileDownload(
+        `blueprint-handoff-${projectId}.md`,
+        typeof mdText === 'string' ? mdText : JSON.stringify(mdText),
+        'text/markdown'
+      )
+      addToast('Markdown export downloaded successfully!', 'success')
     } catch (err) {
       console.error('Export Markdown error:', err)
+      addToast('Failed to export Markdown. Please try again.', 'error')
+    } finally {
+      setExportingFormat(null)
     }
   }
 
   const handlePublishSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isPublishing) return
     setIsPublishing(true)
+    setPublishError(null)
     try {
-      // Auto-save first if unsaved edits exist
       if (isDirty) {
         await saveBlueprintEdits(projectId)
       }
@@ -165,9 +199,14 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
       if (pub?.id) {
         const url = `${window.location.origin}/blueprint/published/${pub.id}`
         setPublishedUrl(url)
+        addToast('Blueprint handoff published successfully!', 'success')
+        useBlueprintActivityStore.getState().fetchActivity(projectId, true)
+      } else {
+        setPublishError('Failed to generate publication handoff link.')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Publish error:', err)
+      setPublishError(err?.message || 'Failed to publish handoff. Please try again.')
     } finally {
       setIsPublishing(false)
     }
@@ -577,9 +616,11 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
           setPublishName={setPublishName}
           publishedUrl={publishedUrl}
           setPublishedUrl={setPublishedUrl}
+          publishError={publishError}
           onClose={() => {
             setShowPublishModal(false)
             setPublishedUrl(null)
+            setPublishError(null)
           }}
         />
       )}
@@ -597,6 +638,7 @@ interface PublishModalProps {
   setPublishName: (val: string) => void
   publishedUrl: string | null
   setPublishedUrl: (val: string | null) => void
+  publishError: string | null
   onClose: () => void
 }
 
@@ -610,6 +652,7 @@ function PublishModal({
   setPublishName,
   publishedUrl,
   setPublishedUrl,
+  publishError,
   onClose
 }: PublishModalProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -665,6 +708,10 @@ function PublishModal({
 
   return (
     <div className="fixed inset-0 z-55 bg-[#070a12]/80 backdrop-blur-md flex items-center justify-center p-4">
+      <div role="status" aria-live="polite" className="sr-only">
+        {isPublishing ? 'Publishing blueprint handoff...' : publishedUrl ? 'Publication published successfully!' : publishError || ''}
+      </div>
+
       <div
         ref={containerRef}
         className="w-full max-w-md bg-[#0d1322] border border-cyan-500/30 rounded-2xl shadow-2xl p-6 text-slate-200 space-y-4"
@@ -719,6 +766,15 @@ function PublishModal({
             <p className="text-xs text-slate-400">
               Publishing creates a stable, read-only handoff snapshot of your active mutations for developers and clients.
             </p>
+
+            {publishError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{publishError}</span>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="text-[11px] font-mono text-slate-300 block mb-1">

@@ -12,6 +12,7 @@ import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
 import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist'
 import { PlanBadge } from '@/components/billing/PlanBadge'
 import { PastDueWarningBanner } from '@/components/billing/PastDueWarningBanner'
+import { useBillingStore } from '@/store/useBillingStore'
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -37,19 +38,22 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     isDismissed,
     setDismissed,
     userRole,
+    currentUserId,
+    currentOrgId,
     hydrateFromUserProfile,
-    hydrateFromLocalStorage
   } = useOnboardingStore()
 
-  const { projects, loading: projectsLoading, fetchProjects } = useProjectStore()
+  const { projects, loading: projectsLoading, error: projectsError, fetchProjects } = useProjectStore()
   const [projectsFetched, setProjectsFetched] = useState(false)
+  const subscription = useBillingStore(s => s.subscription)
+  const orgId = subscription?.org_id || 'default'
 
   useEffect(() => {
     // Restore saved onboarding state on mount when user is resolved
     if (user) {
-      hydrateFromUserProfile(user)
+      hydrateFromUserProfile(user, orgId)
     }
-  }, [user, hydrateFromUserProfile])
+  }, [user, orgId, hydrateFromUserProfile])
 
   // Fetch projects when user session is resolved
   useEffect(() => {
@@ -60,10 +64,11 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     }
   }, [user, projectsFetched, projectsLoading, fetchProjects])
 
-  // Reset projectsFetched if user changes/logs out
+  // Reset projectsFetched & clear cache if user changes/logs out
   useEffect(() => {
     if (!user) {
       setProjectsFetched(false)
+      useProjectStore.setState({ projects: [], currentProject: null, projectAnalytics: {} })
     }
   }, [user])
 
@@ -73,7 +78,10 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     if (isLoading || !user) return
 
     // Wait until projects list is fully resolved
-    if (!projectsFetched || projectsLoading) return
+    if (!projectsFetched || projectsLoading || projectsError) return
+
+    // Ensure onboarding state belongs to the current user and organization scope before checking
+    if (currentUserId !== user.id || currentOrgId !== orgId) return
 
     // Check if onboarding is already active, completed, or dismissed
     if (isOnboardingActive || isCompleted || isDismissed) return
@@ -90,7 +98,11 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     isLoading,
     projectsFetched,
     projectsLoading,
+    projectsError,
     projects.length,
+    currentUserId,
+    currentOrgId,
+    orgId,
     isOnboardingActive,
     isCompleted,
     isDismissed,

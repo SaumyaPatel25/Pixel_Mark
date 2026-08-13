@@ -21,6 +21,35 @@ ALLOWED_ASSET_DOMAINS = {
     "firebaseapp.com",
     "aws.amazon.com",
     "cloudfront.net",
+    "website-files.com",
+    "webflow.com",
+    "webflow.io",
+    "fastly.net",
+    "netdna-ssl.com",
+    "typekit.net",
+    "typekit.com",
+    "use.typekit.net",
+    "adobe.com",
+    "google-analytics.com",
+    "doubleclick.net",
+    "googlesyndication.com",
+    "shopify.com",
+    "squarespace.com",
+    "wix.com",
+    "vimeo.com",
+    "youtube.com",
+    "ytimg.com",
+    "ggpht.com",
+    "sketchfab.com",
+    "threejs.org",
+    "khronos.org",
+    "sentry.io",
+    "bugsnag.com",
+    "optimizely.com",
+    "hotjar.com",
+    "stripe.com",
+    "intercom.io",
+    "segment.com",
 }
 
 def is_ssrf_safe(url: str) -> bool:
@@ -79,16 +108,14 @@ def is_domain_allowed(url: str, base_url: str, allow_external_assets: bool = Tru
         parsed_target = urllib.parse.urlparse(url)
         parsed_base = urllib.parse.urlparse(base_url)
         
+        target_host = (parsed_target.hostname or parsed_target.netloc or "").lower().split(":")[0]
+        base_host = (parsed_base.hostname or parsed_base.netloc or "").lower().split(":")[0]
+
         # Exact domain match
-        if parsed_target.netloc == parsed_base.netloc:
+        if target_host == base_host:
             return True
             
-        # Subdomain match (e.g. sub.example.com under example.com)
-        target_host = parsed_target.netloc.lower()
-        base_host = parsed_base.netloc.lower()
-        
         # Bypass domain scoping for our own proxy domain / localhost (e.g. static resources)
-        target_host_clean = target_host.split(":")[0]
         import os
         api_base = os.getenv("API_BASE", "")
         allowed_proxy_hosts = {"pixel-mark.onrender.com", "localhost", "127.0.0.1"}
@@ -100,7 +127,7 @@ def is_domain_allowed(url: str, base_url: str, allow_external_assets: bool = Tru
                     allowed_proxy_hosts.add(api_host.lower().split(":")[0])
             except Exception:
                 pass
-        if target_host_clean in allowed_proxy_hosts or any(target_host_clean.endswith("." + h) for h in allowed_proxy_hosts):
+        if target_host in allowed_proxy_hosts or any(target_host.endswith("." + h) for h in allowed_proxy_hosts):
             return True
 
         if target_host == base_host or target_host.endswith("." + base_host):

@@ -14,7 +14,7 @@ import FeedbackFeed from '@/components/FeedbackFeed'
 import FeedbackAnalyticsPanel from '@/components/FeedbackAnalyticsPanel'
 import { Palette } from 'lucide-react'
 import { AuditSurface } from '@/components/audit/AuditSurface'
-import { api } from '@/lib/api'
+import { api, getApiBaseUrl } from '@/lib/api'
 import { Suspense } from 'react'
 import { ObservationDetails } from '@/components/audit/ObservationDetails'
 import { StageLoader } from '@/components/ui/StageLoader'
@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ThemeSegmentedControl } from '@/components/ThemeToggle'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+const API_BASE = getApiBaseUrl()
 const WS_BASE  = (process.env.NEXT_PUBLIC_WS_BASE  || '').replace(/\/$/, '')
 
 const drawerVariants = {
@@ -92,6 +92,7 @@ function ProjectPageContent() {
   const [proxyStatus, setProxyStatus] = useState<'loading' | 'ok' | 'advanced' | 'failed'>('loading')
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const lastEmitRef = useRef(0)
+  const mainRectRef = useRef<DOMRect | null>(null)
   
   const screenCapture = useScreenCapture()
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -195,6 +196,7 @@ function ProjectPageContent() {
     let wasMobile = window.innerWidth < 768
     
     const handleResize = () => {
+      mainRectRef.current = null
       const isMobile = window.innerWidth < 768
       if (isMobile !== wasMobile) {
         if (isMobile) {
@@ -209,6 +211,11 @@ function ProjectPageContent() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [toggleCommandCenter])
+
+  // Clear rect cache on panel layout transitions
+  useEffect(() => {
+    mainRectRef.current = null
+  }, [isCommandCenterOpen, isExportPanelOpen, isDesignSystemOpen, isSharePanelOpen, isAnalyticsOpen])
 
   // One-time init — offer screen capture when user first holds Ctrl
   useEffect(() => {
@@ -271,10 +278,23 @@ function ProjectPageContent() {
   useEffect(() => {
     if (!id) return
     
+    const storeProjects = useProjectStore.getState().projects
+    if (storeProjects.length > 0) {
+      const found = storeProjects.find(p => p.id === id)
+      if (found) {
+        setCurrentProject(found)
+        return
+      }
+    }
+    
     async function init() {
-      await fetchProjects()
-      const found = useProjectStore.getState().projects.find(p => p.id === id)
-      if (found) setCurrentProject(found)
+      try {
+        await fetchProjects()
+        const found = useProjectStore.getState().projects.find(p => p.id === id)
+        if (found) setCurrentProject(found)
+      } catch (err) {
+        console.error("Failed to load project on sync:", err)
+      }
     }
 
     init()
@@ -288,7 +308,10 @@ function ProjectPageContent() {
     lastEmitRef.current = now
 
     if (connected) {
-      const rect = e.currentTarget.getBoundingClientRect()
+      if (!mainRectRef.current) {
+        mainRectRef.current = e.currentTarget.getBoundingClientRect()
+      }
+      const rect = mainRectRef.current
       const x = ((e.clientX - rect.left) / rect.width) * 100
       const y = ((e.clientY - rect.top) / rect.height) * 100
 

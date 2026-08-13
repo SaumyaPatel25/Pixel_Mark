@@ -126,7 +126,7 @@ async def resolve_share_link(
             from services.plan_capabilities import resolve_org_plan
             plan_info = await resolve_org_plan(project.org_id, db)
             is_paid_plan = (
-                plan_info["plan_type"] in ("dev_team", "dev_team_early_bird", "enterprise")
+                plan_info["plan_type"] in ("stage_team", "dev_team", "dev_team_early_bird", "enterprise")
                 and plan_info["status"] in ("active", "trialing")
             )
             dom_edit_available = bool(is_paid_plan and getattr(project, "allow_reviewer_dom_edit", True))

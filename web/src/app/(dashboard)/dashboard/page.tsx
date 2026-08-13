@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
+import { useProjectStore } from '@/store/projectStore'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
 import { ProjectCard } from '@/components/ProjectCard'
 import { event as trackEvent } from '@/lib/analytics'
@@ -55,8 +56,13 @@ export default function DashboardPage() {
   const user = useAuthStore(s => s.user)
   const router = useRouter()
   
+  const projects = useProjectStore(s => s.projects)
+  const projectsLoading = useProjectStore(s => s.loading)
+  const fetchProjects = useProjectStore(s => s.fetchProjects)
+  const createProject = useProjectStore(s => s.createProject)
+
   // Dashboard Telemetry Data State
-  const [projectsData, setProjectsData] = useState<any[]>([])
+  const [sessionsData, setSessionsData] = useState<any[]>([])
   const [recentActivityData, setRecentActivityData] = useState<any[]>([])
   const [statsData, setStatsData] = useState({
     totalProjects: 0,
@@ -90,8 +96,16 @@ export default function DashboardPage() {
 
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [dateFilter, setDateFilter] = useState<'all' | '24h' | '7d' | '30d'>('all')
   const [sortOrder, setSortOrder] = useState<'recent' | 'name'>('recent')
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput)
+    }, 120)
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   // Delete project state
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null)
@@ -100,8 +114,15 @@ export default function DashboardPage() {
     setDeletingProjectId(projectId)
     try {
       await api.projects.delete(projectId)
-      // Optimistically remove from local state
-      setProjectsData(prev => prev.filter(p => p.id !== projectId))
+      // Optimistically remove from local store & clear cached analytics key to prevent memory leaks
+      useProjectStore.setState(s => {
+        const nextAnalytics = { ...s.projectAnalytics }
+        delete nextAnalytics[projectId]
+        return {
+          projects: s.projects.filter(p => p.id !== projectId),
+          projectAnalytics: nextAnalytics
+        }
+      })
       setStatsData(prev => ({ ...prev, totalProjects: Math.max(0, prev.totalProjects - 1) }))
       useUIStore.getState().addToast('Project deleted successfully.', 'success')
     } catch (err: any) {
@@ -132,49 +153,23 @@ export default function DashboardPage() {
     setIsLoading(true)
     setError(null)
     try {
+      const storeProjects = useProjectStore.getState().projects
+      const projectsPromise = storeProjects.length === 0
+        ? fetchProjects()
+        : Promise.resolve()
+
       // Use Promise.allSettled for resilient telemetry fetching
-      const [projectsResult, sessionsResult, summaryResult] = await Promise.allSettled([
-        api.getProjects(),
+      const [_, sessionsResult, summaryResult] = await Promise.allSettled([
+        projectsPromise,
         api.getAllSessions(),
         api.getDashboardSummary()
       ])
 
-      if (projectsResult.status === 'rejected') {
-        throw new Error(projectsResult.reason?.message || 'Failed to fetch projects list.')
-      }
-
-      const projectsList: any[] = projectsResult.value || []
+      const projectsList = useProjectStore.getState().projects
       const sessionsList: any[] = sessionsResult.status === 'fulfilled' ? (sessionsResult.value || []) : []
       const summary: any = summaryResult.status === 'fulfilled' ? summaryResult.value : null
 
-      const projectMap: Record<string, any> = {}
-      projectsList.forEach((p: any) => {
-        projectMap[p.id] = p
-      })
-
-      const sessionsByProject: Record<string, any[]> = {}
-      projectsList.forEach((p: any) => {
-        sessionsByProject[p.id] = []
-      })
-
-      sessionsList.forEach((s: any) => {
-        if (sessionsByProject[s.project_id]) {
-          sessionsByProject[s.project_id].push(s)
-        }
-      })
-
-      // Construct detailed projects object mapping local sessions
-      const detailed = projectsList.map((p: any) => {
-        const pSessions = sessionsByProject[p.id] || []
-        
-        return {
-          ...p,
-          sessions: pSessions,
-          analytics: null // Pass null so card fetches its own analytics endpoint
-        }
-      })
-
-      setProjectsData(detailed)
+      setSessionsData(sessionsList)
 
       // Calculate stats values using summary or fallback calculation
       setStatsData({
@@ -186,7 +181,8 @@ export default function DashboardPage() {
       // Aggregate recent activities using sessions
       const activities: any[] = []
       sessionsList.forEach((s: any) => {
-        const pName = projectMap[s.project_id]?.name || 'Unknown Project'
+        const foundProj = projectsList.find((p: any) => p.id === s.project_id)
+        const pName = foundProj?.name || 'Unknown Project'
         activities.push({
           id: `session-${s.id}`,
           type: 'session',
@@ -228,7 +224,7 @@ export default function DashboardPage() {
     setIsCreatingProject(true)
     setProjectError(null)
     try {
-      await api.projects.create({
+      await createProject({
         name: newProjectName.trim(),
         url: newProjectUrl.trim(),
       })
@@ -307,6 +303,28 @@ export default function DashboardPage() {
   }
 
   // Filter & Sort Projects client-side
+  const projectsData = useMemo(() => {
+    const sessionsByProject: Record<string, any[]> = {}
+    projects.forEach((p: any) => {
+      sessionsByProject[p.id] = []
+    })
+
+    sessionsData.forEach((s: any) => {
+      if (sessionsByProject[s.project_id]) {
+        sessionsByProject[s.project_id].push(s)
+      }
+    })
+
+    return projects.map((p: any) => {
+      const pSessions = sessionsByProject[p.id] || []
+      return {
+        ...p,
+        sessions: pSessions,
+        analytics: null // Pass null so card fetches its own analytics endpoint
+      }
+    })
+  }, [projects, sessionsData])
+
   const filteredProjects = useMemo(() => {
     return projectsData
       .filter((p) => {
@@ -385,7 +403,8 @@ export default function DashboardPage() {
               <span>Developer Workspace</span>
               <span className="w-1 h-1 rounded-full bg-pm-border-bright" />
               <span>
-                {currentPlan === 'dev_team_early_bird' ? 'Dev Team Early Bird' :
+                {currentPlan === 'stage_team' ? 'STAGE Team' :
+                 currentPlan === 'dev_team_early_bird' ? 'Dev Team Early Bird' :
                  currentPlan === 'dev_team' ? 'Dev Team Plan' :
                  currentPlan === 'enterprise' ? 'Enterprise Plan' : 'Free Plan'}
               </span>
@@ -447,7 +466,7 @@ export default function DashboardPage() {
             >
               <div className="space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-pm-muted block">{stat.label}</span>
-                {isLoading ? (
+                {(projectsLoading || isLoading) ? (
                   <div className="h-8 w-12 bg-pm-surface-2 animate-pulse rounded-lg mt-1" />
                 ) : error ? (
                   <p className="text-xs text-rose-500 font-semibold mt-1">Error</p>
@@ -477,8 +496,8 @@ export default function DashboardPage() {
                 <input
                   type="text"
                   placeholder="Filter environments or names..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   className="w-full bg-pm-bg border border-pm-border rounded-xl pl-11 pr-4 py-2.5 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent focus:bg-pm-surface outline-none transition-all"
                 />
               </div>
@@ -512,7 +531,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Grid display with loading skeletons */}
-            {isLoading ? (
+            {(projectsLoading || isLoading) ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[1, 2, 3, 4].map((n) => (
                   <div key={n} className="h-44 bg-pm-surface border border-pm-border rounded-2xl animate-pulse p-5 space-y-4 shadow-sm">
@@ -616,7 +635,7 @@ export default function DashboardPage() {
                 Recent Activity
               </h3>
               
-              {isLoading ? (
+              {isLoading || projectsLoading ? (
                 <div className="space-y-4 py-2 animate-pulse">
                   {[1, 2, 3].map((n) => (
                     <div key={n} className="space-y-2">

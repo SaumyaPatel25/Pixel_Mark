@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { ArrowLeft, Loader2, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { StageLoader } from '@/components/ui/StageLoader'
 
 export default function SessionPage() {
   const params = useParams()
@@ -34,8 +35,7 @@ export default function SessionPage() {
   // Show loading while we fetch and redirect
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center gap-4">
-      <Loader2 className="w-8 h-8 text-white/40 animate-spin" />
-      <p className="text-white/30 text-xs font-mono uppercase tracking-widest">Opening session…</p>
+      <StageLoader size="sm" text="Opening Session" />
       {!isLoading && projectId && (
         <button
           onClick={() => router.push(`/project/${projectId}?session=${sessionId}&view=details`)}

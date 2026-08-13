@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { Loader2, UserRound, X } from 'lucide-react'
+import { UserRound, X } from 'lucide-react'
+import { StageSpinner } from '@/components/ui/StageLoader'
 import { api } from '@/lib/api'
 import { setStoredReviewerIdentity } from '@/lib/reviewerIdentity'
 import { ReviewerIdentity } from '@/types/markers'
@@ -136,7 +137,7 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
                          flex items-center justify-center gap-2"
             >
               {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <StageSpinner size={16} variant="white" />
               ) : (
                 'Start Leaving Feedback'
               )}

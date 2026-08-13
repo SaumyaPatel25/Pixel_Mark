@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useInView, useReducedMotion } from 'framer-motion';
 import { Share2, MousePointerClick, Camera, Code, Lock, Sparkles } from 'lucide-react';
 
 const steps = [
@@ -56,7 +56,12 @@ const steps = [
 ];
 
 /* ─── Step Visualisers ──────────────────────────────────────────────────── */
-function Step1Visual({ accent }: { accent: string }) {
+interface VisualProps {
+  accent: string;
+  shouldReduceMotion: boolean;
+}
+
+function Step1Visual({ accent, shouldReduceMotion }: VisualProps) {
   return (
     <div className="w-full max-w-[320px] space-y-3">
       <div className="mkt-how-inner-card rounded-2xl border p-4 space-y-3">
@@ -78,14 +83,14 @@ function Step1Visual({ accent }: { accent: string }) {
             className="h-full rounded-full w-full origin-left"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
-            transition={{ duration: 2.4, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0.8 }}
+            transition={shouldReduceMotion ? { duration: 0 } : { duration: 2.4, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0.8 }}
             style={{ background: accent }}
           />
         </div>
         <div className="flex items-center gap-1.5">
           <motion.span
-            animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 1.8, repeat: Infinity }}
+            animate={shouldReduceMotion ? { opacity: 1 } : { opacity: [0.3, 1, 0.3] }}
+            transition={shouldReduceMotion ? { duration: 0 } : { duration: 1.8, repeat: Infinity }}
             className="w-1.5 h-1.5 rounded-full"
             style={{ background: '#4ade80' }}
           />
@@ -96,7 +101,7 @@ function Step1Visual({ accent }: { accent: string }) {
   );
 }
 
-function Step2Visual({ accent }: { accent: string }) {
+function Step2Visual({ accent, shouldReduceMotion }: VisualProps) {
   return (
     <div className="w-full max-w-[340px]">
       <div className="mkt-how-inner-card rounded-2xl border p-4 space-y-3 relative overflow-hidden">
@@ -122,8 +127,8 @@ function Step2Visual({ accent }: { accent: string }) {
         </div>
         {/* Animated pin */}
         <motion.div
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+          animate={shouldReduceMotion ? { y: 0 } : { y: [0, -5, 0] }}
+          transition={shouldReduceMotion ? { duration: 0 } : { duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
           className="absolute top-[38%] left-[35%] flex flex-col items-center"
         >
           <span
@@ -143,7 +148,7 @@ function Step2Visual({ accent }: { accent: string }) {
   );
 }
 
-function Step3Visual({ accent }: { accent: string }) {
+function Step3Visual({ accent, shouldReduceMotion }: VisualProps) {
   const members = [
     { name: 'Sarah — Product', status: 'ONLINE', online: true },
     { name: 'Michael — Client', status: 'VIEWING', online: true },
@@ -154,8 +159,8 @@ function Step3Visual({ accent }: { accent: string }) {
       <div className="mkt-how-inner-card rounded-2xl border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <motion.span
-            animate={{ opacity: [0.4, 1, 0.4], scale: [1, 1.15, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
+            animate={shouldReduceMotion ? { opacity: 1, scale: 1 } : { opacity: [0.4, 1, 0.4], scale: [1, 1.15, 1] }}
+            transition={shouldReduceMotion ? { duration: 0 } : { duration: 2, repeat: Infinity }}
             className="w-2 h-2 rounded-full"
             style={{ background: accent }}
           />
@@ -187,7 +192,7 @@ function Step3Visual({ accent }: { accent: string }) {
   );
 }
 
-function Step4Visual({ accent }: { accent: string }) {
+function Step4Visual({ accent, shouldReduceMotion }: VisualProps) {
   return (
     <div className="w-full max-w-[340px]">
       <div className="mkt-how-inner-card rounded-2xl border p-4 space-y-3 font-mono">
@@ -225,6 +230,8 @@ export default function HowItWorksSection() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: '-20% 0px' });
+  const isTimerActive = useInView(sectionRef, { once: false });
+  const shouldReduceMotion = useReducedMotion();
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -244,13 +251,16 @@ export default function HowItWorksSection() {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       return;
     }
-    if (isHovering) {
-      if (timerRef.current) clearInterval(timerRef.current);
+    if (isHovering || !isTimerActive || shouldReduceMotion) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       return;
     }
     timerRef.current = setInterval(() => setActiveStep((p) => (p + 1) % steps.length), 5500);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isHovering]);
+  }, [isHovering, isTimerActive, shouldReduceMotion]);
 
   const step = steps[activeStep];
   const Visual = visuals[activeStep];
@@ -362,7 +372,7 @@ export default function HowItWorksSection() {
               </div>
 
               <div
-                className="relative flex items-center justify-center p-10 min-h-[360px] bg-slate-50/50 dark:bg-transparent"
+                className="relative flex items-center justify-center p-10 h-[360px] bg-slate-50/50 dark:bg-transparent"
                 style={{
                   background: isDark
                     ? `radial-gradient(ellipse 70% 60% at 50% 50%, ${step.accentGlow} 0%, transparent 70%)`
@@ -378,13 +388,13 @@ export default function HowItWorksSection() {
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeStep}
-                    initial={{ opacity: 0, scale: 0.93, y: 12 }}
+                    initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.93, y: 12 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.97, y: -8 }}
-                    transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -8 }}
+                    transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                     className="flex justify-center w-full"
                   >
-                    <Visual accent={step.accent} />
+                    <Visual accent={step.accent} shouldReduceMotion={!!shouldReduceMotion} />
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -442,7 +452,8 @@ export default function HowItWorksSection() {
           </motion.div>
 
           {/* RIGHT COLUMN: Steps stack */}
-          <div
+          <motion.div
+            layout={!shouldReduceMotion}
             className="lg:col-span-5 space-y-3"
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
@@ -453,9 +464,10 @@ export default function HowItWorksSection() {
               return (
                 <motion.div
                   key={i}
+                  layout={!shouldReduceMotion}
                   initial={{ opacity: 0, x: 16 }}
                   animate={inView ? { opacity: 1, x: 0 } : { opacity: 0, x: 16 }}
-                  transition={{ duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
                   onMouseEnter={() => setActiveStep(i)}
                   onClick={() => setActiveStep(i)}
                   data-active={isActive}
@@ -516,14 +528,14 @@ export default function HowItWorksSection() {
                       className="absolute bottom-0 left-0 h-[2px] rounded-full"
                       initial={{ width: 0 }}
                       animate={{ width: '100%' }}
-                      transition={{ duration: 5.5, ease: 'linear' }}
+                      transition={shouldReduceMotion ? { duration: 0 } : { duration: 5.5, ease: 'linear' }}
                       style={{ background: `linear-gradient(90deg, ${s.accent}60, ${s.accent})` }}
                     />
                   )}
                 </motion.div>
               );
             })}
-          </div>
+          </motion.div>
 
         </div>
       </div>

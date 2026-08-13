@@ -1,7 +1,9 @@
 'use client'
 
 import React, { useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { api } from '@/lib/api'
+import { StageSpinner } from '@/components/ui/StageLoader'
 import { useBlueprintStore } from '@/store/blueprintStore'
 import { useBlueprintCollaborationStore } from '@/store/blueprintCollaborationStore'
 import { useBlueprintActivityStore } from '@/store/blueprintActivityStore'
@@ -9,14 +11,17 @@ import { useBlueprintSummaryStore } from '@/store/blueprintSummaryStore'
 import { BlueprintToolbar } from './BlueprintToolbar'
 import { BlueprintToolRail } from './BlueprintToolRail'
 import { BlueprintLayersPanel } from './BlueprintLayersPanel'
-import { BlueprintPresetLibraryPanel } from './BlueprintPresetLibraryPanel'
 import { BlueprintStage } from './BlueprintStage'
-import { BlueprintInspector } from './BlueprintInspector'
-import { BlueprintCommentThread } from './BlueprintCommentThread'
-import { BlueprintCommentComposer } from './BlueprintCommentComposer'
-import { BlueprintActivityPanel } from './BlueprintActivityPanel'
-import { BlueprintSummaryModal } from './BlueprintSummaryModal'
-import { ReviewerSuggestionsPanel } from './ReviewerSuggestionsPanel'
+
+const BlueprintInspector = dynamic(() => import('./BlueprintInspector').then((m) => m.BlueprintInspector), {
+  loading: () => <div className="w-80 bg-[#0d1322] border-l border-slate-800 shrink-0 flex items-center justify-center"><StageSpinner size={18} variant="muted" /></div>
+})
+const BlueprintPresetLibraryPanel = dynamic(() => import('./BlueprintPresetLibraryPanel').then((m) => m.BlueprintPresetLibraryPanel))
+const BlueprintCommentThread = dynamic(() => import('./BlueprintCommentThread').then((m) => m.BlueprintCommentThread))
+const BlueprintCommentComposer = dynamic(() => import('./BlueprintCommentComposer').then((m) => m.BlueprintCommentComposer))
+const BlueprintActivityPanel = dynamic(() => import('./BlueprintActivityPanel').then((m) => m.BlueprintActivityPanel))
+const BlueprintSummaryModal = dynamic(() => import('./BlueprintSummaryModal').then((m) => m.BlueprintSummaryModal))
+const ReviewerSuggestionsPanel = dynamic(() => import('./ReviewerSuggestionsPanel').then((m) => m.ReviewerSuggestionsPanel))
 
 interface BlueprintWorkspaceProps {
   projectId: string
@@ -37,7 +42,9 @@ export function BlueprintWorkspace({ projectId, sessionId: propSessionId }: Blue
     future,
     loadPersistedEdits,
     setIsWorkspaceLoading,
-    isSuggestionsOpen
+    isSuggestionsOpen,
+    isInspectorOpen,
+    isLibraryOpen
   } = useBlueprintStore()
   const {
     isThreadPanelOpen,
@@ -210,7 +217,7 @@ export function BlueprintWorkspace({ projectId, sessionId: propSessionId }: Blue
         <BlueprintToolRail />
 
         {/* Pick & Place Preset Library Panel */}
-        <BlueprintPresetLibraryPanel />
+        {isLibraryOpen && <BlueprintPresetLibraryPanel />}
 
         {/* Left Layers Panel */}
         <BlueprintLayersPanel />
@@ -219,7 +226,7 @@ export function BlueprintWorkspace({ projectId, sessionId: propSessionId }: Blue
         <BlueprintStage projectId={projectId} />
 
         {/* Right Property Inspector */}
-        <BlueprintInspector />
+        {isInspectorOpen && <BlueprintInspector />}
 
         {/* Right Blueprint Feedback Thread Panel */}
         {isThreadPanelOpen && (

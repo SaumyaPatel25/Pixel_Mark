@@ -29,7 +29,7 @@ export default function MonkFeedWidget() {
            data-launcher-color="#4f46e5"
            data-launcher-active-color="#ef4444"
       />
-      <Script src="https://www.monkfeed.com//widget.js" strategy="afterInteractive" />
+      <Script src="https://www.monkfeed.com//widget.js" strategy="lazyOnload" />
     </div>
   );
 }

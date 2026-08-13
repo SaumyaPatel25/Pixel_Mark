@@ -221,5 +221,24 @@ describe('markerPlacement', () => {
       // screenY = (350 - 300) = 50
       expect(pos!.screenY).toBe(50)
     })
+
+    it('maintains element relative screen position when iframe container shifts (e.g. feedback sidebar opens)', () => {
+      const marker = {
+        elementSelector: '#valid',
+        offsetXRatio: 0.5,
+        offsetYRatio: 0.5
+      } as CanonicalMarkerAnchor
+
+      const iframeRectBefore = { left: 0, top: 0, width: 1200, height: 800 } as DOMRect
+      const posBefore = computePinScreenPosition(marker, { x: 0, y: 0 }, iframeRectBefore, mockWin, mockDoc)
+
+      // When sidebar opens, iframe left becomes 320px
+      const iframeRectAfter = { left: 320, top: 0, width: 880, height: 800 } as DOMRect
+      const posAfter = computePinScreenPosition(marker, { x: 0, y: 0 }, iframeRectAfter, mockWin, mockDoc)
+
+      expect(posBefore!.pageLeft).toBe(135)
+      expect(posAfter!.pageLeft).toBe(135) // Page coordinates remain invariant
+      expect(posAfter!.screenX - posBefore!.screenX).toBe(320) // Screen position tracks iframe offset exactly
+    })
   })
 })

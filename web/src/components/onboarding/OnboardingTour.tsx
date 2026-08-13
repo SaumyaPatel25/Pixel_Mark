@@ -6,6 +6,8 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Check, MousePointerClick } from 'lucide-react';
 import { useOnboardingStore, developerSteps, reviewerSteps, OnboardingStep } from '@/store/onboardingStore';
 import { useScreenshotStore } from '@/store/screenshotStore';
+import { useAuthStore } from '@/store/authStore';
+import { useBillingStore } from '@/store/useBillingStore';
 import { Button } from '@/components/ui/button';
 
 export function OnboardingTour() {
@@ -37,10 +39,36 @@ export function OnboardingTour() {
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const nextBtnRef = useRef<HTMLButtonElement | null>(null);
+  const user = useAuthStore(s => s.user);
+  const subscription = useBillingStore(s => s.subscription);
+  const orgId = subscription?.org_id || 'default';
+
   // Load state on mount
   useEffect(() => {
-    hydrateFromLocalStorage();
-  }, [hydrateFromLocalStorage]);
+    if (user) {
+      hydrateFromLocalStorage(user.id, orgId);
+    }
+  }, [user, orgId, hydrateFromLocalStorage]);
+
+  // Escape key handler to close onboarding
+  useEffect(() => {
+    if (!isOnboardingActive) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        stopOnboarding();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOnboardingActive, stopOnboarding]);
+
+  // Auto-focus Next button when step changes
+  useEffect(() => {
+    if (isOnboardingActive && nextBtnRef.current) {
+      nextBtnRef.current.focus();
+    }
+  }, [currentStepIndex, isOnboardingActive]);
 
   // Handle window resizing
   useEffect(() => {
@@ -438,8 +466,9 @@ export function OnboardingTour() {
               </div>
             ) : (
               <Button
+                ref={nextBtnRef}
                 onClick={handleNext}
-                className={`h-8 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1 ${
+                className={`h-8 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1 focus:ring-2 focus:ring-pm-accent outline-none ${
                   needsInteraction
                     ? 'bg-pm-surface-2 border border-pm-border text-pm-muted hover:bg-amber-500/10 hover:text-amber-400 hover:border-amber-500/30'
                     : 'bg-pm-accent hover:bg-pm-accent-bright text-white'

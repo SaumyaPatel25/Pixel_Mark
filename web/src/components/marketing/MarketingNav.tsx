@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ArrowRight, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuthStore } from '@/store/authStore';
 import { useBillingStore } from '@/store/useBillingStore';
 import { CrownDoodle } from '@/components/ui/CrownDoodle';
@@ -20,10 +21,17 @@ export default function MarketingNav() {
 
   useEffect(() => {
     setMounted(true);
+    let ticking = false;
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsScrolled(window.scrollY > 40);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -56,9 +64,11 @@ export default function MarketingNav() {
         >
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <img 
+            <Image 
               src="/logo.png" 
               alt="STAGE Logo" 
+              width={240}
+              height={112}
               className="h-28 w-auto object-contain dark-theme-logo" 
             />
           </Link>

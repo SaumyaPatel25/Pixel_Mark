@@ -1,10 +1,11 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, CheckCircle2, TrendingUp, Zap, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 
 export default function OutcomeSection() {
+  const shouldReduceMotion = useReducedMotion();
   const metrics = [
     {
       icon: TrendingUp,
@@ -54,7 +55,7 @@ export default function OutcomeSection() {
     <section 
       id="outcomes" 
       className="relative py-32 bg-transparent overflow-hidden border-t border-pm-border/30"
-      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 800px' }}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 1200px' }}
     >
       {/* Subtle atmospheric glow */}
       <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[600px] h-[600px] bg-[#E2F3F5]/10 rounded-full blur-[120px] pointer-events-none z-0" />
@@ -78,15 +79,15 @@ export default function OutcomeSection() {
         </div>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <ul className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {metrics.map((m, idx) => (
-            <motion.div
+            <motion.li
               key={idx}
-              initial={{ opacity: 0, y: 20 }}
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
-              className="relative p-8 rounded-3xl border border-pm-border bg-pm-surface-2/50 backdrop-blur-md shadow-sm space-y-4 text-left"
+              transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.5, delay: idx * 0.1 }}
+              className="relative p-8 rounded-3xl border border-pm-border bg-pm-surface-2/50 backdrop-blur-md shadow-sm space-y-4 text-left list-none"
             >
               <div className="flex items-center justify-between">
                 <span className={`text-4xl sm:text-5xl font-black font-display tracking-tight ${m.color}`}>
@@ -98,36 +99,36 @@ export default function OutcomeSection() {
                 <h3 className="font-display text-base font-bold text-pm-text">{m.label}</h3>
                 <p className="text-[11.5px] leading-relaxed text-pm-text/60">{m.desc}</p>
               </div>
-            </motion.div>
+            </motion.li>
           ))}
-        </div>
+        </ul>
 
         {/* Case Studies / Comparative Quotes */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8">
+        <ul className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8">
           {outcomes.map((o, idx) => (
-            <motion.div
+            <motion.li
               key={idx}
-              initial={{ opacity: 0, y: 20 }}
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: idx * 0.15 }}
-              className="p-6 rounded-2xl border border-pm-border/60 bg-pm-surface/30 backdrop-blur-md text-left flex flex-col justify-between space-y-6"
+              transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.6, delay: idx * 0.15 }}
+              className="p-6 rounded-2xl border border-pm-border/60 bg-pm-surface/30 backdrop-blur-md text-left flex flex-col justify-between space-y-6 list-none"
             >
-              <div className="space-y-3">
-                <span className="text-[9px] font-mono font-bold tracking-widest text-pm-accent-bright dark:text-pm-accent-vivid bg-pm-accent-subtle border border-pm-border px-2 py-0.5 rounded">
+              <blockquote className="space-y-3">
+                <span className="text-[9px] font-mono font-bold tracking-widest text-pm-accent-bright dark:text-pm-accent-vivid bg-pm-accent-subtle border border-pm-border px-2 py-0.5 rounded select-none inline-block">
                   {o.metric}
                 </span>
                 <p className="text-sm font-medium italic leading-relaxed text-pm-text">
                   {o.quote}
                 </p>
-              </div>
-              <div className="border-t border-pm-border/30 pt-4 flex items-center justify-between text-[10px]">
-                <span className="font-bold text-pm-text">{o.author}</span>
+              </blockquote>
+              <figcaption className="border-t border-pm-border/30 pt-4 flex items-center justify-between text-[10px]">
+                <cite className="font-bold text-pm-text not-italic">{o.author}</cite>
                 <span className="text-pm-text/50 font-mono">{o.context}</span>
-              </div>
-            </motion.div>
+              </figcaption>
+            </motion.li>
           ))}
-        </div>
+        </ul>
 
       </div>
     </section>

@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { motion } from 'framer-motion';
-import { Loader2, XCircle, CheckCircle2, ArrowRight, HelpCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowRight, HelpCircle } from 'lucide-react';
+import { StageLoader, StageSpinner } from '@/components/ui/StageLoader';
 import Link from 'next/link';
 import { isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -110,7 +111,7 @@ export default function EmailCallbackClient() {
         {/* Verifying Loader */}
         {status === 'verifying' && (
           <div className="space-y-4 py-8 flex flex-col items-center w-full">
-            <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mx-auto" />
+            <StageLoader size="sm" text="Authenticating" />
             <h2 className="text-xl font-bold">Completing authentication</h2>
             <p className="text-sm text-white/40">Synchronizing session with STAGE backend...</p>
           </div>
@@ -217,7 +218,7 @@ export default function EmailCallbackClient() {
               >
                 {submittingEmail ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <StageSpinner size={14} variant="white" />
                     Verifying...
                   </>
                 ) : (

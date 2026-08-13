@@ -153,23 +153,40 @@ export function MarkerPinLayer({
     }
 
     // ─── CSS Transition & Animation Observers ────────────────────────────────
+    let transitionRaf: number | null = null
     const handleTransition = () => {
       handleUpdate()
-      if (debouncedTimer) clearTimeout(debouncedTimer)
-      debouncedTimer = setTimeout(handleUpdate, 150)
-      setTimeout(handleUpdate, 350)
+      const startTime = performance.now()
+      const animateTransition = () => {
+        handleUpdate()
+        if (performance.now() - startTime < 400) {
+          transitionRaf = requestAnimationFrame(animateTransition)
+        }
+      }
+      if (transitionRaf) cancelAnimationFrame(transitionRaf)
+      transitionRaf = requestAnimationFrame(animateTransition)
     }
 
     const containerEl = iframeNode.parentElement || document.body
     containerEl.addEventListener('transitionrun', handleTransition, { passive: true })
+    containerEl.addEventListener('transitionstart', handleTransition, { passive: true })
     containerEl.addEventListener('transitionend', handleTransition, { passive: true })
     containerEl.addEventListener('animationend', handleTransition, { passive: true })
 
     // ─── Mutation Observers ──────────────────────────────────────────────────
+    let mutationRafId: number | null = null
+    const handleMutationUpdate = () => {
+      if (mutationRafId) return
+      mutationRafId = requestAnimationFrame(() => {
+        mutationRafId = null
+        handleUpdate()
+      })
+    }
+
     let iframeObserver: MutationObserver | null = null
     try {
       if (iframeDoc && typeof MutationObserver !== 'undefined') {
-        iframeObserver = new MutationObserver(handleUpdate)
+        iframeObserver = new MutationObserver(handleMutationUpdate)
         iframeObserver.observe(iframeDoc.body || iframeDoc.documentElement, {
           childList: true,
           subtree: true,
@@ -177,12 +194,6 @@ export function MarkerPinLayer({
         })
       }
     } catch (_) {}
-
-    let parentObserver: MutationObserver | null = null
-    if (typeof MutationObserver !== 'undefined') {
-      parentObserver = new MutationObserver(handleUpdate)
-      parentObserver.observe(document.body, { childList: true, subtree: true })
-    }
 
     return () => {
       cancelStabilization()
@@ -197,12 +208,14 @@ export function MarkerPinLayer({
       } catch (_) {}
       iframeNode.removeEventListener('load', handleLoad)
       containerEl.removeEventListener('transitionrun', handleTransition)
+      containerEl.removeEventListener('transitionstart', handleTransition)
       containerEl.removeEventListener('transitionend', handleTransition)
       containerEl.removeEventListener('animationend', handleTransition)
       if (resizeObserver) resizeObserver.disconnect()
       if (iframeObserver) iframeObserver.disconnect()
-      if (parentObserver) parentObserver.disconnect()
       if (rAFId) cancelAnimationFrame(rAFId)
+      if (transitionRaf) cancelAnimationFrame(transitionRaf)
+      if (mutationRafId) cancelAnimationFrame(mutationRafId)
     }
   }, [iframeNode, forceReflow])
 
@@ -414,8 +427,6 @@ export function MarkerPinLayer({
             if (isOffscreen) {
               return null
             }
-            parentX = Math.max(16, Math.min(window.innerWidth - 16, parentX))
-            parentY = Math.max(16, Math.min(window.innerHeight - 16, parentY))
           }
 
           if (diagnosticMode) {

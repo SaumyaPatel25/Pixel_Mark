@@ -428,7 +428,7 @@ async def delete_marker(
         raise HTTPException(status_code=404, detail="Marker not found")
 
     if marker.is_deleted:
-        return {"success": True, "message": "Marker already deleted"}
+        raise HTTPException(status_code=404, detail="Marker not found")
 
     actor_ctx = await resolve_actor_context(
         session_id=marker.session_id,

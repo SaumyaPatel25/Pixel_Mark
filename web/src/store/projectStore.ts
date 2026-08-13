@@ -7,7 +7,8 @@ interface ProjectState {
   currentProject:  Project | null
   loading:         boolean
   error:           string | null
-  
+  projectAnalytics:  Record<string, { data: any; fetchedAt: number }>
+  fetchAnalytics: (id: string, force?: boolean) => Promise<any>
   fetchProjects:     () => Promise<void>
   createProject:     (input: ProjectCreate) => Promise<Project>
   deleteProject:     (id: string) => Promise<void>
@@ -15,14 +16,48 @@ interface ProjectState {
   clearError:        () => void
 }
 
+const inFlightRequests: Record<string, Promise<any> | undefined> = {}
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projects:       [],
   currentProject: null,
   loading:        false,
   error:          null,
+  projectAnalytics: {},
 
   setCurrentProject: (project) => set({ currentProject: project }),
   clearError:        () => set({ error: null }),
+  fetchAnalytics: async (id, force = false) => {
+    const cache = get().projectAnalytics[id]
+    const now = Date.now()
+    const STALE_TIME = 1000 * 60 * 5 // 5 minutes stale time
+
+    if (cache && (now - cache.fetchedAt < STALE_TIME) && !force) {
+      return cache.data
+    }
+
+    if (inFlightRequests[id]) {
+      return inFlightRequests[id]
+    }
+
+    const promise = (async () => {
+      try {
+        const data = await api.projects.getAnalytics(id)
+        set((s) => ({
+          projectAnalytics: {
+            ...s.projectAnalytics,
+            [id]: { data, fetchedAt: Date.now() }
+          }
+        }))
+        return data
+      } finally {
+        delete inFlightRequests[id]
+      }
+    })()
+
+    inFlightRequests[id] = promise
+    return promise
+  },
 
   fetchProjects: async () => {
     set({ loading: true, error: null })

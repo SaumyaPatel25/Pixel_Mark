@@ -176,10 +176,10 @@ async def create_checkout(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        if payload.plan_type == "enterprise":
+        if payload.plan_type in ("stage_team", "enterprise"):
             raise HTTPException(
                 status_code=400,
-                detail="Enterprise plan is custom-managed. Please click 'Let's talk' to contact our team directly."
+                detail=f"The '{payload.plan_type}' plan is an internal or custom-managed tier and cannot be purchased via self-service checkout."
             )
 
         if payload.plan_type != "dev_team":
@@ -307,6 +307,9 @@ async def sync_checkout_endpoint(
         raise HTTPException(status_code=400, detail="Organization required for billing sync")
 
     sub = await get_or_create_subscription(db, target_org_id)
+    if sub.plan_type == "stage_team":
+        return await resolve_org_entitlements(current_user.id, db)
+
     sub_id = req.subscription_id or sub.dodo_subscription_id
     plan = req.plan_type or (sub.plan_type if sub.plan_type != "none" else "dev_team")
 
@@ -408,6 +411,34 @@ async def handle_dodo_webhook(
             logger.info(f"[STAGE Webhook] Retained plan_type={plan_type} from existing subscription record")
 
     logger.info(f"[STAGE Billing Webhook] Received Dodo event '{event_type}' for resolved org {org_id}")
+
+    # Webhook Shield: Enforce strict precedence hierarchy
+    # 1. Manual Admin Override (highest priority) -> Ignore webhook
+    # 2. Domain Auto Entitlement / stage_team / internal org -> Ignore webhook
+    if org_id:
+        sub_check_res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
+        sub_check = sub_check_res.scalar_one_or_none()
+        org_check_res = await db.execute(select(Organization).where(Organization.id == org_id))
+        org_check = org_check_res.scalar_one_or_none()
+
+        is_manual_override = sub_check and (getattr(sub_check, "is_manual_override", False) or getattr(sub_check, "plan_source", None) == "manual_override")
+        is_protected_tier = (
+            (sub_check and sub_check.plan_type == "stage_team") or
+            (sub_check and getattr(sub_check, "plan_source", None) in ("domain_auto_provision", "founder_auto_provision")) or
+            (org_check and getattr(org_check, "is_internal", False))
+        )
+
+        if is_manual_override:
+            logger.warning(f"[STAGE Webhook Shield] Skipped Dodo webhook '{event_type}' for manual override account (org_id={org_id}, plan={sub_check.plan_type})")
+            if event_id:
+                await mark_webhook_event_processed(event_id)
+            return {"message": "Webhook ignored: Account has active manual admin override", "event_type": event_type}
+
+        if is_protected_tier:
+            logger.warning(f"[STAGE Webhook Shield] Skipped Dodo webhook '{event_type}' for protected stage_team/domain account (org_id={org_id})")
+            if event_id:
+                await mark_webhook_event_processed(event_id)
+            return {"message": "Webhook ignored for protected stage_team/domain tier account", "event_type": event_type}
 
     active_event_types = (
         "subscription.created", "subscription.active", "subscription.updated",

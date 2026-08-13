@@ -31,20 +31,26 @@ export function PlanBadge() {
   if (isPaid) {
     const titleText = capabilities.is_early_bird 
       ? 'Dev Team ⚡ 25% Off' 
+      : capabilities.planType === 'stage_team'
+      ? 'STAGE Team'
       : capabilities.planType === 'enterprise' 
       ? 'Enterprise' 
       : 'Dev Team'
+
+    const seatText = (capabilities.planType === 'stage_team' || capabilities.planType === 'enterprise')
+      ? 'Unlimited Seats'
+      : `${capabilities.seats_used}/${capabilities.seats_allowed} Seats`
 
     return (
       <Link
         href="/settings/profile"
         className="group inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-gradient-to-r from-purple-600 to-pm-accent text-white shadow-md hover:opacity-95 transition-all font-mono"
-        title={`${titleText} · ${capabilities.seats_used}/${capabilities.seats_allowed} Seats Used`}
+        title={`${titleText} · ${seatText}`}
       >
         <Sparkles className="w-3.5 h-3.5 text-amber-300" />
         <span>{titleText}</span>
         <span className="text-[10px] bg-black/20 px-1.5 py-0.5 rounded-md font-sans">
-          {capabilities.seats_used}/{capabilities.seats_allowed} Seats
+          {seatText}
         </span>
       </Link>
     )

@@ -286,6 +286,9 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
 
   return (
     <div className="flex-1 flex flex-col h-full bg-pm-bg text-pm-text overflow-hidden select-none transition-colors duration-300">
+      <div role="status" aria-live="polite" className="sr-only">
+        {`Observation workspace loaded. ${filteredMarkers.length} observations found.`}
+      </div>
       {/* 1. Session Level Summary Panel - Compact Minimal */}
       <div className="bg-pm-surface border-b border-pm-border p-4 flex flex-col md:flex-row items-center justify-between gap-4 flex-shrink-0 shadow-sm transition-all duration-300">
         <div className="flex items-center gap-5 w-full md:w-auto">

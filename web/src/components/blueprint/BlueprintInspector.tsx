@@ -114,17 +114,25 @@ export function BlueprintInspector() {
     })
   }, [selectedTarget?.selector])
 
+  const textDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const handleTextContentUpdate = (newText: string) => {
     setCustomText(newText)
     if (!selectedTarget) return
 
-    addMutation({
-      targetSelector: selectedTarget.selector,
-      actionType: 'replace',
-      presetId: 'custom_text_edit',
-      presetName: `Text Edit (${selectedTarget.tag})`,
-      htmlPayload: `<${selectedTarget.tag} style="color:${customColor || 'inherit'}; font-size:${customFontSize || 'inherit'};">${newText}</${selectedTarget.tag}>`
-    })
+    if (textDebounceRef.current) {
+      clearTimeout(textDebounceRef.current)
+    }
+
+    textDebounceRef.current = setTimeout(() => {
+      addMutation({
+        targetSelector: selectedTarget.selector,
+        actionType: 'replace',
+        presetId: 'custom_text_edit',
+        presetName: `Text Edit (${selectedTarget.tag})`,
+        htmlPayload: `<${selectedTarget.tag} style="color:${customColor || 'inherit'}; font-size:${customFontSize || 'inherit'};">${newText}</${selectedTarget.tag}>`
+      })
+    }, 250)
   }
 
   const handleStyleMutation = (property: string, value: string) => {
@@ -611,14 +619,23 @@ function InputField({
   onChange?: (val: string) => void
   disabled?: boolean
 }) {
+  const [localVal, setLocalVal] = useState(value)
+
+  useEffect(() => {
+    setLocalVal(value)
+  }, [value])
+
   return (
     <div className="flex items-center justify-between gap-2">
       <label className="text-slate-400 text-[11px] font-mono shrink-0 font-medium">{label}</label>
       <input
         type="text"
-        value={value}
+        value={localVal}
         disabled={disabled}
-        onChange={(e) => onChange && onChange(e.target.value)}
+        onChange={(e) => {
+          setLocalVal(e.target.value)
+          if (onChange) onChange(e.target.value)
+        }}
         className="w-full px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 text-right font-mono"
       />
     </div>

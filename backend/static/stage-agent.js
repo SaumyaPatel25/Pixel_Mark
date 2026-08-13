@@ -2392,6 +2392,18 @@
 
   // ─── DOMContentLoaded init ────────────────────────────────────────────────
   function getAbsoluteTargetUrl() {
+    if (window.STAGE_TARGET_URL) {
+      return window.STAGE_TARGET_URL;
+    }
+    if (window.__STAGE_TARGET_URL__) {
+      return window.__STAGE_TARGET_URL__;
+    }
+    if (window.STAGE && window.STAGE.pageUrl) {
+      return window.STAGE.pageUrl;
+    }
+    if (window.__STAGE__ && window.__STAGE__.pageUrl) {
+      return window.__STAGE__.pageUrl;
+    }
     try {
       const params = new URLSearchParams(window.location.search);
       const urlParam = params.get('url');
@@ -2399,12 +2411,6 @@
         return new URL(urlParam).href;
       }
     } catch (_) {}
-    if (window.STAGE && window.STAGE.pageUrl) {
-      return window.STAGE.pageUrl;
-    }
-    if (window.__STAGE_TARGET_URL__) {
-      return window.__STAGE_TARGET_URL__;
-    }
     return TARGETURL;
   }
 
@@ -2439,6 +2445,10 @@
       const isInternal = targetHost === originalHost;
 
       if (isInternal) {
+        // CRITICAL: prevent the browser from navigating the iframe directly outside the proxy
+        e.preventDefault();
+        e.stopPropagation();
+
         window.parent.postMessage({
           type: "STAGE_NAV",
           page_url: resolvedUrl,
@@ -2459,6 +2469,32 @@
     }, true);
   }
 
+  // ─── Animation-heavy site detection ─────────────────────────────────────────
+  function detectAnimationHeavySite() {
+    // Detect Webflow
+    const hasWebflow = !!(window.Webflow || document.documentElement.getAttribute('data-wf-page') ||
+      document.querySelector('[data-wf-page]') || document.querySelector('.w-webflow-badge'));
+    // Detect GSAP
+    const hasGsap = !!(window.gsap || window.TweenMax || window.TweenLite || window.TimelineMax);
+    // Detect ScrollMagic / Locomotive Scroll / Lenis
+    const hasScrollLib = !!(window.ScrollMagic || window.LocomotiveScroll || window.Lenis ||
+      document.querySelector('[data-scroll-container]') || document.querySelector('[data-locomotive]'));
+    // Detect large section count (marketing pages with many sections)
+    const sectionCount = document.querySelectorAll('section, [class*="section"], [class*="hero"], [class*="block"]').length;
+    const hasManySections = sectionCount > 5;
+    // Detect sticky/fixed elements (hero + sticky nav pattern)
+    const fixedEls = Array.from(document.querySelectorAll('*')).filter(el => {
+      try {
+        const style = window.getComputedStyle(el);
+        return style.position === 'fixed' || style.position === 'sticky';
+      } catch (e) { return false; }
+    }).length;
+    const hasComplexLayout = fixedEls > 2;
+    const isAnimationHeavy = hasWebflow || hasGsap || hasScrollLib || (hasManySections && hasComplexLayout);
+    console.log('[STAGE] Animation heavy detection:', { hasWebflow, hasGsap, hasScrollLib, sectionCount, fixedEls, isAnimationHeavy });
+    return isAnimationHeavy;
+  }
+
   function postRendererDetected(rendererType) {
     const canvases = document.querySelectorAll("canvas");
     const hasThree = typeof THREE !== "undefined" || !!window.__STAGE__?.threeRenderer || !!window.__r3f;
@@ -2467,6 +2503,8 @@
     const hasPhaser = typeof Phaser !== "undefined" || !!window.Phaser;
     const hasPlayCanvas = typeof pc !== "undefined" || !!window.pc;
     const threeDetected = hasThree || hasPixi || hasBabylon || hasPhaser || hasPlayCanvas;
+    const isAnimHeavy = detectAnimationHeavySite();
+    const isHeavyMode = rendererType !== 'dom' || isAnimHeavy || canvases.length > 0;
 
     window.parent.postMessage({
       type: "STAGE_RENDERER_DETECTED",
@@ -2475,6 +2513,7 @@
       canvas_count: canvases.length,
       raf_detected: rAFActive || (rAFCount > 3),
       three_detected: threeDetected,
+      heavy_mode: isHeavyMode,
       session_id: window.__STAGE__.sessionId || ""
     }, "*");
   }
@@ -2531,9 +2570,14 @@
     const currentRenderer = window.__STAGE__.rendererType;
     postRendererDetected(currentRenderer);
 
-    // Check if it's a heavy render page (contains canvas or WebGL renderer)
+    // Check if it's a heavy render page (canvas, WebGL, or animation-heavy marketing site)
+    const isAnimHeavy = detectAnimationHeavySite();
     const isHeavyPage = (currentRenderer !== "dom" && currentRenderer !== "spa") || 
-                         document.querySelector("canvas") !== null;
+                         document.querySelector("canvas") !== null ||
+                         isAnimHeavy;
+
+    // Store heavy mode state for readiness tracking
+    window.__STAGE__.heavyMode = isHeavyPage;
 
     if (isHeavyPage) {
       if (window.requestIdleCallback) {
@@ -2551,6 +2595,30 @@
       } else {
         setTimeout(initializeAgentListeners, 100);
       }
+    }
+
+    // ── Site Readiness Signal ──────────────────────────────────────────────
+    // For heavy sites: wait for window.load + 1500ms settle time.
+    // For normal sites: signal ready after window.load.
+    function signalSiteReady() {
+      const settleMs = isHeavyPage ? 1500 : 300;
+      setTimeout(() => {
+        window.parent.postMessage({
+          type: "STAGE_SITE_READY",
+          heavy_mode: isHeavyPage,
+          renderer_type: currentRenderer,
+          session_id: window.__STAGE__.sessionId || "",
+          url: getAbsoluteTargetUrl(),
+          title: document.title || ""
+        }, "*");
+        console.log('[STAGE] STAGE_SITE_READY sent. heavy_mode=' + isHeavyPage + ' settle=' + settleMs + 'ms');
+      }, settleMs);
+    }
+
+    if (document.readyState === 'complete') {
+      signalSiteReady();
+    } else {
+      window.addEventListener('load', signalSiteReady, { once: true });
     }
 
     // Run detection again after 2000ms to catch late rendering elements

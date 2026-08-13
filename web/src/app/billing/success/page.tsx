@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { CheckCircle2, ArrowRight, Loader2, AlertTriangle, RefreshCw } from 'lucide-react'
+import { CheckCircle2, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react'
+import { StageSpinner } from '@/components/ui/StageLoader'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useBillingStore } from '@/store/useBillingStore'
@@ -71,7 +72,7 @@ export default function BillingSuccessPage() {
       <div className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-8 text-center space-y-6 shadow-2xl">
         {isConfirming ? (
           <div className="w-16 h-16 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mx-auto text-purple-400">
-            <Loader2 className="w-8 h-8 animate-spin" />
+            <StageSpinner size={28} variant="accent" />
           </div>
         ) : pollFailed ? (
           <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">

@@ -8,8 +8,10 @@ from datetime import datetime
 resend_api_key = os.environ.get("RESEND_API_KEY", "")
 resend.api_key = resend_api_key
 
+from config import settings
+
 FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "STAGE <noreply@stage.io>")
-APP_URL    = os.environ.get("APP_PUBLIC_URL", "https://stage.io")
+APP_URL    = settings.app_public_url
 
 
 def _base_template(title: str, body: str, cta_text: str, cta_url: str) -> str:

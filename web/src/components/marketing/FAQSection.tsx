@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Plus, Minus, HelpCircle, Mail } from 'lucide-react';
 import { faqs } from '@/lib/faqData';
 
 export default function FAQSection() {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   const toggleExpand = (index: number) => {
     setExpandedIndex(expandedIndex === index ? null : index);
@@ -87,8 +88,11 @@ export default function FAQSection() {
                 }`}
               >
                   <button
+                    id={`faq-btn-${index}`}
                     onClick={() => toggleExpand(index)}
-                    className="w-full flex items-center justify-between p-6 text-left transition-colors duration-200"
+                    aria-expanded={isExpanded ? "true" : "false"}
+                    aria-controls={`faq-panel-${index}`}
+                    className="w-full flex items-center justify-between p-6 text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#253B80]/40 rounded-2xl"
                   >
                     <div className="flex gap-4 items-center pr-4">
                       <HelpCircle className={`w-4.5 h-4.5 flex-shrink-0 transition-colors ${isExpanded ? 'text-pm-accent' : 'text-pm-text-faint'}`} />
@@ -105,21 +109,32 @@ export default function FAQSection() {
                     </div>
                   </button>
 
-                  <AnimatePresence initial={false}>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: 'auto' }}
-                        exit={{ height: 0 }}
-                        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                        className="overflow-hidden"
-                      >
-                        <div className="px-6 pb-6 pt-1 text-xs md:text-sm text-pm-muted leading-relaxed font-sans border-t border-pm-border/30">
-                          {faq.answer}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <motion.div
+                    id={`faq-panel-${index}`}
+                    role="region"
+                    aria-labelledby={`faq-btn-${index}`}
+                    initial="collapsed"
+                    animate={isExpanded ? "open" : "collapsed"}
+                    variants={{
+                      open: {
+                        height: "auto",
+                        opacity: 1,
+                        display: "block",
+                        transition: shouldReduceMotion ? { duration: 0 } : { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
+                      },
+                      collapsed: {
+                        height: 0,
+                        opacity: 0,
+                        transitionEnd: { display: "none" },
+                        transition: shouldReduceMotion ? { duration: 0 } : { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
+                      }
+                    }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-6 pb-6 pt-1 text-xs md:text-sm text-pm-muted leading-relaxed font-sans border-t border-pm-border/30">
+                      {faq.answer}
+                    </div>
+                  </motion.div>
                 </div>
               );
             })}

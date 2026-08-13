@@ -53,6 +53,7 @@ class User(Base):
     onboarding_state_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     preferences_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    is_super_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     verification_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     verification_token_expires_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
     reset_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -527,6 +528,10 @@ class SubscriptionModel(Base):
     seats_allowed: Mapped[int] = mapped_column(Integer, default=1)
     projects_allowed: Mapped[int] = mapped_column(Integer, default=0)
     past_due_since: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_manual_override: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    plan_source: Mapped[str] = mapped_column(String, default="default", server_default="default", nullable=False)
+    is_paused: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    admin_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -557,6 +562,49 @@ class ReviewerDomEditSuggestionModel(Base):
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     reviewed_by: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
+class EntitlementAuditLogModel(Base):
+    __tablename__ = "entitlement_audit_logs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    actor_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    actor_email: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    target_org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    old_tier: Mapped[str] = mapped_column(String, nullable=False)
+    new_tier: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+
+
+class RedemptionCodeModel(Base):
+    __tablename__ = "redemption_codes"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    code: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    plan: Mapped[str] = mapped_column(String, default="stage_team", nullable=False)
+    max_uses: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    uses_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class RedemptionCodeUseModel(Base):
+    __tablename__ = "redemption_code_uses"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    code_id: Mapped[str] = mapped_column(ForeignKey("redemption_codes.id", ondelete="CASCADE"), nullable=False, index=True)
+    redeemed_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    redeemed_by_org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    redeemed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    previous_plan: Mapped[str] = mapped_column(String, nullable=False)
+    new_plan: Mapped[str] = mapped_column(String, nullable=False)
+
+
 
 
 

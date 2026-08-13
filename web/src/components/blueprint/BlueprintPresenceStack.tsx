@@ -22,6 +22,9 @@ export function BlueprintPresenceStack() {
 
   return (
     <div className="flex items-center gap-2 select-none">
+      <div role="status" aria-live="polite" className="sr-only">
+        {isConnected ? `Connected to STAGE Blueprint presence. ${userList.length} active collaborators.` : 'Connecting to presence server...'}
+      </div>
       {/* Live connection status */}
       <div
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-300"

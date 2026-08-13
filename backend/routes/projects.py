@@ -5,6 +5,7 @@ from models import Project, OrgMember, User, Environment, Session
 from schemas import ProjectCreate, ProjectOut, ProjectUpdate, EnvironmentCreate, EnvironmentOut
 from dependencies import get_db, get_current_user
 import uuid
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -121,7 +122,7 @@ async def get_project(project_id: str, current_user: User = Depends(get_current_
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    result = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
+    result = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id, Project.status != "soft_deleted"))
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

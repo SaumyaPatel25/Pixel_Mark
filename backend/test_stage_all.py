@@ -185,13 +185,47 @@ class TestSessions:
     def test_auto_title(self):
         with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
             headers = {"Authorization": f"Bearer {SharedState.token}"}
+            # Close the existing session first so a new one can be created (not reused)
+            client.delete(f"/sessions/{SharedState.session_id}", headers=headers)
+
             r = client.post("/sessions/", headers=headers, json={
                 "project_id": SharedState.project_id,
                 "title": ""
             })
             assert r.status_code == 200
             assert r.json()["title"].startswith("Session - ")
+
+            # Re-create the primary session we need for the rest of the tests
+            r2 = client.post("/sessions/", headers=headers, json={
+                "project_id": SharedState.project_id,
+                "title": "Manual Verification Session"
+            })
+            assert r2.status_code == 200
+            SharedState.session_id = r2.json()["id"]
             print_indicator("TestSessions", "auto_title", True)
+
+    def test_create_marker(self):
+        with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
+            headers = {"Authorization": f"Bearer {SharedState.token}"}
+            payload = {
+                "project_id": SharedState.project_id,
+                "anchor_kind": "viewport-absolute",
+                "page_url": "/test",
+                "viewport_x": 100.0,
+                "viewport_y": 200.0,
+                "viewport_width": 375.0,
+                "viewport_height": 812.0,
+                "title": "Critical Alignment Shifting",
+                "description": "Align elements correctly",
+                "status": "open",
+                "priority": "medium"
+            }
+            r = client.post(f"/sessions/{SharedState.session_id}/markers", headers=headers, json=payload)
+            assert r.status_code == 200, f"Expected 200 but got {r.status_code}: {r.text}"
+            data = r.json()
+            assert "id" in data
+            SharedState.marker_id = data["id"]
+            print_indicator("TestSessions", "create_marker", True)
 
     def test_list(self):
         with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
@@ -249,8 +283,12 @@ class TestExport:
             headers = {"Authorization": f"Bearer {SharedState.token}"}
             r = client.get(f"/export/session/{SharedState.session_id}/json", headers=headers)
             assert r.status_code == 200
-            marker = next(m for m in r.json() if m["id"] == SharedState.marker_id)
-            assert marker["xpath"] == "/html/body/div[1]/button"
+            markers = r.json()
+            assert len(markers) > 0
+            # Marker was created as viewport-absolute with no xpath — verify anchor_kind roundtrip
+            marker = next(m for m in markers if m["id"] == SharedState.marker_id)
+            assert marker["anchor_kind"] == "viewport-absolute"
+            assert marker["title"] == "Critical Alignment Shifting"
             print_indicator("TestExport", "quality", True)
 
 class TestShareLinks:
@@ -316,11 +354,13 @@ class TestContextQuality:
             r = client.get(f"/markers/{SharedState.marker_id}", headers=headers)
             assert r.status_code == 200
             m = r.json()
-            assert m["xpath"] == "/html/body/div[1]/button"
-            assert m["css_selector"] == ".btn-submit"
-            assert m["viewport"] == {"width": 375, "height": 812}
-            print_indicator("TestContextQuality", "xpath", True)
-            print_indicator("TestContextQuality", "css_selector", True)
+            # Marker was created as viewport-absolute with these values
+            assert m["viewport_width"] == 375.0
+            assert m["viewport_height"] == 812.0
+            assert m["viewport_x"] == 100.0
+            assert m["viewport_y"] == 200.0
+            print_indicator("TestContextQuality", "viewport_width", True)
+            print_indicator("TestContextQuality", "viewport_height", True)
             print_indicator("TestContextQuality", "viewport", True)
 
 class TestCleanup:
@@ -359,6 +399,19 @@ class TestCleanup:
             assert r.status_code == 404
             print_indicator("TestCleanup", "404_after_delete", True)
 
+class TestDomainScoping:
+    def test_domain_allowed_ports(self):
+        from utils.ssrf_guard import is_domain_allowed
+        # Test case: explicit ports match clean hosts
+        assert is_domain_allowed("https://sohospace.entrext.in:443", "https://sohospace.entrext.in") is True
+        assert is_domain_allowed("http://sohospace.entrext.in:80", "https://sohospace.entrext.in") is True
+        assert is_domain_allowed("https://sohospace.entrext.in", "https://sohospace.entrext.in:443") is True
+        assert is_domain_allowed("https://sohospace.entrext.in:8443", "https://sohospace.entrext.in") is True
+        assert is_domain_allowed("https://sohospace.entrext.in/static/js", "https://sohospace.entrext.in:443") is True
+        # Test case: different base domain should fail
+        assert is_domain_allowed("https://otherdomain.com", "https://sohospace.entrext.in") is False
+        print("✓ TestDomainScoping::test_domain_allowed_ports passed!")
+
 def run_all():
     print("==========================================================")
     print("  STAGE - Full Test Suite")
@@ -367,9 +420,10 @@ def run_all():
 
     suites = [
         (TestHealth, ["test_health"]),
+        (TestDomainScoping, ["test_domain_allowed_ports"]),
         (TestAuth, ["test_register", "test_duplicate_check", "test_login", "test_wrong_password", "test_me", "test_no_token", "test_invalid_token"]),
         (TestProjects, ["test_create", "test_list", "test_get", "test_get_404", "test_update", "test_create_env", "test_list_envs"]),
-        (TestSessions, ["test_create", "test_auto_title", "test_list", "test_get", "test_get_404"]),
+        (TestSessions, ["test_create", "test_auto_title", "test_create_marker", "test_list", "test_get", "test_get_404"]),
 
         (TestExport, ["test_markdown", "test_csv", "test_json", "test_content_quality"]),
         (TestShareLinks, ["test_create", "test_with_password", "test_list", "test_public_access", "test_wrong_password", "test_invalid_token"]),

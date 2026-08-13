@@ -4,6 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from models.core import SubscriptionModel, Project, OrgMember, Organization
 
+import logging
+logger = logging.getLogger("stage.services.plan_capabilities")
+
 # In-memory plan resolution cache with 45s TTL per org
 _PLAN_CACHE: Dict[str, Dict[str, Any]] = {}
 CACHE_TTL_SECONDS = 45
@@ -51,7 +54,20 @@ class PlanCapabilities:
 
         is_early_bird = (plan_type == "dev_team_early_bird")
 
-        if plan_type in ("dev_team", "dev_team_early_bird"):
+        if plan_type == "stage_team":
+            return {
+                "plan_type": "stage_team",
+                "status": "active",
+                "seats_allowed": 9999,
+                "projects_allowed": 9999,
+                "blueprint_dom_edit": True,
+                "is_early_bird": False,
+                "is_past_due_warning": False,
+                "grace_period_ends_at": None,
+                "can_create_projects": True,
+                "has_blueprint_dom_edit": True,
+            }
+        elif plan_type in ("dev_team", "dev_team_early_bird"):
             return {
                 "plan_type": plan_type,
                 "status": status,
@@ -78,6 +94,8 @@ class PlanCapabilities:
                 "has_blueprint_dom_edit": True,
             }
         else:  # none / fallback
+            if plan_type not in ("none", "free"):
+                logger.error(f"[STAGE Resolver Warning] Unrecognized plan value '{plan_type}' reached capabilities resolver. Defaulting to free/none limits.")
             return {
                 "plan_type": "none",
                 "status": status,
@@ -143,7 +161,7 @@ async def resolve_org_plan(org_id: str, db: AsyncSession) -> Dict[str, Any]:
     is_internal_org = bool(org_obj and getattr(org_obj, "is_internal", False))
 
     if is_internal_org:
-        caps = PlanCapabilities.get_capabilities(plan_type="enterprise", status="active")
+        caps = PlanCapabilities.get_capabilities(plan_type="stage_team", status="active")
     else:
         # Fetch Subscription
         sub_res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
@@ -252,7 +270,7 @@ async def resolve_org_entitlements(user_id: str, db: AsyncSession) -> Dict[str, 
     is_billing_owner = (role_str in ("billing_owner", "owner"))
 
     is_paid = (
-        plan_info["plan_type"] in ("dev_team", "dev_team_early_bird", "enterprise")
+        plan_info["plan_type"] in ("stage_team", "dev_team", "dev_team_early_bird", "enterprise")
         and plan_info["status"] in ("active", "trialing")
         and plan_info["seats_used"] <= plan_info["seats_allowed"]
     )

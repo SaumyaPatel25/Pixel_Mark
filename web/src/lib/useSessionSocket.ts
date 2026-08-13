@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMarkerStore } from '@/store/markerStore'
 import { getStoredReviewerIdentity } from './reviewerIdentity'
+import { getApiBaseUrl } from './api'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+const API_BASE = getApiBaseUrl()
 const WS_BASE = API_BASE.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:')
 
 interface UseSessionSocketResult {

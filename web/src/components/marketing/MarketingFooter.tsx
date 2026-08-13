@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuthStore } from '@/store/authStore';
 
 export default function MarketingFooter() {
@@ -26,7 +27,13 @@ export default function MarketingFooter() {
           {/* Column 1: Brand */}
           <div className="lg:col-span-4 space-y-4 text-left">
             <Link href="/" className="block">
-              <img src="/logo.png" alt="STAGE" className="h-24 w-auto object-contain dark-theme-logo" />
+              <Image 
+                src="/logo.png" 
+                alt="STAGE Logo" 
+                width={192} 
+                height={96} 
+                className="h-24 w-auto object-contain dark-theme-logo" 
+              />
             </Link>
             <p className="text-xs text-pm-muted leading-relaxed max-w-sm font-sans">
               Precision visual feedback and website reviews built for designers, developers, QA teams, and agencies. Bridge the gap between UI revisions and codebase fixes.
@@ -37,7 +44,7 @@ export default function MarketingFooter() {
           </div>
 
           {/* Column 2: Product */}
-          <div className="lg:col-span-2 space-y-4 text-left">
+          <nav aria-label="Footer Product Navigation" className="lg:col-span-2 space-y-4 text-left">
             <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent">Product</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
               <Link href="/#features" className="hover:text-pm-accent transition-colors">Features</Link>
@@ -48,10 +55,10 @@ export default function MarketingFooter() {
                 {isUserLoggedIn ? "Dashboard" : "Start Free"}
               </Link>
             </div>
-          </div>
+          </nav>
 
           {/* Column 3: Company */}
-          <div className="lg:col-span-2 space-y-4 text-left">
+          <nav aria-label="Footer Company Navigation" className="lg:col-span-2 space-y-4 text-left">
             <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent">Company</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
               <Link href="/company#story" className="hover:text-pm-accent transition-colors">About Story</Link>
@@ -59,10 +66,10 @@ export default function MarketingFooter() {
               <a href="https://entrextlabs.substack.com/subscribe" target="_blank" rel="noopener noreferrer" className="hover:text-pm-accent transition-colors">Blog Substack</a>
               <Link href="/company#opportunities" className="hover:text-pm-accent transition-colors">Careers</Link>
             </div>
-          </div>
+          </nav>
 
           {/* Column 4: Legal */}
-          <div className="lg:col-span-4 space-y-4 text-left">
+          <nav aria-label="Footer Legal Navigation" className="lg:col-span-4 space-y-4 text-left">
             <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent">Legal</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
               <Link href="/company#legal" className="hover:text-pm-accent transition-colors">Privacy Policy</Link>
@@ -70,7 +77,7 @@ export default function MarketingFooter() {
               <Link href="/company#legal" className="hover:text-pm-accent transition-colors">CORS Scoping Agreement</Link>
               <Link href="/company#legal" className="hover:text-pm-accent transition-colors">Security Disclosures</Link>
             </div>
-          </div>
+          </nav>
         </div>
 
         {/* Bottom Bar */}

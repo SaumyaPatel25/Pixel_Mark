@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useInView, useReducedMotion } from 'framer-motion';
 import { 
   ArrowLeft, ArrowRight, Play, Pause, Info, Share2, Clipboard, 
   Globe, CheckCircle2, User, Users, Briefcase, Check, 
@@ -94,7 +94,7 @@ const steps: Step[] = [
   }
 ];
 
-const ChartMini = () => (
+const ChartMini = ({ shouldReduceMotion }: { shouldReduceMotion: boolean }) => (
   <div className="w-full p-2.5 bg-pm-surface-3/10 dark:bg-pm-surface-3/5 border border-pm-border rounded-xl mt-1">
     <div className="flex justify-between items-center mb-1">
       <div className="flex items-center gap-1">
@@ -119,7 +119,7 @@ const ChartMini = () => (
       <motion.path
         initial={{ pathLength: 0 }}
         animate={{ pathLength: 1 }}
-        transition={{ duration: 1.5, ease: 'easeOut' }}
+        transition={shouldReduceMotion ? { duration: 0 } : { duration: 1.5, ease: 'easeOut' }}
         d="M0,15 Q15,8 30,12 T60,5 T90,2 T100,0"
         fill="none"
         stroke="var(--pm-accent)"
@@ -138,10 +138,25 @@ export default function StorySandbox() {
   const [devClick, setDevClick] = useState(false);
   const [clientClick, setClientClick] = useState(false);
   const playIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(containerRef, { once: false, margin: '-10% 0px' });
+  const shouldReduceMotion = useReducedMotion();
+  const [isTabVisible, setIsTabVisible] = useState(true);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const handleVisibility = () => {
+      setIsTabVisible(document.visibilityState === 'visible');
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
 
   // Auto-playing logic: moves slowly and deliberately (5.5s per step)
+  // Suspended if tab is hidden, offscreen, or reduced motion is active
   useEffect(() => {
-    if (isPlaying) {
+    if (isPlaying && isTabVisible && inView && !shouldReduceMotion) {
       playIntervalRef.current = setInterval(() => {
         setCurrentStep((prev) => {
           if (prev >= steps.length) {
@@ -152,12 +167,15 @@ export default function StorySandbox() {
         });
       }, 6200);
     } else {
-      if (playIntervalRef.current) clearInterval(playIntervalRef.current);
+      if (playIntervalRef.current) {
+        clearInterval(playIntervalRef.current);
+        playIntervalRef.current = null;
+      }
     }
     return () => {
       if (playIntervalRef.current) clearInterval(playIntervalRef.current);
     };
-  }, [isPlaying]);
+  }, [isPlaying, isTabVisible, inView, shouldReduceMotion]);
 
   // Click ripple resetter
   useEffect(() => {
@@ -247,7 +265,7 @@ export default function StorySandbox() {
   const clientCursorVisible = currentStep === 4 || currentStep === 5;
 
   return (
-    <div className="w-full max-w-6xl mx-auto rounded-[32px] border border-pm-border/30 bg-pm-surface/40 backdrop-blur-md p-6 shadow-xl relative z-10 flex flex-col gap-8 transition-colors duration-500">
+    <div ref={containerRef} className="w-full max-w-6xl mx-auto rounded-[32px] border border-pm-border/30 bg-pm-surface/40 backdrop-blur-md p-6 shadow-xl relative z-10 flex flex-col gap-8 transition-colors duration-500">
       
       {/* Sandbox Header Control Strip */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-pm-border/20 pb-4">
@@ -454,7 +472,7 @@ export default function StorySandbox() {
 
                 {/* Bottom Visual / Outcome section */}
                 {currentStep < 8 ? (
-                  <ChartMini />
+                  <ChartMini shouldReduceMotion={!!shouldReduceMotion} />
                 ) : (
                   /* Step 8 outcome details */
                   <div className="w-full border-t border-pm-border/30 pt-3 mt-1 space-y-2 flex flex-col justify-between">
@@ -492,7 +510,7 @@ export default function StorySandbox() {
                   top: devCursorY,
                   scale: devClick ? [1, 0.9, 1] : 1
                 }}
-                transition={{ 
+                transition={shouldReduceMotion ? { duration: 0 } : { 
                   type: 'spring', 
                   stiffness: 75, 
                   damping: 14,
@@ -501,7 +519,7 @@ export default function StorySandbox() {
                 className="absolute pointer-events-none z-50 flex flex-col gap-1 items-start shadow-xl"
                 style={{ position: 'absolute', transform: 'translate(-2px, -2px)' }}
               >
-                <svg className="w-5 h-5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" viewBox="0 0 24 24" fill="none">
+                <svg className="w-5 h-5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" viewBox="0 0 24 24" fill="none" width="20" height="20">
                   <path d="M4.5 3V17L9.5 12.5H16.5L4.5 3Z" fill="#3B82F6" stroke="white" strokeWidth="1.5" strokeLinejoin="round" />
                 </svg>
                 <div className="px-1.5 py-0.5 rounded bg-blue-500 text-[6.5px] font-mono font-bold text-white shadow-md whitespace-nowrap">
@@ -517,7 +535,7 @@ export default function StorySandbox() {
                   top: clientCursorY,
                   scale: clientClick ? [1, 0.9, 1] : 1
                 }}
-                transition={{ 
+                transition={shouldReduceMotion ? { duration: 0 } : { 
                   type: 'spring', 
                   stiffness: 75, 
                   damping: 14,
@@ -526,7 +544,7 @@ export default function StorySandbox() {
                 className="absolute pointer-events-none z-50 flex flex-col gap-1 items-start shadow-xl"
                 style={{ position: 'absolute', transform: 'translate(-2px, -2px)' }}
               >
-                <svg className="w-5 h-5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" viewBox="0 0 24 24" fill="none">
+                <svg className="w-5 h-5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" viewBox="0 0 24 24" fill="none" width="20" height="20">
                   <path d="M4.5 3V17L9.5 12.5H16.5L4.5 3Z" fill="#EC4899" stroke="white" strokeWidth="1.5" strokeLinejoin="round" />
                 </svg>
                 <div className="px-1.5 py-0.5 rounded bg-pink-500 text-[6.5px] font-mono font-bold text-white shadow-md whitespace-nowrap">
@@ -535,7 +553,7 @@ export default function StorySandbox() {
               </motion.div>
 
               {/* Click Ripple Effects */}
-              {devClick && (
+              {devClick && !shouldReduceMotion && (
                 <motion.div
                   initial={{ scale: 0.4, opacity: 1 }}
                   animate={{ scale: 2.2, opacity: 0 }}
@@ -545,7 +563,7 @@ export default function StorySandbox() {
                 />
               )}
 
-              {clientClick && (
+              {clientClick && !shouldReduceMotion && (
                 <motion.div
                   initial={{ scale: 0.4, opacity: 1 }}
                   animate={{ scale: 2.2, opacity: 0 }}
@@ -722,7 +740,7 @@ export default function StorySandbox() {
                 </div>
               </div>
 
-              <p className="text-[12.5px] leading-relaxed text-pm-text/75 pt-1.5 transition-colors font-sans">
+              <p className="text-[12.5px] leading-relaxed text-pm-text/75 pt-1.5 transition-colors font-sans min-h-[72px]">
                 {stepDetails.desc}
               </p>
             </div>
