@@ -519,13 +519,17 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     }}
   }}
 
-  // Align initial browser URL path to the target relative path immediately so
-  // Next.js / React Router read the logical pathname on initialisation.
+  console.log("[STAGE Bootstrap] Initializing...");
+  console.log("[STAGE Bootstrap] Native URL info: pathname=" + _nativePathname() + " search=" + _nativeSearch());
   try {{
     const _initTarget = new URL(window.__STAGE_TARGET_URL__);
     const _initRelativePath = _initTarget.pathname + _initTarget.search + _initTarget.hash;
+    console.log("[STAGE Bootstrap] Performing initial replaceState alignment to relative path:", _initRelativePath);
     safeCallNativePushReplace.call(history, nativeReplaceState, history.state, '', _initRelativePath);
-  }} catch (_) {{}}
+    console.log("[STAGE Bootstrap] Post-alignment Native URL info: pathname=" + _nativePathname() + " search=" + _nativeSearch());
+  }} catch (err) {{
+    console.error("[STAGE Bootstrap] Initial replaceState alignment threw an error:", err);
+  }}
 
   History.prototype.pushState = function(state, unused, url) {{
     const logicalTargetUrl = resolveLogicalTargetUrl(url);
@@ -629,7 +633,11 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   }}
 
   const define = (obj, prop, getter) => {{
-    try {{ Object.defineProperty(obj, prop, {{ get: getter, configurable: true }}); }} catch(e) {{}}
+    try {{
+      Object.defineProperty(obj, prop, {{ get: getter, configurable: true }});
+    }} catch(e) {{
+      console.warn("[STAGE Bootstrap] Failed to define " + prop + " on object:", e.message);
+    }}
   }};
 
   define(document, 'URL', () => getLogicalUrlObject().href);
