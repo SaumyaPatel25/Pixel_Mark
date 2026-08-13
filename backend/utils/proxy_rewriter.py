@@ -437,9 +437,41 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     || Object.getOwnPropertyDescriptor(Location.prototype, 'hash');
   const _nativeHash     = _nativeHashDesc ? () => _nativeHashDesc.get.call(window.location) : () => window.location.hash;
 
-  const _nativeHrefDesc = Object.getOwnPropertyDescriptor(window.location, 'href')
-    || Object.getOwnPropertyDescriptor(Location.prototype, 'href');
   const _nativeHref     = _nativeHrefDesc ? () => _nativeHrefDesc.get.call(window.location) : () => window.location.href;
+
+  const _log = function(...args) {{
+    try {{
+      if (window.parent && window.parent !== window && window.parent.console) {{
+        window.parent.console.log("[STAGE Frame Bootstrap]", ...args);
+      }} else {{
+        console.log("[STAGE Frame Bootstrap]", ...args);
+      }}
+    }} catch (_) {{
+      console.log("[STAGE Frame Bootstrap]", ...args);
+    }}
+  }};
+  const _warn = function(...args) {{
+    try {{
+      if (window.parent && window.parent !== window && window.parent.console) {{
+        window.parent.console.warn("[STAGE Frame Bootstrap WARN]", ...args);
+      }} else {{
+        console.warn("[STAGE Frame Bootstrap WARN]", ...args);
+      }}
+    }} catch (_) {{
+      console.warn("[STAGE Frame Bootstrap WARN]", ...args);
+    }}
+  }};
+  const _error = function(...args) {{
+    try {{
+      if (window.parent && window.parent !== window && window.parent.console) {{
+        window.parent.console.error("[STAGE Frame Bootstrap ERROR]", ...args);
+      }} else {{
+        console.error("[STAGE Frame Bootstrap ERROR]", ...args);
+      }}
+    }} catch (_) {{
+      console.error("[STAGE Frame Bootstrap ERROR]", ...args);
+    }}
+  }};
 
   // Returns the real current page URL on the TARGET site (not the proxy URL).
   // Always reads via native search getter to avoid circular patching.
@@ -519,16 +551,16 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     }}
   }}
 
-  console.log("[STAGE Bootstrap] Initializing...");
-  console.log("[STAGE Bootstrap] Native URL info: pathname=" + _nativePathname() + " search=" + _nativeSearch());
+  _log("Initializing...");
+  _log("Native URL info: pathname=" + _nativePathname() + " search=" + _nativeSearch());
   try {{
     const _initTarget = new URL(window.__STAGE_TARGET_URL__);
     const _initRelativePath = _initTarget.pathname + _initTarget.search + _initTarget.hash;
-    console.log("[STAGE Bootstrap] Performing initial replaceState alignment to relative path:", _initRelativePath);
+    _log("Performing initial replaceState alignment to relative path:", _initRelativePath);
     safeCallNativePushReplace.call(history, nativeReplaceState, history.state, '', _initRelativePath);
-    console.log("[STAGE Bootstrap] Post-alignment Native URL info: pathname=" + _nativePathname() + " search=" + _nativeSearch());
+    _log("Post-alignment Native URL info: pathname=" + _nativePathname() + " search=" + _nativeSearch());
   }} catch (err) {{
-    console.error("[STAGE Bootstrap] Initial replaceState alignment threw an error:", err);
+    _error("Initial replaceState alignment threw an error:", err);
   }}
 
   History.prototype.pushState = function(state, unused, url) {{
@@ -636,7 +668,7 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     try {{
       Object.defineProperty(obj, prop, {{ get: getter, configurable: true }});
     }} catch(e) {{
-      console.warn("[STAGE Bootstrap] Failed to define " + prop + " on object:", e.message);
+      _warn("Failed to define " + prop + " on object:", e.message);
     }}
   }};
 
@@ -658,10 +690,11 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   try {{ window.location.toString = function() {{ return getLogicalUrlObject().href; }}; }} catch (e) {{}}
   try {{
     window.STAGE_GET_LOGICAL_URL = function() {{ return getLogicalUrlObject().href; }};
-    console.assert(
-      String(window.location) === window.STAGE_GET_LOGICAL_URL(),
-      "[STAGE SHIM ERROR] Location stringification bypassed logical URL: " + String(window.location)
-    );
+    if (String(window.location) !== window.STAGE_GET_LOGICAL_URL()) {{
+      _error("Location stringification bypassed logical URL: " + String(window.location));
+    }} else {{
+      _log("Location stringification assertion passed: " + String(window.location));
+    }}
   }} catch (e) {{}}
 
   window.__STAGE_LOGICAL_LOCATION__ = {{
