@@ -577,6 +577,7 @@ async def proxy_page(
                 response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
                 response.headers["X-STAGE-Session"] = session_id
                 response.headers["X-STAGE-Page"] = url
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                 
                 response.set_cookie(
                     "stagesessionid", 
