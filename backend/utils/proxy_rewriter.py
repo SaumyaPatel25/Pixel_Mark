@@ -646,6 +646,16 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   define(window.location, 'search', () => getLogicalUrlObject().search);
   define(window.location, 'hash', () => getLogicalUrlObject().hash);
 
+  try {{ Location.prototype.toString = function() {{ return getLogicalUrlObject().href; }}; }} catch (e) {{}}
+  try {{ window.location.toString = function() {{ return getLogicalUrlObject().href; }}; }} catch (e) {{}}
+  try {{
+    window.STAGE_GET_LOGICAL_URL = function() {{ return getLogicalUrlObject().href; }};
+    console.assert(
+      String(window.location) === window.STAGE_GET_LOGICAL_URL(),
+      "[STAGE SHIM ERROR] Location stringification bypassed logical URL: " + String(window.location)
+    );
+  }} catch (e) {{}}
+
   window.__STAGE_LOGICAL_LOCATION__ = {{
     get href() {{ return getLogicalUrlObject().href; }},
     get origin() {{ return getLogicalUrlObject().origin; }},
