@@ -177,7 +177,7 @@ async def resolve_canonical_user(
                 user.is_verified = True
             if avatar_url and not user.avatar_url:
                 user.avatar_url = avatar_url
-            if name and not user.name:
+            if name:
                 user.name = name
 
             identity.provider_email = normalized_email
@@ -186,6 +186,26 @@ async def resolve_canonical_user(
             db.add(identity)
             await db.commit()
             await db.refresh(user)
+
+            # ── Guard: ensure user always has a personal workspace org ──────────
+            mem_check = await db.execute(select(OrgMember).where(OrgMember.user_id == user.id))
+            if not mem_check.scalar_one_or_none():
+                display_name = user.name or normalized_email.split("@")[0]
+                orphan_org = Organization(
+                    id=str(uuid.uuid4()),
+                    name=f"{display_name}'s workspace",
+                    slug=str(uuid.uuid4())[:8]
+                )
+                orphan_membership = OrgMember(
+                    id=str(uuid.uuid4()),
+                    org_id=orphan_org.id,
+                    user_id=user.id,
+                    role=RoleEnum.owner
+                )
+                db.add_all([orphan_org, orphan_membership])
+                await db.commit()
+            # ────────────────────────────────────────────────────────────────────
+
             await _ensure_founder_plan(user, db)
             return user
 
@@ -203,7 +223,7 @@ async def resolve_canonical_user(
         user.last_login_at = datetime.now(timezone.utc)
         if avatar_url and not user.avatar_url:
             user.avatar_url = avatar_url
-        if name and not user.name:
+        if name:
             user.name = name
 
         # Link provider identity to existing canonical user record
@@ -228,6 +248,26 @@ async def resolve_canonical_user(
         db.add(user)
         await db.commit()
         await db.refresh(user)
+
+        # ── Guard: ensure user always has a personal workspace org ──────────
+        mem_check = await db.execute(select(OrgMember).where(OrgMember.user_id == user.id))
+        if not mem_check.scalar_one_or_none():
+            display_name = user.name or normalized_email.split("@")[0]
+            orphan_org = Organization(
+                id=str(uuid.uuid4()),
+                name=f"{display_name}'s workspace",
+                slug=str(uuid.uuid4())[:8]
+            )
+            orphan_membership = OrgMember(
+                id=str(uuid.uuid4()),
+                org_id=orphan_org.id,
+                user_id=user.id,
+                role=RoleEnum.owner
+            )
+            db.add_all([orphan_org, orphan_membership])
+            await db.commit()
+        # ────────────────────────────────────────────────────────────────────
+
         await _ensure_founder_plan(user, db)
         return user
 

@@ -13,6 +13,16 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 
+if DATABASE_URL.startswith("sqlite+aiosqlite:///"):
+    db_file = DATABASE_URL.replace("sqlite+aiosqlite:///", "")
+    if db_file.startswith("./"):
+        db_file = db_file[2:]
+    db_path = Path(db_file)
+    if not db_path.is_absolute():
+        absolute_db_path = (Path(__file__).parent / db_path).resolve()
+        DATABASE_URL = f"sqlite+aiosqlite:///{absolute_db_path.as_posix()}"
+
+
 # Ensure we use the asyncpg driver for PostgreSQL
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)

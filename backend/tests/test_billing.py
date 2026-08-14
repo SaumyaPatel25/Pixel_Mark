@@ -97,8 +97,18 @@ async def test_subscription_limits_and_enforcement():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         from sqlalchemy import text
-        await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS past_due_since TIMESTAMPTZ;"))
-        await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';"))
+        if "sqlite" in str(test_engine.url):
+            try:
+                await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN past_due_since TIMESTAMP;"))
+            except Exception:
+                pass
+            try:
+                await conn.execute(text("ALTER TABLE projects ADD COLUMN status VARCHAR DEFAULT 'active';"))
+            except Exception:
+                pass
+        else:
+            await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS past_due_since TIMESTAMPTZ;"))
+            await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';"))
 
     async with TestSessionLocal() as db_session:
         # Create test org with unique slug

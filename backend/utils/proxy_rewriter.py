@@ -684,7 +684,85 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   define(window.location, 'search', () => getLogicalUrlObject().search);
   define(window.location, 'hash', () => getLogicalUrlObject().hash);
 
+  // ─── document.location alias ───────────────────────────────────────────────
+  // document.location is a separately addressable accessor used by some SPA
+  // routers (e.g. Remix, older Reach Router) as a alternative to window.location.
+  // We alias it to our patched window.location object.
+  try {{
+    define(document, 'location', () => window.location);
+  }} catch (e) {{}}
+
+  // ─── location.assign / replace intercept ──────────────────────────────────
+  // Some SPA frameworks call location.assign(url) or location.replace(url)
+  // directly after reading logical paths. We intercept these to log the
+  // redirect target (for diagnostics) and let the browser handle it normally.
+  // These MUST NOT be swallowed — they are real navigation intents.
+  try {{
+    const _nativeAssign  = Location.prototype.assign;
+    const _nativeReplace = Location.prototype.replace;
+    Location.prototype.assign = function(url) {{
+      if (window.__STAGE_DIAG__) _log('[STAGE Diag] location.assign called with: ' + url);
+      const logicalUrl = resolveLogicalTargetUrl(url);
+      if (window.__STAGE_DIAG__ && logicalUrl !== url) _log('[STAGE Diag] location.assign → logical: ' + logicalUrl);
+      return _nativeAssign.call(this, url);
+    }};
+    Location.prototype.replace = function(url) {{
+      if (window.__STAGE_DIAG__) _log('[STAGE Diag] location.replace called with: ' + url);
+      const logicalUrl = resolveLogicalTargetUrl(url);
+      if (window.__STAGE_DIAG__ && logicalUrl !== url) _log('[STAGE Diag] location.replace → logical: ' + logicalUrl);
+      return _nativeReplace.call(this, url);
+    }};
+  }} catch (e) {{}}
+
   try {{ Location.prototype.toString = function () {{ return getLogicalUrlObject().href; }}; }} catch (e) {{}} try {{ window.location.toString = function () {{ return getLogicalUrlObject().href; }}; }} catch (e) {{}} try {{ window.STAGE_GET_LOGICAL_URL = function () {{ return getLogicalUrlObject().href; }}; console.assert( String(window.location) === window.STAGE_GET_LOGICAL_URL(), "[STAGE SHIM ERROR] Location stringification bypassed logical URL: " + String(window.location) ); }} catch (e) {{}}
+
+  // ─── URL constructor leak guard ────────────────────────────────────────────
+  // When app code does `new URL(location)` or `new URL(location.href)` it could
+  // capture the TRANSPORT path /proxy/session/:id/page... as a base. We shim
+  // the URL constructor: if the first argument is (or resolves to) a transport
+  // path we silently substitute the logical URL so the resulting URL object
+  // reflects the real target origin.
+  try {{
+    const _NativeURL = window.URL;
+    window.URL = function(input, base) {{
+      const inputStr = String(input);
+      // Only intercept when input IS the transport path itself (not an asset/anchor)
+      if (inputStr.includes('/proxy/session/') && inputStr.includes('/page')) {{
+        try {{
+          const _u = new _NativeURL(inputStr);
+          const _urlParam = _u.searchParams.get('url');
+          if (_urlParam) {{
+            const logical = new _NativeURL(_urlParam);
+            if (window.__STAGE_DIAG__) _log('[STAGE Diag] URL() constructor intercepted transport → ' + logical.href);
+            return logical;
+          }}
+        }} catch (_) {{}}
+      }}
+      return new _NativeURL(input, base);
+    }};
+    // Copy static methods (parse, canParse, createObjectURL, etc.) so nothing breaks
+    Object.keys(_NativeURL).forEach(function(k) {{
+      try {{ window.URL[k] = _NativeURL[k]; }} catch (_) {{}}
+    }});
+    if (_NativeURL.prototype) window.URL.prototype = _NativeURL.prototype;
+  }} catch(e) {{}}
+
+  // ─── Diagnostic mode ──────────────────────────────────────────────────────
+  // Set window.__STAGE_DIAG__ = true from the console (or via URL param
+  // ?__stage_diag=1) to enable verbose URL-surface tracing. Never always-on.
+  try {{
+    const _params = new URLSearchParams(_nativeSearch());
+    if (_params.get('__stage_diag') === '1') {{
+      window.__STAGE_DIAG__ = true;
+      _log('[STAGE] Diagnostic mode ON (?__stage_diag=1)');
+    }}
+  }} catch (_) {{}}
+
+  if (window.__STAGE_DIAG__) {{
+    _log('[STAGE Diag] targetUrl=' + window.__STAGE_TARGET_URL__ +
+         ' targetOrigin=' + window.__STAGE_TARGET_ORIGIN__ +
+         ' sessionId=' + window.__STAGE_SESSION_ID__);
+  }}
 
   window.__STAGE_LOGICAL_LOCATION__ = {{
     get href() {{ return getLogicalUrlObject().href; }},
@@ -840,6 +918,77 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
       }});
     }}
   }} catch(e) {{}}
+
+  // ─── Intercept target="_blank" window.open and anchor clicks ─────────────
+  try {{
+    const originalOpen = window.open;
+    window.open = function(url, target, features) {{
+      const lowerTarget = String(target || '').toLowerCase();
+      if (lowerTarget === '_blank') {{
+        const logicalUrl = resolveLogicalTargetUrl(url || 'about:blank');
+        try {{
+          if (window.parent && window.parent !== window) {{
+            window.parent.postMessage({{
+              type: 'STAGE_OPEN_NEW_TAB',
+              payload: {{
+                url: logicalUrl,
+                source: 'window.open',
+                sessionId: window.__STAGE_SESSION_ID__
+              }}
+            }}, '*');
+            _log('[STAGE] Intercepted window.open(_blank) to parent: ' + logicalUrl);
+            return null;
+          }}
+        }} catch (err) {{
+          _error('Error posting STAGE_OPEN_NEW_TAB from window.open:', err);
+        }}
+      }}
+      return originalOpen.apply(this, arguments);
+    }};
+  }} catch (e) {{
+    _error('Failed to patch window.open:', e);
+  }}
+
+  window.addEventListener('click', function(e) {{
+    try {{
+      const anchor = e.target.closest('a');
+      if (!anchor) return;
+
+      const href = anchor.getAttribute('href');
+      const target = anchor.getAttribute('target');
+
+      if (!href) return;
+      const trimmedHref = href.trim();
+      if (trimmedHref.startsWith('mailto:') ||
+          trimmedHref.startsWith('tel:') ||
+          trimmedHref.startsWith('javascript:') ||
+          trimmedHref.startsWith('#') ||
+          anchor.hasAttribute('download')) {{
+        return;
+      }}
+
+      if (target && target.toLowerCase() === '_blank') {{
+        const logicalUrl = resolveLogicalTargetUrl(href);
+        if (window.parent && window.parent !== window) {{
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          
+          window.parent.postMessage({{
+            type: 'STAGE_OPEN_NEW_TAB',
+            payload: {{
+              url: logicalUrl,
+              source: 'anchor',
+              sessionId: window.__STAGE_SESSION_ID__
+            }}
+          }}, '*');
+          _log('[STAGE] Intercepted anchor target=_blank to parent: ' + logicalUrl);
+        }}
+      }}
+    }} catch (err) {{
+      _error('Error in anchor target=_blank click interception:', err);
+    }}
+  }}, true);
 
   // Ensure window.lastpageurl is set initially
   window.lastpageurl = window.__STAGE_TARGET_URL__;
@@ -1311,6 +1460,64 @@ def strip_sri_attributes(html: str) -> str:
     return html
 
 
+# ── __NEXT_DATA__ sanitization ───────────────────────────────────────────────
+def sanitize_next_data(html: str, api_base: str, session_id: str) -> str:
+    """
+    Parses <script id="__NEXT_DATA__" type="application/json"> blocks and strips
+    any transport proxy paths (e.g. http://...proxy/session/ID/page?url=...) from
+    the JSON values, replacing them with the logical target URL embedded in `url=`.
+
+    This prevents Next.js client-side hydration from receiving a router `assetPrefix`
+    or `canonicalBase` containing the transport path, which would corrupt client-side
+    routing state on first SPA navigation.
+
+    Only mutates string values that contain the transport session path. Preserves
+    all other JSON structure verbatim.
+    """
+    import re as _re
+    import json as _json
+
+    proxy_pattern = _re.compile(
+        r'(?:https?://[^/\s]*)?/proxy/session/' + _re.escape(str(session_id)) + r'/page\?url=([^"\s&]+)',
+        _re.IGNORECASE
+    )
+
+    def _sanitize_value(v):
+        """Recursively sanitize a JSON value."""
+        if isinstance(v, str):
+            def _replace(m):
+                try:
+                    import urllib.parse as _up
+                    logical = _up.unquote(m.group(1))
+                    return logical
+                except Exception:
+                    return v
+            return proxy_pattern.sub(_replace, v)
+        elif isinstance(v, dict):
+            return {k: _sanitize_value(val) for k, val in v.items()}
+        elif isinstance(v, list):
+            return [_sanitize_value(item) for item in v]
+        return v
+
+    def _replace_next_data(m: re.Match) -> str:
+        tag_open = m.group(1)  # opening <script ...>
+        content  = m.group(2)  # raw JSON text
+        tag_close = m.group(3) # </script>
+        try:
+            data = _json.loads(content)
+            sanitized = _sanitize_value(data)
+            return tag_open + _json.dumps(sanitized, separators=(',', ':'), ensure_ascii=False) + tag_close
+        except Exception as exc:
+            logger.warning(f"[PROXY_REWRITE] __NEXT_DATA__ JSON parse failed, leaving unchanged: {exc}")
+            return m.group(0)
+
+    pattern = re.compile(
+        r'(<script\b[^>]*\bid=["\']__NEXT_DATA__["\'][^>]*>)([\s\S]*?)(</script>)',
+        re.IGNORECASE
+    )
+    return pattern.sub(_replace_next_data, html)
+
+
 # ── Main entry point ───────────────────────────────────────────────────────────
 def rewrite_html(
     html: str,
@@ -1418,5 +1625,12 @@ def rewrite_html(
         html,
         flags=re.IGNORECASE,
     )
+
+    # ── Phase 6: Sanitize __NEXT_DATA__ hydration payload ─────────────────────
+    # Must run AFTER all script tags are processed so we target the final HTML.
+    # Only mutates values containing the transport session path; all other JSON
+    # is left byte-for-byte identical.
+    if not snapshot_mode:
+        html = sanitize_next_data(html, api_base, session_id)
 
     return html

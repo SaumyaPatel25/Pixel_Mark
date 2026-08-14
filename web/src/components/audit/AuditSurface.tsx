@@ -1403,6 +1403,29 @@ export function AuditSurface({
           break;
         }
 
+        case 'STAGE_OPEN_NEW_TAB': {
+          console.log('[STAGE Parent] Received STAGE_OPEN_NEW_TAB:', data.payload)
+          const targetUrl = data.payload?.url || data.url
+          if (targetUrl) {
+            if (data.payload?.sessionId && data.payload.sessionId !== sessionId) break;
+            setCurrentUrl(targetUrl)
+            api.sessions.recordVisit(
+              sessionId,
+              targetUrl,
+              'New Tab',
+              undefined,
+              shareToken
+            ).then(() => {
+              handleSelectPage(targetUrl)
+              setRefreshTrigger(prev => prev + 1)
+            }).catch(err => {
+              console.error('[STAGE Parent] Failed to record new tab visit:', err)
+              handleSelectPage(targetUrl)
+            })
+          }
+          break
+        }
+
         case 'STAGE_NAV':
           try {
             api.sessions.recordVisit(
