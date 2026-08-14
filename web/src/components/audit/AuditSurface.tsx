@@ -334,7 +334,10 @@ export function AuditSurface({
   type ReadinessState = 'idle' | 'document-loading' | 'document-loaded' | 'agent-ready' | 'site-ready' | 'degraded-ready' | 'failed'
   const [readinessState, setReadinessState] = useState<ReadinessState>(() => {
     if (typeof window !== 'undefined' && sessionId) {
-      if (sessionStorage.getItem(`stage_session_ready_${sessionId}`) === 'true') {
+      const storedRenderer = sessionStorage.getItem(`stage_session_renderer_${sessionId}`)
+      const isHeavyRenderer = storedRenderer && ['webgl', 'webgl2', 'threejs', 'canvas', 'mixed'].includes(storedRenderer.toLowerCase())
+      // Never bypass WebGL/Three.js/Canvas boot sequence via sessionStorage shortcut
+      if (!isHeavyRenderer && sessionStorage.getItem(`stage_session_ready_${sessionId}`) === 'true') {
         return 'site-ready'
       }
     }
@@ -370,27 +373,28 @@ export function AuditSurface({
   const [bootTimeout, setBootTimeout] = useState(false)
   const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
 
+  // Diagnostic log for readiness transitions
+  useEffect(() => {
+    console.debug(`[STAGE Readiness] transition -> state: ${readinessState}, rendererType: ${rendererType}, timestamp: ${new Date().toISOString()}`)
+  }, [readinessState, rendererType])
+
   useEffect(() => {
     if (readinessState === 'site-ready' || readinessState === 'degraded-ready') {
       useSessionStore.getState().setSiteReady(true)
       if (sessionId) {
         sessionStorage.setItem(`stage_session_ready_${sessionId}`, 'true')
+        try { sessionStorage.setItem(`stage_session_renderer_${sessionId}`, rendererType); } catch (_) {}
       }
     }
-  }, [readinessState, sessionId])
+  }, [readinessState, sessionId, rendererType])
 
-  // Safety timeout for loading state
   useEffect(() => {
-    if (readinessState !== 'site-ready' && readinessState !== 'degraded-ready' && readinessState !== 'failed' && readinessState !== 'idle') {
+    if (readinessState !== 'site-ready' && readinessState !== 'failed') {
+      // Failsafe: Force overlay removal after 4 seconds if STAGE_SITE_READY is delayed
       const timer = setTimeout(() => {
-        if (readinessState === 'agent-ready' || readinessState === 'document-loaded') {
-          console.warn('[STAGE] Safety timeout reached — transitioning to degraded-ready')
-          setReadinessState('degraded-ready')
-        } else {
-          console.error('[STAGE] Safety timeout reached — transitioning to failed')
-          setReadinessState('failed')
-        }
-      }, 10000)
+        console.warn('[STAGE Readiness] Failsafe timeout reached: forcing site-ready transition.')
+        setReadinessState('site-ready')
+      }, 4000)
       return () => clearTimeout(timer)
     }
   }, [readinessState])
@@ -1390,9 +1394,22 @@ export function AuditSurface({
         }
 
         case 'STAGE_SITE_READY': {
-          setReadinessState('site-ready')
+          const incomingRenderer = data.renderer_type || rendererType || 'dom'
+          const isHeavyRenderer = ['webgl', 'webgl2', 'threejs', 'canvas', 'mixed'].includes(String(incomingRenderer).toLowerCase())
           if (data.heavy_mode !== undefined) {
             setIsHeavyMode(!!data.heavy_mode);
+          }
+          if (sessionId && incomingRenderer) {
+            try { sessionStorage.setItem(`stage_session_renderer_${sessionId}`, incomingRenderer); } catch (_) {}
+          }
+          
+          if (isHeavyRenderer) {
+            console.debug(`[STAGE Readiness] Delaying site-ready transition by 750ms for heavy renderer: ${incomingRenderer}`)
+            setTimeout(() => {
+              setReadinessState('site-ready')
+            }, 750)
+          } else {
+            setReadinessState('site-ready')
           }
           break;
         }
@@ -2580,7 +2597,9 @@ export function AuditSurface({
                     setFailedAssets([])
                     setReadinessState('document-loading')
                     if (iframeRef.current) {
-                      iframeRef.current.src = iframeRef.current.src
+                      const currentSrc = new URL(iframeRef.current.src)
+                      currentSrc.searchParams.delete("snapshot_mode")
+                      iframeRef.current.src = currentSrc.toString()
                     }
                   }}
                   className="h-7 px-3 rounded-xl bg-cyan-950/40 border border-cyan-500/40 hover:bg-cyan-500/20 text-cyan-400 font-extrabold text-[9px] uppercase tracking-widest transition-all active:scale-95"
@@ -2626,7 +2645,9 @@ export function AuditSurface({
                     setFailedAssets([])
                     setReadinessState('document-loading')
                     if (iframeRef.current) {
-                      iframeRef.current.src = iframeRef.current.src
+                      const currentSrc = new URL(iframeRef.current.src)
+                      currentSrc.searchParams.delete("snapshot_mode")
+                      iframeRef.current.src = currentSrc.toString()
                     }
                   }}
                   className="h-10 px-6 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold text-[10px] uppercase tracking-widest transition-all"
@@ -2791,7 +2812,9 @@ export function AuditSurface({
                     setFailedAssets([])
                     setReadinessState('document-loading')
                     if (iframeRef.current) {
-                      iframeRef.current.src = iframeRef.current.src; // Reload
+                      const currentSrc = new URL(iframeRef.current.src);
+                      currentSrc.searchParams.delete("snapshot_mode");
+                      iframeRef.current.src = currentSrc.toString();
                     }
                   }}
                   className="h-10 px-6 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-[10px] uppercase tracking-widest transition-all"

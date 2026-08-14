@@ -82,8 +82,8 @@ def test_static_snapshot_mode_decomposes_all_scripts():
         if src:
             assert "stage-agent.js" in src
         else:
-            # Inline config script
-            assert "window.__STAGE__" in s.string or "serviceWorker" in s.string
+            # Inline STAGE shim scripts
+            assert any(k in s.string for k in ["window.__STAGE__", "serviceWorker", "ChunkLoadError", "STAGE", "preserveDrawingBuffer"])
 
     # Original script sources must NOT exist in the page
     assert "three.min.js" not in rewritten

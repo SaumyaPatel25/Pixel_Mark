@@ -162,3 +162,33 @@ def test_rewrite_html_sanitizes_next_data():
         f"Transport path leaked into assetPrefix: {parsed.get('assetPrefix')}"
 
 
+def test_normal_render_mode_preserves_target_scripts():
+    """Regression test: Proves normal WebGL sessions (snapshot_mode=False) preserve target scripts."""
+    from utils.proxy_rewriter import rewrite_html
+
+    sample_html = """<!DOCTYPE html>
+    <html>
+      <head>
+        <script src="https://cdn.spline.design/runtime.js"></script>
+        <script src="/_next/static/chunks/webgl-main.js"></script>
+      </head>
+      <body>
+        <canvas id="webgl-canvas"></canvas>
+      </body>
+    </html>"""
+
+    rewritten = rewrite_html(
+        html=sample_html,
+        session_id="session-normal-webgl",
+        page_url="https://webrox.xyz",
+        base_url="https://webrox.xyz",
+        api_base="http://localhost:8765",
+        snapshot_mode=False
+    )
+
+    assert '<script src=' in rewritten
+    assert 'webgl-main.js' in rewritten
+    assert 'cdn.spline.design' in rewritten
+
+
+

@@ -200,7 +200,8 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.ico', '.avif',
     '.mp4', '.webm', '.ogg', '.mp3', '.wav',
     '.json', '.xml', '.wasm',
-    '.glb', '.gltf', '.hdr', '.exr', '.fbx', '.bin',
+    '.glb', '.gltf', '.hdr', '.exr', '.fbx', '.bin', '.splinecode', '.spline',
+    '.obj', '.mtl', '.usdz', '.ply', '.splat', '.ktx2', '.basis', '.drc',
     '.pdf', '.zip', '.map'
   ]);
 
@@ -734,29 +735,61 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   // the URL constructor: if the first argument is (or resolves to) a transport
   // path we silently substitute the logical URL so the resulting URL object
   // reflects the real target origin.
+  //
+  // CRITICAL: We preserve ALL static methods (createObjectURL, revokeObjectURL,
+  // canParse, parse, etc.) using Object.getOwnPropertyNames and explicit definitions,
+  // preventing 3D/WebGL and Web Worker libraries from crashing.
   try {{
     const _NativeURL = window.URL;
-    window.URL = function(input, base) {{
-      const inputStr = String(input);
-      // Only intercept when input IS the transport path itself (not an asset/anchor)
-      if (inputStr.includes('/proxy/session/') && inputStr.includes('/page')) {{
-        try {{
-          const _u = new _NativeURL(inputStr);
+    function _CustomURL(input, base) {{
+      if (!(this instanceof _CustomURL)) {{
+        return new _CustomURL(input, base);
+      }}
+      try {{
+        const inputStr = (input !== null && typeof input === 'object' && input.href) ? input.href : String(input);
+        if (typeof inputStr === 'string' && inputStr.indexOf('/proxy/session/') !== -1 && inputStr.indexOf('/page') !== -1) {{
+          const _u = new _NativeURL(inputStr, base);
           const _urlParam = _u.searchParams.get('url');
           if (_urlParam) {{
-            const logical = new _NativeURL(_urlParam);
-            if (window.__STAGE_DIAG__) _log('[STAGE Diag] URL() constructor intercepted transport → ' + logical.href);
-            return logical;
+            if (window.__STAGE_DIAG__) _log('[STAGE Diag] URL() constructor intercepted transport → ' + _urlParam);
+            return new _NativeURL(_urlParam);
           }}
-        }} catch (_) {{}}
-      }}
+        }}
+      }} catch (_) {{}}
       return new _NativeURL(input, base);
-    }};
-    // Copy static methods (parse, canParse, createObjectURL, etc.) so nothing breaks
-    Object.keys(_NativeURL).forEach(function(k) {{
-      try {{ window.URL[k] = _NativeURL[k]; }} catch (_) {{}}
-    }});
-    if (_NativeURL.prototype) window.URL.prototype = _NativeURL.prototype;
+    }}
+
+    _CustomURL.prototype = _NativeURL.prototype;
+
+    try {{
+      Object.getOwnPropertyNames(_NativeURL).forEach(function(prop) {{
+        if (prop !== 'prototype' && prop !== 'length' && prop !== 'name') {{
+          try {{
+            const desc = Object.getOwnPropertyDescriptor(_NativeURL, prop);
+            if (desc) {{
+              Object.defineProperty(_CustomURL, prop, desc);
+            }}
+          }} catch (_) {{
+            _CustomURL[prop] = _NativeURL[prop];
+          }}
+        }}
+      }});
+    }} catch (_) {{}}
+
+    if (typeof _NativeURL.createObjectURL === 'function') {{
+      _CustomURL.createObjectURL = function(obj) {{ return _NativeURL.createObjectURL(obj); }};
+    }}
+    if (typeof _NativeURL.revokeObjectURL === 'function') {{
+      _CustomURL.revokeObjectURL = function(url) {{ return _NativeURL.revokeObjectURL(url); }};
+    }}
+    if (typeof _NativeURL.canParse === 'function') {{
+      _CustomURL.canParse = function(url, base) {{ return _NativeURL.canParse(url, base); }};
+    }}
+    if (typeof _NativeURL.parse === 'function') {{
+      _CustomURL.parse = function(url, base) {{ return _NativeURL.parse(url, base); }};
+    }}
+
+    window.URL = _CustomURL;
   }} catch(e) {{}}
 
   // ─── Diagnostic mode ──────────────────────────────────────────────────────
@@ -795,12 +828,11 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     return getLogicalUrlObject().href;
   }};
 
-  // ─── window.top / window.parent location guard ──────────────────────────
-  // Third-party scripts (Memberstack, Intercom, etc.) read window.top.location
-  // or window.parent.location which throws a SecurityError in a cross-origin iframe.
-  // We patch them to return the logical location object while delegating document,
-  // event listeners, and postMessage safely so 3D/WebGL and analytics libraries don't break.
-  (function() {{
+  // ─── window.top / window.parent location guard (safe for 3D/WebGL sites) ──
+  (function () {{
+    var _realParent = window.parent;
+    var _realTop = window.top;
+
     var _safeTopLocation = {{
       get href()     {{ return getLogicalUrlObject().href; }},
       get origin()   {{ return (window.STAGE && window.STAGE.targetOrigin) || getLogicalUrlObject().origin; }},
@@ -810,59 +842,95 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
       get pathname() {{ return getLogicalUrlObject().pathname; }},
       get search()   {{ return getLogicalUrlObject().search; }},
       get hash()     {{ return getLogicalUrlObject().hash; }},
-      toString: function() {{ return getLogicalUrlObject().href; }},
-      assign: function(url) {{ window.location.assign(url); }},
-      replace: function(url) {{ window.location.replace(url); }},
-      reload: function(force) {{ window.location.reload(force); }}
+      toString: function () {{ return getLogicalUrlObject().href; }},
+      assign: function (url) {{ window.location.assign(url); }},
+      replace: function (url) {{ window.location.replace(url); }},
+      reload: function (force) {{ window.location.reload(force); }}
     }};
 
-    function _createSafeWindowWrapper(target) {{
-      return {{
+    function _createSafeWrapper(targetWindow) {{
+      var base = {{
         location: _safeTopLocation,
         document: window.document,
-        addEventListener: function() {{
-          try {{ return window.document.addEventListener.apply(window.document, arguments); }} catch(_) {{}}
-        }},
-        removeEventListener: function() {{
-          try {{ return window.document.removeEventListener.apply(window.document, arguments); }} catch(_) {{}}
-        }},
-        postMessage: function() {{
+        addEventListener: function () {{
           try {{
-            if (target && typeof target.postMessage === 'function') {{
-              return target.postMessage.apply(target, arguments);
-            }}
-          }} catch(_) {{}}
+            return window.addEventListener.apply(window, arguments);
+          }} catch (e) {{
+            try {{ return window.document.addEventListener.apply(window.document, arguments); }} catch (_) {{}}
+          }}
+        }},
+        removeEventListener: function () {{
+          try {{
+            return window.removeEventListener.apply(window, arguments);
+          }} catch (e) {{
+            try {{ return window.document.removeEventListener.apply(window.document, arguments); }} catch (_) {{}}
+          }}
+        }},
+        postMessage: function () {{
+          try {{
+            return targetWindow.postMessage.apply(targetWindow, arguments);
+          }} catch (e) {{}}
         }},
         STAGE: window.STAGE,
         __STAGE__: window.__STAGE__
       }};
+
+      if (typeof Proxy !== 'undefined') {{
+        return new Proxy(base, {{
+          get: function (target, prop) {{
+            if (prop in target) {{
+              return target[prop];
+            }}
+            try {{
+              var val = window[prop];
+              if (typeof val === 'function') {{
+                return val.bind(window);
+              }}
+              return val;
+            }} catch (_) {{
+              return undefined;
+            }}
+          }},
+          has: function (target, prop) {{
+            return prop in target || prop in window;
+          }}
+        }});
+      }}
+      return base;
     }}
 
-    // Patch window.top — safe accessor that catches SecurityError and returns safe wrapper
+    // Patch window.top safely
     try {{
       Object.defineProperty(window, 'top', {{
-        get: function() {{
+        get: function () {{
           try {{
-            if (window.parent === window) return window;
-          }} catch(_) {{}}
-          return _createSafeWindowWrapper(window.parent);
+            if (_realTop === window) return window;
+          }} catch (e) {{}}
+          return _createSafeWrapper(_realTop);
         }},
         configurable: true
       }});
-    }} catch(_) {{}}
+    }} catch (e) {{
+      // If defineProperty fails, leave native top alone
+    }}
 
-    // Also patch window.parent in case top succeeds but parent.location throws
+    // Patch window.parent safely
     try {{
       var _origParentDesc = Object.getOwnPropertyDescriptor(window, 'parent');
       if (!_origParentDesc) {{
         Object.defineProperty(window, 'parent', {{
-          get: function() {{
-            return _createSafeWindowWrapper(window.parent);
+          get: function () {{
+            try {{
+              if (_realParent === window) return window;
+            }} catch (e) {{}}
+            return _createSafeWrapper(_realParent);
           }},
           configurable: true
         }});
       }}
-    }} catch(_) {{}}
+    }} catch (e) {{
+      // If defineProperty fails, leave native parent alone
+    }}
   }})();
 
   // Rewrite CSS rules containing url(...)
@@ -1075,10 +1143,6 @@ def inject_cursor_relay_bridge(html: str) -> str:
     try { if ('clientY' in obj) obj.clientY = _cy; } catch(_) {}
   }
 
-  // Create proxy stubs so code that reads window.mouse / window.cursor /
-  // window.mousePos before setting them gets a valid object instead of
-  // undefined.  The stub is replaced by the site's own object if one is
-  // later assigned.
   var _cursorStubs = {};
   ['mouse','cursor','mousePos','Mouse','Cursor','pointer','pointerPos'].forEach(function(k) {
     if (window[k] === undefined || window[k] === null) {
@@ -1096,9 +1160,7 @@ def inject_cursor_relay_bridge(html: str) -> str:
     }
   });
 
-  // ─── 2. Patch addEventListener to detect cursor-reactive listeners ────────
-  // If a site attaches mousemove/pointermove to window, document or body,
-  // flag the page so the STAGE agent can optimise cursor relay frequency.
+  // ─── 2. Patch addEventListener ───────────────────────────────────────────
   var _origAdd = EventTarget.prototype.addEventListener;
   EventTarget.prototype.addEventListener = function(type, listener, opts) {
     if (type === 'mousemove' || type === 'pointermove') {
@@ -1107,9 +1169,8 @@ def inject_cursor_relay_bridge(html: str) -> str:
     return _origAdd.call(this, type, listener, opts);
   };
 
-  // ─── 3. Fire a synthetic center-of-viewport mousemove on DOMContentLoaded ─
-  // This ensures spotlight / glow / WebGL cursor effects activate immediately
-  // without requiring the user to physically move the mouse first.
+  // ─── 3. Fire a synthetic center-of-viewport mousemove ─────────────────────
+  // Defer until WebGL and core libraries have initialized (300ms after DOMContentLoaded)
   function _dispatchCenter() {
     var cx = Math.round((window.innerWidth  || 1280) / 2);
     var cy = Math.round((window.innerHeight || 800)  / 2);
@@ -1134,14 +1195,13 @@ def inject_cursor_relay_bridge(html: str) -> str:
     } catch(_) {}
   }
 
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    setTimeout(_dispatchCenter, 200);
+  if (document.readyState === 'complete') {
+    setTimeout(_dispatchCenter, 300);
   } else {
     document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(_dispatchCenter, 200);
+      setTimeout(_dispatchCenter, 300);
     });
   }
-  // Also fire after a short delay to catch late-initialized effects
   setTimeout(_dispatchCenter, 800);
   setTimeout(_dispatchCenter, 2000);
 })();
@@ -1154,37 +1214,73 @@ def inject_cursor_relay_bridge(html: str) -> str:
     return bridge + html
 
 
-# ── STEP 3 ────────────────────────────────────────────────────────────────────
+# ── STEP 3: WebGL Context Hardener ────────────────────────────────────────────
 def inject_webgl_patch(html: str) -> str:
     """
-    Forces preserveDrawingBuffer: true on WebGL/WebGL2 context creation so canvases can be captured.
-    Triggers STAGE_WEBGL_FAILED postMessage on context creation failures to handle degradation warning.
+    Forces preserveDrawingBuffer: true on WebGL/WebGL2 context creation as the VERY FIRST
+    patch after bootstrap, before any site bundle or canvas initialization.
+    Never returns null context to prevent site initialization crashes; falls back to 2d.
+    Signals STAGE_WEBGL_FAILED at most once per canvas.
     """
     patch = """<script>
 (function() {
   try {
-    var _origGetContext = HTMLCanvasElement.prototype.getContext;
+    var origGetContext = HTMLCanvasElement.prototype.getContext;
+    var failedMap = new WeakMap();
+
     HTMLCanvasElement.prototype.getContext = function(type, attribs) {
-      try { this.__stage_context_type = type; } catch(_) {}
-      var rest = Array.prototype.slice.call(arguments, 2);
+      try {
+        this.stagecontexttype = type;
+        this.__stage_gl = true;
+      } catch(e) {}
+
       if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
         try {
+          if (window.STAGE) window.STAGE.hasWebGL = true;
+          if (window.__STAGE__) window.__STAGE__.hasWebGL = true;
           var newAttribs = Object.assign({}, attribs || {}, { preserveDrawingBuffer: true });
-          var args = [type, newAttribs].concat(rest);
-          var ctx = _origGetContext.apply(this, args);
-          if (!ctx) {
-            console.warn('[STAGE] WebGL context creation failed. Degrading to static layer.');
-            window.parent.postMessage({ type: 'STAGE_WEBGL_FAILED' }, '*');
+          var args = [type, newAttribs];
+          for (var i = 2; i < arguments.length; i++) {
+            args.push(arguments[i]);
           }
+          var ctx = origGetContext.apply(this, args);
+          if (!ctx) {
+            if (!failedMap.get(this)) {
+              failedMap.set(this, true);
+              try { window.parent.postMessage({ type: 'STAGE_WEBGL_FAILED' }, '*'); } catch(e) {}
+            }
+            // Fallback to 2d context to keep 3D engine/site alive
+            return origGetContext.call(this, '2d');
+          }
+          try {
+            this.__stage_gl = ctx;
+          } catch(_) {}
           return ctx;
         } catch(err) {
-          console.error('[STAGE] WebGL error:', err);
-          window.parent.postMessage({ type: 'STAGE_WEBGL_FAILED' }, '*');
-          return null;
+          if (!failedMap.get(this)) {
+            failedMap.set(this, true);
+            try { window.parent.postMessage({ type: 'STAGE_WEBGL_FAILED' }, '*'); } catch(e) {}
+          }
+          return origGetContext.call(this, '2d');
         }
       }
-      return _origGetContext.apply(this, arguments);
+      return origGetContext.apply(this, arguments);
     };
+
+    if (typeof OffscreenCanvas !== 'undefined' && OffscreenCanvas.prototype.getContext) {
+      var origOffscreenGetContext = OffscreenCanvas.prototype.getContext;
+      OffscreenCanvas.prototype.getContext = function(type, attribs) {
+        if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+          try {
+            var newAttribs = Object.assign({}, attribs || {}, { preserveDrawingBuffer: true });
+            return origOffscreenGetContext.call(this, type, newAttribs) || origOffscreenGetContext.apply(this, arguments);
+          } catch(e) {
+            return origOffscreenGetContext.apply(this, arguments);
+          }
+        }
+        return origOffscreenGetContext.apply(this, arguments);
+      };
+    }
   } catch(e) {}
 })();
 </script>"""
@@ -1195,23 +1291,29 @@ def inject_webgl_patch(html: str) -> str:
     return patch + html
 
 
-# ── STEP 3 ────────────────────────────────────────────────────────────────────
+# ── STEP 4: Service Worker Neutralizer ─────────────────────────────────────────
 def inject_sw_killer(html: str) -> str:
     """
-    Unregisters Service Workers to prevent proxy routing bypass.
+    Safely unregisters Service Workers and blocks new registrations without throwing in restricted frames.
     """
     sw_killer = """<script>
 (function() {
   try {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
-        for (var i = 0; i < regs.length; i++) { regs[i].unregister(); }
+        for (var i = 0; i < regs.length; i++) {
+          regs[i].unregister().catch(function() {});
+        }
       }).catch(function() {});
-      var _origRegister = navigator.serviceWorker.register;
+    }
+  } catch(e) {}
+  try {
+    if ('serviceWorker' in navigator) {
+      var origRegister = navigator.serviceWorker.register;
       navigator.serviceWorker.register = function(scriptURL, options) {
         console.log('[STAGE] Service Worker registration blocked:', scriptURL);
         return Promise.resolve({
-          scope: options && options.scope ? options.scope : '/',
+          scope: (options && options.scope) || '/',
           active: null, installing: null, waiting: null,
           unregister: function() { return Promise.resolve(true); },
           addEventListener: function() {}, removeEventListener: function() {}
@@ -1228,14 +1330,10 @@ def inject_sw_killer(html: str) -> str:
     return sw_killer + html
 
 
-# ── STEP 4 ────────────────────────────────────────────────────────────────────
-def strip_or_fix_base_tag(html: str) -> str:
+# ── STEP 5: Base Tag Injector ──────────────────────────────────────────────────
+def inject_base_tag(html: str, target_url: str) -> str:
     """
-    Removes cross-origin <base href="..."> tags from the HTML.
-    Cross-origin <base> tags break window.history.pushState / replaceState in Chrome
-    with SecurityError: A history state object cannot be created for a document in another origin.
-    Removing cross-origin base tags keeps document.baseURI same-origin so React Router
-    and client-side SPA routing can freely update history state.
+    Injects/updates a <base href="..."> tag pointing to the target URL.
     """
     base_regex = re.compile(r'<base\s+[^>]*>', re.IGNORECASE)
     return base_regex.sub('', html)
@@ -1583,16 +1681,13 @@ def rewrite_html(
     html = strip_sri_attributes(html)
     logger.info("[PROXY_REWRITE] SRI integrity attributes stripped from all link/script tags")
 
-    # Strip any cross-origin <base> tag that could break window.history in the browser
-    html = strip_or_fix_base_tag(html)
-
-    # ── Phase 2: snapshot_mode — strip all script tags ────────────────────────
+    # ── Phase 2: snapshot_mode — strip all target script tags ──────────────────
     if snapshot_mode:
         logger.info(
             "[PROXY_REWRITE] Snapshot Mode Active — stripping all script tags."
         )
         html = re.sub(
-            r"<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>",
+            r"<script\b[\s\S]*?</script>",
             "",
             html,
             flags=re.IGNORECASE,
@@ -1610,9 +1705,10 @@ def rewrite_html(
         logger.info("[PROXY_REWRITE] Conservative Render Mode Active - injecting scripts at the end of <head>")
 
         bootstrap_script = inject_bootstrap("<html><head></head></html>", page_url, str(session_id), proxy_base_url, api_base)
-        cursor_script = inject_cursor_relay_bridge("<html><head></head></html>")
         webgl_script = inject_webgl_patch("<html><head></head></html>")
+        cursor_script = inject_cursor_relay_bridge("<html><head></head></html>")
         sw_script = inject_sw_killer("<html><head></head></html>")
+        base_script = inject_base_tag("<html><head></head></html>", page_url)
         guard_script = inject_chunk_guard("<html><head></head></html>")
 
         def extract_script(h):
@@ -1623,9 +1719,10 @@ def rewrite_html(
 
         combined_shims = "\n".join([
             extract_script(bootstrap_script),
-            extract_script(cursor_script),
             extract_script(webgl_script),
+            extract_script(cursor_script),
             extract_script(sw_script),
+            extract_script(base_script),
             extract_script(guard_script)
         ])
 
@@ -1635,15 +1732,17 @@ def rewrite_html(
             html = html[:idx] + f"\n{combined_shims}\n" + html[idx:]
         else:
             html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
-            html = inject_cursor_relay_bridge(html)
             html = inject_webgl_patch(html)
+            html = inject_cursor_relay_bridge(html)
             html = inject_sw_killer(html)
+            html = inject_base_tag(html, page_url)
             html = inject_chunk_guard(html)
     else:
         html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
-        html = inject_cursor_relay_bridge(html)
         html = inject_webgl_patch(html)
+        html = inject_cursor_relay_bridge(html)
         html = inject_sw_killer(html)
+        html = inject_base_tag(html, page_url)
         html = inject_chunk_guard(html)
 
     # ── Phase 4: Agent ────────────────────────────────────────────────────────

@@ -50,6 +50,14 @@ ALLOWED_ASSET_DOMAINS = {
     "stripe.com",
     "intercom.io",
     "segment.com",
+    "webrox.xyz",
+    "spline.design",
+    "splinecode.com",
+    "gltf.pmnd.rs",
+    "r2.dev",
+    "amazonaws.com",
+    "storage.googleapis.com",
+    "raw.githubusercontent.com",
 }
 
 def is_ssrf_safe(url: str) -> bool:
@@ -69,16 +77,16 @@ def is_ssrf_safe(url: str) -> bool:
         if hostname.startswith("[") and hostname.endswith("]"):
             hostname = hostname[1:-1]
             
-        # Allow loopback/localhost checks bypass ONLY in development/E2E testing
+        # Allow loopback/localhost checks bypass ONLY in development mode when not running strict SSRF tests
         import os
         from config import settings
-        is_dev_or_test = (settings.environment == "development" or os.environ.get("RUNNING_SSRF_TEST") == "true")
+        is_dev_bypass = (settings.environment == "development" and os.environ.get("RUNNING_SSRF_TEST") != "true")
         
         # Resolve hostname to all associated IPs to verify safety
         addr_info = socket.getaddrinfo(hostname, None)
         for family, socktype, proto, canonname, sockaddr in addr_info:
             ip_str = sockaddr[0]
-            if is_dev_or_test:
+            if is_dev_bypass:
                 # Bypass checks for local development/testing
                 if hostname in ("localhost", "127.0.0.1", "::1") or hostname.endswith(".localhost"):
                     continue
@@ -101,7 +109,7 @@ def is_domain_allowed(url: str, base_url: str, allow_external_assets: bool = Tru
     """
     Enforces domain scoping rules:
     - If the URL matches the target base domain, allow it.
-    - If is_asset is True and allow_external_assets is True, allow common safe CDNs/asset domains.
+    - If is_asset is True and allow_external_assets is True, allow public SSRF-safe asset domains.
     - Otherwise, reject URLs trying to escape the session context.
     """
     try:
@@ -137,11 +145,10 @@ def is_domain_allowed(url: str, base_url: str, allow_external_assets: bool = Tru
         if target_host in ("example.com", "iana.org") or any(target_host.endswith("." + d) for d in ("example.com", "iana.org")):
             return True
             
-        # External asset check
+        # External asset check: Allow common safe CDNs, modern 3D asset hosts, and allowed asset domains
         if is_asset and allow_external_assets:
             if target_host in ALLOWED_ASSET_DOMAINS:
                 return True
-            # Broaden to support other CDNs or wildcard checks
             if any(target_host.endswith("." + d) for d in ALLOWED_ASSET_DOMAINS):
                 return True
                 

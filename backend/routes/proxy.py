@@ -221,8 +221,22 @@ def guess_binary_content_type(url: str, default_content_type: str) -> str:
         return "model/gltf-binary"
     elif path.endswith(".gltf"):
         return "model/gltf+json"
-    elif path.endswith(".bin"):
+    elif path.endswith(".obj"):
+        return "model/obj"
+    elif path.endswith(".mtl"):
+        return "model/mtl"
+    elif path.endswith(".usdz"):
+        return "model/vnd.usdz+zip"
+    elif path.endswith(".ply"):
+        return "application/x-ply"
+    elif path.endswith(".splat") or path.endswith(".drc") or path.endswith(".bin"):
         return "application/octet-stream"
+    elif path.endswith(".ktx2"):
+        return "image/ktx2"
+    elif path.endswith(".basis"):
+        return "image/basis"
+    elif path.endswith(".exr"):
+        return "image/x-exr"
     elif path.endswith(".wasm"):
         return "application/wasm"
     elif path.endswith(".png"):
@@ -237,6 +251,8 @@ def guess_binary_content_type(url: str, default_content_type: str) -> str:
         return "image/svg+xml"
     elif path.endswith(".hdr"):
         return "image/vnd.radiance"
+    elif path.endswith(".avif"):
+        return "image/avif"
     return default_content_type
 
 
@@ -650,8 +666,8 @@ def prune_disk_cache_if_needed():
         logger.warning(f"[PROXY CACHE PRUNE] Failed to prune cache: {e}")
 
 def save_cached_asset(url: str, content: bytes, content_type: str):
-    cachable_types = ("image/", "font/", "application/javascript", "text/css", "application/wasm", "model/gltf", "application/octet-stream", "image/vnd.radiance")
-    cachable_exts = (".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".glb", ".gltf", ".wasm", ".ico", ".hdr", ".exr")
+    cachable_types = ("image/", "font/", "application/javascript", "text/css", "application/wasm", "model/gltf", "model/fbx", "model/obj", "model/vnd.usdz", "application/octet-stream", "image/vnd.radiance", "image/x-exr", "image/ktx2", "image/basis")
+    cachable_exts = (".js", ".mjs", ".cjs", ".css", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico", ".avif", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".glb", ".gltf", ".fbx", ".obj", ".mtl", ".usdz", ".ply", ".splat", ".ktx2", ".basis", ".drc", ".bin", ".wasm", ".hdr", ".exr")
     
     parsed = urllib.parse.urlparse(url)
     ext = os.path.splitext(parsed.path)[1].lower()

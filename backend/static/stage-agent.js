@@ -1166,13 +1166,23 @@
       const siblingCount = parent ? parent.children.length - 1 : 0;
       const isFullscreen = (bbox.width > window.innerWidth * 0.8) && (bbox.height > window.innerHeight * 0.8);
 
-      let activeContextType = null;
-      if (canvas.getContext("webgl2")) {
-        activeContextType = "webgl2";
-      } else if (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) {
-        activeContextType = "webgl";
-      } else if (canvas.getContext("2d")) {
-        activeContextType = "canvas-2d";
+      let activeContextType = canvas.__stage_context_type || null;
+      if (!activeContextType) {
+        if (canvas.__stage_gl) {
+          activeContextType = "webgl";
+        } else if (canvas.__stage_2d) {
+          activeContextType = "canvas-2d";
+        } else {
+          try {
+            if (canvas.getContext("webgl2")) {
+              activeContextType = "webgl2";
+            } else if (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) {
+              activeContextType = "webgl";
+            } else if (canvas.getContext("2d")) {
+              activeContextType = "canvas-2d";
+            }
+          } catch(e) {}
+        }
       }
 
       let rendererHint = 'unknown';
@@ -1234,7 +1244,7 @@
   }
 
   function getWebGLContext(e, canvas) {
-    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+    const gl = canvas.__stage_gl || (canvas.getContext && (canvas.getContext("webgl2") || canvas.getContext("webgl")));
     if (!gl) return null;
     return {
       type: "webgl",
@@ -2598,21 +2608,56 @@
     }
 
     // ── Site Readiness Signal ──────────────────────────────────────────────
-    // For heavy sites: wait for window.load + 1500ms settle time.
+    // For heavy sites: wait for non-zero canvas, WebGL init, rAF tick, plus settle time.
     // For normal sites: signal ready after window.load.
     function signalSiteReady() {
-      const settleMs = isHeavyPage ? 1500 : 300;
-      setTimeout(() => {
-        window.parent.postMessage({
-          type: "STAGE_SITE_READY",
-          heavy_mode: isHeavyPage,
-          renderer_type: currentRenderer,
-          session_id: window.__STAGE__.sessionId || "",
-          url: getAbsoluteTargetUrl(),
-          title: document.title || ""
-        }, "*");
-        console.log('[STAGE] STAGE_SITE_READY sent. heavy_mode=' + isHeavyPage + ' settle=' + settleMs + 'ms');
-      }, settleMs);
+      function checkCanvasWebGLReady(callback) {
+        if (!isHeavyPage) return callback();
+        var maxWait = Date.now() + 2000;
+        function poll() {
+          var canvases = document.querySelectorAll('canvas');
+          var hasCanvas = canvases.length > 0;
+          var canvasNonZero = false;
+          if (hasCanvas) {
+            for (var i = 0; i < canvases.length; i++) {
+              var c = canvases[i];
+              if ((c.clientWidth > 0 && c.clientHeight > 0) || (c.width > 0 && c.height > 0)) {
+                canvasNonZero = true;
+                break;
+              }
+            }
+          }
+          var isWebGLSite = currentRenderer === 'webgl' || currentRenderer === 'webgl2' || currentRenderer === 'threejs';
+          // Check real attributes: stagecontexttype, window.STAGE, and active WebGL context
+          var hasGL = !isWebGLSite || (window.STAGE && (window.STAGE.hasWebGL || window.STAGE.rendererType !== 'dom')) || (hasCanvas && Array.from(canvases).some(function(c) {
+            return c.stagecontexttype === 'webgl' || c.stagecontexttype === 'webgl2' || c.__stage_gl;
+          }));
+          if ((!hasCanvas || (canvasNonZero && hasGL)) || Date.now() > maxWait) {
+            requestAnimationFrame(function() {
+              requestAnimationFrame(callback);
+            });
+          } else {
+            setTimeout(poll, 50);
+          }
+        }
+        poll();
+      }
+
+      checkCanvasWebGLReady(function() {
+        var activeRenderer = window.__STAGE__.rendererType || currentRenderer;
+        var settleMs = isHeavyPage ? 1500 : 300;
+        setTimeout(function() {
+          window.parent.postMessage({
+            type: "STAGE_SITE_READY",
+            heavy_mode: isHeavyPage,
+            renderer_type: activeRenderer,
+            session_id: window.__STAGE__.sessionId || "",
+            url: getAbsoluteTargetUrl(),
+            title: document.title || ""
+          }, "*");
+          console.log('[STAGE] STAGE_SITE_READY sent. heavy_mode=' + isHeavyPage + ' renderer=' + activeRenderer + ' settle=' + settleMs + 'ms');
+        }, settleMs);
+      });
     }
 
     if (document.readyState === 'complete') {

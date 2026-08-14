@@ -6,8 +6,11 @@ from fastapi import Response
 logger = logging.getLogger("stage.proxy.asset_resolver")
 
 COMMON_ASSET_EXTENSIONS = {
-    ".js", ".mjs", ".css", ".woff", ".woff2", ".ttf", ".glb", ".gltf", 
-    ".hdr", ".exr", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".wasm"
+    ".js", ".mjs", ".cjs", ".css", ".woff", ".woff2", ".ttf", ".eot", ".otf",
+    ".glb", ".gltf", ".hdr", ".exr", ".fbx", ".bin", ".obj", ".mtl", ".usdz",
+    ".ply", ".splat", ".ktx2", ".basis", ".drc",
+    ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".avif", ".wasm",
+    ".mp4", ".webm", ".ogg", ".mp3", ".wav"
 }
 
 def resolve_asset_url(url: str, target_origin: str) -> tuple[str, str]:

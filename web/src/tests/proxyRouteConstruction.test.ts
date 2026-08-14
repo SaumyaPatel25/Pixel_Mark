@@ -99,6 +99,15 @@ describe('buildProxyPageUrl — discriminated union builder', () => {
       expect(res.url).not.toMatch(/\/page\?[^u]/)
     }
   })
+
+  it('NEVER includes snapshot_mode=true in default session proxy URLs', () => {
+    const res = buildProxyPageUrl(API_BASE, SESSION_ID, TARGET_URL)
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      expect(res.url).not.toContain('snapshot_mode=true')
+      expect(res.url).not.toContain('snapshot_mode=1')
+    }
+  })
 })
 
 // ─── getProxyPageUrl (legacy compat helper) ────────────────────────────────────
