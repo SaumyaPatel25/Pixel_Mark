@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from models import User, UserIdentity, Organization, OrgMember, RoleEnum
 from auth import hash_password
 
@@ -159,6 +159,12 @@ async def resolve_canonical_user(
 
     normalized_email = email.strip().lower()
 
+    # Unify all founder emails into saumya@entrext.com
+    founder_emails = _get_founder_emails()
+    is_founder = normalized_email in founder_emails
+    if is_founder:
+        normalized_email = "saumya@entrext.com"
+
     # 1. First, search by provider link in user_identities
     ident_res = await db.execute(
         select(UserIdentity).where(
@@ -172,6 +178,38 @@ async def resolve_canonical_user(
         user_res = await db.execute(select(User).where(User.id == identity.user_id))
         user = user_res.scalar_one_or_none()
         if user:
+            # If this is a founder log in but it resolved to a non-canonical founder user ID, merge them
+            if is_founder and user.email.strip().lower() != "saumya@entrext.com":
+                canon_res = await db.execute(select(User).where(User.email == "saumya@entrext.com"))
+                canon_user = canon_res.scalar_one_or_none()
+                if canon_user:
+                    # Move all user identities to point to the canonical user
+                    await db.execute(
+                        update(UserIdentity)
+                        .where(UserIdentity.user_id == user.id)
+                        .values(user_id=canon_user.id)
+                    )
+                    # Move memberships
+                    old_mems = await db.execute(select(OrgMember).where(OrgMember.user_id == user.id))
+                    for mem in old_mems.scalars().all():
+                        c_mem = await db.execute(
+                            select(OrgMember).where(OrgMember.org_id == mem.org_id, OrgMember.user_id == canon_user.id)
+                        )
+                        if c_mem.scalar_one_or_none():
+                            await db.delete(mem)
+                        else:
+                            mem.user_id = canon_user.id
+                            db.add(mem)
+                    # Delete the duplicate user
+                    await db.delete(user)
+                    await db.commit()
+                    user = canon_user
+                else:
+                    # Rename existing founder user to saumya@entrext.com
+                    user.email = "saumya@entrext.com"
+                    db.add(user)
+                    await db.commit()
+
             user.last_login_at = datetime.now(timezone.utc)
             if email_verified and not user.is_verified:
                 user.is_verified = True

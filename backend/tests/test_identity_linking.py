@@ -136,3 +136,74 @@ async def test_user_data_survives_logout_and_relogin(db_session: AsyncSession):
     # Verify onboarding state survived logout/relogin
     assert relogin_user.onboarding_state_json is not None
     assert relogin_user.onboarding_state_json.get("isCompleted") is True
+
+
+@pytest.mark.asyncio
+async def test_founder_email_merging(db_session: AsyncSession):
+    # 1. Sign in via GitHub using saumyavishwam@gmail.com (founder email 1)
+    user_gmail = await resolve_canonical_user(
+        db=db_session,
+        provider="github",
+        provider_user_id="github-uid-founder-gmail",
+        email="saumyavishwam@gmail.com",
+        name="Saumya Gmail",
+        email_verified=True
+    )
+    assert user_gmail is not None
+    assert user_gmail.email == "saumya@entrext.com"  # Auto-mapped to canonical on creation!
+    canonical_id = user_gmail.id
+
+    # 2. Sign in via Magic Link using saumya@entrext.com (founder email 2 - already mapped to saumya@entrext.com)
+    # Since we mapped it, it will resolve to the same user!
+    user_entrext = await resolve_canonical_user(
+        db=db_session,
+        provider="email_link",
+        provider_user_id="firebase-uid-founder-entrext",
+        email="saumya@entrext.com",
+        name="Saumya Entrext",
+        email_verified=True
+    )
+    assert user_entrext.id == canonical_id
+
+    # 3. Simulate a case where a user already exists with saumyavishwam@gmail.com (e.g. legacy data)
+    # and we try to merge them.
+    # To simulate this, let's manually create a user with email saumyavishwam@gmail.com and link a google identity to it.
+    legacy_user = User(
+        id=f"legacy_founder_user",
+        email="saumyavishwam@gmail.com",
+        hashed_password="pw",
+        name="Legacy Founder"
+    )
+    legacy_identity = UserIdentity(
+        id=str(uuid.uuid4()),
+        user_id=legacy_user.id,
+        provider="google",
+        provider_user_id="google-uid-legacy",
+        provider_email="saumyavishwam@gmail.com",
+        email_verified=True
+    )
+    db_session.add_all([legacy_user, legacy_identity])
+    await db_session.commit()
+
+    # Verify that logging in with the legacy google identity merges it into the canonical saumya@entrext.com user!
+    merged_user = await resolve_canonical_user(
+        db=db_session,
+        provider="google",
+        provider_user_id="google-uid-legacy",
+        email="saumyavishwam@gmail.com",
+        email_verified=True
+    )
+    assert merged_user.id == canonical_id
+    assert merged_user.email == "saumya@entrext.com"
+
+    # Verify that the legacy identity is now linked to the canonical user ID
+    ident_res = await db_session.execute(
+        select(UserIdentity).where(UserIdentity.provider_user_id == "google-uid-legacy")
+    )
+    updated_ident = ident_res.scalar_one()
+    assert updated_ident.user_id == canonical_id
+
+    # Verify legacy user record is deleted
+    legacy_check = await db_session.execute(select(User).where(User.id == "legacy_founder_user"))
+    assert legacy_check.scalar_one_or_none() is None
+
