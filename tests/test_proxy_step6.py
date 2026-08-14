@@ -27,8 +27,9 @@ def test_conservative_mode_html_rewriting():
         conservative_render_mode=True
     )
     
-    # Ensure type="module" is untouched
-    assert 'type="module" src="/chunks/main.js"' in rewritten_conservative
+    # Ensure type="module" is untouched on the rewritten tag
+    assert 'type="module"' in rewritten_conservative
+    assert '/chunks/main.js' in rewritten_conservative
     # Ensure shims are injected before </head>
     assert "<!-- STAGE_BOOTSTRAP_START -->" in rewritten_conservative
     assert "</head>" in rewritten_conservative

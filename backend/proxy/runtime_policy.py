@@ -81,15 +81,32 @@ def check_third_party_policy(url: str) -> tuple[bool, Response | None]:
         logger.error(f"[THIRD_PARTY POLICY] Error checking policy for {url}: {e}")
         return False, None
 
+BINARY_3D_EXTENSIONS = {
+    ".glb", ".gltf", ".fbx", ".bin", ".wasm", ".hdr", ".exr",
+    ".ktx2", ".basis", ".obj", ".mtl", ".usdz", ".ply", ".splat", ".drc"
+}
+
 def get_failure_fallback_response(url: str, error_message: str) -> Response:
     """
     Constructs a safe fallback response for when an allowed third-party request fails upstream.
+    For 3D binary assets, returns explicit 502/504 with X-STAGE-Asset-Error to prevent corrupted empty data.
     """
     parsed = urllib.parse.urlparse(url)
     path = parsed.path.lower()
     
     logger.warning(f"[THIRD_PARTY POLICY] Upstream failure for allowed third party request: {url}. Error: {error_message}. Returning safe fallback.")
     
+    if any(path.endswith(ext) for ext in BINARY_3D_EXTENSIONS):
+        status_code = 504 if ("timeout" in error_message.lower() or "timed out" in error_message.lower()) else 502
+        err_type = "upstream-timeout" if status_code == 504 else "upstream-error"
+        resp = Response(
+            content=f"3D binary asset upstream failure: {error_message}".encode("utf-8"),
+            media_type="text/plain",
+            status_code=status_code
+        )
+        resp.headers["X-STAGE-Asset-Error"] = err_type
+        return resp
+
     if ".js" in path or "javascript" in path:
         return Response(
             content=f'console.warn("STAGE Warning: Script failed to load upstream: {url} ({error_message})");'.encode("utf-8"),
@@ -101,3 +118,4 @@ def get_failure_fallback_response(url: str, error_message: str) -> Response:
         return JSONResponse({}, status_code=200)
         
     return Response(content=b"", status_code=204)
+

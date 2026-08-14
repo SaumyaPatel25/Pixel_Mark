@@ -42,4 +42,5 @@ __pycache__/
 # --- Cache and Scratch ---
 backend/cache/
 backend/scratch/
+scratch/
 tests/check_db_markers.py

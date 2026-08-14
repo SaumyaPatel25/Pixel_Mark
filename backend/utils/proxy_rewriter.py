@@ -64,6 +64,26 @@ window.__STAGE_TARGET_URL__ = {escaped_logical_target_url};
 window.__STAGE_TRANSPORT_URL__ = {escaped_transport_url};
 window.__STAGE_BASE__ = window.__STAGE_PROXY_ORIGIN__ + '/proxy/session/' + window.__STAGE_SESSION_ID__;
 
+// Force-enable 3D features by setting common flags
+window.DISABLE_3D = false;
+window.__DISABLE_3D__ = false;
+window.NEXT_PUBLIC_DISABLE_3D = false;
+
+// Mark as production environment (many sites disable 3D in dev/test)
+window.__NEXT_PUBLIC_ENV__ = 'production';
+window.__ENV__ = window.__ENV__ || {{}};
+window.__ENV__.NEXT_PUBLIC_ENV = 'production';
+window.process = window.process || {{}};
+window.process.env = window.process.env || {{}};
+window.process.env.NODE_ENV = 'production';
+
+// Disable debug mode (some sites disable heavy features in debug)
+window.DEBUG = false;
+window.__DEBUG__ = false;
+
+// Signal that we're in a "real" browser context
+window.__STAGE_PROXY__ = true;
+
 // Public canonical aliases (no double-underscores) — used by agent and external consumers
 window.STAGE_SESSION_ID = window.__STAGE_SESSION_ID__;
 window.STAGE_TARGET_URL = window.__STAGE_TARGET_URL__;
@@ -71,10 +91,47 @@ window.STAGE_TARGET_ORIGIN = window.__STAGE_TARGET_ORIGIN__;
 
 window.STAGE = window.STAGE || {{}};
 window.STAGE.sessionId = window.__STAGE_SESSION_ID__;
+window.STAGE.proxyOrigin = window.__STAGE_PROXY_ORIGIN__;
+window.STAGE.assetBase = window.__STAGE_PROXY_ORIGIN__ + '/proxy/session/' + window.__STAGE_SESSION_ID__ + '/asset';
+window.STAGE.pageBase = window.__STAGE_PROXY_ORIGIN__ + '/proxy/session/' + window.__STAGE_SESSION_ID__ + '/page';
 window.STAGE.pageUrl = window.__STAGE_TARGET_URL__;
 window.STAGE.targetUrl = window.__STAGE_TARGET_URL__;
 window.STAGE.targetOrigin = window.__STAGE_TARGET_ORIGIN__;
 window.STAGE.transportUrl = window.__STAGE_TRANSPORT_URL__;
+
+function buildStageAssetUrl(absoluteUrl) {{
+  var assetBase = window.STAGE && window.STAGE.assetBase;
+  if (!assetBase || !absoluteUrl) return absoluteUrl;
+  try {{
+    var target = new URL(absoluteUrl);
+    var scheme = target.protocol.replace(':', '');
+    var host = target.host;
+    var path = target.pathname.replace(/^\\/+/, '');
+    var query = target.search || '';
+    return assetBase + '/' + scheme + '/' + host + '/' + path + query;
+  }} catch (e) {{
+    return absoluteUrl;
+  }}
+}}
+window.buildStageAssetUrl = buildStageAssetUrl;
+
+function assertStageProxyContract() {{
+  var s = window.STAGE || {{}};
+  var ok = typeof s.sessionId === 'string' && typeof s.assetBase === 'string' && s.assetBase.indexOf('/proxy/session/' + s.sessionId + '/asset') !== -1;
+  if (!ok) {{
+    try {{
+      if (window.parent && window.parent !== window) {{
+        window.parent.postMessage({{
+          type: 'STAGE_DIAGNOSTIC',
+          code: 'ASSET_ROUTE_CONTRACT_INVALID',
+          assetBase: s.assetBase || null,
+          sessionId: s.sessionId || null
+        }}, '*');
+      }}
+    }} catch (_) {{}}
+  }}
+}}
+assertStageProxyContract();
 
 window.__PM__ = {{
   domEditMode: false,
@@ -281,16 +338,8 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
       if (absoluteHost === proxyHost) return url;
     }} catch(e) {{}}
 
-    // Route through proxy asset endpoint — preserves absolute target URL in the path
-    // Format: /proxy/session/{{id}}/asset/{{scheme}}/{{host}}/{{path...}}
-    try {{
-      const scheme = parsedAbsolute.protocol.replace(':', '');
-      const host = parsedAbsolute.host;
-      const pathAndQuery = parsedAbsolute.pathname.slice(1) + parsedAbsolute.search + parsedAbsolute.hash;
-      return proxyBase + '/asset/' + scheme + '/' + host + '/' + pathAndQuery;
-    }} catch(e) {{
-      return proxyBase + '/asset?url=' + encodeURIComponent(absoluteUrl);
-    }}
+    // Route through canonical proxy asset builder — preserves absolute target URL in the path
+    return buildStageAssetUrl(absoluteUrl);
   }}
 
   try {{
@@ -314,6 +363,100 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
       }});
     }}
   }} catch(e) {{}}
+
+  // ─── Turbopack & Webpack Dynamic Chunk Unwrapper ─────────────────────────
+  (function installChunkUnwrapper() {{
+    function unwrapScriptUrl(url) {{
+      if (!url || typeof url !== 'string') return url;
+      var match = url.match(/\/proxy\/session\/[^\/]+\/asset\/(?:https?\/[^\/]+)?(\/[^?#]*)/);
+      if (match && match[1]) {{
+        return match[1];
+      }}
+      return url;
+    }}
+
+    // Intercept document.currentScript getter
+    try {{
+      var currentScriptDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'currentScript');
+      if (!currentScriptDesc) {{
+        currentScriptDesc = Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'currentScript');
+      }}
+      if (currentScriptDesc && currentScriptDesc.get) {{
+        var origCurrentScriptGet = currentScriptDesc.get;
+        Object.defineProperty(document, 'currentScript', {{
+          get: function() {{
+            var el = origCurrentScriptGet.call(this);
+            if (!el) return el;
+            try {{
+              if (el.src && typeof el.src === 'string' && el.src.indexOf('/proxy/session/') !== -1) {{
+                var logical = unwrapScriptUrl(el.src);
+                if (logical !== el.src) {{
+                  return new Proxy(el, {{
+                    get: function(target, prop, receiver) {{
+                      if (prop === 'src') return logical;
+                      if (prop === 'getAttribute') {{
+                        return function(attr) {{
+                          if (attr === 'src') return logical;
+                          return target.getAttribute(attr);
+                        }};
+                      }}
+                      var val = Reflect.get(target, prop, target);
+                      return typeof val === 'function' ? val.bind(target) : val;
+                    }}
+                  }});
+                }}
+              }}
+            }} catch (_) {{}}
+            return el;
+          }},
+          configurable: true
+        }});
+      }}
+    }} catch (_) {{}}
+
+    // Intercept TURBOPACK.push
+    function wrapTurbopack(turbopackArr) {{
+      if (!turbopackArr || turbopackArr.__stage_wrapped__) return turbopackArr;
+      var origPush = turbopackArr.push;
+      turbopackArr.push = function() {{
+        for (var i = 0; i < arguments.length; i++) {{
+          var item = arguments[i];
+          if (Array.isArray(item) && item.length >= 1) {{
+            var first = item[0];
+            if (first && typeof first === 'object' && first.src) {{
+              var unwrapped = unwrapScriptUrl(first.src);
+              if (unwrapped !== first.src) {{
+                item[0] = {{
+                  src: unwrapped,
+                  getAttribute: function(attr) {{
+                    if (attr === 'src') return unwrapped;
+                    return first.getAttribute ? first.getAttribute(attr) : null;
+                  }}
+                }};
+              }}
+            }}
+          }}
+        }}
+        return origPush.apply(this, arguments);
+      }};
+      turbopackArr.__stage_wrapped__ = true;
+      return turbopackArr;
+    }}
+
+    var _turbopack = globalThis.TURBOPACK;
+    if (_turbopack) {{
+      wrapTurbopack(_turbopack);
+    }}
+    try {{
+      Object.defineProperty(globalThis, 'TURBOPACK', {{
+        get: function() {{ return _turbopack; }},
+        set: function(val) {{
+          _turbopack = wrapTurbopack(val);
+        }},
+        configurable: true
+      }});
+    }} catch (_) {{}}
+  }})();
 
   try {{
     const imgSrcDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
@@ -1096,14 +1239,48 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
 </script>
 <!-- STAGE_BOOTSTRAP_END -->"""
 
-    head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+    # Add environment flag injection (no location spoofing)
+    env_flags = f"""
+    <script>
+    (function() {{
+      // Store target URL for STAGE agent
+      window.__STAGE_TARGET_URL__ = '{page_url}';
+      
+      // Force-enable 3D features by setting common flags
+      window.DISABLE_3D = false;
+      window.__DISABLE_3D__ = false;
+      window.NEXT_PUBLIC_DISABLE_3D = false;
+      
+      // Mark as production environment (many sites disable 3D in dev/test)
+      window.__NEXT_PUBLIC_ENV__ = 'production';
+      window.__ENV__ = window.__ENV__ || {{}};
+      window.__ENV__.NEXT_PUBLIC_ENV = 'production';
+      
+      // Disable debug mode (some sites disable heavy features in debug)
+      window.DEBUG = false;
+      window.__DEBUG__ = false;
+      
+      // Signal that we're in a "real" browser context
+      window.__STAGE_PROXY__ = true;
+      
+      console.log('[STAGE] Environment flags injected for', '{page_url}');
+      console.log('[STAGE] Flags:', {{
+        DISABLE_3D: window.DISABLE_3D,
+        NEXT_PUBLIC_ENV: window.__NEXT_PUBLIC_ENV__,
+        DEBUG: window.DEBUG
+      }});
+    }})();
+    </script>
+    """
+
+    head_match = re.search(r'</head>', html, re.IGNORECASE)
     if head_match:
-        idx = head_match.end()
-        return html[:idx] + f"\n{bootstrap}\n" + html[idx:]
+        idx = head_match.start()
+        return html[:idx] + f"\n{env_flags}\n{bootstrap}\n" + html[idx:]
     else:
         # head tag missing, create one
         html_match = re.search(r'<html\b[^>]*>', html, re.IGNORECASE)
-        head_html = f"<head>\n{bootstrap}\n</head>"
+        head_html = f"<head>\n{env_flags}\n{bootstrap}\n</head>"
         if html_match:
             idx = html_match.end()
             return html[:idx] + f"\n{head_html}\n" + html[idx:]
@@ -1207,88 +1384,200 @@ def inject_cursor_relay_bridge(html: str) -> str:
 })();
 </script>"""
 
-    head_match = __import__('re').search(r'<head\b[^>]*>', html, __import__('re').IGNORECASE)
+    head_match = __import__('re').search(r'</head>', html, __import__('re').IGNORECASE)
     if head_match:
-        idx = head_match.end()
+        idx = head_match.start()
         return html[:idx] + f"\n{bridge}\n" + html[idx:]
     return bridge + html
 
 
-# ── STEP 3: WebGL Context Hardener ────────────────────────────────────────────
+# ── STEP 3: WebGL Context Preservation & Diagnostics ──────────────────────────
 def inject_webgl_patch(html: str) -> str:
     """
-    Forces preserveDrawingBuffer: true on WebGL/WebGL2 context creation as the VERY FIRST
-    patch after bootstrap, before any site bundle or canvas initialization.
-    Never returns null context to prevent site initialization crashes; falls back to 2d.
-    Signals STAGE_WEBGL_FAILED at most once per canvas.
+    Patch WebGL context creation to ensure capture compatibility.
+    - Preserves site's explicit preserveDrawingBuffer choice
+    - Forces preserveDrawingBuffer: true ONLY if site doesn't specify
+    - Attaches context lost/restored listeners for diagnostics
+    - Marks canvas with context type for agent detection
     """
     patch = """<script>
 (function() {
-  try {
-    var origGetContext = HTMLCanvasElement.prototype.getContext;
-    var failedMap = new WeakMap();
+  const nativeGetContext = HTMLCanvasElement.prototype.getContext;
 
-    HTMLCanvasElement.prototype.getContext = function(type, attribs) {
-      try {
-        this.stagecontexttype = type;
-        this.__stage_gl = true;
-      } catch(e) {}
+  function markCanvasContext(canvas, type, context) {
+    if (!canvas) return;
+    try {
+      canvas.__stage_context_type = type;
+      canvas.stagecontexttype = type;
+      canvas.__stage_gl = context || true;
+    } catch (_) {}
+    window.STAGE = window.STAGE || {};
+    window.STAGE.hasWebGL = window.STAGE.hasWebGL || /webgl/i.test(type);
+  }
+  window.markCanvasContext = markCanvasContext;
 
-      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
-        try {
-          if (window.STAGE) window.STAGE.hasWebGL = true;
-          if (window.__STAGE__) window.__STAGE__.hasWebGL = true;
-          var newAttribs = Object.assign({}, attribs || {}, { preserveDrawingBuffer: true });
-          var args = [type, newAttribs];
-          for (var i = 2; i < arguments.length; i++) {
-            args.push(arguments[i]);
-          }
-          var ctx = origGetContext.apply(this, args);
-          if (!ctx) {
-            if (!failedMap.get(this)) {
-              failedMap.set(this, true);
-              try { window.parent.postMessage({ type: 'STAGE_WEBGL_FAILED' }, '*'); } catch(e) {}
-            }
-            // Fallback to 2d context to keep 3D engine/site alive
-            return origGetContext.call(this, '2d');
-          }
-          try {
-            this.__stage_gl = ctx;
-          } catch(_) {}
-          return ctx;
-        } catch(err) {
-          if (!failedMap.get(this)) {
-            failedMap.set(this, true);
-            try { window.parent.postMessage({ type: 'STAGE_WEBGL_FAILED' }, '*'); } catch(e) {}
-          }
-          return origGetContext.call(this, '2d');
-        }
-      }
-      return origGetContext.apply(this, arguments);
-    };
+  function getCanvasContextType(canvas) {
+    if (!canvas) return null;
+    return (
+      canvas.__stage_context_type ||
+      canvas.stagecontexttype ||
+      (typeof canvas.__stage_gl === "string" ? canvas.__stage_gl : null) ||
+      null
+    );
+  }
+  window.getCanvasContextType = getCanvasContextType;
 
-    if (typeof OffscreenCanvas !== 'undefined' && OffscreenCanvas.prototype.getContext) {
-      var origOffscreenGetContext = OffscreenCanvas.prototype.getContext;
-      OffscreenCanvas.prototype.getContext = function(type, attribs) {
-        if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
-          try {
-            var newAttribs = Object.assign({}, attribs || {}, { preserveDrawingBuffer: true });
-            return origOffscreenGetContext.call(this, type, newAttribs) || origOffscreenGetContext.apply(this, arguments);
-          } catch(e) {
-            return origOffscreenGetContext.apply(this, arguments);
-          }
-        }
-        return origOffscreenGetContext.apply(this, arguments);
+  function inspectCanvasesSafely() {
+    var canvases = Array.prototype.slice.call(document.querySelectorAll("canvas"));
+    return canvases.map(function(c) {
+      return {
+        width: c.width,
+        height: c.height,
+        clientWidth: c.clientWidth,
+        clientHeight: c.clientHeight,
+        contextType: getCanvasContextType(c)
       };
+    });
+  }
+  window.inspectCanvasesSafely = inspectCanvasesSafely;
+
+  HTMLCanvasElement.prototype.getContext = function(type, attrs) {
+    const isWebGL = type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl';
+
+    if (!isWebGL) {
+      const ctx = nativeGetContext.apply(this, arguments);
+      if (ctx && type === '2d') {
+        markCanvasContext(this, type, ctx);
+      }
+      return ctx;
     }
-  } catch(e) {}
+
+    // Preserve site's explicit choice
+    const originalAttrs = attrs && typeof attrs === 'object' ? attrs : {};
+    const patchedAttrs = { ...originalAttrs };
+
+    // Only force preserveDrawingBuffer if site didn't specify
+    if (!('preserveDrawingBuffer' in patchedAttrs)) {
+      patchedAttrs.preserveDrawingBuffer = true;
+    }
+
+    // Avoid forcing high-performance on every device
+    if (!('powerPreference' in patchedAttrs)) {
+      patchedAttrs.powerPreference = 'default';
+    }
+
+    // Desynchronized contexts are unsuitable for deterministic capture
+    if (window.STAGE && window.STAGE.captureMode) {
+      patchedAttrs.desynchronized = false;
+    }
+
+    let context = null;
+    try {
+      context = nativeGetContext.call(this, type, patchedAttrs);
+    } catch (firstError) {
+      // Native fallback: never break the target site
+      try {
+        context = nativeGetContext.apply(this, arguments);
+      } catch (secondError) {
+        console.warn('[STAGE WebGL] Context creation failed:', secondError);
+        return null;
+      }
+    }
+
+    if (!context) {
+      console.warn('[STAGE WebGL] Context is null');
+      return null;
+    }
+
+    // Mark canvas with context type for agent detection
+    markCanvasContext(this, type, context);
+
+    // Attach context lifecycle listeners
+    if (this.addEventListener) {
+      this.addEventListener('webglcontextlost', (event) => {
+        console.warn('[STAGE] WebGL context lost:', event.statusMessage);
+        if (window.parent) {
+          window.parent.postMessage({
+            type: 'STAGE_WEBGL_CONTEXT_LOST',
+            contextType: type,
+            statusMessage: event.statusMessage
+          }, '*');
+        }
+      }, false);
+
+      this.addEventListener('webglcontextrestored', () => {
+        console.log('[STAGE] WebGL context restored');
+        if (window.parent) {
+          window.parent.postMessage({
+            type: 'STAGE_WEBGL_CONTEXT_RESTORED',
+            contextType: type
+          }, '*');
+        }
+      }, false);
+    }
+
+    return context;
+  };
+
+  console.log('[STAGE WebGL Patch] Installed');
 })();
 </script>"""
-    head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+    head_match = re.search(r'</head>', html, re.IGNORECASE)
     if head_match:
-        idx = head_match.end()
+        idx = head_match.start()
         return html[:idx] + f"\n{patch}\n" + html[idx:]
-    return patch + html
+    return patch + "\n" + html
+
+
+def inject_offscreen_canvas_patch(html: str) -> str:
+    """
+    Patch OffscreenCanvas for WebGPU/WebGL compatibility.
+    """
+    patch = """<script>
+(function() {
+  if (typeof OffscreenCanvas === 'undefined') return;
+
+  const nativeOffscreenGetContext = OffscreenCanvas.prototype.getContext;
+
+  OffscreenCanvas.prototype.getContext = function(type, attrs) {
+    const isWebGL = type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl';
+
+    if (!isWebGL) {
+      return nativeOffscreenGetContext.apply(this, arguments);
+    }
+
+    const patchedAttrs = attrs ? { ...attrs } : {};
+
+    if (!('preserveDrawingBuffer' in patchedAttrs)) {
+      patchedAttrs.preserveDrawingBuffer = true;
+    }
+
+    let context = null;
+    try {
+      context = nativeOffscreenGetContext.call(this, type, patchedAttrs);
+    } catch (error) {
+      console.warn('[STAGE OffscreenCanvas] Context creation failed:', error);
+      throw error;
+    }
+
+    if (context) {
+      try {
+        this.__stage_context_type = type;
+        this.stagecontexttype = type;
+      } catch (_) {}
+    }
+
+    return context;
+  };
+
+  console.log('[STAGE OffscreenCanvas Patch] Installed');
+})();
+</script>"""
+    head_match = re.search(r'</head>', html, re.IGNORECASE)
+    if head_match:
+        idx = head_match.start()
+        return html[:idx] + f"\n{patch}\n" + html[idx:]
+    return patch + "\n" + html
 
 
 # ── STEP 4: Service Worker Neutralizer ─────────────────────────────────────────
@@ -1323,9 +1612,9 @@ def inject_sw_killer(html: str) -> str:
   } catch(e) {}
 })();
 </script>"""
-    head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+    head_match = re.search(r'</head>', html, re.IGNORECASE)
     if head_match:
-        idx = head_match.end()
+        idx = head_match.start()
         return html[:idx] + f"\n{sw_killer}\n" + html[idx:]
     return sw_killer + html
 
@@ -1376,9 +1665,9 @@ def inject_chunk_guard(html: str) -> str:
   } catch(e) {}
 })();
 </script>"""
-    head_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
+    head_match = re.search(r'</head>', html, re.IGNORECASE)
     if head_match:
-        idx = head_match.end()
+        idx = head_match.start()
         return html[:idx] + f"\n{guard}\n" + html[idx:]
     return guard + html
 
@@ -1412,7 +1701,7 @@ def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_
 
     def _make_asset_proxy_url(href: str) -> str:
         """Build the proxy asset URL for a given href relative to the target origin."""
-        if href.startswith("data:") or href.startswith("blob:") or "proxy/session" in href:
+        if not href or href.startswith("data:") or href.startswith("blob:") or "proxy/session" in href or href.startswith("/static/") or "/static/" in href:
             return None
         # Resolve against origin root so root-relative paths are correct
         resolved_url = urllib.parse.urljoin(origin + '/', href.lstrip('/') if href.startswith('/') else href)
@@ -1427,25 +1716,30 @@ def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_
 
     def link_replacer(match):
         tag = match.group(0)
-        is_stylesheet = re.search(r'rel=["\']stylesheet["\']', tag, re.IGNORECASE)
-        is_font_preload = re.search(r'rel=["\']preload["\']', tag, re.IGNORECASE) and re.search(r'as=["\']font["\']', tag, re.IGNORECASE)
-        is_script_preload = re.search(r'rel=["\']preload["\']', tag, re.IGNORECASE) and re.search(r'as=["\']script["\']', tag, re.IGNORECASE)
-        is_modulepreload = re.search(r'rel=["\']modulepreload["\']', tag, re.IGNORECASE)
+        is_stylesheet = re.search(r'rel=["\']?stylesheet["\']?', tag, re.IGNORECASE)
+        is_font_preload = re.search(r'rel=["\']?preload["\']?', tag, re.IGNORECASE) and re.search(r'as=["\']?font["\']?', tag, re.IGNORECASE)
+        is_script_preload = re.search(r'rel=["\']?preload["\']?', tag, re.IGNORECASE) and re.search(r'as=["\']?script["\']?', tag, re.IGNORECASE)
+        is_modulepreload = re.search(r'rel=["\']?modulepreload["\']?', tag, re.IGNORECASE)
 
         if not (is_stylesheet or is_font_preload or is_script_preload or is_modulepreload):
             return tag
 
-        href_match = re.search(r'href=["\']([^"\']+)["\']', tag, re.IGNORECASE)
+        href_match = re.search(r'href=(?:["\']([^"\']+)["\']|([^\s>]+))', tag, re.IGNORECASE)
         if not href_match:
             return tag
 
-        href = href_match.group(1)
+        href = href_match.group(1) or href_match.group(2)
+        if not href:
+            return tag
         proxy_url = _make_asset_proxy_url(href)
         if proxy_url is None:
             return tag
 
+        val_start = href_match.start(1) if href_match.group(1) is not None else href_match.start(2)
+        val_end = href_match.end(1) if href_match.group(1) is not None else href_match.end(2)
+
         # Rewrite href
-        tag = tag[:href_match.start(1)] + proxy_url + tag[href_match.end(1):]
+        tag = tag[:val_start] + proxy_url + tag[val_end:]
 
         # Strip integrity and crossorigin attributes
         tag = re.sub(r'\s+integrity=["\'][^"\']*["\']', '', tag, flags=re.IGNORECASE)
@@ -1455,13 +1749,15 @@ def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_
     def script_src_replacer(match):
         tag = match.group(0)
         # Skip inline scripts (no src attr) and already-proxied scripts
-        src_match = re.search(r'\bsrc=["\']([^"\']+)["\']', tag, re.IGNORECASE)
+        src_match = re.search(r'\bsrc=(?:["\']([^"\']+)["\']|([^\s>]+))', tag, re.IGNORECASE)
         if not src_match:
             return tag
 
-        src = src_match.group(1)
-        # Never rewrite the STAGE agent itself
-        if "stage-agent.js" in src:
+        src = src_match.group(1) or src_match.group(2)
+        if not src:
+            return tag
+        # Never rewrite the STAGE agent itself or static local assets
+        if "stage-agent.js" in src or "/static/" in src:
             return tag
         # Skip data: URLs and already-proxied
         if src.startswith("data:") or "proxy/session" in src:
@@ -1471,7 +1767,10 @@ def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_
         if proxy_url is None:
             return tag
 
-        tag = tag[:src_match.start(1)] + proxy_url + tag[src_match.end(1):]
+        val_start = src_match.start(1) if src_match.group(1) is not None else src_match.start(2)
+        val_end = src_match.end(1) if src_match.group(1) is not None else src_match.end(2)
+
+        tag = tag[:val_start] + proxy_url + tag[val_end:]
         # Strip SRI
         tag = re.sub(r'\s+integrity=["\'][^"\']*["\']', '', tag, flags=re.IGNORECASE)
         tag = re.sub(r'\s+crossorigin(?:=["\'][^"\']*["\'])?', '', tag, flags=re.IGNORECASE)
@@ -1706,6 +2005,7 @@ def rewrite_html(
 
         bootstrap_script = inject_bootstrap("<html><head></head></html>", page_url, str(session_id), proxy_base_url, api_base)
         webgl_script = inject_webgl_patch("<html><head></head></html>")
+        offscreen_script = inject_offscreen_canvas_patch("<html><head></head></html>")
         cursor_script = inject_cursor_relay_bridge("<html><head></head></html>")
         sw_script = inject_sw_killer("<html><head></head></html>")
         base_script = inject_base_tag("<html><head></head></html>", page_url)
@@ -1720,19 +2020,21 @@ def rewrite_html(
         combined_shims = "\n".join([
             extract_script(bootstrap_script),
             extract_script(webgl_script),
+            extract_script(offscreen_script),
             extract_script(cursor_script),
             extract_script(sw_script),
             extract_script(base_script),
             extract_script(guard_script)
         ])
 
-        head_start_match = re.search(r'<head\b[^>]*>', html, re.IGNORECASE)
-        if head_start_match:
-            idx = head_start_match.end()
+        head_end_match = re.search(r'</head>', html, re.IGNORECASE)
+        if head_end_match:
+            idx = head_end_match.start()
             html = html[:idx] + f"\n{combined_shims}\n" + html[idx:]
         else:
             html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
             html = inject_webgl_patch(html)
+            html = inject_offscreen_canvas_patch(html)
             html = inject_cursor_relay_bridge(html)
             html = inject_sw_killer(html)
             html = inject_base_tag(html, page_url)
@@ -1740,9 +2042,11 @@ def rewrite_html(
     else:
         html = inject_bootstrap(html, page_url, str(session_id), proxy_base_url, api_base)
         html = inject_webgl_patch(html)
+        html = inject_offscreen_canvas_patch(html)
         html = inject_cursor_relay_bridge(html)
         html = inject_sw_killer(html)
         html = inject_base_tag(html, page_url)
+        html = inject_chunk_guard(html)
         html = inject_chunk_guard(html)
 
     # ── Phase 4: Agent ────────────────────────────────────────────────────────

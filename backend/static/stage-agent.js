@@ -21,6 +21,99 @@
   window.STAGE.transportUrl = window.STAGE.transportUrl || window.__STAGE_TRANSPORT_URL__;
   window.STAGE.targetUrl = window.STAGE.targetUrl || window.__STAGE_TARGET_URL__;
 
+  // Canonical STAGE asset URL builder (Phase B)
+  function buildStageAssetUrl(absoluteUrl) {
+    const assetBase = window.STAGE?.assetBase;
+    if (!assetBase || !absoluteUrl) {
+      // Fallback: do not rewrite if contract is missing
+      return absoluteUrl;
+    }
+
+    try {
+      const target = new URL(absoluteUrl);
+      const scheme = target.protocol.replace(':', '');
+      const host = target.host;
+      const path = target.pathname.replace(/^\/+/, '');
+      const query = target.search || '';
+
+      const url = `${assetBase}/${scheme}/${host}/${path}`;
+      return url + query;
+    } catch (e) {
+      return absoluteUrl;
+    }
+  }
+  window.buildStageAssetUrl = buildStageAssetUrl;
+
+  function assertStageProxyContract() {
+    const s = window.STAGE || {};
+    const ok = typeof s.sessionId === "string" && typeof s.assetBase === "string" && s.assetBase.includes(`/proxy/session/${s.sessionId}/asset`);
+    if (!ok) {
+      try {
+        window.parent?.postMessage({
+          type: "STAGE_DIAGNOSTIC",
+          code: "ASSET_ROUTE_CONTRACT_INVALID",
+          assetBase: s.assetBase || null,
+          sessionId: s.sessionId || null
+        }, "*");
+      } catch (_) {}
+    }
+  }
+  assertStageProxyContract();
+
+  function getCanvasContextType(canvas) {
+    if (!canvas) return null;
+    return (
+      canvas.__stage_context_type ||
+      canvas.stagecontexttype ||
+      (typeof canvas.__stage_gl === "string" ? canvas.__stage_gl : null) ||
+      null
+    );
+  }
+  window.getCanvasContextType = getCanvasContextType;
+
+  // SAFE — read-only canvas inspection, no getContext() call
+  function inspectCanvasesSafely() {
+    const canvases = Array.from(document.querySelectorAll("canvas"));
+    return canvases.map(c => ({
+      width: c.width,
+      height: c.height,
+      clientWidth: c.clientWidth,
+      clientHeight: c.clientHeight,
+      contextType: getCanvasContextType(c)
+    }));
+  }
+  window.inspectCanvasesSafely = inspectCanvasesSafely;
+  if (window.STAGE) {
+    window.STAGE.inspectCanvasesSafely = inspectCanvasesSafely;
+  }
+
+  async function instantiateWasmCompat(source, imports) {
+    try {
+      return await WebAssembly.instantiateStreaming(source, imports);
+    } catch (streamingError) {
+      let response;
+      if (source instanceof Response) {
+        response = source.clone();
+      } else {
+        response = await source;
+      }
+      const bytes = await response.arrayBuffer();
+      try {
+        return await WebAssembly.instantiate(bytes, imports);
+      } catch (bufferError) {
+        try {
+          window.parent?.postMessage({
+            type: "STAGE_WASM_FAILED",
+            streamingError: String(streamingError),
+            bufferError: String(bufferError)
+          }, "*");
+        } catch (_) {}
+        throw bufferError;
+      }
+    }
+  }
+  window.instantiateWasmCompat = instantiateWasmCompat;
+
   window.lastpageurl = window.lastpageurl || window.__STAGE_TARGET_URL__ || TARGET_URL;
 
   let feedbackModeActive = false;
@@ -82,6 +175,26 @@
     originalConsoleError.apply(console, args);
   };
 
+  function postAssetDiagnostic(url, status, mime, bytes, reason) {
+    try {
+      if (!url || typeof url !== 'string') return;
+      const parsed = new URL(url, window.location.href);
+      const ext = parsed.pathname.split('.').pop()?.toLowerCase() || '';
+      window.parent?.postMessage({
+        type: "STAGE_DIAGNOSTIC",
+        code: "ASSET_FAILURE",
+        url,
+        host: parsed.hostname,
+        ext,
+        status: typeof status === 'number' ? status : 0,
+        mime: mime || null,
+        bytes: bytes ?? null,
+        reason: reason || null,
+        timestamp: new Date().toISOString()
+      }, "*");
+    } catch (_) {}
+  }
+
   window.addEventListener('error', function(e) {
     const target = e.target || e.srcElement;
     const isAsset = target && (target.tagName === 'IMG' || target.tagName === 'SCRIPT' || target.tagName === 'LINK');
@@ -95,6 +208,13 @@
           tagName: target.tagName,
           timestamp: new Date().toISOString()
         }, '*');
+        postAssetDiagnostic(
+          url,
+          0,
+          null,
+          null,
+          `element-error-${target.tagName.toLowerCase()}`
+        );
       }
     } else {
       pushCircular(window.__STAGE__.consoleErrors, {
@@ -159,17 +279,9 @@
       return url;
     }
 
-    const pmBase = window.__STAGE_BASE__ || (window.__STAGE_SESSION__?.proxy_base_url) || (window.__STAGE__?.proxy_base_url);
-    if (pmBase) {
-      try {
-        const parsedProxy = new URL(absoluteUrl);
-        const scheme = parsedProxy.protocol.replace(':', '');
-        const host = parsedProxy.host;
-        const path = parsedProxy.pathname.slice(1) + parsedProxy.search + parsedProxy.hash;
-        return `${pmBase}/asset/${scheme}/${host}/${path}`;
-      } catch (e) {
-        return `${pmBase}/asset?url=${encodeURIComponent(absoluteUrl)}`;
-      }
+    const rewritten = buildStageAssetUrl(absoluteUrl);
+    if (rewritten !== absoluteUrl) {
+      return rewritten;
     }
     return url;
   }
@@ -202,25 +314,42 @@
           method: method,
           timestamp: new Date().toISOString()
         });
+        postAssetDiagnostic(
+          response.url || (typeof input === 'string' ? input : input?.url),
+          response.status,
+          response.headers?.get?.("content-type"),
+          null,
+          `http-${response.status}`
+        );
       }
       return response;
     } catch (err) {
+      const requestUrl = typeof input === 'string' ? input : input?.url || "unknown";
       pushCircular(window.__STAGE__.networkErrors, {
-        url: typeof input === 'string' ? input : input?.url || "unknown",
+        url: requestUrl,
         status: 0,
         method: method,
         timestamp: new Date().toISOString()
       });
+      postAssetDiagnostic(
+        requestUrl,
+        0,
+        null,
+        null,
+        "network-error"
+      );
       throw err;
     }
   };
 
   const originalXHROpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function(method, url, ...args) {
+    this._originalUrl = url;
     if (url && typeof url === 'string') {
       url = rewriteAssetUrl(url, method);
     }
     this._method = method;
+    this._rewrittenUrl = url;
     return originalXHROpen.apply(this, [method, url, ...args]);
   };
 
@@ -252,12 +381,20 @@
   XMLHttpRequest.prototype.send = function(...args) {
     this.addEventListener('loadend', function() {
       if (this.status >= 400 || this.status === 0) {
+        const targetUrl = this.responseURL || this._rewrittenUrl || this._originalUrl || "unknown";
         pushCircular(window.__STAGE__.networkErrors, {
-          url: this.responseURL,
+          url: targetUrl,
           status: this.status,
           method: this._method || "unknown",
           timestamp: new Date().toISOString()
         });
+        postAssetDiagnostic(
+          targetUrl,
+          this.status,
+          this.getResponseHeader ? this.getResponseHeader("content-type") : null,
+          null,
+          this.status === 0 ? "network-error" : `http-${this.status}`
+        );
       }
     });
     return originalXHRSend.apply(this, args);
@@ -268,27 +405,14 @@
     const canvases = Array.from(document.querySelectorAll("canvas"));
     const hasCanvas = canvases.length > 0;
     
-    // 1. Canvas with non-zero dimensions
-    let hasNonZeroCanvas = false;
-    if (hasCanvas) {
-      for (const canvas of canvases) {
-        if (canvas.width > 0 && canvas.height > 0) {
-          hasNonZeroCanvas = true;
-          break;
-        }
-      }
-    }
-
-    // 2. WebGL contexts available
-    const webglCtxAvailable = !!(window.WebGLRenderingContext || window.WebGL2RenderingContext);
-
-    // 3. Canvas element has active WebGL context
+    // 1. Check for WebGL contexts
     let hasActiveWebGLContext = false;
     let activeWebGL2Context = false;
     let hasCanvas2D = false;
+    
     if (hasCanvas) {
       for (const canvas of canvases) {
-        var ctxType = canvas.__stage_context_type;
+        const ctxType = getCanvasContextType(canvas);
         if (ctxType) {
           if (ctxType === "webgl2") {
             hasActiveWebGLContext = true;
@@ -301,44 +425,30 @@
         }
       }
     }
-
-    // 4. Global presence of Three.js / R3F / Babylon / pc / Phaser / PIXI
-    const hasThree = typeof THREE !== "undefined" || !!window.__STAGE__?.threeRenderer || !!window.__r3f;
-    const hasPixi = typeof PIXI !== "undefined" || !!window.PIXI;
-    const hasBabylon = typeof BABYLON !== "undefined" || !!window.BABYLON;
-    const hasPhaser = typeof Phaser !== "undefined" || !!window.Phaser;
-    const hasPlayCanvas = typeof pc !== "undefined" || !!window.pc;
-    const threeDetected = hasThree || hasPixi || hasBabylon || hasPhaser || hasPlayCanvas;
-
-    // 5. requestAnimationFrame calls in a 1-second window
+    
+    // 2. Check for Three.js globals (even if bundled)
+    const hasThree = typeof window.__THREE__ !== 'undefined' || 
+                     typeof window.THREE !== 'undefined' || 
+                     !!window.__r3f;
+    
+    // 3. Check for canvas dimensions (WebGL canvases are usually large)
+    let hasLargeCanvas = false;
+    if (hasCanvas) {
+      for (const canvas of canvases) {
+        if (canvas.width > 100 && canvas.height > 100) {
+          hasLargeCanvas = true;
+          break;
+        }
+      }
+    }
+    
+    // 4. Check for requestAnimationFrame activity
     const rafDetected = rAFActive || (rAFCount > 3);
-
-    // 6. CSS animations or keyframes on > 10 elements
-    let cssAnimCount = 0;
-    try {
-      document.querySelectorAll("*").forEach(el => {
-        const styles = window.getComputedStyle(el);
-        if (styles.animationName && styles.animationName !== "none") {
-          cssAnimCount++;
-        }
-      });
-    } catch (e) {}
-    const hasCssAnimations = cssAnimCount > 10;
-
-    // 7. Large hero elements with transform/translate styles
-    let hasLargeHeroTransforms = false;
-    try {
-      document.querySelectorAll("*").forEach(el => {
-        const rect = el.getBoundingClientRect();
-        if (rect.width > window.innerWidth * 0.5 && rect.height > window.innerHeight * 0.5) {
-          const styles = window.getComputedStyle(el);
-          if (styles.transform && styles.transform !== "none") {
-            hasLargeHeroTransforms = true;
-          }
-        }
-      });
-    } catch (e) {}
-
+    
+    // 5. Check for WebGL-specific globals
+    const hasWebGLGlobals = typeof window.WebGLRenderingContext !== 'undefined' ||
+                            typeof window.WebGL2RenderingContext !== 'undefined';
+    
     // Check client-side routing / SPA frameworks
     const hasSPA = !!(
       window.next || 
@@ -351,23 +461,26 @@
       (window.history && window.history.pushState)
     );
 
-    // Mixed mode heuristic: has canvas/WebGL/Three and a significant DOM layout (> 15 interactive elements)
-    const paragraphs = document.querySelectorAll("p, span, a, button, h1, h2, h3, h4, h5, h6, input, label").length;
-    const isMixed = (hasActiveWebGLContext || hasCanvas2D) && paragraphs > 15;
-
+    // Decision tree
     let detectedType = "dom";
-    if (activeWebGL2Context) {
-      detectedType = isMixed ? "mixed" : "webgl2";
-    } else if (hasActiveWebGLContext) {
-      detectedType = isMixed ? "mixed" : "webgl";
-    } else if (hasCanvas2D) {
-      detectedType = isMixed ? "mixed" : "canvas2d";
+    if (activeWebGL2Context || (hasThree && hasLargeCanvas)) {
+      detectedType = "webgl2";
+    } else if (hasActiveWebGLContext || (hasThree && hasCanvas)) {
+      detectedType = "webgl";
+    } else if (hasCanvas2D && hasLargeCanvas) {
+      detectedType = "canvas2d";
+    } else if (hasCanvas) {
+      detectedType = "mixed";
     } else if (hasSPA) {
       detectedType = "spa";
+    } else {
+      detectedType = "dom";
     }
 
     // Set globally on window
     window.__STAGE_RENDERER__ = detectedType;
+    if (window.STAGE) window.STAGE.rendererType = detectedType;
+    if (window.__STAGE__) window.__STAGE__.rendererType = detectedType;
 
     return detectedType;
   }
@@ -1166,22 +1279,10 @@
       const siblingCount = parent ? parent.children.length - 1 : 0;
       const isFullscreen = (bbox.width > window.innerWidth * 0.8) && (bbox.height > window.innerHeight * 0.8);
 
-      let activeContextType = canvas.__stage_context_type || null;
+      let activeContextType = getCanvasContextType(canvas);
       if (!activeContextType) {
-        if (canvas.__stage_gl) {
-          activeContextType = "webgl";
-        } else if (canvas.__stage_2d) {
+        if (canvas.__stage_2d) {
           activeContextType = "canvas-2d";
-        } else {
-          try {
-            if (canvas.getContext("webgl2")) {
-              activeContextType = "webgl2";
-            } else if (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) {
-              activeContextType = "webgl";
-            } else if (canvas.getContext("2d")) {
-              activeContextType = "canvas-2d";
-            }
-          } catch(e) {}
         }
       }
 
@@ -1190,9 +1291,9 @@
         rendererHint = 'three.js';
       } else if (activeContextType === 'webgl2') {
         rendererHint = 'webgl2';
-      } else if (activeContextType === 'webgl') {
+      } else if (activeContextType === 'webgl' || /webgl/i.test(activeContextType || '')) {
         rendererHint = 'webgl';
-      } else if (activeContextType === 'canvas-2d') {
+      } else if (activeContextType === 'canvas-2d' || activeContextType === '2d') {
         rendererHint = 'canvas2d';
       }
 
@@ -1244,8 +1345,8 @@
   }
 
   function getWebGLContext(e, canvas) {
-    const gl = canvas.__stage_gl || (canvas.getContext && (canvas.getContext("webgl2") || canvas.getContext("webgl")));
-    if (!gl) return null;
+    const gl = (canvas.__stage_gl && typeof canvas.__stage_gl === "object") ? canvas.__stage_gl : null;
+    if (!gl || typeof gl.getParameter !== "function") return null;
     return {
       type: "webgl",
       canvas_coords: { x: e.clientX, y: e.clientY },
@@ -1680,17 +1781,18 @@
       let canvasCtx = null;
       if (isCanvas) {
         const canvasBbox = target.getBoundingClientRect();
-        const gl = target.getContext("webgl") || target.getContext("webgl2") || target.getContext("experimental-webgl");
+        const contextType = getCanvasContextType(target);
+        const isGL = /webgl/i.test(contextType || "");
         let baseCtx = {};
         if (rendererType === "threejs" || window.THREE || target.__three) {
           baseCtx = getThreeJSContext(e, target);
-        } else if (gl) {
+        } else if (isGL) {
           baseCtx = getWebGLContext(e, target) || {};
         }
         canvasCtx = {
           ...baseCtx,
           hit_detail: baseCtx.hit_found ? baseCtx : null,
-          type: gl ? "webgl" : "canvas2d",
+          type: isGL ? "webgl" : "canvas2d",
           canvas_coords: { x: Math.round(clickX - canvasBbox.left), y: Math.round(clickY - canvasBbox.top) },
           canvas_rect: {
             x: Math.round(canvasBbox.x),
@@ -1700,7 +1802,7 @@
             top: Math.round(canvasBbox.top),
             left: Math.round(canvasBbox.left)
           },
-          scene_hint: (rendererType === "threejs" || window.THREE || target.__three) ? "Three.js Scene" : gl ? "WebGL Context" : "Canvas 2D Context",
+          scene_hint: (rendererType === "threejs" || window.THREE || target.__three) ? "Three.js Scene" : isGL ? "WebGL Context" : "Canvas 2D Context",
           pixel_ratio: window.devicePixelRatio || 1,
           draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
         };
@@ -2069,6 +2171,21 @@
       resolveAndSendPins();
     }
 
+    if (data.type === "STAGE_WEBGL_CONTEXT_LOST") {
+      console.warn('[STAGE Agent] WebGL context lost:', data);
+      if (window.__STAGE__) window.__STAGE__.rendererType = 'degraded-webgl';
+      if (window.STAGE) window.STAGE.rendererType = 'degraded-webgl';
+      window.__STAGE_RENDERER__ = 'degraded-webgl';
+    }
+
+    if (data.type === "STAGE_WEBGL_CONTEXT_RESTORED") {
+      console.log('[STAGE Agent] WebGL context restored:', data);
+      const restoredType = detectRenderer();
+      if (window.__STAGE__) window.__STAGE__.rendererType = restoredType;
+      if (window.STAGE) window.STAGE.rendererType = restoredType;
+      window.__STAGE_RENDERER__ = restoredType;
+    }
+
     // ── Cursor relay — receive parent cursor position and re-emit as real events
     if (data.type === "STAGE_CURSOR_MOVE") {
       if (typeof data.x === 'number' && typeof data.y === 'number') {
@@ -2276,9 +2393,11 @@
           try { screenshotDataUrl = largestCanvas.toDataURL("image/png"); } catch (_) {}
           
           const bbox = largestCanvas.getBoundingClientRect();
-          const gl = largestCanvas.getContext("webgl") || largestCanvas.getContext("webgl2") || largestCanvas.getContext("experimental-webgl");
+          const contextType = getCanvasContextType(largestCanvas);
+          const isGL = /webgl/i.test(contextType || "");
+          const gl = (largestCanvas.__stage_gl && typeof largestCanvas.__stage_gl === "object") ? largestCanvas.__stage_gl : null;
           canvasCtx = {
-            type: gl ? "webgl" : "canvas2d",
+            type: isGL ? "webgl" : "canvas2d",
             canvas_coords: { x: Math.round(window.innerWidth / 2 - bbox.left), y: Math.round(window.innerHeight / 2 - bbox.top) },
             canvas_rect: {
               x: Math.round(bbox.x),
@@ -2288,9 +2407,9 @@
               top: Math.round(bbox.top),
               left: Math.round(bbox.left)
             },
-            scene_hint: gl ? "WebGL Context" : "Canvas 2D Context",
+            scene_hint: isGL ? "WebGL Context" : "Canvas 2D Context",
             pixel_ratio: window.devicePixelRatio || 1,
-            draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
+            draw_call_hint: (gl && typeof gl.getParameter === "function") ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
           };
         } else {
           screenshotDataUrl = await captureScreenshot(target);
@@ -2607,64 +2726,107 @@
       }
     }
 
-    // ── Site Readiness Signal ──────────────────────────────────────────────
-    // For heavy sites: wait for non-zero canvas, WebGL init, rAF tick, plus settle time.
-    // For normal sites: signal ready after window.load.
-    function signalSiteReady() {
-      function checkCanvasWebGLReady(callback) {
-        if (!isHeavyPage) return callback();
-        var maxWait = Date.now() + 2000;
-        function poll() {
-          var canvases = document.querySelectorAll('canvas');
-          var hasCanvas = canvases.length > 0;
-          var canvasNonZero = false;
-          if (hasCanvas) {
-            for (var i = 0; i < canvases.length; i++) {
-              var c = canvases[i];
-              if ((c.clientWidth > 0 && c.clientHeight > 0) || (c.width > 0 && c.height > 0)) {
-                canvasNonZero = true;
-                break;
-              }
-            }
+    // ── Multi-Signal Site Readiness ──────────────────────────────────────────
+    (function installStageReadiness() {
+      if (window.__STAGE_READINESS_INSTALLED__) return;
+      window.__STAGE_READINESS_INSTALLED__ = true;
+
+      const startedAt = performance.now();
+      let readySent = false;
+      let rafFrames = 0;
+      let firstCanvasSeen = false;
+      let firstWebGLSeen = false;
+      let fatalAssetFailure = false;
+
+      const sendReady = function(degraded) {
+        if (readySent) return;
+        readySent = true;
+        const canvases = Array.from(document.querySelectorAll("canvas"));
+        const visibleCanvas = canvases.find(function(canvas) {
+          const rect = canvas.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+        const rendererType = window.STAGE?.rendererType || window.__STAGE__?.rendererType || (firstWebGLSeen ? "webgl" : "dom");
+        const isHeavy = rendererType !== "dom" || isHeavyPage || firstWebGLSeen;
+
+        window.parent?.postMessage({
+          type: "STAGE_SITE_READY",
+          rendererType: rendererType,
+          renderer_type: rendererType,
+          heavymode: isHeavy,
+          heavy_mode: isHeavy,
+          degraded: !!degraded,
+          elapsedMs: Math.round(performance.now() - startedAt),
+          canvas: visibleCanvas ? {
+            width: visibleCanvas.width,
+            height: visibleCanvas.height,
+            clientWidth: visibleCanvas.clientWidth,
+            clientHeight: visibleCanvas.clientHeight
+          } : null,
+          rafFrames: rafFrames,
+          fatalAssetFailure: fatalAssetFailure,
+          session_id: window.__STAGE__?.sessionId || (window.STAGE && window.STAGE.sessionId) || "",
+          url: getAbsoluteTargetUrl(),
+          title: document.title || ""
+        }, "*");
+        console.log('[STAGE] STAGE_SITE_READY dispatched. degraded=' + !!degraded + ' renderer=' + rendererType + ' heavy=' + isHeavy);
+      };
+
+      function check() {
+        const canvases = Array.from(document.querySelectorAll("canvas"));
+        firstCanvasSeen = canvases.length > 0;
+        const visibleCanvas = canvases.some(function(canvas) {
+          const rect = canvas.getBoundingClientRect();
+          const contextType = getCanvasContextType(canvas);
+          if (/webgl/i.test(contextType || "")) {
+            firstWebGLSeen = true;
           }
-          var isWebGLSite = currentRenderer === 'webgl' || currentRenderer === 'webgl2' || currentRenderer === 'threejs';
-          // Check real attributes: stagecontexttype, window.STAGE, and active WebGL context
-          var hasGL = !isWebGLSite || (window.STAGE && (window.STAGE.hasWebGL || window.STAGE.rendererType !== 'dom')) || (hasCanvas && Array.from(canvases).some(function(c) {
-            return c.stagecontexttype === 'webgl' || c.stagecontexttype === 'webgl2' || c.__stage_gl;
-          }));
-          if ((!hasCanvas || (canvasNonZero && hasGL)) || Date.now() > maxWait) {
+          return rect.width > 0 && rect.height > 0;
+        });
+
+        const domReady = document.readyState === "interactive" || document.readyState === "complete";
+        const good = domReady && (
+          !firstCanvasSeen || (visibleCanvas && (firstWebGLSeen || rafFrames > 0))
+        );
+
+        if (good) {
+          requestAnimationFrame(function() {
             requestAnimationFrame(function() {
-              requestAnimationFrame(callback);
+              sendReady(false);
             });
-          } else {
-            setTimeout(poll, 50);
-          }
+          });
+          return;
         }
-        poll();
+
+        if (performance.now() - startedAt >= 4000) {
+          sendReady(true);
+          return;
+        }
+
+        setTimeout(check, 50);
       }
 
-      checkCanvasWebGLReady(function() {
-        var activeRenderer = window.__STAGE__.rendererType || currentRenderer;
-        var settleMs = isHeavyPage ? 1500 : 300;
-        setTimeout(function() {
-          window.parent.postMessage({
-            type: "STAGE_SITE_READY",
-            heavy_mode: isHeavyPage,
-            renderer_type: activeRenderer,
-            session_id: window.__STAGE__.sessionId || "",
-            url: getAbsoluteTargetUrl(),
-            title: document.title || ""
-          }, "*");
-          console.log('[STAGE] STAGE_SITE_READY sent. heavy_mode=' + isHeavyPage + ' renderer=' + activeRenderer + ' settle=' + settleMs + 'ms');
-        }, settleMs);
-      });
-    }
+      const originalRAF = window.requestAnimationFrame;
+      window.requestAnimationFrame = function(callback) {
+        return originalRAF.call(window, function(time) {
+          rafFrames += 1;
+          callback(time);
+        });
+      };
 
-    if (document.readyState === 'complete') {
-      signalSiteReady();
-    } else {
-      window.addEventListener('load', signalSiteReady, { once: true });
-    }
+      window.addEventListener("error", function(event) {
+        const target = event.target;
+        if (target && (target.tagName === "SCRIPT" || target.tagName === "LINK")) {
+          fatalAssetFailure = true;
+        }
+      }, true);
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", check, { once: true });
+      } else {
+        check();
+      }
+    })();
 
     // Run detection again after 2000ms to catch late rendering elements
     setTimeout(() => {

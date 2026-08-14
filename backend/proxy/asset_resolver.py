@@ -13,6 +13,15 @@ COMMON_ASSET_EXTENSIONS = {
     ".mp4", ".webm", ".ogg", ".mp3", ".wav"
 }
 
+BINARY_3D_EXTENSIONS = {
+    ".glb", ".gltf", ".fbx", ".bin", ".wasm", ".hdr", ".exr",
+    ".ktx2", ".basis", ".obj", ".mtl", ".usdz", ".ply", ".splat", ".drc"
+}
+
+def is_binary_3d_url(url: str) -> bool:
+    path = urllib.parse.urlparse(url).path.lower()
+    return any(path.endswith(ext) for ext in BINARY_3D_EXTENSIONS)
+
 def resolve_asset_url(url: str, target_origin: str) -> tuple[str, str]:
     """
     Resolves relative asset paths against the original target_origin.
@@ -40,13 +49,23 @@ def resolve_asset_url(url: str, target_origin: str) -> tuple[str, str]:
 
 def get_asset_failure_fallback(url: str, status_code: int = 404) -> Response:
     """
-    Returns a graceful fallback instead of failing with 500 when an asset fails to resolve.
+    Returns a graceful fallback instead of failing with unhandled 500 when an asset fails to resolve.
+    For 3D binary assets, returns an explicit error with X-STAGE-Asset-Error header so loaders do not receive corrupted empty payloads.
     """
     parsed = urllib.parse.urlparse(url)
     ext = os.path.splitext(parsed.path)[1].lower()
     
     logger.info(f"[ASSET RESOLVER] Resolution failure fallback for {url} (code={status_code})")
     
+    if ext in BINARY_3D_EXTENSIONS:
+        resp = Response(
+            content=f"3D asset failed to load ({status_code})".encode("utf-8"),
+            status_code=status_code if status_code in (403, 404, 502, 504) else 502,
+            media_type="text/plain"
+        )
+        resp.headers["X-STAGE-Asset-Error"] = f"upstream-{status_code}"
+        return resp
+
     if ext == ".css":
         return Response(content=b"", media_type="text/css", status_code=200)
     if ext in (".js", ".mjs"):
@@ -60,3 +79,4 @@ def get_asset_failure_fallback(url: str, status_code: int = 404) -> Response:
         return Response(content=transparent_svg, media_type="image/svg+xml", status_code=200)
         
     return Response(content=b"", status_code=204)
+

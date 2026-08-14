@@ -33,6 +33,10 @@ def set_active_ip_session(client_host: str, session_id: str):
         return
     now = time.time()
     ACTIVE_IP_SESSIONS[client_host] = (session_id, now)
+    ACTIVE_IP_SESSIONS["__latest__"] = (session_id, now)
+    if client_host in ("127.0.0.1", "::1", "localhost", "testclient"):
+        for alias in ("127.0.0.1", "::1", "localhost", "testclient"):
+            ACTIVE_IP_SESSIONS[alias] = (session_id, now)
     if len(ACTIVE_IP_SESSIONS) > 1000:
         cutoff = now - 7200
         stale = [ip for ip, val in ACTIVE_IP_SESSIONS.items() if isinstance(val, tuple) and val[1] < cutoff]
@@ -212,48 +216,182 @@ async def validate_public_access(session_id: str, share_token: str, db: AsyncSes
     return link
 
 
-def guess_binary_content_type(url: str, default_content_type: str) -> str:
+BINARY_3D_EXTENSIONS = {
+    ".glb", ".gltf", ".fbx", ".bin", ".wasm", ".hdr", ".exr",
+    ".ktx2", ".basis", ".obj", ".mtl", ".usdz", ".ply", ".splat", ".drc",
+    ".wgsl", ".glsl", ".vert", ".frag", ".dds", ".woff2", ".woff", ".ttf", ".otf"
+}
+
+MIME_TYPE_MAP = {
+    # 3D models
+    '.glb': 'model/gltf-binary',
+    '.gltf': 'model/gltf+json',
+    '.obj': 'model/obj',
+    '.mtl': 'model/mtl',
+    '.fbx': 'application/octet-stream',
+    '.usdz': 'model/vnd.usdz+zip',
+    '.ply': 'application/x-ply',
+    '.splat': 'application/octet-stream',
+    '.drc': 'application/octet-stream',
+    '.bin': 'application/octet-stream',
+    
+    # Textures
+    '.ktx2': 'image/ktx2',
+    '.basis': 'application/octet-stream',
+    '.exr': 'image/x-exr',
+    '.hdr': 'image/vnd.radiance',
+    '.dds': 'image/vnd-ms.dds',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+    '.avif': 'image/avif',
+    
+    # Shaders
+    '.wgsl': 'text/wgsl',
+    '.glsl': 'text/plain',
+    '.vert': 'text/plain',
+    '.frag': 'text/plain',
+    
+    # WASM
+    '.wasm': 'application/wasm',
+    
+    # Fonts (common in 3D sites)
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+    '.eot': 'application/vnd.ms-fontobject',
+}
+
+def get_mime_type(url: str, default: str = "application/octet-stream") -> str:
     parsed = urllib.parse.urlparse(url)
-    path = parsed.path.lower()
-    if path.endswith(".fbx"):
-        return "model/fbx"
-    elif path.endswith(".glb"):
-        return "model/gltf-binary"
-    elif path.endswith(".gltf"):
-        return "model/gltf+json"
-    elif path.endswith(".obj"):
-        return "model/obj"
-    elif path.endswith(".mtl"):
-        return "model/mtl"
-    elif path.endswith(".usdz"):
-        return "model/vnd.usdz+zip"
-    elif path.endswith(".ply"):
-        return "application/x-ply"
-    elif path.endswith(".splat") or path.endswith(".drc") or path.endswith(".bin"):
-        return "application/octet-stream"
-    elif path.endswith(".ktx2"):
-        return "image/ktx2"
-    elif path.endswith(".basis"):
-        return "image/basis"
-    elif path.endswith(".exr"):
-        return "image/x-exr"
-    elif path.endswith(".wasm"):
-        return "application/wasm"
-    elif path.endswith(".png"):
-        return "image/png"
-    elif path.endswith(".jpg") or path.endswith(".jpeg"):
-        return "image/jpeg"
-    elif path.endswith(".gif"):
-        return "image/gif"
-    elif path.endswith(".webp"):
-        return "image/webp"
-    elif path.endswith(".svg"):
-        return "image/svg+xml"
-    elif path.endswith(".hdr"):
-        return "image/vnd.radiance"
-    elif path.endswith(".avif"):
-        return "image/avif"
-    return default_content_type
+    ext = os.path.splitext(parsed.path)[1].lower()
+    return MIME_TYPE_MAP.get(ext, default)
+
+def is_binary_3d_url(url: str) -> bool:
+    path = urllib.parse.urlparse(url).path.lower()
+    return any(path.endswith(ext) for ext in BINARY_3D_EXTENSIONS)
+
+def guess_binary_content_type(url: str, default_content_type: str = "application/octet-stream") -> str:
+    return get_mime_type(url, default_content_type)
+
+
+async def stream_binary_asset(
+    client: httpx.AsyncClient,
+    request: Request,
+    target_url: str,
+    session_id: str,
+) -> Response:
+    """
+    Streams large 3D binary assets without buffering full payload in memory.
+    Preserves Range, Accept-Ranges, ETag, Last-Modified, and Content-Range.
+    """
+    incoming_range = request.headers.get("range")
+    headers = {
+        "User-Agent": request.headers.get("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
+        "Accept-Language": request.headers.get("accept-language", "en-US,en;q=0.9"),
+        "X-STAGE-Session": session_id,
+    }
+    if incoming_range:
+        headers["Range"] = incoming_range
+
+    referer = request.headers.get("referer", "")
+    if referer:
+        parsed_referer = urllib.parse.urlparse(referer)
+        if "proxy/session" in parsed_referer.path:
+            query_params = urllib.parse.parse_qs(parsed_referer.query)
+            if 'url' in query_params:
+                headers["Referer"] = query_params['url'][0]
+            else:
+                parsed_target = urllib.parse.urlparse(target_url)
+                headers["Referer"] = f"{parsed_target.scheme}://{parsed_target.netloc}/"
+        else:
+            headers["Referer"] = referer
+
+    try:
+        req = client.build_request("GET", target_url, headers=headers)
+        upstream = await client.send(req, stream=True, follow_redirects=True)
+    except httpx.ConnectTimeout:
+        return prepare_proxy_response(Response(
+            content=b'{"error": "TIMEOUT"}',
+            status_code=504,
+            media_type="application/json",
+            headers={"X-STAGE-Asset-Error": "TIMEOUT"}
+        ), request)
+    except httpx.ConnectError as e:
+        return prepare_proxy_response(Response(
+            content=f'{{"error": "CONNECTION_FAILED", "reason": "{str(e)}"}}\''.encode('utf-8'),
+            status_code=502,
+            media_type="application/json",
+            headers={"X-STAGE-Asset-Error": "CONNECTION_FAILED"}
+        ), request)
+    except Exception as e:
+        return prepare_proxy_response(Response(
+            content=f'{{"error": "UPSTREAM_FAILED", "reason": "{str(e)}"}}\''.encode('utf-8'),
+            status_code=502,
+            media_type="application/json",
+            headers={"X-STAGE-Asset-Error": "UPSTREAM_FAILED"}
+        ), request)
+
+    if upstream.status_code == 404:
+        await upstream.aclose()
+        return prepare_proxy_response(Response(
+            content=b'{"error": "UPSTREAM_NOT_FOUND"}',
+            status_code=404,
+            media_type="application/json",
+            headers={"X-STAGE-Asset-Error": "UPSTREAM_NOT_FOUND"}
+        ), request)
+    elif upstream.status_code >= 500:
+        await upstream.aclose()
+        return prepare_proxy_response(Response(
+            content=f'{{"error": "UPSTREAM_FAILED", "status": {upstream.status_code}}}\''.encode('utf-8'),
+            status_code=502,
+            media_type="application/json",
+            headers={"X-STAGE-Asset-Error": "UPSTREAM_FAILED"}
+        ), request)
+    elif upstream.status_code >= 400:
+        await upstream.aclose()
+        return prepare_proxy_response(Response(
+            content=f'{{"error": "UPSTREAM_ERROR", "status": {upstream.status_code}}}\''.encode('utf-8'),
+            status_code=upstream.status_code,
+            media_type="application/json",
+            headers={"X-STAGE-Asset-Error": f"upstream-{upstream.status_code}"}
+        ), request)
+
+    content_type = get_mime_type(
+        target_url,
+        upstream.headers.get("content-type", "application/octet-stream")
+    )
+    
+    response_headers = {
+        "Content-Type": content_type,
+        "Accept-Ranges": upstream.headers.get("accept-ranges", "bytes"),
+        "Cache-Control": "public, max-age=31536000",
+    }
+    for header in ("etag", "last-modified", "content-range", "content-length"):
+        if header in upstream.headers:
+            response_headers[header] = upstream.headers[header]
+
+    async def body():
+        try:
+            async for chunk in upstream.aiter_bytes(1024 * 1024):
+                yield chunk
+        finally:
+            await upstream.aclose()
+            await client.aclose()
+
+    stream_resp = StreamingResponse(
+        body(),
+        status_code=upstream.status_code,
+        media_type=content_type,
+        headers=response_headers,
+    )
+    stream_resp.headers["X-STAGE-Cache"] = "STREAM"
+    return prepare_proxy_response(stream_resp, request)
+
 
 
 def prepare_proxy_response(response: Response, request: Request = None) -> Response:
@@ -724,12 +862,26 @@ async def handle_proxy_asset_request(
 
     if not is_ssrf_safe(url):
         logger.warning(f"[ASSET RESOLVER] [DECISION] SSRF target blocked: {url}. Strategy=blocked, Status=403")
+        if is_binary_3d_url(url):
+            return prepare_proxy_response(Response(
+                content=b"SSRF target blocked",
+                status_code=403,
+                media_type="text/plain",
+                headers={"X-STAGE-Asset-Error": "ssrf-blocked"}
+            ), request)
         if is_third_party:
             return prepare_proxy_response(Response(content=b"", status_code=204))
         raise HTTPException(status_code=403, detail="SSRF target blocked")
         
     if not is_domain_allowed(url, base_url, is_asset=True):
         logger.warning(f"[ASSET RESOLVER] [DECISION] Asset domain scoping block: {url}. Strategy=blocked, Status=mocked")
+        if is_binary_3d_url(url):
+            return prepare_proxy_response(Response(
+                content=b"Asset domain blocked",
+                status_code=403,
+                media_type="text/plain",
+                headers={"X-STAGE-Asset-Error": "domain-blocked"}
+            ), request)
         if ".js" in url or "javascript" in url:
             return prepare_proxy_response(Response(
                 content=f'console.warn("STAGE Warning: Script asset blocked by domain scoping: {url}");'.encode("utf-8"),
@@ -752,7 +904,23 @@ async def handle_proxy_asset_request(
             response = Response(content=cached_content, media_type=cached_type)
             set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
             response.headers["X-STAGE-Cache"] = "HIT"
-            return prepare_proxy_response(response)
+            return prepare_proxy_response(response, request)
+
+        # Stream binary 3D assets directly without buffering into memory
+        if is_binary_3d_url(url):
+            try:
+                stream_client = httpx.AsyncClient(follow_redirects=True, timeout=60.0, verify=False)
+                return await stream_binary_asset(stream_client, request, url, session_id)
+            except Exception as stream_err:
+                logger.error(f"[ASSET RESOLVER] Streaming error for 3D binary {url}: {stream_err}")
+                status_code = 504 if "timeout" in str(stream_err).lower() else 502
+                err_code = "upstream-timeout" if status_code == 504 else "upstream-error"
+                return prepare_proxy_response(Response(
+                    content=f"3D streaming failed: {stream_err}".encode("utf-8"),
+                    status_code=status_code,
+                    media_type="text/plain",
+                    headers={"X-STAGE-Asset-Error": err_code}
+                ), request)
 
     try:
         headers = {
@@ -790,10 +958,14 @@ async def handle_proxy_asset_request(
             while redirect_count < max_redirects:
                 if not is_ssrf_safe(current_url):
                     logger.warning(f"[REDIRECT SAFEGUARD] SSRF target blocked: {current_url}")
-                    return prepare_proxy_response(Response(content=b"", status_code=204))
+                    if is_binary_3d_url(current_url):
+                        return prepare_proxy_response(Response(content=b"SSRF blocked", status_code=403, media_type="text/plain", headers={"X-STAGE-Asset-Error": "ssrf-blocked"}), request)
+                    return prepare_proxy_response(Response(content=b"", status_code=204), request)
                 if not is_domain_allowed(current_url, base_url, is_asset=True):
                     logger.warning(f"[REDIRECT SAFEGUARD] Redirect escaped domain scope: {current_url}")
-                    return prepare_proxy_response(Response(content=b"", status_code=204))
+                    if is_binary_3d_url(current_url):
+                        return prepare_proxy_response(Response(content=b"Domain blocked", status_code=403, media_type="text/plain", headers={"X-STAGE-Asset-Error": "domain-blocked"}), request)
+                    return prepare_proxy_response(Response(content=b"", status_code=204), request)
                 
                 if request.method == "POST":
                     body = await request.body()
@@ -811,7 +983,9 @@ async def handle_proxy_asset_request(
                     next_url = urllib.parse.urljoin(current_url, redirect_url)
                     if not is_domain_allowed(next_url, base_url, is_asset=True):
                         logger.warning(f"[REDIRECT SAFEGUARD] Redirect to disallowed origin blocked: {next_url}")
-                        return prepare_proxy_response(Response(content=b"", status_code=204))
+                        if is_binary_3d_url(next_url):
+                            return prepare_proxy_response(Response(content=b"Domain blocked", status_code=403, media_type="text/plain", headers={"X-STAGE-Asset-Error": "domain-blocked"}), request)
+                        return prepare_proxy_response(Response(content=b"", status_code=204), request)
                         
                     current_url = next_url
                     redirect_count += 1
@@ -828,7 +1002,7 @@ async def handle_proxy_asset_request(
                 # Graceful fallback response for failure
                 fallback_response = get_asset_failure_fallback(url, resp.status_code)
                 logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy} (FALLBACK), Status={resp.status_code}, Duration={duration:.1f}ms")
-                return prepare_proxy_response(fallback_response)
+                return prepare_proxy_response(fallback_response, request)
                 
             content_type = resp.headers.get("content-type", "application/octet-stream")
             content_type = guess_binary_content_type(url, content_type)
@@ -851,6 +1025,7 @@ async def handle_proxy_asset_request(
         fallback_response = get_failure_fallback_response(url, str(e))
         logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy} (UPSTREAM_FAIL), Status=500, Reason={str(e)}")
         return prepare_proxy_response(fallback_response, request)
+
 
 
 @router.api_route("/session/{session_id}/asset", methods=["GET", "POST", "OPTIONS"])

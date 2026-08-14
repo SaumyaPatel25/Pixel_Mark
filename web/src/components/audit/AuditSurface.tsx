@@ -332,17 +332,7 @@ export function AuditSurface({
   const containerRectRef = useRef<DOMRect | null>(null)
   const lastOverlayEmitRef = useRef(0)
   type ReadinessState = 'idle' | 'document-loading' | 'document-loaded' | 'agent-ready' | 'site-ready' | 'degraded-ready' | 'failed'
-  const [readinessState, setReadinessState] = useState<ReadinessState>(() => {
-    if (typeof window !== 'undefined' && sessionId) {
-      const storedRenderer = sessionStorage.getItem(`stage_session_renderer_${sessionId}`)
-      const isHeavyRenderer = storedRenderer && ['webgl', 'webgl2', 'threejs', 'canvas', 'mixed'].includes(storedRenderer.toLowerCase())
-      // Never bypass WebGL/Three.js/Canvas boot sequence via sessionStorage shortcut
-      if (!isHeavyRenderer && sessionStorage.getItem(`stage_session_ready_${sessionId}`) === 'true') {
-        return 'site-ready'
-      }
-    }
-    return 'idle'
-  })
+  const [readinessState, setReadinessState] = useState<ReadinessState>('idle')
 
   const iframeReady = readinessState !== 'idle' && readinessState !== 'document-loading'
   const siteReady = readinessState === 'site-ready' || readinessState === 'degraded-ready'
@@ -388,12 +378,33 @@ export function AuditSurface({
     }
   }, [readinessState, sessionId, rendererType])
 
+  const bootIdRef = useRef(0)
+
+  const beginIframeBoot = useCallback(() => {
+    const bootId = ++bootIdRef.current
+    setReadinessState('document-loading')
+
+    const timer = window.setTimeout(() => {
+      if (bootId !== bootIdRef.current) return
+
+      setReadinessState(prev =>
+        prev === 'site-ready' || prev === 'degraded-ready'
+          ? prev
+          : 'degraded-ready'
+      )
+    }, 4000)
+
+    return () => window.clearTimeout(timer)
+  }, [])
+
   useEffect(() => {
-    if (readinessState !== 'site-ready' && readinessState !== 'failed') {
-      // Failsafe: Force overlay removal after 4 seconds if STAGE_SITE_READY is delayed
+    if (readinessState !== 'site-ready' && readinessState !== 'degraded-ready' && readinessState !== 'failed') {
+      const bootId = ++bootIdRef.current
+      // 4-second timeout from iframe boot
       const timer = setTimeout(() => {
-        console.warn('[STAGE Readiness] Failsafe timeout reached: forcing site-ready transition.')
-        setReadinessState('site-ready')
+        if (bootId !== bootIdRef.current) return
+        console.warn('[STAGE Readiness] 4s timeout reached: transitioning to degraded-ready.')
+        setReadinessState(prev => (prev === 'site-ready' || prev === 'degraded-ready' ? prev : 'degraded-ready'))
       }, 4000)
       return () => clearTimeout(timer)
     }
@@ -1288,13 +1299,36 @@ export function AuditSurface({
     setStatusVal('new')
   }, [selectMarker])
 
+  function normalizeStageMessageType(type: unknown): string {
+    const value = String(type || "");
+    const aliases: Record<string, string> = {
+      STAGEPAGELOAD: "STAGE_PAGE_LOAD",
+      STAGE_PERFORMANCE_UPDATE: "STAGE_PERFORMANCE_UPDATE",
+      STAGEPERFORMANCEUPDATE: "STAGE_PERFORMANCE_UPDATE",
+      STAGERENDERERDETECTED: "STAGE_RENDERER_DETECTED",
+      STAGE_RENDERER_DETECTED: "STAGE_RENDERER_DETECTED",
+      STAGESITEREADY: "STAGE_SITE_READY",
+      STAGE_SITE_READY: "STAGE_SITE_READY",
+      STAGEWEBGLFAILED: "STAGE_WEBGL_FAILED",
+      STAGE_WEBGL_FAILED: "STAGE_WEBGL_FAILED",
+      STAGE_WEBGL_CONTEXT_LOST: "STAGE_WEBGL_CONTEXT_LOST",
+      STAGE_WEBGL_CONTEXT_RESTORED: "STAGE_WEBGL_CONTEXT_RESTORED",
+      STAGE_ASSET_ERROR: "STAGE_ASSET_ERROR",
+      STAGE_DIAGNOSTIC: "STAGE_DIAGNOSTIC",
+    };
+    return aliases[value] || value;
+  }
+
   // ─── Listen for messages from the agent ──────────────────────────────────
   useEffect(() => {
     const handleAgentMessage = async (event: MessageEvent) => {
       const data = event.data
       if (!data || typeof data !== 'object') return
 
-      switch (data.type) {
+      const rawType = data.type
+      const type = normalizeStageMessageType(rawType)
+
+      switch (type) {
         case 'STAGE_EDIT_ELEMENT_SELECTED':
           setSelectedEditElement({ tag: data.tag || '', selector: data.selector || '' })
           setSelectedEditElementDetails({
@@ -1329,7 +1363,7 @@ export function AuditSurface({
           break
 
         case 'STAGE_PERFORMANCE_UPDATE':
-          setFps(data.fps)
+          setFps(Number(data.fps) || null)
           break
 
         case 'STAGE_RENDERER_CHANGED':
@@ -1362,9 +1396,10 @@ export function AuditSurface({
           setRendererType(rType);
 
           // Read heavy_mode flag from agent
-          if (data.heavy_mode !== undefined) {
-            setIsHeavyMode(!!data.heavy_mode);
-            useSessionStore.getState().setHeavyMode(!!data.heavy_mode);
+          if (data.heavy_mode !== undefined || data.heavymode !== undefined) {
+            const isHeavy = Boolean(data.heavy_mode || data.heavymode);
+            setIsHeavyMode(isHeavy);
+            useSessionStore.getState().setHeavyMode(isHeavy);
           }
 
           // Resize event injection after 1000ms delay in heavy mode
@@ -1394,29 +1429,38 @@ export function AuditSurface({
         }
 
         case 'STAGE_SITE_READY': {
-          const incomingRenderer = data.renderer_type || rendererType || 'dom'
-          const isHeavyRenderer = ['webgl', 'webgl2', 'threejs', 'canvas', 'mixed'].includes(String(incomingRenderer).toLowerCase())
-          if (data.heavy_mode !== undefined) {
-            setIsHeavyMode(!!data.heavy_mode);
+          const incomingRenderer = data.rendererType || data.renderer_type || rendererType || 'dom'
+          const isHeavyRenderer = Boolean(data.heavymode !== undefined ? data.heavymode : data.heavy_mode) || ['webgl', 'webgl2', 'threejs', 'canvas', 'mixed'].includes(String(incomingRenderer).toLowerCase())
+          if (data.heavy_mode !== undefined || data.heavymode !== undefined) {
+            setIsHeavyMode(isHeavyRenderer);
+            useSessionStore.getState().setHeavyMode(isHeavyRenderer);
           }
           if (sessionId && incomingRenderer) {
             try { sessionStorage.setItem(`stage_session_renderer_${sessionId}`, incomingRenderer); } catch (_) {}
           }
           
+          const degraded = Boolean(data.degraded)
           if (isHeavyRenderer) {
             console.debug(`[STAGE Readiness] Delaying site-ready transition by 750ms for heavy renderer: ${incomingRenderer}`)
             setTimeout(() => {
-              setReadinessState('site-ready')
+              setReadinessState(degraded ? 'degraded-ready' : 'site-ready')
             }, 750)
           } else {
-            setReadinessState('site-ready')
+            setReadinessState(degraded ? 'degraded-ready' : 'site-ready')
           }
           break;
         }
 
-        case 'STAGE_WEBGL_FAILED': {
-          console.warn('[AuditSurface] WebGL context creation failed in proxied site. 3D layers may be degraded.')
-          addToast('WebGL rendering is unavailable on this site. 3D elements may appear static.', 'info')
+        case 'STAGE_WEBGL_FAILED':
+        case 'STAGE_WEBGL_CONTEXT_LOST': {
+          console.warn('[AuditSurface] WebGL context creation failed or context lost in proxied site. 3D layers may be degraded.')
+          setReadinessState('degraded-ready')
+          addToast('WebGL rendering is unavailable. DOM auditing remains available.', 'info')
+          break;
+        }
+
+        case 'STAGE_WEBGL_CONTEXT_RESTORED': {
+          console.info('[AuditSurface] WebGL context restored in proxied site.')
           break;
         }
 

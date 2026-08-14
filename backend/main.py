@@ -156,9 +156,9 @@ async def proxy_fallback_middleware(request: Request, call_next):
             session_id = request.cookies.get("stagesessionid") or request.cookies.get("pixelmark_session_id")
             
         if not session_id:
-            # Fall back to active IP session mapping
+            # Fall back to active IP session mapping (with loopback and __latest__ fallback)
             from routes.proxy import get_active_ip_session
-            session_id = get_active_ip_session(client_host)
+            session_id = get_active_ip_session(client_host) or get_active_ip_session("__latest__")
             
         if session_id:
             async with AsyncSessionLocal() as db:
