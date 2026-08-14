@@ -670,19 +670,12 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     }}
   }};
 
+  // Do NOT redefine window.location.pathname/search/hash/etc. – modern browsers reject this.
+  // We normalize the URL via history.replaceState and patch toString + document.URL surfaces.
   define(document, 'URL', () => getLogicalUrlObject().href);
   define(document, 'documentURI', () => getLogicalUrlObject().href);
   define(document, 'baseURI', () => getLogicalUrlObject().href);
   define(document, 'referrer', () => '');
-
-  define(window.location, 'href', () => getLogicalUrlObject().href);
-  define(window.location, 'origin', () => getLogicalUrlObject().origin);
-  define(window.location, 'protocol', () => getLogicalUrlObject().protocol);
-  define(window.location, 'host', () => getLogicalUrlObject().host);
-  define(window.location, 'hostname', () => getLogicalUrlObject().hostname);
-  define(window.location, 'pathname', () => getLogicalUrlObject().pathname);
-  define(window.location, 'search', () => getLogicalUrlObject().search);
-  define(window.location, 'hash', () => getLogicalUrlObject().hash);
 
   // ─── document.location alias ───────────────────────────────────────────────
   // document.location is a separately addressable accessor used by some SPA
@@ -714,7 +707,26 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     }};
   }} catch (e) {{}}
 
-  try {{ Location.prototype.toString = function () {{ return getLogicalUrlObject().href; }}; }} catch (e) {{}} try {{ window.location.toString = function () {{ return getLogicalUrlObject().href; }}; }} catch (e) {{}} try {{ window.STAGE_GET_LOGICAL_URL = function () {{ return getLogicalUrlObject().href; }}; console.assert( String(window.location) === window.STAGE_GET_LOGICAL_URL(), "[STAGE SHIM ERROR] Location stringification bypassed logical URL: " + String(window.location) ); }} catch (e) {{}}
+  // Patch window.location.toString and Location.prototype.toString
+  try {{ Location.prototype.toString = function () {{ return getLogicalUrlObject().href; }}; }} catch (e) {{}}
+  try {{
+    Object.defineProperty(window.location, 'toString', {{
+      value: function () {{ return getLogicalUrlObject().href; }},
+      writable: true,
+      configurable: true
+    }});
+  }} catch (e) {{
+    try {{ window.location.toString = function () {{ return getLogicalUrlObject().href; }}; }} catch (_) {{}}
+  }}
+  try {{
+    window.STAGE_GET_LOGICAL_URL = function () {{ return getLogicalUrlObject().href; }};
+    if (window.STAGE_DEBUG_ROUTER_LEAKS) {{
+      console.assert(
+        String(window.location) === window.STAGE_GET_LOGICAL_URL(),
+        "[STAGE SHIM ERROR] Location stringification bypassed logical URL: " + String(window.location)
+      );
+    }}
+  }} catch (e) {{}}
 
   // ─── URL constructor leak guard ────────────────────────────────────────────
   // When app code does `new URL(location)` or `new URL(location.href)` it could
@@ -786,12 +798,12 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
   // ─── window.top / window.parent location guard ──────────────────────────
   // Third-party scripts (Memberstack, Intercom, etc.) read window.top.location
   // or window.parent.location which throws a SecurityError in a cross-origin iframe.
-  // We patch them to return the logical location object so the check succeeds
-  // without throwing, while keeping the page's own scripts functional.
+  // We patch them to return the logical location object while delegating document,
+  // event listeners, and postMessage safely so 3D/WebGL and analytics libraries don't break.
   (function() {{
     var _safeTopLocation = {{
       get href()     {{ return getLogicalUrlObject().href; }},
-      get origin()   {{ return getLogicalUrlObject().origin; }},
+      get origin()   {{ return (window.STAGE && window.STAGE.targetOrigin) || getLogicalUrlObject().origin; }},
       get protocol() {{ return getLogicalUrlObject().protocol; }},
       get host()     {{ return getLogicalUrlObject().host; }},
       get hostname() {{ return getLogicalUrlObject().hostname; }},
@@ -799,33 +811,53 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
       get search()   {{ return getLogicalUrlObject().search; }},
       get hash()     {{ return getLogicalUrlObject().hash; }},
       toString: function() {{ return getLogicalUrlObject().href; }},
-      assign: function() {{}},
-      replace: function() {{}},
-      reload: function() {{}}
+      assign: function(url) {{ window.location.assign(url); }},
+      replace: function(url) {{ window.location.replace(url); }},
+      reload: function(force) {{ window.location.reload(force); }}
     }};
-    // Patch window.top — safe accessor that catches SecurityError and returns our stub
+
+    function _createSafeWindowWrapper(target) {{
+      return {{
+        location: _safeTopLocation,
+        document: window.document,
+        addEventListener: function() {{
+          try {{ return window.document.addEventListener.apply(window.document, arguments); }} catch(_) {{}}
+        }},
+        removeEventListener: function() {{
+          try {{ return window.document.removeEventListener.apply(window.document, arguments); }} catch(_) {{}}
+        }},
+        postMessage: function() {{
+          try {{
+            if (target && typeof target.postMessage === 'function') {{
+              return target.postMessage.apply(target, arguments);
+            }}
+          }} catch(_) {{}}
+        }},
+        STAGE: window.STAGE,
+        __STAGE__: window.__STAGE__
+      }};
+    }}
+
+    // Patch window.top — safe accessor that catches SecurityError and returns safe wrapper
     try {{
       Object.defineProperty(window, 'top', {{
         get: function() {{
-          try {{ var t = window.parent; if (t === window) return window; }} catch(_) {{}}
-          // Return a stub that looks like window but has our safe location
-          return {{
-            location: _safeTopLocation,
-            document: {{}},
-            STAGE: window.STAGE,
-            __STAGE__: window.__STAGE__
-          }};
+          try {{
+            if (window.parent === window) return window;
+          }} catch(_) {{}}
+          return _createSafeWindowWrapper(window.parent);
         }},
         configurable: true
       }});
     }} catch(_) {{}}
-    // Also patch window.parent.location in case top succeeds but parent.location throws
+
+    // Also patch window.parent in case top succeeds but parent.location throws
     try {{
       var _origParentDesc = Object.getOwnPropertyDescriptor(window, 'parent');
       if (!_origParentDesc) {{
         Object.defineProperty(window, 'parent', {{
           get: function() {{
-            return {{ location: _safeTopLocation }};
+            return _createSafeWindowWrapper(window.parent);
           }},
           configurable: true
         }});
