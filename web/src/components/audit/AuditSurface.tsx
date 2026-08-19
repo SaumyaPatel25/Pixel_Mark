@@ -10,7 +10,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Monitor, Pin, Plus, X, Check,
   AlertTriangle, ChevronDown, MousePointer2, Layers,
-  Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil, Share2, Minimize2, Maximize2
+  Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil, Share2, Minimize2, Maximize2,
+  MessageSquare, PanelRightClose
 } from 'lucide-react'
 import { StageSpinner, StageLoader } from '@/components/ui/StageLoader'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
@@ -34,6 +35,7 @@ import { useSessionSocket } from '@/lib/useSessionSocket'
 import { ActorContext, canCurrentActorMutateMarker } from '@/lib/permissions'
 import { ReviewerIdentity } from '@/types/markers'
 import { DrawingCanvas } from './DrawingCanvas'
+import { inferIssueType, type IssueType } from '@/utils/issueClassifier'
 
 // ─── Collapsible list helper component (Phase 3.5 Upgrade) ────────────────────
 const CollapsibleList = ({ title, count, items, renderItem }: { title: string; count: number; items: any[]; renderItem: (item: any, idx: number) => React.ReactNode }) => {
@@ -77,7 +79,6 @@ interface AuditSurfaceProps {
   domEditAvailable?: boolean
 }
 
-type IssueType = 'layout' | 'copy' | 'interaction' | 'navigation' | 'rendering' | 'canvas_webgl' | 'other'
 type Severity = 'low' | 'medium' | 'high' | 'critical'
 type CreatedVia = 'agent' | 'alt_click' | 'manual' | 'fallback'
 
@@ -323,6 +324,12 @@ export function AuditSurface({
 }: AuditSurfaceProps) {
   const { canUseBlueprintDomEdit } = usePlan()
   const addToast = useUIStore(s => s.addToast)
+  const isCommandCenterOpen = useUIStore(s => s.isCommandCenterOpen)
+  const toggleCommandCenter = useUIStore(s => s.toggleCommandCenter)
+  const markerCount = useMarkerStore(s => s.orderedMarkerIds.length)
+  const [isFloatingFeedbackDismissed, setIsFloatingFeedbackDismissed] = useState(false)
+  const [isFocusBarDismissed, setIsFocusBarDismissed] = useState(false)
+  const isDraggingFloatingFeedbackRef = useRef(false)
   const API_BASE = getApiBaseUrl()
   const [initialProxyUrl, setInitialProxyUrl] = useState<string | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -549,7 +556,8 @@ export function AuditSurface({
   const [captureCtx, setCaptureCtx] = useState<CaptureContext | null>(null)
   const [manualCoords, setManualCoords] = useState({ x: 50, y: 50, px: 0, py: 0 })
   const [noteText, setNoteText] = useState('')
-  const [issueType, setIssueType] = useState<IssueType>('other')
+  const [issueType, setIssueType] = useState<IssueType>('layout')
+  const [isIssueTypeManuallySet, setIsIssueTypeManuallySet] = useState(false)
   const [severity, setSeverity] = useState<Severity>('medium')
   const [statusVal, setStatusVal] = useState('new')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -562,6 +570,7 @@ export function AuditSurface({
   const [isListSidebarOpen, setIsListSidebarOpen] = useState(!!shareToken)
   
   // Collapsible Evidence Panel States (Phase 3.5 Upgrade)
+  const [inspectorPanelExpanded, setInspectorPanelExpanded] = useState(false)
   const [screenshotPanelExpanded, setScreenshotPanelExpanded] = useState(true)
   const [imgErrorId, setImgErrorId] = useState<string | null>(null)
   const [domPanelExpanded, setDomPanelExpanded] = useState(true)
@@ -835,13 +844,33 @@ export function AuditSurface({
         setSeverity((marker.priority ?? 'medium') as Severity)
         setStatusVal(marker.status ?? 'open')
         setIssueTitle(marker.title ?? '')
+
+        const loadedType = ((marker as any).category || (marker as any).issue_type) as IssueType
+        if (loadedType && ISSUE_TYPES.some(t => t.value === loadedType)) {
+          setIssueType(loadedType)
+          setIsIssueTypeManuallySet(true)
+        } else {
+          const inferred = inferIssueType({
+            element_tag: marker.element_rect_json?.tagName,
+            element_selector: marker.target_selector,
+            element_text: marker.dom_text_excerpt,
+            aria_role: marker.element_rect_json?.ariaRole,
+            aria_label: marker.element_rect_json?.ariaLabel,
+            renderer_type: marker.renderer_type,
+            console_errors: marker.console_errors_json,
+            network_errors: marker.network_errors_json,
+          }, marker.title, marker.description)
+          setIssueType(inferred)
+          setIsIssueTypeManuallySet(false)
+        }
       }
     } else {
       setCaptureCtx(null)
       setNoteText('')
       setIssueTitle('')
       setTags('')
-      setIssueType('other')
+      setIssueType('layout')
+      setIsIssueTypeManuallySet(false)
       setSeverity('medium')
       setStatusVal('new')
     }
@@ -933,8 +962,11 @@ export function AuditSurface({
     if (typeof window === 'undefined') return
     if (isDrawerOpen) {
       setTimeout(() => {
+        const titleInput = document.querySelector('form input[type="text"], form input') as HTMLInputElement
         const textarea = document.querySelector('form textarea') as HTMLTextAreaElement
-        if (textarea) {
+        if (titleInput) {
+          titleInput.focus()
+        } else if (textarea) {
           textarea.focus()
         } else {
           const closeBtn = document.querySelector('[aria-label="Close feedback drawer"]') as HTMLButtonElement
@@ -1008,6 +1040,13 @@ export function AuditSurface({
 
     let active = true
 
+    // Eagerly prime currentUrl and proxy URL if initialUrl is supplied (sub-200ms mount)
+    if (initialUrl && !currentUrl) {
+      console.log('[AuditSurface Init] Immediately priming currentUrl from initialUrl prop:', initialUrl)
+      setCurrentUrl(initialUrl)
+      setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, initialUrl, shareToken))
+    }
+
     async function loadInitialUrl() {
       try {
         // First try getting session details, passing shareToken to avoid 401 redirects
@@ -1015,9 +1054,11 @@ export function AuditSurface({
         if (!active) return
 
         if (session && session.current_page_url) {
-          console.log('[AuditSurface Init] Initializing currentUrl from session:', session.current_page_url)
-          setCurrentUrl(session.current_page_url)
-          setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, session.current_page_url, shareToken))
+          if (session.current_page_url !== currentUrl) {
+            console.log('[AuditSurface Init] Initializing currentUrl from session:', session.current_page_url)
+            setCurrentUrl(session.current_page_url)
+            setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, session.current_page_url, shareToken))
+          }
           return
         }
 
@@ -1027,33 +1068,44 @@ export function AuditSurface({
 
         if (Array.isArray(visits) && visits.length > 0) {
           const sorted = [...visits].sort((a, b) => (a.page_order || 0) - (b.page_order || 0))
-          console.log('[AuditSurface Init] Initializing currentUrl from visits:', sorted[0].page_url)
-          setCurrentUrl(sorted[0].page_url)
-          setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, sorted[0].page_url, shareToken))
+          if (sorted[0].page_url !== currentUrl) {
+            console.log('[AuditSurface Init] Initializing currentUrl from visits:', sorted[0].page_url)
+            setCurrentUrl(sorted[0].page_url)
+            setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, sorted[0].page_url, shareToken))
+          }
           return
         }
 
         // Fallback: use initialUrl prop if provided (prevents auth 401/403 for public reviews), else fetch project
         if (initialUrl) {
-          console.log('[AuditSurface Init] Initializing currentUrl from initialUrl prop:', initialUrl)
-          setCurrentUrl(initialUrl)
-          setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, initialUrl, shareToken))
+          if (!currentUrl) {
+            console.log('[AuditSurface Init] Initializing currentUrl from initialUrl prop:', initialUrl)
+            setCurrentUrl(initialUrl)
+            setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, initialUrl, shareToken))
+          }
         } else if (projectId) {
           const project = await api.projects.get(projectId)
           if (!active) return
-          if (project && project.url) {
+          if (project && project.url && project.url !== currentUrl) {
             console.log('[AuditSurface Init] Initializing currentUrl from project:', project.url)
             setCurrentUrl(project.url)
             setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, project.url, shareToken))
-          } else {
+          } else if (!currentUrl) {
             setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, null, shareToken))
           }
-        } else {
+        } else if (!currentUrl) {
           setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, null, shareToken))
         }
       } catch (err) {
-        console.error('[AuditSurface Init] Failed to resolve initial url:', err)
-        setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, null, shareToken))
+        console.error('[AuditSurface Init] Failed to resolve initial page URL:', err)
+        if (!initialProxyUrl && !currentUrl) {
+          if (initialUrl) {
+            setCurrentUrl(initialUrl)
+            setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, initialUrl, shareToken))
+          } else {
+            setInitialProxyUrl(getProxyPageUrl(API_BASE, sessionId, null, shareToken))
+          }
+        }
       }
     }
 
@@ -1284,8 +1336,9 @@ export function AuditSurface({
       notifyEditMode(true)
     } else {
       notifyEditMode(false)
+      notifyAgent(feedbackModeActive)
     }
-  }, [canvasMode, isLoading, notifyAgent, notifyEditMode])
+  }, [canvasMode, feedbackModeActive, isLoading, notifyAgent, notifyEditMode])
 
   // ─── Open feedback drawer with context ───────────────────────────────────
   const openFeedbackDrawer = useCallback((ctx: any) => {
@@ -1294,7 +1347,9 @@ export function AuditSurface({
     setIsDrawerOpen(true)
     setNoteText('')
     setIssueTitle('')
-    setIssueType('other')
+    const inferred = inferIssueType(ctx)
+    setIssueType(inferred)
+    setIsIssueTypeManuallySet(false)
     setSeverity('medium')
     setStatusVal('new')
   }, [selectMarker])
@@ -1440,6 +1495,9 @@ export function AuditSurface({
           }
           
           const degraded = Boolean(data.degraded)
+          if (feedbackModeActive && canvasMode === 'comment') {
+            notifyAgent(true)
+          }
           if (isHeavyRenderer) {
             console.debug(`[STAGE Readiness] Delaying site-ready transition by 750ms for heavy renderer: ${incomingRenderer}`)
             setTimeout(() => {
@@ -2140,6 +2198,7 @@ export function AuditSurface({
           scroll_y: captureCtx.scroll_position?.y || 0,
           title: issueTitle.trim(),
           description: noteText.trim(),
+          category: issueType,
           priority: severity,
           status: statusVal,
           renderer_type: rendererType,
@@ -2152,6 +2211,7 @@ export function AuditSurface({
         const patch = {
           title: issueTitle.trim(),
           description: noteText.trim(),
+          category: issueType,
           priority: severity,
           status: statusVal,
           screenshot_url: annotatedScreenshotUrl || activeMarker?.screenshot_url || null
@@ -2514,8 +2574,8 @@ export function AuditSurface({
               onClick={() => {
                 const nextActive = !feedbackModeActive
                 setFeedbackModeActive(nextActive)
-                const isWebGL = rendererType === 'webgl' || rendererType === 'threejs'
-                setManualPlacementMode(nextActive && isWebGL)
+                notifyAgent(nextActive)
+                setManualPlacementMode(false)
               }}
               className={cn(
                 "h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-4 flex items-center gap-1.5 transition-all border focus:ring-2 focus:ring-purple-500 focus:outline-none",
@@ -2548,7 +2608,8 @@ export function AuditSurface({
                 onClick={() => {
                   const nextActive = !feedbackModeActive
                   setFeedbackModeActive(nextActive)
-                  if (manualPlacementMode) setManualPlacementMode(false)
+                  notifyAgent(nextActive)
+                  setManualPlacementMode(false)
                 }}
                 className={cn(
                   "relative inline-flex h-5 w-10 items-center rounded-full transition-colors outline-none focus:ring-2 focus:ring-purple-500",
@@ -3100,33 +3161,37 @@ export function AuditSurface({
         </div>
       </div>
 
-      {/* ── Right: Feedback Drawer (Fully Responsive) ────────────────────── */}
-      <div 
-        role="dialog"
-        aria-label="Feedback Submission Drawer"
-        aria-modal="true"
-        className={cn(
-          "bg-[#0d0d14] flex flex-col z-[2147483647] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] absolute",
-          // Mobile bottom sheet structure
-          "bottom-0 left-0 right-0 w-full h-[60dvh] max-h-[60dvh] rounded-t-[32px] border-t border-slate-200 dark:border-white/5",
-          // Desktop/Tablet side panel
-          "md:top-0 md:bottom-0 md:right-0 md:left-auto md:w-96 md:h-full md:rounded-t-none md:border-l md:border-t-0",
-          isDrawerOpen
-            ? "translate-x-0 translate-y-0 opacity-100"
-            : "opacity-0 pointer-events-none translate-y-full md:translate-y-0 md:translate-x-full"
-        )}
-      >
+      {/* ── Movable & Closable Feedback Item Modal / Drawer ────────────────────── */}
+      <AnimatePresence>
+        {isDrawerOpen && (
+          <motion.div 
+            id="onboarding-feedback-item-form"
+            role="dialog"
+            aria-label="Feedback Submission Drawer"
+            aria-modal="true"
+            drag
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            className={cn(
+              "bg-[#0d0d14]/95 backdrop-blur-2xl shadow-2xl flex flex-col border border-white/10 rounded-3xl overflow-hidden select-none z-[9995]",
+              // Draggable floating modal structure across mobile & desktop
+              "fixed top-16 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[420px] h-[calc(100vh-5.5rem)] max-h-[840px]"
+            )}
+          >
 
-        {/* Drawer header */}
-        <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
-              <Pin className="w-4 h-4 text-purple-400" />
-            </div>
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">
-                {isSubmitted ? 'Feedback Item' : isResolved ? 'Fixed Feedback ✓' : 'Leave Feedback'}
-              </h3>
+            {/* Drawer header (Draggable Handle) */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between flex-shrink-0 cursor-grab active:cursor-grabbing bg-[#0d0d14]/90 select-none">
+              <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
+                <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
+                  <Pin className="w-4 h-4 text-purple-400" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white truncate">
+                    {isSubmitted ? 'Feedback Item' : isResolved ? 'Fixed Feedback ✓' : 'Leave Feedback'}
+                  </h3>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={cn(
                   "px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest text-[7px]",
@@ -3158,7 +3223,7 @@ export function AuditSurface({
           <ErrorBoundary>
             <div className="p-5 flex flex-col gap-5 flex-1">
 
-            {/* ── Collapsible Panel: Screenshot (Phase 3.5 Upgrade) ─── */}
+            {/* ── 1. Screenshot Evidence (Preserved with Annotations) ─── */}
             <div className="border-b border-slate-200 dark:border-white/5 pb-2">
               <button
                 type="button"
@@ -3315,256 +3380,7 @@ export function AuditSurface({
               )}
             </div>
 
-            {/* ── Collapsible Panel: DOM Snapshot (Phase 3.5 Upgrade) ── */}
-            <div className="border-b border-slate-200 dark:border-white/5 pb-2">
-              <button
-                type="button"
-                onClick={() => setDomPanelExpanded(p => !p)}
-                className="w-full flex items-center justify-between py-2 text-left hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
-              >
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50">DOM Snapshot</span>
-                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", domPanelExpanded ? "rotate-180" : "")} />
-              </button>
-              {domPanelExpanded && (
-                <div className="mt-2.5 space-y-3">
-                  {(() => {
-                    const domSnapshot: any = null
-                    const tag = domSnapshot?.tagname || '' || captureCtx?.element_tag || 'UNKNOWN'
-                    const elemId = domSnapshot?.id || '' || captureCtx?.element_id || ''
-                    const selector = domSnapshot?.cssselector || activeMarker?.target_selector || captureCtx?.element_selector || ''
-                    const innerText = domSnapshot?.innerText || activeMarker?.dom_text_excerpt || captureCtx?.element_text || ''
-                    const ancestors = domSnapshot?.ancestors || domSnapshot?.ancestorChain || []
-                    const bbox = domSnapshot?.boundingBox || activeMarker?.element_rect_json || captureCtx?.bounding_box
-                    const innerHTML = domSnapshot?.innerHTML || ''
-
-                    // Ancestor Breadcrumb
-                    const breadcrumbParts = (ancestors || []).map((a: any) => {
-                      const aTag = (a.tagname || a.tagName || 'div').toLowerCase()
-                      const aId = a.id ? `#${a.id}` : ''
-                      return `${aTag}${aId}`
-                    })
-                    breadcrumbParts.reverse()
-                    breadcrumbParts.push(`${tag.toLowerCase()}${elemId ? `#${elemId}` : ''}`)
-                    const breadcrumb = breadcrumbParts.join(' > ')
-
-                    // Computed Styles layout/visual table
-                    const styles = domSnapshot?.computedStyles || {}
-                    const stylesToDisplay = [
-                      { label: 'Display', value: styles.display },
-                      { label: 'Position', value: styles.position },
-                      { label: 'Width', value: styles.width },
-                      { label: 'Height', value: styles.height },
-                      { label: 'Z-Index', value: styles.zIndex || styles['z-index'] },
-                      { label: 'Visibility', value: styles.visibility },
-                      { label: 'Opacity', value: styles.opacity },
-                    ].filter(s => s.value)
-
-                    return (
-                      <div className="space-y-3">
-                        {/* Tag + Id + Selector */}
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] text-purple-300 bg-purple-900/20 px-2 py-0.5 rounded-md font-bold">&lt;{tag.toLowerCase()}&gt;</span>
-                            {elemId && <span className="font-mono text-[9px] text-slate-500 dark:text-white/40">#{elemId}</span>}
-                          </div>
-                          {selector && (
-                            <code className="text-[9px] text-emerald-400 font-mono block break-all leading-normal">{selector}</code>
-                          )}
-                        </div>
-
-                        {/* innerText preview */}
-                        {innerText && (
-                          <div className="text-[10px] text-slate-700 dark:text-white/60 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-2.5 rounded-xl leading-relaxed italic">
-                            "{innerText.slice(0, 120)}{innerText.length > 120 ? '...' : ''}"
-                          </div>
-                        )}
-
-                        {/* Computed Styles */}
-                        <div className="space-y-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/25 block">Computed Styles</span>
-                          {stylesToDisplay.length > 0 ? (
-                            <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-2 rounded-xl">
-                              {stylesToDisplay.map((s, idx) => (
-                                <div key={idx} className="flex justify-between border-b border-slate-100 dark:border-white/[0.03] pb-1">
-                                  <span className="text-slate-500 dark:text-white/40">{s.label}:</span>
-                                  <span className="text-purple-300 font-bold truncate max-w-[100px]">{s.value}</span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-[9px] text-slate-400 dark:text-white/30 italic pl-1">No computed styles available</span>
-                          )}
-                        </div>
-
-                        {/* Ancestor chain breadcrumb */}
-                        <div className="space-y-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/20 block">Ancestor Breadcrumb</span>
-                          <div className="text-[9px] font-mono text-slate-700 dark:text-white/60 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-2 rounded-xl break-all">
-                            {breadcrumb}
-                          </div>
-                        </div>
-
-                        {/* Bounding Box */}
-                        {bbox && (
-                          <div className="text-[9px] font-mono text-slate-500 dark:text-white/40 pl-1">
-                            Bounds: {Math.round(bbox.width || 0)}×{Math.round(bbox.height || 0)} px @ ({Math.round(bbox.left || bbox.x || 0)}, {Math.round(bbox.top || bbox.y || 0)})
-                          </div>
-                        )}
-
-                        {/* Collapsible innerHTML */}
-                        {innerHTML && (
-                          <div className="border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden mt-2">
-                            <button
-                              type="button"
-                              onClick={() => setInnerHTMLPanelExpanded(p => !p)}
-                              className="w-full flex items-center justify-between px-3 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-white/[0.02] dark:hover:bg-white/[0.04] text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 focus:outline-none"
-                            >
-                              <span>View innerHTML</span>
-                              <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", innerHTMLPanelExpanded ? "rotate-180" : "")} />
-                            </button>
-                            {innerHTMLPanelExpanded && (
-                              <div className="p-3 bg-black/40 text-[9px] font-mono text-emerald-400 break-all whitespace-pre-wrap max-h-48 overflow-y-auto">
-                                {innerHTML.slice(0, 800)}{innerHTML.length > 800 ? '\n... [truncated]' : ''}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-            </div>
-
-            {/* ── Collapsible Panel: Canvas details (Phase 3.5 Upgrade) ── */}
-            {(() => {
-              const canvasCtx: any = captureCtx?.canvas_context
-              const canvasDom: any = null
-              const isCanvasRenderer = (activeMarker?.renderer_type as any) === 'webgl' || (activeMarker?.renderer_type as any) === 'threejs' || (activeMarker?.renderer_type as any) === 'mixed' || !!canvasCtx || !!canvasDom
-
-              if (!isCanvasRenderer) return null
-              return (
-                <div className="border-b border-slate-200 dark:border-white/5 pb-2">
-                  <button
-                    type="button"
-                    onClick={() => setCanvasPanelExpanded(p => !p)}
-                    className="w-full flex items-center justify-between py-2 text-left hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
-                  >
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50">Canvas & WebGL Details</span>
-                    <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", canvasPanelExpanded ? "rotate-180" : "")} />
-                  </button>
-                  {canvasPanelExpanded && (
-                    <div className="mt-2.5 space-y-2.5 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-3 rounded-2xl">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-slate-500 dark:text-white/40">Context Type:</span>
-                        <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase">
-                          {canvasDom?.activeContextType || canvasCtx?.type || 'unknown'}
-                        </span>
-                      </div>
-                      
-                      {canvasDom?.isFullscreen && (
-                        <div className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[8px] font-black uppercase tracking-wider">
-                          Fullscreen Canvas
-                        </div>
-                      )}
-                      
-                      {canvasDom?.boundingBox && (
-                        <div className="flex justify-between">
-                          <span className="text-[10px] text-slate-500 dark:text-white/40">CSS Rect Size:</span>
-                          <span className="text-[10px] font-mono text-slate-700 dark:text-white/70">
-                            {Math.round(canvasDom.boundingBox.width)}×{Math.round(canvasDom.boundingBox.height)} px
-                          </span>
-                        </div>
-                      )}
-
-                      {canvasCtx?.hit_detail && (
-                        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-white/5 space-y-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/25 block">Three.js Intersect Hit</span>
-                          {canvasCtx.hit_detail.object_name && (
-                            <div className="flex justify-between text-[9px]">
-                              <span className="text-slate-500 dark:text-white/40">Object Name:</span>
-                              <span className="font-mono text-purple-300">{canvasCtx.hit_detail.object_name}</span>
-                            </div>
-                          )}
-                          {canvasCtx.hit_detail.object_type && (
-                            <div className="flex justify-between text-[9px]">
-                              <span className="text-slate-500 dark:text-white/40">Object Type:</span>
-                              <span className="font-mono text-slate-700 dark:text-white/70">{canvasCtx.hit_detail.object_type}</span>
-                            </div>
-                          )}
-                          {canvasCtx.hit_detail.distance !== undefined && (
-                            <div className="flex justify-between text-[9px]">
-                              <span className="text-slate-500 dark:text-white/40">Distance:</span>
-                              <span className="font-mono text-slate-700 dark:text-white/70">{Number(canvasCtx.hit_detail.distance).toFixed(2)}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* ── Collapsible Panel: Diagnostics (Phase 3.5 Upgrade) ─── */}
-            <div className="border-b border-slate-200 dark:border-white/5 pb-2">
-              <button
-                type="button"
-                onClick={() => setDiagnosticsPanelExpanded(p => !p)}
-                className="w-full flex items-center justify-between py-2 text-left hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
-              >
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50">Diagnostics & Logs</span>
-                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", diagnosticsPanelExpanded ? "rotate-180" : "")} />
-              </button>
-              {diagnosticsPanelExpanded && (
-                <div className="mt-2.5 space-y-3">
-                  {/* Browser Info */}
-                  {(() => {
-                    const browserInfo = activeMarker?.browser || captureCtx?.browser_info
-                    if (!browserInfo) return null
-                    return (
-                      <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] p-2.5 rounded-xl text-[10px] space-y-1">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/20 block">Browser environment</span>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500 dark:text-white/40">Browser:</span>
-                          <span className="text-slate-700 dark:text-white/70">{browserInfo.name || 'Unknown'} {browserInfo.version || ''}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500 dark:text-white/40">OS:</span>
-                          <span className="text-slate-700 dark:text-white/70">{browserInfo.os || 'Unknown'}</span>
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                  {/* Console Errors */}
-                  <CollapsibleList
-                    title="Console Errors"
-                    count={activeMarker?.console_errors_json?.length || captureCtx?.console_errors?.length || 0}
-                    items={activeMarker?.console_errors_json || captureCtx?.console_errors || []}
-                    renderItem={(err, idx) => (
-                      <div key={idx} className="text-[9px] font-mono text-rose-400 bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg break-all">
-                        {err.message || String(err)}
-                      </div>
-                    )}
-                  />
-
-                  {/* Network Errors */}
-                  <CollapsibleList
-                    title="Network Errors"
-                    count={activeMarker?.network_errors_json?.length || captureCtx?.network_errors?.length || 0}
-                    items={activeMarker?.network_errors_json || captureCtx?.network_errors || []}
-                    renderItem={(err, idx) => (
-                      <div key={idx} className="text-[9px] font-mono text-rose-400 bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg break-all">
-                        ❌ {err.method || 'GET'} {err.url || 'Unknown URL'} ({err.status || 'Failed'})
-                      </div>
-                    )}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* ── Issue Title ─────────────────────────────────────────── */}
+            {/* ── 2. Issue Title ── */}
             <div className="space-y-2">
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">
                 Issue Title <span className="text-purple-400">*</span>
@@ -3575,46 +3391,18 @@ export function AuditSurface({
                 disabled={isFormReadOnly}
                 placeholder="e.g. Navigation overlaps logo, Button hover broken"
                 value={issueTitle}
-                onChange={(e) => setIssueTitle(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setIssueTitle(val)
+                  if (!isIssueTypeManuallySet) {
+                    setIssueType(inferIssueType(captureCtx, val, noteText))
+                  }
+                }}
                 className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
-            {/* ── Issue Type picker ───────────────────────────────────── */}
-            <div className="space-y-2.5">
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-white/40 block">
-                Issue Type <span className="text-purple-400">*</span>
-              </label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {ISSUE_TYPES.map((t) => {
-                  const active = issueType === t.value
-                  return (
-                    <button
-                      key={t.value}
-                      type="button"
-                      disabled={isFormReadOnly}
-                      aria-pressed={active}
-                      title={t.description}
-                      onClick={() => setIssueType(t.value)}
-                      className={cn(
-                        "h-9 rounded-xl font-bold text-[9px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 px-2 focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
-                        active
-                          ? `${issueTypeColorMap[t.color]} shadow-lg`
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 dark:bg-white/[0.03] dark:border-white/[0.06] dark:text-white/40 dark:hover:bg-white/[0.07] dark:hover:text-white/70'
-                      )}
-                    >
-                      {t.icon}
-                      {t.label}
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="text-[9px] text-slate-500 dark:text-white/30 leading-relaxed pl-0.5">
-                {ISSUE_TYPES.find(t => t.value === issueType)?.description}
-              </p>
-            </div>
-
-            {/* ── Note text area ──────────────────────────────────────── */}
+            {/* ── 3. Describe the problem (Description immediately after Title) ── */}
             <div className="space-y-2">
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-white/40 block">
                 Describe the problem <span className="text-slate-500 dark:text-white/20">(optional)</span>
@@ -3624,12 +3412,66 @@ export function AuditSurface({
                 disabled={isFormReadOnly}
                 placeholder="What's wrong here? e.g. 'Button doesn't respond on mobile', 'Text overlaps the image'…"
                 value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setNoteText(val)
+                  if (!isIssueTypeManuallySet) {
+                    setIssueType(inferIssueType(captureCtx, issueTitle, val))
+                  }
+                }}
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 p-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
-            {/* ── Status picker (Phase 5 Workflow) ───────────────────────── */}
+            {/* ── 4. Issue Type Dropdown ── */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-white/40 block">
+                Issue Type <span className="text-purple-400">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  disabled={isFormReadOnly}
+                  value={issueType}
+                  onChange={(e) => {
+                    setIssueType(e.target.value as IssueType)
+                    setIsIssueTypeManuallySet(true)
+                  }}
+                  className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 dark:bg-[#0f0f15] dark:border-white/[0.08] dark:text-white px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none"
+                >
+                  {ISSUE_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label} — {t.description}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* ── 5. Severity Dropdown ── */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">Severity</label>
+              <div className="relative">
+                <select
+                  disabled={isFormReadOnly}
+                  value={severity}
+                  onChange={(e) => setSeverity(e.target.value as Severity)}
+                  className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 dark:bg-[#0f0f15] dark:border-white/[0.08] dark:text-white px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none"
+                >
+                  <option value="low">Low (Looks Good)</option>
+                  <option value="medium">Medium (Needs Work)</option>
+                  <option value="high">High Priority</option>
+                  <option value="critical">Critical Bug</option>
+                </select>
+                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* ── 6. Status Dropdown (If Submitted) ── */}
             {isSubmitted && (
               <div className="space-y-2">
                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">Status</label>
@@ -3656,49 +3498,6 @@ export function AuditSurface({
                 </div>
               </div>
             )}
-
-            {/* ── Severity picker ─────────────────────────────────────── */}
-            <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">Severity</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {(['low', 'medium', 'high', 'critical'] as Severity[]).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    disabled={isFormReadOnly}
-                    aria-pressed={severity === s}
-                    onClick={() => setSeverity(s)}
-                    className={cn(
-                      "h-8 rounded-xl font-bold text-[8px] uppercase tracking-widest border transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
-                      severity === s
-                        ? s === 'critical' ? 'bg-rose-600 border-rose-500 text-white shadow-lg' :
-                          s === 'high' ? 'bg-orange-600 border-orange-500 text-white shadow-lg' :
-                          s === 'medium' ? 'bg-purple-600 border-purple-500 text-white shadow-lg' :
-                          'bg-blue-600 border-blue-500 text-white shadow-lg'
-                        : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:bg-white/[0.03] dark:border-white/[0.06] dark:text-white/40 dark:hover:bg-white/[0.07] dark:hover:text-white/60'
-                    )}
-                  >
-                    {s === 'medium' ? 'Needs Work' : s === 'low' ? 'Looks Good' : s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* ── Optional Tags ────────────────────────────────────────── */}
-            <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">
-                Tags <span className="text-slate-400 dark:text-white/25">(optional, comma-separated)</span>
-              </label>
-              <input
-                type="text"
-                disabled={isFormReadOnly}
-                placeholder="e.g. mobile, bug, layout"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-            </div>
-
             {/* ── Coordinates (read-only) ──────────────────────────────── */}
             {captureCtx && (
               <div className="bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/[0.04] rounded-xl p-3 flex items-center justify-between">
@@ -3780,7 +3579,9 @@ export function AuditSurface({
           </div>
         </ErrorBoundary>
       </form>
-      </div>
+      </motion.div>
+      )}
+      </AnimatePresence>
 
       <SupportDiagnosticsPanel
         sessionId={sessionId}
@@ -3805,25 +3606,82 @@ export function AuditSurface({
           </div>
         </div>
       )}
-      {isHeaderCollapsed && (
-        <motion.button
+      {/* ── Movable & Closable Focus Mode Control Bar ── */}
+      {isHeaderCollapsed && !isFocusBarDismissed && (
+        <motion.div
           drag
           dragMomentum={false}
           onDragStart={() => { isDraggingExitFocusRef.current = true }}
           onDragEnd={() => { 
-            setTimeout(() => { isDraggingExitFocusRef.current = false }, 100) 
+            setTimeout(() => { isDraggingExitFocusRef.current = false }, 120) 
           }}
-          type="button"
-          onPointerUp={() => {
-            if (isDraggingExitFocusRef.current) return;
-            onHeaderCollapsedChange?.(false);
-          }}
-          className="fixed top-3 right-3 z-[9999] w-auto h-9 px-3 rounded-xl border border-pm-border bg-pm-surface/90 hover:bg-pm-surface text-pm-text flex items-center justify-center gap-2 cursor-grab active:cursor-grabbing shadow-lg backdrop-blur-sm opacity-60 hover:opacity-100 transition-opacity group"
+          className="fixed top-4 right-4 z-[9999] flex items-center gap-2 p-1.5 pl-3 pr-2 rounded-2xl border border-purple-500/40 bg-[#0d0d14]/95 text-white shadow-2xl backdrop-blur-md cursor-grab active:cursor-grabbing select-none group"
         >
-          <Maximize2 className="w-4 h-4 pointer-events-none" />
-          <span className="text-[10px] font-bold uppercase tracking-wider pointer-events-none">Exit Focus Mode</span>
-        </motion.button>
+          {/* Open Feedback Button inside Focus Mode */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (isDraggingExitFocusRef.current) return
+              toggleCommandCenter()
+            }}
+            className={cn(
+              "h-7 px-3 rounded-xl font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer border active:scale-95",
+              isCommandCenterOpen
+                ? "bg-purple-600 text-white border-purple-400 shadow-md shadow-purple-900/50"
+                : "bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border-purple-500/30"
+            )}
+          >
+            {isCommandCenterOpen ? <PanelRightClose className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
+            <span>Open Feedback</span>
+            {markerCount > 0 && (
+              <span className="bg-purple-400 text-purple-950 text-[8.5px] font-mono font-black px-1.5 py-0.2 rounded-md ml-0.5 animate-pulse">
+                {markerCount}
+              </span>
+            )}
+          </button>
+
+          {/* Exit Focus Mode Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (isDraggingExitFocusRef.current) return
+              onHeaderCollapsedChange?.(false)
+            }}
+            title="Exit Focus Mode (Show Headers)"
+            className="h-7 px-3 rounded-xl font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 active:scale-95"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span>Exit Focus</span>
+          </button>
+
+          {/* Dismiss Bar Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsFocusBarDismissed(true)
+            }}
+            title="Hide Focus Controls"
+            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer ml-0.5"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </motion.div>
       )}
+
+      {isHeaderCollapsed && isFocusBarDismissed && (
+        <button
+          type="button"
+          onClick={() => setIsFocusBarDismissed(false)}
+          title="Restore Focus Mode Controls"
+          className="fixed top-4 right-4 z-[9999] p-2.5 rounded-full border border-purple-500/40 bg-[#0d0d14]/90 hover:bg-[#0d0d14] text-purple-400 hover:text-white shadow-xl backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+      )}
+
       <OnboardingTour />
       <OnboardingChecklist />
     </div>

@@ -78,6 +78,7 @@ export default function EntrextSection() {
               rotateX: tiltX,
               rotateY: tiltY,
               transformStyle: 'preserve-3d' as const,
+              willChange: 'transform',
             }}
             onMouseMove={handleMouseMove}
             onMouseEnter={handleMouseEnter}

@@ -61,8 +61,8 @@ export default function EmailCallbackClient() {
 
       setStatus('success');
       setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 1500);
+        router.replace('/dashboard');
+      }, 1200);
     } catch (err: any) {
       const errCode = err.code || '';
       const errMsg = err.message || '';

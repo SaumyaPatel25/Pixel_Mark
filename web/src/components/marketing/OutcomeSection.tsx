@@ -5,7 +5,6 @@ import { ArrowRight, CheckCircle2, TrendingUp, Zap, MessageSquare } from 'lucide
 import Link from 'next/link';
 
 export default function OutcomeSection() {
-  const shouldReduceMotion = useReducedMotion();
   const metrics = [
     {
       icon: TrendingUp,
@@ -83,10 +82,10 @@ export default function OutcomeSection() {
           {metrics.map((m, idx) => (
             <motion.li
               key={idx}
-              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.5, delay: idx * 0.1 }}
+              transition={{ duration: 0.5, delay: idx * 0.1 }}
               className="relative p-8 rounded-3xl border border-pm-border bg-pm-surface-2/50 backdrop-blur-md shadow-sm space-y-4 text-left list-none"
             >
               <div className="flex items-center justify-between">
@@ -108,10 +107,10 @@ export default function OutcomeSection() {
           {outcomes.map((o, idx) => (
             <motion.li
               key={idx}
-              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.6, delay: idx * 0.15 }}
+              transition={{ duration: 0.6, delay: idx * 0.15 }}
               className="p-6 rounded-2xl border border-pm-border/60 bg-pm-surface/30 backdrop-blur-md text-left flex flex-col justify-between space-y-6 list-none"
             >
               <blockquote className="space-y-3">

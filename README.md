@@ -1,82 +1,127 @@
-# STAGE
-> The Collaboration Layer Between Clients & Developers
+# STAGE — Collaborative Visual QA Operating System
 
-STAGE (formerly PixelMark) is a robust SaaS platform designed to bridge the gap between development teams and non-technical stakeholders. By acting as a reverse-proxy collaboration layer, STAGE allows teams to review, annotate, and visually edit any live website environment without installing browser extensions or adding scripts to their codebase.
+> **The zero-installation reverse-proxy collaboration platform for web applications.**  
+> Review, annotate, anchor pins on DOM/Canvas/WebGL elements, edit live styles, and collaborate in real-time without adding scripts or browser extensions to customer repositories.
 
-## Key Features
+---
 
-1. **Proxy Injection Engine**: STAGE proxies target URLs and intelligently injects a collaboration iframe agent into the DOM via `rewrite_html`, enabling seamless overlay interactions.
-2. **Blueprint Canvas**: A heavy DOM-editing visual workspace that allows users to pick elements, modify styles, and save project-scoped mutations that can be exported as CSS/JSON for developer handoff.
-3. **Session Review**: Drop visual markers and pins on any proxy-rendered page to leave contextual feedback.
-4. **Real-time Collaboration**: Multi-user presence, live cursors, and instant comment threads powered by WebSockets.
-5. **Unified Notifications**: In-app feed and email digests to keep the team updated on publications, approvals, and comments.
+## 🌟 Overview & Key Capabilities
 
-## Architecture Summary
+STAGE is a visual QA operating system built for modern product teams, QA engineers, and developers:
 
-STAGE operates on a modern, decoupled architecture:
-- **Frontend (Web)**: A Next.js 16 App Router application (React 19, Tailwind CSS v4) relying on Zustand for complex state management (Canvas, DOM Edits, Auth, etc.).
-- **Backend (API + Proxy)**: A high-performance FastAPI application written in Python. It handles REST endpoints, realtime WebSocket broadcasts, and the core reverse-proxy logic using `httpx`.
-- **Database**: PostgreSQL (managed via Neon) with SQLAlchemy ORM and Alembic migrations.
-- **Authentication**: Firebase Authentication on the client, synced securely to backend canonical user records via JWT verification.
+1. **Sandboxed Reverse-Proxy Engine**: Proxies and rewrites live target websites on-the-fly (`rewrite_html`), stripping SRI hashes, neutralizing restrictive CSP/X-Frame-Options, and injecting a non-intrusive collaboration agent (`stage-agent.js`).
+2. **Sub-200ms Perceived Latency Architecture**: Powered by FastAPI lifespan connection pooling (HTTP/1.1 & HTTP/2 keep-alive), thread-safe in-memory TTL DNS caching for SSRF validation, single-JOIN session base URL resolution, and asynchronous background page visit recording.
+3. **DOM & WebGL / 3D Canvas Anchoring**: Pin visual feedback on standard HTML elements or 3D WebGL canvases (Three.js, React Three Fiber, Spline) with automatic context capture and normalized coordinate resolution without GPU frame drops.
+4. **Blueprint DOM Mutation Engine**: Live in-browser visual editing workspace allowing developers and designers to tweak styles, toggle CSS classes, and export clean patch sets.
+5. **Real-Time Synchronous Collaboration**: Multi-reviewer presence, live cursor tracking, and instant comment updates over WebSockets.
+6. **Zero-Trust SSRF & Domain Guardrails**: Strict private CIDR IP validation, domain boundary isolation, and secure, passwordless reviewer link sharing.
 
-## Local Setup
+---
 
-### Prerequisites
-- Node.js (v20+)
-- Python (3.10+)
-- PostgreSQL database
-- Firebase Project credentials
-- GitHub OAuth application credentials
+## 🏗️ Architecture Topology
 
-### 1. Backend Setup
+```mermaid
+graph TD
+    Client[Next.js 16 App Router Shell] -->|Eager initialUrl Boot| Iframe[Sandboxed Review <iframe>]
+    Iframe -->|Reverse-Proxy Request| ProxyRouter[FastAPI Proxy Subsystem]
+    
+    subgraph Backend Pipeline
+        ProxyRouter -->|In-Memory 5m TTL Cache| SSRF[SSRF Security Guard]
+        ProxyRouter -->|In-Memory 60s TTL Cache| SessionCache[Session Resolver]
+        SessionCache -.->|JOIN Query| DB[(PostgreSQL / SQLite)]
+        
+        ProxyRouter -->|Pooled httpx.AsyncClient| Upstream[Target Customer Website]
+        Upstream -->|Raw HTML| Rewriter[proxy_rewriter.py Engine]
+        Rewriter -->|Injected stage-agent.js| Iframe
+        
+        ProxyRouter -->|BackgroundTasks| DB
+    end
+    
+    Client <-->|WebSocket wss://| WSManager[FastAPI Realtime Engine]
+    WSManager <-->|Broadcast Event| PeerReviewers[Other Active Reviewers]
+```
+
+---
+
+## ⚡ Quickstart
+
+### One-Command Full-Stack Launch
+```bash
+python run_app.py
+```
+*Boots the FastAPI backend on `http://localhost:8765` and Next.js frontend on `http://localhost:3000` concurrently with live log streaming.*
+
+---
+
+## 📁 Repository Directory Structure
+
+```text
+Entrext/
+├── backend/                    # FastAPI async backend service
+│   ├── main.py                 # Lifespan startup, middleware & app declaration
+│   ├── models/                 # SQLAlchemy async data models
+│   ├── routes/                 # REST & proxy endpoints (proxy.py, sessions.py, etc.)
+│   ├── proxy/                  # Asset resolvers & runtime policies
+│   ├── markers/                # Coordinate anchor calculation & models
+│   ├── static/stage-agent.js   # Injected collaboration agent script
+│   └── tests/                  # Backend Pytest test suites
+├── web/                        # Next.js 16 (React 19, Tailwind CSS, TypeScript)
+│   ├── src/app/                # App Router routes ((auth), (dashboard), project/[id])
+│   ├── src/components/         # UI components, Mascot Sentinel & AuditSurface
+│   ├── src/store/              # Zustand stores (authStore, markerStore, canvasStore)
+│   └── src/lib/                # API client, analytics, route classification
+├── extension/                  # Chrome extension integration
+├── stage-lens/                 # Visual element inspector extension tool
+├── scripts/                    # Consolidated diagnostic & validation scripts
+├── tests/                      # System E2E & automated integration test suites
+└── docs/                       # Complete developer documentation hub
+    ├── architecture/           # Performance, proxy engine, backend & frontend architecture
+    ├── api/                    # REST API reference & WebSocket protocol specs
+    ├── guides/                 # Development guide, deployment, security & incident playbooks
+    ├── qa/                     # Testing strategy, smoke checklists & QA matrices
+    ├── adr/                    # Architecture Decision Records
+    └── archive/                # Historical specs & legacy build logs
+```
+
+---
+
+## 🧪 Verification & Testing
+
+### Run Backend Pytest Suite
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # Or `venv\Scripts\activate` on Windows
-pip install -r requirements.txt
-
-# Configure environment variables (see .env.example)
-cp .env.example .env
-
-# Run database migrations
-alembic upgrade head
-
-# Start the FastAPI server
-uvicorn main:app --reload --port 8765
+python -m pytest tests/test_sri_and_regex.py tests/test_webgl_and_mime.py tests/test_markers_v2.py -v
 ```
 
-### 2. Frontend Setup
+### Run Frontend Typecheck
 ```bash
 cd web
-npm install
-
-# Configure environment variables (see .env.example)
-cp .env.example .env.local
-
-# Start the Next.js development server
-npm run dev
+npx tsc --noEmit
 ```
 
-## Environment Setup Overview
-Crucial variables required for local development:
-- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: For OAuth integration.
-- `DATABASE_URL`: Connection string for PostgreSQL.
-- `JWT_SECRET_KEY`: For backend session signing.
-- `FIREBASE_*`: Frontend environment variables for Firebase initialization.
+### Run System E2E Verification
+```bash
+python scripts/verify_suite.py
+```
 
-## How Frontend & Backend Fit Together
-The Next.js frontend serves the dashboard, settings, and the outer shell of the Blueprint Canvas. When a user opens a project session, the frontend points an `<iframe>` to the FastAPI backend proxy route (`/proxy/session/...`). The backend fetches the target website, injects the STAGE collaboration agent (`stage-agent.js`), and streams the rewritten HTML back to the iframe. PostMessage communication bridges the Next.js outer shell with the injected iframe agent.
+---
 
-## Deployment Overview
-- **Frontend**: Configured for seamless deployment on Vercel (`vercel.json`).
-- **Backend**: Configured for deployment on Render (`render.yaml`).
-- **Database**: Neon serverless Postgres.
+## 📚 Documentation Index
 
-## Deep Dive Documentation
-- [Architecture](docs/architecture.md)
-- [System Design](docs/system-design.md)
-- [API Reference](docs/api.md)
-- [Business Logic](docs/logic.md)
-- [Memory & State](docs/memory.md)
-- [Database Schema](docs/db.md)
-- [Tech Stack](docs/tech-stack.md)
+Explore the comprehensive guides in [`/docs`](docs/README.md):
+
+* 🚀 [System Architecture](docs/architecture/system-architecture.md) & [System Overview](docs/architecture/system-overview.md)
+* ⚡ [Performance & Latency Optimizations](docs/architecture/performance-optimizations.md)
+* 🛡️ [Reverse-Proxy & Rewriting Engine](docs/architecture/proxy-engine.md)
+* 🔄 [Real-Time WebSocket Sync](docs/architecture/realtime-sync.md) & [Protocol Spec](docs/api/websocket-protocol.md)
+* 📊 [Data Model & Entities](docs/architecture/data-model.md)
+* 🔌 [REST API Reference](docs/api/rest-api-reference.md)
+* 🛠️ [Developer Setup Guide](docs/guides/development-guide.md)
+* 🌐 [Deployment & Operations](docs/guides/deployment-and-operations.md)
+* 🔒 [Security & SSRF Safeguards](docs/guides/security-and-ssrf.md)
+* 📋 [Production Smoke Checklist](docs/qa/production-smoke-checklist.md) & [QA Matrix](docs/qa/qa-matrix.md)
+
+---
+
+## 📄 License
+Internal proprietary software developed for high-performance visual quality assurance and real-time collaboration.

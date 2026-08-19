@@ -727,6 +727,7 @@ function ProjectPageContent() {
                           <AuditSurface
                             sessionId={sessionId}
                             projectId={id}
+                            initialUrl={currentProject?.url}
                             shouldConnectSocket={false}
                             isHeaderCollapsed={isHeaderCollapsed}
                             onHeaderCollapsedChange={setIsHeaderCollapsed}
@@ -760,7 +761,7 @@ function ProjectPageContent() {
             )}
         </AnimatePresence>
 
-        {/* Command Center Slider (Fully Responsive Layout Wrapper) */}
+        {/* Command Center Slider (Movable & Closable Floating Menu Panel) */}
         <AnimatePresence>
             {view !== 'details' && isCommandCenterOpen && (
                 <motion.div
@@ -768,25 +769,21 @@ function ProjectPageContent() {
                     role="dialog"
                     aria-label="Feedback Feed Stream"
                     aria-modal="true"
-                    custom={{ isMobile, isDesktop }}
-                    variants={drawerVariants}
-                    initial={false}
-                    animate={isCommandCenterOpen ? "open" : "closed"}
-                    exit="closed"
-                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                    drag
+                    dragMomentum={false}
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 220 }}
                     className={cn(
-                      "bg-pm-surface shadow-2xl flex flex-col flex-shrink-0 transition-all duration-300 border-pm-border",
-                      // Mobile: Bottom sheet styling
-                      "w-full h-[60dvh] absolute bottom-0 left-0 right-0 border-t rounded-t-[32px] z-50 overflow-hidden",
-                      // Tablet: Side drawer overlay
-                      "md:w-[380px] md:h-full md:absolute md:top-0 md:right-0 md:bottom-0 md:left-auto md:border-l md:border-t-0 md:rounded-t-none md:z-50",
-                      // Desktop: Side-by-side layout
-                      "lg:relative lg:w-[400px] lg:z-40"
+                      "bg-pm-surface/95 backdrop-blur-xl shadow-2xl flex flex-col flex-shrink-0 border border-pm-border rounded-3xl overflow-hidden select-none z-[9990]",
+                      // Floating draggable panel positioning across Focus & No-Focus Mode
+                      "fixed top-16 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[400px] h-[calc(100vh-5.5rem)] max-h-[820px]"
                     )}
                 >
                     {/* Swipe bar for mobile bottom sheet */}
-                    <div className="w-full flex justify-center py-2.5 md:hidden cursor-pointer" onClick={() => toggleCommandCenter()}>
-                      <div className="w-12 h-1 rounded-full bg-pm-muted/20 hover:bg-pm-muted/40 transition-colors" />
+                    <div className="w-full flex justify-center py-2 md:hidden cursor-grab active:cursor-grabbing" onClick={() => toggleCommandCenter()}>
+                      <div className="w-12 h-1 rounded-full bg-pm-muted/30 hover:bg-pm-muted/50 transition-colors" />
                     </div>
                     <FeedbackFeed sessionId={sessionId} />
                 </motion.div>

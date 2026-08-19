@@ -249,6 +249,111 @@ const RandomHollowText = ({
   );
 };
 
+const textContainerVariants = {
+  collapsed: {
+    y: '210px',
+    scale: 0.82,
+    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }
+  },
+  burst: {
+    y: '0px',
+    scale: 1,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 90,
+      damping: 18,
+      mass: 0.85
+    }
+  }
+};
+
+const headlineColorVariants = {
+  collapsed: { color: '#f8fafc' },
+  burst: { color: '#1D264F', transition: { duration: 0.5 } }
+};
+
+const descColorVariants = {
+  collapsed: { color: '#cbd5e1' },
+  burst: { color: '#4B5563', transition: { duration: 0.5 } }
+};
+
+const badgeVariants = {
+  collapsed: {
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    color: '#f1f5f9'
+  },
+  burst: {
+    borderColor: '#E2F3F5',
+    backgroundColor: 'rgba(226, 243, 245, 0.6)',
+    color: '#253B80',
+    transition: { duration: 0.4 }
+  }
+};
+
+const ctasVariants = {
+  collapsed: {
+    opacity: 0,
+    y: 16,
+    scale: 0.96,
+    pointerEvents: 'none' as const
+  },
+  burst: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    pointerEvents: 'auto' as const,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 85,
+      damping: 16,
+      delay: 0.12
+    }
+  }
+};
+
+const sandboxVariants = {
+  collapsed: {
+    y: '-390px',
+    scale: 1.03,
+    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }
+  },
+  burst: {
+    y: '0px',
+    scale: 1,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 90,
+      damping: 18,
+      mass: 0.85
+    }
+  }
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.05
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 110,
+      damping: 18
+    }
+  }
+};
+
 export default function HeroSection({ activeMode, setActiveMode, onHoverChange, onHeroTextComplete, isHeroTextComplete = false }: HeroSectionProps) {
   const isFirstRender = useRef(true);
 
@@ -258,7 +363,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
 
   const [headline1, setHeadline1] = useState('The visual website feedback tool');
   const [headline2, setHeadline2] = useState('built for product teams.');
-  const [descText, setDescText] = useState('');
+  const [descText] = useState('Instantly share secure, interactive review links to collect visual feedback, annotations, and QA bug reports directly on live web pages. The fastest way to sign off website changes.');
   const [isLightTheme, setIsLightTheme] = useState(true);
 
   useEffect(() => {
@@ -273,129 +378,11 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
     return () => observer.disconnect();
   }, []);
 
-  // Keep a stable ref to the callback to prevent the typewriter effect from re-running on parent updates
+  // Keep a stable ref to the callback
   const onHeroTextCompleteRef = useRef(onHeroTextComplete);
   useEffect(() => {
     onHeroTextCompleteRef.current = onHeroTextComplete;
   }, [onHeroTextComplete]);
-
-
-  // Snappy, performance-safe typewriter reveal for the description paragraph
-  useEffect(() => {
-    if (!isHeroTextComplete) return;
-    const txt3 = "Instantly share secure, interactive review links to collect visual feedback, annotations, and QA bug reports directly on live web pages. The fastest way to sign off website changes.";
-    
-    let currentIdx = 0;
-    const interval = setInterval(() => {
-      currentIdx += 2;
-      if (currentIdx >= txt3.length) {
-        setDescText(txt3);
-        clearInterval(interval);
-      } else {
-        setDescText(txt3.slice(0, currentIdx));
-      }
-    }, 12);
-    
-    return () => clearInterval(interval);
-  }, [isHeroTextComplete]);
-
-
-  // Smooth scroll window to top when burst animation completes, but only if the user hasn't scrolled past the hero section
-  useEffect(() => {
-    if (isHeroTextComplete) {
-      // If the scroll position is less than 300px, they are still in the Hero Section area
-      if (window.scrollY < 300) {
-        const scrollTimer = setTimeout(() => {
-          window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-          });
-        }, 350); // Scroll as the slide-up settles
-        return () => clearTimeout(scrollTimer);
-      }
-    }
-  }, [isHeroTextComplete]);
-
-  const textContainerVariants = {
-    collapsed: {
-      y: '210px',
-      scale: 0.82,
-      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }
-    },
-    burst: {
-      y: '0px',
-      scale: 1,
-      transition: {
-        type: 'spring' as const,
-        stiffness: 65,
-        damping: 15,
-        mass: 0.85
-      }
-    }
-  };
-
-  const headlineColorVariants = {
-    collapsed: { color: '#f8fafc' },
-    burst: { color: '#1D264F', transition: { duration: 0.6 } }
-  };
-
-  const descColorVariants = {
-    collapsed: { color: '#cbd5e1' },
-    burst: { color: '#4B5563', transition: { duration: 0.6 } }
-  };
-
-  const badgeVariants = {
-    collapsed: {
-      borderColor: 'rgba(255, 255, 255, 0.15)',
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-      color: '#f1f5f9'
-    },
-    burst: {
-      borderColor: '#E2F3F5',
-      backgroundColor: 'rgba(226, 243, 245, 0.6)',
-      color: '#253B80',
-      transition: { duration: 0.5 }
-    }
-  };
-
-  const ctasVariants = {
-    collapsed: {
-      opacity: 0,
-      y: 20,
-      scale: 0.95,
-      pointerEvents: 'none' as const
-    },
-    burst: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      pointerEvents: 'auto' as const,
-      transition: {
-        type: 'spring' as const,
-        stiffness: 65,
-        damping: 16,
-        delay: 0.18
-      }
-    }
-  };
-
-  const sandboxVariants = {
-    collapsed: {
-      y: '-390px',
-      scale: 1.03,
-      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }
-    },
-    burst: {
-      y: '0px',
-      scale: 1,
-      transition: {
-        type: 'spring' as const,
-        stiffness: 65,
-        damping: 15,
-        mass: 0.85
-      }
-    }
-  };
 
   const [urlInput, setUrlInput] = useState('https://entrext.com');
   const [currentUrl, setCurrentUrl] = useState('https://entrext.com');
@@ -766,31 +753,6 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
     return { x: target.x, y: target.y };
   };
 
-  // Framer Motion variants for stagger entry
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.15,
-        delayChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 24 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        type: 'spring' as const,
-        stiffness: 70,
-        damping: 15
-      }
-    }
-  };
-
   return (
     <section id="hero-section" className="relative min-h-screen pt-36 pb-28 flex flex-col justify-start overflow-hidden bg-transparent dot-grid" style={{ isolation: 'isolate' }}>
       {/* Ambient 3D Parallax Background — z-0, pointer-events-none */}
@@ -799,28 +761,21 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
       {/* Dark-theme-only hero aura / hover atmosphere */}
       <DarkHeroAura isDark={!isLightTheme} />
 
-
       <div className="max-w-7xl mx-auto px-6 md:px-12 w-full flex-1 flex flex-col justify-start gap-12 relative z-10">
                
         {/* Rebuilt Centered Hero Stack — always visible, springs up on burst */}
         <motion.div 
-          layoutId="hero-text-stack"
           initial="collapsed"
           animate={isHeroTextComplete ? "burst" : "collapsed"}
           variants={textContainerVariants}
-          transition={{
-            type: 'spring',
-            stiffness: 45,
-            damping: 12,
-            mass: 0.9
-          }}
+          style={{ willChange: 'transform' }}
           className="flex flex-col items-center text-center space-y-7 max-w-5xl mx-auto pt-8 md:pt-12 relative z-30"
         >
           {/* Headline Wrapper */}
           <div className="relative z-10 w-full max-w-full">
             {/* Base H1 */}
             <motion.h1 
-              layoutId="hero-headline"
+              style={{ willChange: 'transform, opacity' }}
               className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-pm-text leading-[0.98] transition-all duration-500 min-h-[2.1em] text-center relative z-10"
             >
               {headline1.includes("feedback") ? (

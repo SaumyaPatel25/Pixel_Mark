@@ -40,6 +40,7 @@ export const GlassTiltCard = ({ children, className = '', onMouseEnter, onMouseL
         rotateX,
         rotateY,
         transformStyle: 'preserve-3d',
+        willChange: 'transform',
       }}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}

@@ -16,7 +16,7 @@ type ScenePhase = 'projecting' | 'submitting' | 'success' | 'error';
 
 export default function RegisterClient() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, token, hasHydrated } = useAuthStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -38,10 +38,10 @@ export default function RegisterClient() {
     phase === 'error' ? 'error' : 'idle';
 
   useEffect(() => {
-    if (user && phase === 'projecting') {
-      window.location.href = '/dashboard';
+    if (hasHydrated && user && token && phase === 'projecting') {
+      router.replace('/dashboard');
     }
-  }, [user, phase]);
+  }, [hasHydrated, user, token, phase, router]);
 
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {
@@ -52,6 +52,17 @@ export default function RegisterClient() {
       window.removeEventListener('pageshow', handlePageShow);
     };
   }, []);
+
+  if (hasHydrated && user && token && phase === 'projecting') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0B0F19]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-7 h-7 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+          <span className="text-xs text-white/50 font-mono uppercase tracking-wider">Redirecting...</span>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

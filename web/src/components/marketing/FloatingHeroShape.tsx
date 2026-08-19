@@ -8,19 +8,14 @@ interface FloatingHeroShapeProps {
 }
 
 export default function FloatingHeroShape({ x, y }: FloatingHeroShapeProps) {
-  const shouldReduceMotion = useReducedMotion();
+  const transformValue = useMotionTemplate`translate3d(calc(${x}vw - 50%), calc(${y}vh - 50%), 0)`;
 
-  const leftValue = useMotionTemplate`${x}%`;
-  const topValue = useMotionTemplate`${y}%`;
-
-  const motionProps = shouldReduceMotion 
-    ? { style: { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' } }
-    : { style: { left: leftValue, top: topValue, transform: 'translate(-50%, -50%)' } };
+  const motionProps = { style: { transform: transformValue, willChange: 'transform' } };
 
   return (
     <motion.div
       {...motionProps}
-      className="absolute z-40 pointer-events-none drop-shadow-2xl"
+      className="fixed top-0 left-0 z-40 pointer-events-none drop-shadow-2xl"
       aria-hidden="true"
     >
       {/* 3D Glassy Capsule Shape */}

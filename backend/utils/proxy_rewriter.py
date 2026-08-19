@@ -3,6 +3,7 @@ import re
 import os
 import logging
 import json
+import time
 
 logger = logging.getLogger("stage.proxy_rewriter")
 
@@ -1409,10 +1410,13 @@ def inject_webgl_patch(html: str) -> str:
     try {
       canvas.__stage_context_type = type;
       canvas.stagecontexttype = type;
-      canvas.__stage_gl = context || true;
+      canvas.__stage_gl = context || null;
     } catch (_) {}
     window.STAGE = window.STAGE || {};
     window.STAGE.hasWebGL = window.STAGE.hasWebGL || /webgl/i.test(type);
+    if (/webgl/i.test(type) && context) {
+      window.STAGE.glContext = context;
+    }
   }
   window.markCanvasContext = markCanvasContext;
 
@@ -1456,14 +1460,9 @@ def inject_webgl_patch(html: str) -> str:
     const originalAttrs = attrs && typeof attrs === 'object' ? attrs : {};
     const patchedAttrs = { ...originalAttrs };
 
-    // Only force preserveDrawingBuffer if site didn't specify
+    // Only force preserveDrawingBuffer during an active capture — never during normal rendering
     if (!('preserveDrawingBuffer' in patchedAttrs)) {
-      patchedAttrs.preserveDrawingBuffer = true;
-    }
-
-    // Avoid forcing high-performance on every device
-    if (!('powerPreference' in patchedAttrs)) {
-      patchedAttrs.powerPreference = 'default';
+      patchedAttrs.preserveDrawingBuffer = !!(window.STAGE && window.STAGE.captureMode);
     }
 
     // Desynchronized contexts are unsuitable for deterministic capture
@@ -1492,8 +1491,9 @@ def inject_webgl_patch(html: str) -> str:
     // Mark canvas with context type for agent detection
     markCanvasContext(this, type, context);
 
-    // Attach context lifecycle listeners
-    if (this.addEventListener) {
+    // Attach context lifecycle listeners (guarded against duplicate accumulation)
+    if (this.addEventListener && !this.__stage_listeners_attached) {
+      this.__stage_listeners_attached = true;
       this.addEventListener('webglcontextlost', (event) => {
         console.warn('[STAGE] WebGL context lost:', event.statusMessage);
         if (window.parent) {
@@ -1549,7 +1549,7 @@ def inject_offscreen_canvas_patch(html: str) -> str:
     const patchedAttrs = attrs ? { ...attrs } : {};
 
     if (!('preserveDrawingBuffer' in patchedAttrs)) {
-      patchedAttrs.preserveDrawingBuffer = true;
+      patchedAttrs.preserveDrawingBuffer = !!(window.STAGE && window.STAGE.captureMode);
     }
 
     let context = null;
@@ -1997,7 +1997,7 @@ def rewrite_html(
 
     agent_script_url = os.getenv(
         "PROXY_AGENT_SCRIPT_URL",
-        f"{api_base.rstrip('/')}/static/stage-agent.js",
+        f"{api_base.rstrip('/')}/static/stage-agent.js?v={int(time.time())}",
     )
 
     if conservative_render_mode:

@@ -1,22 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useMotionValue, useSpring } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
-import StoryProcessSection from '@/components/marketing/StoryProcessSection';
-import HowItWorksSection from '@/components/marketing/HowItWorksSection';
-import UseCasesSection from '@/components/marketing/UseCasesSection';
-import OutcomeSection from '@/components/marketing/OutcomeSection';
-import ClosingCTASection from '@/components/marketing/ClosingCTASection';
-import EntrextSection from '@/components/marketing/EntrextSection';
-import MarketingFooter from '@/components/marketing/MarketingFooter';
-import dynamic from 'next/dynamic';
+import { SplineBackground } from '@/components/SplineBackground';
 
-const SplineBackground = dynamic(
-  () => import('@/components/SplineBackground').then((mod) => mod.SplineBackground),
-  { ssr: false }
-);
+const StoryProcessSection = dynamic(() => import('@/components/marketing/StoryProcessSection'), { ssr: true });
+const HowItWorksSection = dynamic(() => import('@/components/marketing/HowItWorksSection'), { ssr: true });
+const UseCasesSection = dynamic(() => import('@/components/marketing/UseCasesSection'), { ssr: true });
+const OutcomeSection = dynamic(() => import('@/components/marketing/OutcomeSection'), { ssr: true });
+const ClosingCTASection = dynamic(() => import('@/components/marketing/ClosingCTASection'), { ssr: true });
+const EntrextSection = dynamic(() => import('@/components/marketing/EntrextSection'), { ssr: true });
+const MarketingFooter = dynamic(() => import('@/components/marketing/MarketingFooter'), { ssr: true });
 
 export type ModeType = 'dom' | 'threejs' | 'webgl' | 'spa' | 'shadow-dom';
 
@@ -85,8 +82,8 @@ export default function HomeClient() {
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
-  // Progressive loading sequence stage (0: Hero, 1: Process, 2: Use Cases, 3: Outcomes, 4: Closing CTA & Footer)
-  const [loadStage, setLoadStage] = useState(0);
+  // Mount all sections stably to prevent layout shift and page height jitter on reload
+  const [loadStage] = useState(4);
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -100,15 +97,6 @@ export default function HomeClient() {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (loadStage < 4) {
-      const timer = setTimeout(() => {
-        setLoadStage(prev => prev + 1);
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [loadStage]);
 
   // Smooth lagging spring configuration for the background spotlight glow
   const glowX = useSpring(mouseX, { stiffness: 50, damping: 25 });

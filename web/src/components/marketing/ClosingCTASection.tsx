@@ -5,8 +5,6 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ClosingCTASection() {
-  const shouldReduceMotion = useReducedMotion();
-
   return (
     <section className="relative py-40 overflow-hidden border-t border-pm-border/30 bg-[var(--pm-bg)] text-pm-text transition-colors duration-500">
       {/* Decorative gradients */}
@@ -14,7 +12,7 @@ export default function ClosingCTASection() {
 
       <div className="max-w-4xl mx-auto px-6 text-center relative z-10 space-y-8">
         <motion.div
-          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
@@ -25,7 +23,7 @@ export default function ClosingCTASection() {
         </motion.div>
 
         <motion.h2
-          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.1 }}
@@ -38,7 +36,7 @@ export default function ClosingCTASection() {
         </motion.h2>
 
         <motion.p
-          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
@@ -48,7 +46,7 @@ export default function ClosingCTASection() {
         </motion.p>
 
         <motion.div
-          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.3 }}

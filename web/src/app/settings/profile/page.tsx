@@ -64,9 +64,10 @@ export default function ProfileSettingsPage() {
   const loadInvites = async () => {
     try {
       const data = await api.invites.list()
-      setInvites(data || [])
+      setInvites(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error('Failed to load invites:', err)
+      setInvites([])
     }
   }
 
@@ -459,7 +460,7 @@ export default function ProfileSettingsPage() {
             </div>
 
             {/* Invite Links List */}
-            {invites.length === 0 ? (
+            {!Array.isArray(invites) || invites.length === 0 ? (
               <div className="p-6 text-center border border-dashed border-pm-border rounded-2xl text-xs text-pm-muted">
                 No active team invite links created yet. Click "Create Invite Link" to invite your developers.
               </div>

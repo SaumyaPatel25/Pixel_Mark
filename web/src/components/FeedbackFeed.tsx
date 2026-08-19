@@ -73,26 +73,29 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
 
   return (
     <div className="w-full h-full bg-pm-surface flex flex-col z-40 select-none border-l border-pm-border transition-colors duration-300">
-      {/* Sidebar Header */}
-      <div className="p-4 border-b border-pm-border flex items-center justify-between bg-pm-surface shadow-sm transition-colors duration-300">
-        <div className="flex items-center gap-2.5 min-w-0">
+      {/* Sidebar Header (Draggable Handle) */}
+      <div className="p-4 border-b border-pm-border flex items-center justify-between bg-pm-surface shadow-sm transition-colors duration-300 cursor-grab active:cursor-grabbing">
+        <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
           <div className="w-8 h-8 rounded-xl bg-pm-cyan/10 border border-pm-border flex items-center justify-center flex-shrink-0">
             <Layers className="w-3.5 h-3.5 text-pm-cyan" />
           </div>
           <div className="min-w-0">
             <h3 className="text-xs font-extrabold text-pm-text truncate">Open Feedback</h3>
-            <p className="text-[8px] text-pm-muted font-bold uppercase tracking-wider mt-0.5">Live session stream</p>
+            <p className="text-[8px] text-pm-muted font-bold uppercase tracking-wider mt-0.5">Drag to move menu</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="px-2 py-0.5 rounded-full bg-pm-surface-2 border border-pm-border text-[9px] font-black text-pm-text font-mono">
+          <span className="px-2 py-0.5 rounded-full bg-pm-surface-2 border border-pm-border text-[9px] font-black text-pm-text font-mono pointer-events-none">
             {filteredMarkers.length} Pins
           </span>
           <button
             id="close-command-center-btn"
-            onClick={() => toggleCommandCenter(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleCommandCenter(false);
+            }}
             aria-label="Close Feedback Feed Drawer"
-            className="w-7 h-7 rounded-lg border border-pm-border text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all lg:hidden flex items-center justify-center cursor-pointer"
+            className="w-7 h-7 rounded-lg border border-pm-border text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all flex items-center justify-center cursor-pointer active:scale-95"
           >
             <X className="w-3.5 h-3.5" />
           </button>

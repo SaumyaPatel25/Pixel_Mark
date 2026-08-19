@@ -401,7 +401,16 @@
   };
 
   // ─── Renderer detection ───────────────────────────────────────────────────
+  const DETECT_RENDERER_THROTTLE_MS = 500;
+  let _lastDetectRendererTime = 0;
+  let _lastDetectRendererResult = null;
+
   function detectRenderer() {
+    const now = Date.now();
+    if (_lastDetectRendererResult !== null && (now - _lastDetectRendererTime) < DETECT_RENDERER_THROTTLE_MS) {
+      return _lastDetectRendererResult;
+    }
+    _lastDetectRendererTime = now;
     const canvases = Array.from(document.querySelectorAll("canvas"));
     const hasCanvas = canvases.length > 0;
     
@@ -482,6 +491,7 @@
     if (window.STAGE) window.STAGE.rendererType = detectedType;
     if (window.__STAGE__) window.__STAGE__.rendererType = detectedType;
 
+    _lastDetectRendererResult = detectedType;
     return detectedType;
   }
 
@@ -1503,19 +1513,19 @@
         badgeEl.id = "stage-hud-badge";
         badgeEl.style.cssText = `
           position: fixed !important;
-          bottom: 16px !important;
-          right: 16px !important;
-          background: linear-gradient(135deg, #7c3aed, #5b21b6) !important;
-          color: white !important;
-          padding: 9px 18px !important;
+          bottom: 24px !important;
+          left: 50% !important;
+          transform: translateX(-50%) !important;
+          background: rgba(18, 18, 24, 0.92) !important;
+          color: #f1f1f5 !important;
+          padding: 8px 16px !important;
           border-radius: 9999px !important;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
-          font-size: 11px !important;
-          font-weight: 800 !important;
-          text-transform: uppercase !important;
-          letter-spacing: 0.07em !important;
-          box-shadow: 0 4px 24px rgba(124, 58, 237, 0.5), 0 0 0 1px rgba(255,255,255,0.12) !important;
+          font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif !important;
+          font-size: 13px !important;
+          font-weight: 500 !important;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1) !important;
           z-index: 2147483647 !important;
+          isolation: isolate !important;
           display: flex !important;
           align-items: center !important;
           gap: 9px !important;
@@ -1523,11 +1533,11 @@
           animation: pm-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
         `;
         const rendererLabel = window.__STAGE__.rendererType !== "dom"
-          ? ` ┬╖ ${window.__STAGE__.rendererType.toUpperCase()}`
+          ? ` • ${window.__STAGE__.rendererType.toUpperCase()}`
           : "";
         badgeEl.innerHTML = `
           <span style="display:inline-block;width:7px;height:7px;background:#a78bfa;border-radius:50%;animation:pm-ping 1s infinite alternate;"></span>
-          Feedback Mode ON${rendererLabel} ΓÇö Click to report
+          Feedback Mode ON${rendererLabel} — Click to report
         `;
         const style = document.createElement("style");
         style.id = "stage-hud-style";
@@ -1535,15 +1545,15 @@
           @keyframes pm-slide-up { from{transform:translateY(24px);opacity:0} to{transform:translateY(0);opacity:1} }
           @keyframes pm-ping { from{transform:scale(1);opacity:1} to{transform:scale(1.5);opacity:0.4} }
         `;
-        document.head.appendChild(style);
-        document.body.appendChild(badgeEl);
+        (document.head || document.documentElement).appendChild(style);
+        (document.documentElement || document.body).appendChild(badgeEl);
       }
-      document.body.style.cursor = "crosshair";
+      (document.documentElement || document.body).style.cursor = "crosshair";
     } else {
       if (badgeEl) { badgeEl.remove(); badgeEl = null; }
       const style = document.getElementById("stage-hud-style");
       if (style) style.remove();
-      document.body.style.cursor = "";
+      (document.documentElement || document.body).style.cursor = "";
     }
   }
 
@@ -1552,12 +1562,21 @@
     constructor() {
       this.root = document.createElement('div');
       this.root.id = INSPECTOR_ROOT_ID;
-      this.root.style.cssText = `position:fixed;pointer-events:none;z-index:2147483646;`;
-      document.body.appendChild(this.root);
+      this.root.style.cssText = `
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        pointer-events: none;
+        z-index: 2147483646;
+        isolation: isolate;
+        contain: layout style;
+        display: none;
+      `;
+      (document.documentElement || document.body).appendChild(this.root);
       this.box = document.createElement('div');
-      this.box.style.cssText = `border:2px solid #7c3aed;border-radius:4px;box-shadow:0 0 8px rgba(124,58,237,0.6);`;
+      this.box.style.cssText = `position:absolute;border:2px solid #7c3aed;border-radius:4px;box-shadow:0 0 8px rgba(124,58,237,0.6);pointer-events:none;`;
       this.tooltip = document.createElement('div');
-      this.tooltip.style.cssText = `position:absolute;background:#7c3aed;color:white;padding:2px 6px;font-size:10px;border-radius:3px;top:-24px;left:0;transform:translateX(-50%);white-space:nowrap;`;
+      this.tooltip.style.cssText = `position:absolute;background:#7c3aed;color:white;padding:2px 6px;font-size:10px;border-radius:3px;top:-24px;left:0;transform:translateX(-50%);white-space:nowrap;pointer-events:none;`;
       this.root.appendChild(this.box);
       this.root.appendChild(this.tooltip);
       this.active = false;
@@ -1565,7 +1584,7 @@
     }
     start() {
       if (this.active) return;
-      window.addEventListener('mousemove', this.bound);
+      window.addEventListener('mousemove', this.bound, { passive: true });
       this.active = true;
     }
     stop() {
@@ -1582,12 +1601,16 @@
         return;
       }
       const rect = el.getBoundingClientRect();
-      this.box.style.cssText = `position:absolute;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;border:2px solid #7c3aed;border-radius:4px;pointer-events:none;`;
+      this.box.style.left = `${rect.left}px`;
+      this.box.style.top = `${rect.top}px`;
+      this.box.style.width = `${rect.width}px`;
+      this.box.style.height = `${rect.height}px`;
       const tag = el.tagName.toLowerCase();
       const role = el.getAttribute('role') || '';
       const hint = detectIssueType(el, window.__STAGE__.rendererType);
       this.tooltip.textContent = `${tag}${role ? '['+role+']' : ''} • ${hint}`;
       this.tooltip.style.left = `${e.clientX}px`;
+      this.tooltip.style.top = `${rect.top}px`;
       this.root.style.display = 'block';
     }
   }
@@ -1600,26 +1623,50 @@
     constructor() {
       this.root = document.createElement('div');
       this.root.id = PIN_ROOT_ID;
-      this.root.style.cssText = `position:fixed;pointer-events:none;z-index:2147483645;`;
-      document.body.appendChild(this.root);
+      this.root.style.cssText = `
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        pointer-events: none;
+        z-index: 2147483647;
+        isolation: isolate;
+        contain: layout style;
+      `;
+      (document.documentElement || document.body).appendChild(this.root);
       this.pins = new Map();
     }
     createPin(payload) {
       const id = payload.id || crypto.randomUUID();
       const el = document.createElement('div');
       el.dataset.stagePin = id;
-      el.style.cssText = `position:absolute;width:12px;height:12px;background:#7c3aed;border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.4);cursor:pointer;pointer-events:auto;`;
-      const { viewport_x, viewport_y } = payload.click || {};
-      if (viewport_x !== undefined && viewport_y !== undefined) {
+      el.style.cssText = `
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        background: #7c3aed;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 0 0 2px rgba(0,0,0,0.6), 0 0 8px rgba(124,58,237,0.9);
+        cursor: pointer;
+        pointer-events: auto;
+        transform: translate(-50%, -50%);
+        transition: transform 0.15s ease;
+      `;
+      el.addEventListener('mouseenter', () => el.style.transform = 'translate(-50%, -50%) scale(1.3)');
+      el.addEventListener('mouseleave', () => el.style.transform = 'translate(-50%, -50%) scale(1)');
+
+      const { viewport_x, viewport_y, client_x, client_y } = payload.click || {};
+      if (client_x !== undefined && client_y !== undefined) {
+        el.style.left = `${client_x}px`;
+        el.style.top = `${client_y}px`;
+      } else if (viewport_x !== undefined && viewport_y !== undefined) {
         el.style.left = `${viewport_x * 100}%`;
         el.style.top = `${viewport_y * 100}%`;
-        el.style.transform = 'translate(-50%,-50%)';
       } else if (payload.bounding_box) {
         const { x, y, width, height } = payload.bounding_box;
         const vw = window.innerWidth, vh = window.innerHeight;
         el.style.left = `${(x + width/2) / vw * 100}%`;
         el.style.top = `${(y + height/2) / vh * 100}%`;
-        el.style.transform = 'translate(-50%,-50%)';
       }
       
       el.addEventListener('click', (ev) => {
@@ -1650,6 +1697,29 @@
     return false;
   }
 
+  // ─── Coordinate anchoring for full-canvas targets ─────────────────────────
+  function buildCanvasRelativeAnchor(e, canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width || 1;
+    const height = rect.height || 1;
+    const offsetXRatio = (e.clientX - rect.left) / width;
+    const offsetYRatio = (e.clientY - rect.top) / height;
+
+    // Also compute normalized device coordinates for raycasting-based re-anchoring
+    const ndcX = (offsetXRatio * 2) - 1;
+    const ndcY = -(offsetYRatio * 2) + 1;
+
+    return {
+      anchorKind: 'canvas-relative',
+      offsetXRatio: Math.max(0, Math.min(1, offsetXRatio)),
+      offsetYRatio: Math.max(0, Math.min(1, offsetYRatio)),
+      ndcX,
+      ndcY,
+      canvasRect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      devicePixelRatio: window.devicePixelRatio || 1
+    };
+  }
+
   // ─── Payload builder (canonical) ──────────────────────────────────────────
   function buildCapturePayload(event, target, canvasCtx = null) {
     const clickX = event.clientX, clickY = event.clientY;
@@ -1666,12 +1736,19 @@
 
     let offset_x_ratio = null;
     let offset_y_ratio = null;
-    if (bbox && bbox.width > 0 && bbox.height > 0) {
+    let canvasAnchor = null;
+    if (target && target.tagName === 'CANVAS') {
+      canvasAnchor = buildCanvasRelativeAnchor(event, target);
+      offset_x_ratio = canvasAnchor.offsetXRatio;
+      offset_y_ratio = canvasAnchor.offsetYRatio;
+    } else if (bbox && bbox.width > 0 && bbox.height > 0) {
       offset_x_ratio = (clickX - bbox.left) / bbox.width;
       offset_y_ratio = (clickY - bbox.top) / bbox.height;
     }
     
     const canonical_anchor = {
+      anchor_kind: canvasAnchor ? 'canvas-relative' : 'dom-relative',
+      anchorKind: canvasAnchor ? 'canvas-relative' : 'dom-relative',
       page_x: pageX,
       page_y: pageY,
       viewport_width: viewport.width,
@@ -1712,8 +1789,8 @@
         viewport_x: clickX,
         viewport_y: clickY,
       canvas_context: canvasCtx,
-      norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : null,
-      norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : null,
+      norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : (canvasAnchor ? canvasAnchor.offsetXRatio : null),
+      norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : (canvasAnchor ? canvasAnchor.offsetYRatio : null),
       target: domCtx,
       bounding_box: bbox,
       viewport_context: viewportCtx,
@@ -1729,8 +1806,33 @@
   // ─── Interaction Model ───────────────────────────────────────────────────
   function toggleFeedbackMode(state) {
     feedbackModeActive = typeof state === 'boolean' ? state : !feedbackModeActive;
+    if (window.__STAGE__) {
+      window.__STAGE__.feedbackModeActive = feedbackModeActive;
+    }
     updateFeedbackModeUI();
-    if (feedbackModeActive) hoverInspector.start(); else hoverInspector.stop();
+
+    document.querySelectorAll('canvas').forEach(canvas => {
+      if (feedbackModeActive) {
+        // Prevent canvas from stealing pointer capture while STAGE owns interaction
+        if (!canvas.__stage_original_setPointerCapture) {
+          canvas.__stage_original_setPointerCapture = canvas.setPointerCapture ? canvas.setPointerCapture.bind(canvas) : null;
+        }
+        canvas.setPointerCapture = function() { /* no-op during feedback mode */ };
+        canvas.style.cursor = 'crosshair';
+      } else {
+        if (canvas.__stage_original_setPointerCapture) {
+          canvas.setPointerCapture = canvas.__stage_original_setPointerCapture;
+        }
+        canvas.style.cursor = '';
+      }
+    });
+
+    if (feedbackModeActive) {
+      hoverInspector.start();
+      if (window.__STAGE_EDIT_MODE__) window.__STAGE_EDIT_MODE__.stop();
+    } else {
+      hoverInspector.stop();
+    }
   }
 
   // Keyboard shortcut – Alt+Shift+F
@@ -1781,18 +1883,24 @@
       let canvasCtx = null;
       if (isCanvas) {
         const canvasBbox = target.getBoundingClientRect();
-        const contextType = getCanvasContextType(target);
-        const isGL = /webgl/i.test(contextType || "");
+        
+        // Single source of truth for gl in this entire block — resolved from the
+        // live context stored at creation time, never re-called via getContext()
+        const gl = (target.__stage_gl && typeof target.__stage_gl.getParameter === "function")
+          ? target.__stage_gl
+          : null;
+
         let baseCtx = {};
         if (rendererType === "threejs" || window.THREE || target.__three) {
           baseCtx = getThreeJSContext(e, target);
-        } else if (isGL) {
+        } else if (gl) {
           baseCtx = getWebGLContext(e, target) || {};
         }
+
         canvasCtx = {
           ...baseCtx,
-          hit_detail: baseCtx.hit_found ? baseCtx : null,
-          type: isGL ? "webgl" : "canvas2d",
+          hit_detail: baseCtx?.hit_found ? baseCtx : null,
+          type: gl ? "webgl" : "canvas2d",
           canvas_coords: { x: Math.round(clickX - canvasBbox.left), y: Math.round(clickY - canvasBbox.top) },
           canvas_rect: {
             x: Math.round(canvasBbox.x),
@@ -1802,9 +1910,9 @@
             top: Math.round(canvasBbox.top),
             left: Math.round(canvasBbox.left)
           },
-          scene_hint: (rendererType === "threejs" || window.THREE || target.__three) ? "Three.js Scene" : isGL ? "WebGL Context" : "Canvas 2D Context",
+          scene_hint: (rendererType === "threejs" || window.THREE || target.__three) ? "Three.js Scene" : gl ? "WebGL Context" : "Canvas 2D Context",
           pixel_ratio: window.devicePixelRatio || 1,
-          draw_call_hint: gl ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
+          draw_call_hint: (gl && typeof gl.getParameter === "function") ? (gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1) : null
         };
         
         if (!domCtx.css_selector || domCtx.css_selector === "canvas" || domCtx.css_selector.split(" > ").pop() === "canvas") {
@@ -1953,6 +2061,11 @@
     }
   }
 
+  if (window.__STAGE__) {
+    window.__STAGE__.handleFeedbackCapture = handleFeedbackCapture;
+  }
+  window.handleFeedbackCapture = handleFeedbackCapture;
+
   window.__trackedPins = [];
 
   function normalizeUrl(url) {
@@ -1997,6 +2110,9 @@
           el = result.singleNodeValue;
         } catch(e) {}
       }
+      if (!el && (pin.selector === "visual-canvas-context" || pin.canvas_context || anchor.anchorKind === "canvas-relative" || anchor.anchor_kind === "canvas-relative")) {
+        try { el = document.querySelector('canvas'); } catch(e) {}
+      }
 
       let degraded = false;
       const anchor = pin.canonical_anchor || {};
@@ -2006,9 +2122,13 @@
           const rect = el.getBoundingClientRect();
           let relX = anchor.offset_x_ratio !== undefined && anchor.offset_x_ratio !== null ? anchor.offset_x_ratio : 0.5;
           let relY = anchor.offset_y_ratio !== undefined && anchor.offset_y_ratio !== null ? anchor.offset_y_ratio : 0.5;
+          if (anchor.offsetXRatio !== undefined && anchor.offsetXRatio !== null) relX = anchor.offsetXRatio;
+          if (anchor.offsetYRatio !== undefined && anchor.offsetYRatio !== null) relY = anchor.offsetYRatio;
+          if (pin.canvas_context?.offsetXRatio !== undefined && pin.canvas_context?.offsetXRatio !== null) relX = pin.canvas_context.offsetXRatio;
+          if (pin.canvas_context?.offsetYRatio !== undefined && pin.canvas_context?.offsetYRatio !== null) relY = pin.canvas_context.offsetYRatio;
 
           // Legacy fallback calculation
-          if (anchor.offset_x_ratio == null) {
+          if (anchor.offset_x_ratio == null && anchor.offsetXRatio == null) {
             const bbox = pin.boundingBox;
             if (bbox && bbox.width && bbox.height) {
               const origLeft = bbox.left !== undefined ? bbox.left : bbox.x || 0;
@@ -2095,11 +2215,22 @@
     if (pointerListenersAttached) return;
     pointerListenersAttached = true;
 
+    // Attach on pointerdown in the CAPTURE phase, not click in bubble phase
     document.addEventListener("pointerdown", (e) => {
-      if (feedbackModeActive) {
-        e.stopPropagation();
-      }
-    }, { passive: true, capture: true });
+      if (!feedbackModeActive && !e.altKey) return;
+      // Stamp the event so canvas-owned listeners downstream know STAGE already claimed it
+      e.__stagePinCandidate = { x: e.clientX, y: e.clientY, target: e.target };
+    }, { capture: true, passive: false });
+
+    document.addEventListener("pointerup", (e) => {
+      const candidate = e.__stagePinCandidate;
+      if (!candidate) return;
+      // Only fire if pointerup is close to pointerdown (avoid drag/orbit gestures)
+      const drift = Math.hypot(e.clientX - candidate.x, e.clientY - candidate.y);
+      if (drift > 6) return; // user was dragging the camera, not clicking
+      e.__stageHandledByPointerUp = true;
+      handleFeedbackCapture(e);
+    }, { capture: true, passive: false });
 
     // Relay native mousemove events from within the iframe up to the parent
     // so the parent can echo them back to sites that need cross-document mouse tracking.
@@ -2128,14 +2259,27 @@
       throttleResolvePins();
     }, { passive: true, capture: true });
 
+    let _resizeDebounceTimer = null;
     window.addEventListener('resize', () => {
-      window.parent.postMessage({
-        type: 'STAGE_RESIZE',
-        width: window.innerWidth,
-        height: window.innerHeight
-      }, '*');
-      throttleResolvePins();
+      if (_resizeDebounceTimer) clearTimeout(_resizeDebounceTimer);
+      _resizeDebounceTimer = setTimeout(() => {
+        _resizeDebounceTimer = null;
+        window.parent.postMessage({
+          type: 'STAGE_RESIZE',
+          width: window.innerWidth,
+          height: window.innerHeight
+        }, '*');
+        throttleResolvePins();
+      }, 150);
     }, { passive: true });
+
+    if (typeof ResizeObserver !== 'undefined') {
+      try {
+        const resizeObs = new ResizeObserver(throttleResolvePins);
+        document.querySelectorAll('canvas').forEach(c => resizeObs.observe(c));
+        resizeObs.observe(document.documentElement || document.body);
+      } catch (_) {}
+    }
 
     // Keyboard shortcut – Ctrl+Z or Cmd+Z for undo
     window.addEventListener('keydown', (e) => {
@@ -2193,15 +2337,18 @@
       }
     }
 
-    if (data.type === "STAGE_TOGGLE_MARKER_MODE") {
-      feedbackModeActive = !!data.active;
-      updateFeedbackModeUI();
-      if (feedbackModeActive) {
-        hoverInspector.start();
-        if (window.__STAGE_EDIT_MODE__) window.__STAGE_EDIT_MODE__.stop();
-      } else {
-        hoverInspector.stop();
-      }
+    const rawMsgType = String(data.type || "");
+    const normalizedMsgType = rawMsgType.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+    if (
+      normalizedMsgType === "STAGETOGGLEMARKERMODE" ||
+      normalizedMsgType === "STAGETOGGLEFEEDBACKMODE" ||
+      normalizedMsgType === "STAGESETMARKERMODE" ||
+      normalizedMsgType === "STAGESETFEEDBACKMODE"
+    ) {
+      const activeState = data.active !== undefined ? Boolean(data.active) : Boolean(data.payload?.active);
+      console.log("[STAGE Agent] Received TOGGLE_MARKER_MODE message, activeState =", activeState);
+      toggleFeedbackMode(activeState);
     }
 
     if (data.type === "STAGE_SET_EDIT_MODE" || data.type === "STAGE_TOGGLE_EDIT_MODE") {
@@ -2611,8 +2758,8 @@
     // Detect large section count (marketing pages with many sections)
     const sectionCount = document.querySelectorAll('section, [class*="section"], [class*="hero"], [class*="block"]').length;
     const hasManySections = sectionCount > 5;
-    // Detect sticky/fixed elements (hero + sticky nav pattern)
-    const fixedEls = Array.from(document.querySelectorAll('*')).filter(el => {
+    // Detect sticky/fixed elements (hero + sticky nav pattern) — capped at 500 elements to avoid O(N) jank
+    const fixedEls = Array.from(document.querySelectorAll('*')).slice(0, 500).filter(el => {
       try {
         const style = window.getComputedStyle(el);
         return style.position === 'fixed' || style.position === 'sticky';
@@ -2847,9 +2994,13 @@
   });
 
   // ─── Immediate Event Listener Registration ──────────────────────────────
-  // We register both message and click capture listeners immediately upon script execution.
+  // We register message, pointer, and click capture listeners immediately upon script execution.
   // This bypasses any delays from heavy-rendering detection or DOMContentLoaded.
-  document.addEventListener("click", handleFeedbackCapture, true);
+  attachPointerListeners();
+  document.addEventListener("click", (e) => {
+    if (window.__lastFeedbackTime && (Date.now() - window.__lastFeedbackTime < 400)) return;
+    handleFeedbackCapture(e);
+  }, true);
   window.addEventListener("message", handleParentMessage, false);
 
   // Dispatch layout events immediately on script injection

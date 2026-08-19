@@ -61,18 +61,16 @@ function DarkHeroAura({ isDark }: DarkHeroAuraProps) {
         const rect = heroEl ? heroEl.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
         const px = auraPos.current.x * rect.width;
         const py = auraPos.current.y * rect.height;
-        el.style.left    = px + 'px';
-        el.style.top     = py + 'px';
-        el.style.opacity = hovered.current ? '1' : '0';
+        el.style.transform = `translate3d(${px - 250}px, ${py - 250}px, 0)`;
+        el.style.opacity   = hovered.current ? '1' : '0';
       }
       if (bloomRef.current) {
         const el = bloomRef.current;
         const rect = heroEl ? heroEl.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
         const px = bloomPos.current.x * rect.width;
         const py = bloomPos.current.y * rect.height;
-        el.style.left    = px + 'px';
-        el.style.top     = py + 'px';
-        el.style.opacity = hovered.current ? '0.6' : '0';
+        el.style.transform = `translate3d(${px - 375}px, ${py - 375}px, 0)`;
+        el.style.opacity   = hovered.current ? '0.6' : '0';
       }
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -105,14 +103,16 @@ function DarkHeroAura({ isDark }: DarkHeroAuraProps) {
         ref={auraRef}
         style={{
           position: 'absolute',
+          top: 0,
+          left: 0,
           width: '500px',
           height: '500px',
           borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(120,100,255,0.45) 0%, rgba(99,102,241,0.2) 40%, transparent 70%)',
           filter: 'blur(55px)',
-          transform: 'translate(-50%, -50%)',
+          transform: 'translate3d(-250px, -250px, 0)',
           opacity: 0,
-          willChange: 'left, top, opacity',
+          willChange: 'transform, opacity',
           transition: 'opacity 0.6s ease',
           pointerEvents: 'none',
         }}
@@ -121,14 +121,16 @@ function DarkHeroAura({ isDark }: DarkHeroAuraProps) {
         ref={bloomRef}
         style={{
           position: 'absolute',
+          top: 0,
+          left: 0,
           width: '750px',
           height: '750px',
           borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(67,130,223,0.22) 0%, rgba(139,92,246,0.1) 45%, transparent 72%)',
           filter: 'blur(80px)',
-          transform: 'translate(-50%, -50%)',
+          transform: 'translate3d(-375px, -375px, 0)',
           opacity: 0,
-          willChange: 'left, top, opacity',
+          willChange: 'transform, opacity',
           transition: 'opacity 0.9s ease',
           pointerEvents: 'none',
         }}

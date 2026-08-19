@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, memo } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 type Edge = 'top' | 'bottom' | 'left' | 'right';
 
@@ -11,8 +11,8 @@ interface Position {
   offset: number; // 0..1 along that edge
 }
 
-const HIDE_DURATION   = 2800; // ms hidden
-const PEEK_DURATION   = 2200; // ms peeking
+const HIDE_DURATION   = 3200; // ms hidden
+const PEEK_DURATION   = 2400; // ms peeking
 const SENTINEL_SIZE   = 84;   // px
 
 function randomEdgePos(): Position {
@@ -53,8 +53,9 @@ function hiddenStyle(pos: Position, cardW: number, cardH: number) {
 }
 
 /* ── Minimal standalone Sentinel SVG (idle, indigo eye, dark helmet) ─── */
-function SentinelMini() {
+function SentinelMiniComponent() {
   const [blink, setBlink] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -71,6 +72,7 @@ function SentinelMini() {
       viewBox="0 0 160 160"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      className="relative z-10"
     >
       <defs>
         <radialGradient id="hs-metalGrad" cx="50%" cy="30%" r="70%">
@@ -82,23 +84,29 @@ function SentinelMini() {
           <stop offset="0%"   stopColor="#0f1016" />
           <stop offset="100%" stopColor="#050508" />
         </linearGradient>
-        <filter id="hs-eyeGlow" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
       </defs>
 
       {/* Rotating halo */}
-      <motion.circle
-        cx="80" cy="80" r="66"
-        stroke="rgba(99,130,255,0.18)"
-        strokeWidth="1.5"
-        strokeDasharray="12 28 8 40"
-        fill="none"
-        animate={{ rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 10, ease: 'linear' }}
-        style={{ transformOrigin: '80px 80px' }}
-      />
+      {!shouldReduceMotion ? (
+        <motion.circle
+          cx="80" cy="80" r="66"
+          stroke="rgba(99,130,255,0.22)"
+          strokeWidth="1.5"
+          strokeDasharray="12 28 8 40"
+          fill="none"
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 12, ease: 'linear' }}
+          style={{ transformOrigin: '80px 80px', willChange: 'transform' }}
+        />
+      ) : (
+        <circle
+          cx="80" cy="80" r="66"
+          stroke="rgba(99,130,255,0.22)"
+          strokeWidth="1.5"
+          strokeDasharray="12 28 8 40"
+          fill="none"
+        />
+      )}
 
       {/* Ear fins */}
       <path d="M22 65 L12 70 L12 85 L22 80 Z" fill="#1b1c25" stroke="#374151" strokeWidth="1.5" />
@@ -127,21 +135,24 @@ function SentinelMini() {
       {/* Visor reflection */}
       <path d="M42 62 L90 62" stroke="#ffffff" strokeOpacity="0.06" strokeWidth="1" />
 
-      {/* Scanline */}
-      <motion.line
-        x1="38" y1="58" x2="122" y2="58"
-        stroke="#818cf8" strokeWidth="1.5" opacity={0.25}
-        animate={{ y: [0, 42, 0] }}
-        transition={{ repeat: Infinity, duration: 3.2, ease: 'easeInOut' }}
-      />
+      {/* Scanline - Composited translateY */}
+      {!shouldReduceMotion && (
+        <motion.line
+          x1="38" y1="58" x2="122" y2="58"
+          stroke="#818cf8" strokeWidth="1.5" opacity={0.25}
+          animate={{ y: [0, 42, 0] }}
+          transition={{ repeat: Infinity, duration: 3.2, ease: 'easeInOut' }}
+          style={{ willChange: 'transform' }}
+        />
+      )}
 
-      {/* Eye */}
+      {/* Eye with subtle opacity pulse */}
       <motion.ellipse
         cx={80} cy={79}
         rx={8} ry={blink ? 0.5 : 8}
         fill="#818cf8"
-        filter="url(#hs-eyeGlow)"
-        transition={{ duration: 0.08 }}
+        animate={{ opacity: [0.85, 1, 0.85] }}
+        transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
       />
 
       {/* Status LED */}
@@ -162,6 +173,8 @@ function SentinelMini() {
   );
 }
 
+const SentinelMini = memo(SentinelMiniComponent);
+
 /* ── Main hide-and-seek orchestrator ─────────────────────────────────── */
 export default function SentinelHideAndSeek() {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -170,9 +183,11 @@ export default function SentinelHideAndSeek() {
   const [pos, setPos] = useState<Position>(() => randomEdgePos());
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldReduceMotion = useReducedMotion();
 
-  /* Measure card on mount + resize */
+  /* Measure card on mount + resize with debouncing */
   useEffect(() => {
+    let resizeTimer: any = null;
     const measure = () => {
       if (cardRef.current) {
         const { width, height } = cardRef.current.getBoundingClientRect();
@@ -180,8 +195,15 @@ export default function SentinelHideAndSeek() {
       }
     };
     measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(measure, 150);
+    };
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => {
+      clearTimeout(resizeTimer);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   /* Hide → appear cycle */
@@ -226,21 +248,20 @@ export default function SentinelHideAndSeek() {
         {visible && (
           <motion.div
             key={`${pos.edge}-${pos.offset}`}
-            className="absolute z-30"
+            className="absolute z-30 select-none cursor-pointer"
             style={{
               width: SENTINEL_SIZE,
               height: SENTINEL_SIZE,
               top: 0,
               left: 0,
-              filter: 'drop-shadow(0 0 14px rgba(99,130,255,0.55))',
-              cursor: 'pointer',
+              willChange: 'transform, opacity',
             }}
             initial={{
               x: hiddenXY!.x,
               y: hiddenXY!.y,
               rotate: hiddenXY!.rotate,
               opacity: 0,
-              scale: 0.7,
+              scale: 0.75,
             }}
             animate={{
               x: peekXY!.x,
@@ -254,24 +275,23 @@ export default function SentinelHideAndSeek() {
               y: hiddenXY!.y,
               rotate: hiddenXY!.rotate,
               opacity: 0,
-              scale: 0.7,
+              scale: 0.75,
             }}
             transition={{
-              type: 'spring',
-              stiffness: 260,
-              damping: 22,
-              opacity: { duration: 0.22 },
+              duration: 0.35,
+              ease: [0.16, 1, 0.3, 1],
+              opacity: { duration: 0.2 },
             }}
             onClick={() => router.push('/login')}
-            whileHover={{ scale: 1.12 }}
-            whileTap={{ scale: 0.92 }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.94 }}
           >
-            {/* Peek trail glow */}
+            {/* Peek trail glow - pure opacity fade instead of heavy drop-shadow filter */}
             <motion.div
-              className="absolute inset-0 rounded-full blur-xl pointer-events-none"
-              animate={{ opacity: [0.3, 0.7, 0.3] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ background: 'rgba(99,130,255,0.35)' }}
+              className="absolute -inset-2 rounded-full blur-lg pointer-events-none"
+              animate={{ opacity: [0.35, 0.65, 0.35] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ background: 'rgba(99,130,255,0.3)', willChange: 'opacity' }}
             />
             <SentinelMini />
           </motion.div>

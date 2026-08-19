@@ -60,9 +60,15 @@ ALLOWED_ASSET_DOMAINS = {
     "raw.githubusercontent.com",
 }
 
+import time
+
+_SSRF_CACHE: dict[str, tuple[bool, float]] = {}
+_SSRF_CACHE_TTL = 300.0  # 5 minutes TTL
+
 def is_ssrf_safe(url: str) -> bool:
     """
     Checks if a URL is safe from SSRF attacks (no private or loopback ranges allowed).
+    Uses a 5-minute TTL in-memory DNS cache to avoid blocking event loop on repeat domain checks.
     """
     try:
         parsed = urllib.parse.urlparse(url)
@@ -77,6 +83,14 @@ def is_ssrf_safe(url: str) -> bool:
         if hostname.startswith("[") and hostname.endswith("]"):
             hostname = hostname[1:-1]
             
+        # Check in-memory cache
+        now = time.time()
+        cached = _SSRF_CACHE.get(hostname)
+        if cached is not None:
+            is_safe, ts = cached
+            if now - ts < _SSRF_CACHE_TTL:
+                return is_safe
+
         # Allow loopback/localhost checks bypass ONLY in development mode when not running strict SSRF tests
         import os
         from config import settings
@@ -99,7 +113,16 @@ def is_ssrf_safe(url: str) -> bool:
                 ip.is_multicast or 
                 ip.is_unspecified):
                 logger.warning(f"[SSRF GUARD] Target URL {url} resolved to blocked private/local IP: {ip_str}")
+                _SSRF_CACHE[hostname] = (False, now)
                 return False
+        
+        # Prune cache if overgrown
+        if len(_SSRF_CACHE) > 5000:
+            stale_keys = [k for k, v in _SSRF_CACHE.items() if now - v[1] > _SSRF_CACHE_TTL]
+            for k in stale_keys:
+                _SSRF_CACHE.pop(k, None)
+
+        _SSRF_CACHE[hostname] = (True, now)
         return True
     except Exception as e:
         logger.error(f"[SSRF GUARD] Exception verifying URL {url}: {e}")

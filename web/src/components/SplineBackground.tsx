@@ -546,11 +546,6 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
         }
     }
 
-    // Render mobile layout statically
-    if (isMobile) {
-        return <div className="absolute inset-x-0 top-0 w-full h-[120vh] bg-[var(--pm-bg)] z-0 transition-colors duration-500" />;
-    }
-
     return (
         <div 
             className="absolute inset-x-0 top-0 w-full h-[120vh] z-0 bg-[var(--pm-bg)] pointer-events-none overflow-hidden transition-colors duration-500" 
@@ -567,7 +562,7 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
             />
 
             {/* Scattered Mobbin-Inspired App/Integration Library Layer */}
-            <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ transformStyle: 'preserve-3d', zIndex: 12 }}>
+            <div className="hidden md:block absolute inset-0 w-full h-full pointer-events-none" style={{ transformStyle: 'preserve-3d', zIndex: 12 }}>
                 {cards.map((card) => {
                     // Map depth to motion value offsets
                     const xOffset = card.depth === 'fg' ? fgX : card.depth === 'mid' ? midX : bgX

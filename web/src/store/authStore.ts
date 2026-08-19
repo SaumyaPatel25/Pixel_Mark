@@ -31,6 +31,8 @@ interface AuthState {
   token: string | null
   isLoading: boolean
   isVerifying: boolean
+  hasHydrated: boolean
+  setHasHydrated: (hasHydrated: boolean) => void
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, name?: string) => Promise<{ 
     message: string
@@ -53,6 +55,8 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isLoading: false,
       isVerifying: false,
+      hasHydrated: false,
+      setHasHydrated: (hasHydrated: boolean) => set({ hasHydrated }),
 
       login: async (email, password) => {
         set({ isLoading: true })
@@ -174,6 +178,17 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'stage_auth',
       partialize: (state) => ({ user: state.user, token: state.token }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHasHydrated(true)
+          if (typeof document !== 'undefined' && state.token) {
+            const hasCookie = document.cookie.split(';').some(c => c.trim().startsWith('stagetoken='))
+            if (!hasCookie) {
+              document.cookie = `stagetoken=${state.token}; path=/; max-age=604800; samesite=lax`
+            }
+          }
+        }
+      },
     }
   )
 )

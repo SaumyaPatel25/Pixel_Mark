@@ -1,107 +1,110 @@
-# STAGE Setup Guide
+# STAGE Developer Setup Guide
 
-Follow these steps to initialize your local development environment.
-
-## 1. Prerequisites
-
-- **Python**: 3.11+
-- **Node.js**: 20+
-- **Database**: A Supabase account and project.
-
-## 2. Definitive Database Schema
-
-Run this in your **Supabase SQL Editor**:
-
-```sql
--- 1. Enable UUID Extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- 2. Projects Table
-CREATE TABLE public.projects (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    description TEXT,
-    target_url TEXT NOT NULL,
-    share_token TEXT UNIQUE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 3. Share Links (Access Management)
-CREATE TABLE public.share_links (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE,
-    token TEXT UNIQUE NOT NULL,
-    label TEXT DEFAULT 'Shared Link',
-    role TEXT CHECK (role IN ('tester', 'reviewer', 'viewer')),
-    expires_at TIMESTAMPTZ,
-    max_uses INTEGER,
-    use_count INTEGER DEFAULT 0,
-    is_active BOOLEAN DEFAULT true,
-    password_hash TEXT,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 4. Comments (Audit Feedback)
-CREATE TABLE public.comments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE,
-    text TEXT NOT NULL,
-    component_selector TEXT,
-    xpath TEXT,
-    tag_name TEXT,
-    inner_text TEXT,
-    page_url TEXT,
-    tester_name TEXT DEFAULT 'Anonymous',
-    screenshot_url TEXT,
-    x FLOAT,
-    y FLOAT,
-    marker_number INTEGER,
-    status TEXT DEFAULT 'open', -- 'open' | 'resolved'
-    -- AI Fields
-    severity TEXT CHECK (severity IN ('P0', 'P1', 'P2', 'P3')),
-    category TEXT,
-    ai_summary TEXT,
-    suggested_fix TEXT,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Security: Disable RLS for Prototype
-ALTER TABLE projects DISABLE ROW LEVEL SECURITY;
-ALTER TABLE comments DISABLE ROW LEVEL SECURITY;
-ALTER TABLE share_links DISABLE ROW LEVEL SECURITY;
-```
-
-## 3. Configuration
-
-1. **Backend**:
-   - Navigate to `/backend`.
-   - Copy `.env.example` to `.env`.
-   - Fill in `SUPABASE_URL`, `SUPABASE_KEY`, and `GROQ_API_KEY` (optional).
-   - Install: `pip install -r requirements.txt`.
-
-2. **Frontend**:
-   - Navigate to `/web`.
-   - Copy `.env.example` to `.env.local`.
-   - Set `NEXT_PUBLIC_API_BASE=http://localhost:8765`.
-   - Install: `npm install`.
-
-## 4. Launch
-
-Run from the **root directory** (`STAGE/`):
-
-```bash
-# Terminal 1 — Backend (Package Mode)
-uvicorn backend.main:app --reload --port 8765
-
-# Terminal 2 — Frontend
-cd web
-npm run dev
-```
+This guide walks you through setting up and launching the complete STAGE full-stack platform locally.
 
 ---
 
-## ⚡ AI Developer Hand-off
+## 1. System Prerequisites
 
-If you are handing this project over to an AI agent (like Antigravity, Cursor, or Devin), simply provide them with the `prompt.md` file located in the root of this repository.
+- **Python**: 3.11+ (asyncio, FastAPI, SQLAlchemy)
+- **Node.js**: 20.x+ (npm / pnpm / yarn)
+- **Database**: PostgreSQL (Neon Serverless in production, or SQLite automatically for local offline development)
 
-That file contains the full architectural context, schema definitions, and sequence instructions required for an AI to boot the project autonomously.
+---
+
+## 2. Quickstart (One Command)
+
+From the project root directory:
+
+```bash
+# Launch both Backend (http://localhost:8765) and Frontend (http://localhost:3000)
+python run_app.py
+```
+
+`run_app.py` checks virtual environment health, verifies backend dependencies, seeds initial development tables, boots Next.js with Turbopack, and streams color-coded logs.
+
+---
+
+## 3. Manual Component Setup
+
+### A. Backend Setup (`/backend`)
+
+1. **Create and activate virtual environment**:
+   ```bash
+   cd backend
+   python -m venv venv
+   # On Windows (PowerShell):
+   .\venv\Scripts\Activate.ps1
+   # On macOS/Linux:
+   source venv/bin/activate
+   ```
+
+2. **Install Python dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Configure environment variables**:
+   ```bash
+   cp .env.example .env
+   ```
+   *Key variables*:
+   - `DATABASE_URL`: PostgreSQL connection string (defaults to `sqlite+aiosqlite:///./test.db` if unset).
+   - `JWT_SECRET_KEY`: Random 256-bit secret string for auth token signing.
+   - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: For developer GitHub OAuth.
+   - `CORS_ORIGINS`: Comma-separated allowlist (e.g. `http://localhost:3000,http://127.0.0.1:3000`).
+
+4. **Run database migrations**:
+   ```bash
+   alembic upgrade head
+   ```
+
+5. **Start FastAPI development server**:
+   ```bash
+   uvicorn main:app --reload --port 8765 --host 0.0.0.0
+   ```
+
+---
+
+### B. Frontend Setup (`/web`)
+
+1. **Install Node dependencies**:
+   ```bash
+   cd web
+   npm install
+   ```
+
+2. **Configure environment variables**:
+   ```bash
+   cp .env.example .env.local
+   ```
+   *Key variables*:
+   - `NEXT_PUBLIC_API_BASE`: `http://localhost:8765`
+   - `NEXT_PUBLIC_WS_BASE`: `ws://localhost:8765`
+   - `NEXT_PUBLIC_SITE_URL`: `http://localhost:3000`
+
+3. **Start Next.js development server**:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+## 4. Running Test Suites
+
+### Backend Unit & Regression Tests (Pytest)
+```bash
+cd backend
+python -m pytest tests/test_sri_and_regex.py tests/test_webgl_and_mime.py tests/test_markers_v2.py -v
+```
+
+### Frontend Type Safety (TypeScript)
+```bash
+cd web
+npx tsc --noEmit
+```
+
+### Full System E2E Suite
+```bash
+python scripts/verify_suite.py
+```

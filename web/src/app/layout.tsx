@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const viewport = {
-  themeColor: '#0a0a0f',
+  themeColor: '#FAF2F2',
 };
 
 export const metadata: Metadata = {
@@ -46,6 +46,11 @@ export const metadata: Metadata = {
     description: seoConfig.description,
     images: ['/og-image.png'],
     creator: seoConfig.twitterHandle,
+  },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/logo.png',
   },
   robots: {
     index: true,
@@ -110,6 +115,20 @@ export default function RootLayout({
         <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="preconnect" href="https://www.google-analytics.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://www.monkfeed.com" />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              html, body {
+                background-color: #FAF2F2 !important;
+                color: #1D264F;
+              }
+              html[data-theme="dark"], html[data-theme="dark"] body {
+                background-color: #0d0e12 !important;
+                color: #e2e4e9;
+              }
+            `
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -143,7 +162,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
       </head>
-      <body className="min-h-full flex flex-col selection:bg-cyan-500/20 selection:text-cyan-200">
+      <body className="min-h-full flex flex-col bg-[var(--pm-bg)] text-[var(--pm-text)] selection:bg-cyan-500/20 selection:text-cyan-200">
         <GoogleAnalytics />
         <AuthInitializer />
         <ThemeInitializer />

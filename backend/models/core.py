@@ -65,7 +65,7 @@ class User(Base):
 class UserAIProviderConfig(Base):
     __tablename__ = "user_ai_provider_configs"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     provider: Mapped[str] = mapped_column(String, nullable=False)
     display_name: Mapped[str] = mapped_column(String, nullable=True)
     encrypted_api_key: Mapped[str] = mapped_column(Text, nullable=True)
@@ -209,18 +209,18 @@ class PageVisit(Base):
     share_link_id: Mapped[str] = mapped_column(ForeignKey("share_links.id", ondelete="SET NULL"), nullable=True, index=True)
     page_url: Mapped[str] = mapped_column(String, nullable=False, index=True)
     page_title: Mapped[str] = mapped_column(String, nullable=True)
-    visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     renderer_type: Mapped[str] = mapped_column(String, nullable=True)
     screenshot_url: Mapped[str] = mapped_column(String, nullable=True)
     visit_metadata: Mapped[dict] = mapped_column("metadata", JSON, nullable=True)
     
     page_order: Mapped[int] = mapped_column(nullable=True, default=1)
     first_visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    last_visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_visited_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     visit_count: Mapped[int] = mapped_column(nullable=True, default=1)
     time_on_page_seconds: Mapped[int] = mapped_column(nullable=True)
     screenshot_captured_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
-    parent_page_id: Mapped[str] = mapped_column(ForeignKey("page_visits.id", ondelete="SET NULL"), nullable=True)
+    parent_page_id: Mapped[str] = mapped_column(ForeignKey("page_visits.id", ondelete="SET NULL"), nullable=True, index=True)
     
     session: Mapped["Session"] = relationship(back_populates="page_visits")
 

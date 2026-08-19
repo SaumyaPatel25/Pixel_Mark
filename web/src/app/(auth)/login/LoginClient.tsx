@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { motion } from 'framer-motion';
@@ -16,7 +16,8 @@ type ScenePhase = 'projecting' | 'submitting' | 'success' | 'error';
 
 export default function LoginClient() {
   const searchParams = useSearchParams();
-  const { user, logout } = useAuthStore();
+  const router = useRouter();
+  const { user, token, hasHydrated, logout } = useAuthStore();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<ScenePhase>('projecting');
@@ -37,11 +38,11 @@ export default function LoginClient() {
     phase === 'error' ? 'error' : 'idle';
 
   useEffect(() => {
-    if (user && phase === 'projecting') {
+    if (hasHydrated && user && token && phase === 'projecting') {
       const target = searchParams.get('redirect') || '/dashboard';
-      window.location.href = target;
+      router.replace(target);
     }
-  }, [user, phase, searchParams]);
+  }, [hasHydrated, user, token, phase, searchParams, router]);
 
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {
@@ -52,6 +53,17 @@ export default function LoginClient() {
       window.removeEventListener('pageshow', handlePageShow);
     };
   }, []);
+
+  if (hasHydrated && user && token && phase === 'projecting') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0B0F19]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-7 h-7 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+          <span className="text-xs text-white/50 font-mono uppercase tracking-wider">Redirecting...</span>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

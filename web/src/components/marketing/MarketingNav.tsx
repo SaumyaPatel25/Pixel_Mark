@@ -52,11 +52,11 @@ export default function MarketingNav() {
         animate={{
           y: isScrolled ? 12 : 0,
         }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed top-0 left-0 right-0 z-50 mx-auto max-w-7xl px-4 md:px-6 transition-all"
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        className="fixed top-0 left-0 right-0 z-50 mx-auto max-w-7xl px-4 md:px-6 pointer-events-auto"
       >
         <div 
-          className={`flex items-center justify-between h-[64px] transition-all duration-300 px-6 ${
+          className={`flex items-center justify-between h-[64px] transition-[background-color,border-color,box-shadow,border-radius,padding] duration-300 ease-out px-6 ${
             isScrolled 
               ? 'bg-pm-surface/90 backdrop-blur-md rounded-full border border-pm-border shadow-[0_12px_40px_-12px_rgba(41,54,129,0.08)]' 
               : 'bg-transparent border-b border-transparent'
@@ -88,7 +88,7 @@ export default function MarketingNav() {
           </div>
 
           {/* CTA Buttons */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className={`hidden md:flex items-center gap-4 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
             <ThemeToggle />
             {isUserLoggedIn ? (
               <>

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -23,6 +23,23 @@ import logging
 logger = logging.getLogger("stage.proxy")
 
 import time
+
+# Shared connection-pooled AsyncClient for proxy requests
+_shared_proxy_client: Optional[httpx.AsyncClient] = None
+
+def get_proxy_http_client(request: Optional[Request] = None) -> httpx.AsyncClient:
+    global _shared_proxy_client
+    if request and hasattr(request, "app") and hasattr(request.app.state, "http_client"):
+        return request.app.state.http_client
+    if _shared_proxy_client is None or _shared_proxy_client.is_closed:
+        limits = httpx.Limits(max_keepalive_connections=100, max_connections=300, keepalive_expiry=30.0)
+        _shared_proxy_client = httpx.AsyncClient(
+            limits=limits,
+            verify=False,
+            follow_redirects=True,
+            timeout=httpx.Timeout(15.0, connect=5.0)
+        )
+    return _shared_proxy_client
 
 # Active IP sessions tracking with TTL pruning (2 hours)
 # Format: { ip: (session_id, timestamp) }
@@ -69,14 +86,11 @@ async def fetch_task(client: httpx.AsyncClient, method: str, url: str, **kwargs)
         return await client.get(url, **kwargs)
 
 async def send_with_cancellation(client: httpx.AsyncClient, request: Request, method: str, url: str, **kwargs) -> httpx.Response:
-    task = asyncio.create_task(fetch_task(client, method, url, **kwargs))
-    while not task.done():
-        if await request.is_disconnected():
-            task.cancel()
-            logger.info(f"[CLIENT_ABORT] Client disconnected. Cancelling upstream fetch to {url}")
-            raise HTTPException(status_code=499, detail="Client Closed Request")
-        await asyncio.sleep(0.05)
-    return await task
+    try:
+        return await fetch_task(client, method, url, **kwargs)
+    except asyncio.CancelledError:
+        logger.info(f"[CLIENT_ABORT] Client disconnected during upstream fetch to {url}")
+        raise HTTPException(status_code=499, detail="Client Closed Request")
 
 
 # Async helper to record/upsert PageVisits cleanly
@@ -153,22 +167,63 @@ async def record_page_visit(
         logger.error(f"[OBSERVABILITY] [PAGE_VISIT_RECORD_FAILURE] Failed to record page visit. session={session_id}, url={page_url}, error={str(e)}")
         raise e
 
+async def background_record_page_visit(
+    session_id: str,
+    page_url: str,
+    page_title: Optional[str] = None,
+    share_link_id: Optional[str] = None,
+    parent_page_id: Optional[str] = None
+):
+    """Executes page visit recording asynchronously off the critical user response path."""
+    try:
+        from database import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            await record_page_visit(db, session_id, page_url, page_title, share_link_id, parent_page_id)
+    except Exception as e:
+        logger.warning(f"[BACKGROUND_PAGE_VISIT] Failed to record visit in background: {e}")
+
+
+# In-memory session base URL cache (session_id -> (base_url, project_id, session_obj, timestamp))
+_SESSION_BASE_URL_CACHE: Dict[str, tuple[str, str, Session, float]] = {}
+_SESSION_BASE_URL_CACHE_TTL = 60.0  # 60 seconds
+
+def invalidate_session_base_url_cache(session_id: Optional[str] = None):
+    global _SESSION_BASE_URL_CACHE
+    if session_id:
+        _SESSION_BASE_URL_CACHE.pop(session_id, None)
+    else:
+        _SESSION_BASE_URL_CACHE.clear()
 
 async def resolve_session_base_url(session_id: str, db: AsyncSession) -> tuple[str, str, Session]:
     """
     Given a session_id, queries session and project details and returns (base_url, project_id, session).
-    Raises HTTPException if not found or config is missing.
+    Uses single joined query and in-memory TTL caching to eliminate repeated DB queries on assets.
     """
-    result = await db.execute(select(Session).where(Session.id == session_id))
-    session = result.scalar_one_or_none()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-        
-    proj_result = await db.execute(select(Project).where(Project.id == session.project_id))
-    project = proj_result.scalar_one_or_none()
-    if not project:
+    now = time.time()
+    cached = _SESSION_BASE_URL_CACHE.get(session_id)
+    if cached is not None:
+        base_url, proj_id, session_obj, ts = cached
+        if now - ts < _SESSION_BASE_URL_CACHE_TTL:
+            return base_url, proj_id, session_obj
+
+    # 1. Single JOIN query between Session and Project
+    stmt = (
+        select(Session, Project)
+        .join(Project, Session.project_id == Project.id)
+        .where(Session.id == session_id)
+    )
+    result = await db.execute(stmt)
+    row = result.first()
+    if not row:
+        # Check if session exists at all
+        sess_check = await db.execute(select(Session).where(Session.id == session_id))
+        session = sess_check.scalar_one_or_none()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
         raise HTTPException(status_code=404, detail="Project not found")
-        
+
+    session, project = row
+
     env_result = await db.execute(select(Environment).where(Environment.project_id == project.id))
     envs = env_result.scalars().all()
     
@@ -185,8 +240,13 @@ async def resolve_session_base_url(session_id: str, db: AsyncSession) -> tuple[s
         
     if not base_url:
         raise HTTPException(status_code=400, detail="No base URL configured for the project.")
-        
+
+    _SESSION_BASE_URL_CACHE[session_id] = (base_url, project.id, session, now)
     return base_url, project.id, session
+
+async def resolve_session_base_url_cached(session_id: str, db: AsyncSession) -> tuple[str, str, Session]:
+    return await resolve_session_base_url(session_id, db)
+
 
 async def validate_public_access(session_id: str, share_token: str, db: AsyncSession) -> ShareLink:
     """
@@ -228,7 +288,7 @@ MIME_TYPE_MAP = {
     '.gltf': 'model/gltf+json',
     '.obj': 'model/obj',
     '.mtl': 'model/mtl',
-    '.fbx': 'application/octet-stream',
+    '.fbx': 'model/fbx',
     '.usdz': 'model/vnd.usdz+zip',
     '.ply': 'application/x-ply',
     '.splat': 'application/octet-stream',
@@ -441,7 +501,7 @@ async def proxy_rsc_request(request: Request, target_url: str) -> Response:
         k: v for k, v in request.headers.items()
         if k.lower().startswith("next-") or k.lower() == "rsc"
     }
-    client = httpx.AsyncClient(verify=False, timeout=30.0, follow_redirects=True)
+    client = get_proxy_http_client(request)
     req = client.build_request(
         request.method, target_url, headers=headers_to_pass
     )
@@ -454,7 +514,6 @@ async def proxy_rsc_request(request: Request, target_url: str) -> Response:
                     yield chunk
             finally:
                 await response.aclose()
-                await client.aclose()
                 
         resp_headers = dict(response.headers)
         resp_headers.pop("content-encoding", None)
@@ -489,13 +548,13 @@ async def proxy_rsc_request(request: Request, target_url: str) -> Response:
             return prepare_proxy_response(FAResp)
         finally:
             await response.aclose()
-            await client.aclose()
 
 
 @router.get("/session/{session_id}")
 async def proxy_initial(
     session_id: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     share_token: str = Query(None),
     snapshot_mode: bool = Query(False),
     db: AsyncSession = Depends(get_db)
@@ -531,72 +590,73 @@ async def proxy_initial(
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "X-STAGE-Session": session_id
         }
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
-            resp = await send_with_cancellation(client, request, "GET", base_url, headers=headers)
+        client = get_proxy_http_client(request)
+        resp = await send_with_cancellation(client, request, "GET", base_url, headers=headers)
+        
+        if resp.status_code >= 400:
+            return prepare_proxy_response(Response(
+                content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target site {base_url} returned status code {resp.status_code}.</p></body></html>",
+                media_type="text/html",
+                status_code=503
+            ))
             
-            if resp.status_code >= 400:
-                return prepare_proxy_response(Response(
-                    content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target site {base_url} returned status code {resp.status_code}.</p></body></html>",
-                    media_type="text/html",
-                    status_code=503
-                ))
-                
-            content_type = resp.headers.get("content-type", "text/html")
+        content_type = resp.headers.get("content-type", "text/html")
+        
+        if "text/html" in content_type:
+            # Upsert PageVisit asynchronously in background
+            background_tasks.add_task(
+                background_record_page_visit,
+                session_id=session_id,
+                page_url=base_url,
+                page_title=None,
+                share_link_id=share_link_id
+            )
             
-            if "text/html" in content_type:
-                # Upsert PageVisit
-                await record_page_visit(
-                    db=db,
-                    session_id=session_id,
-                    page_url=base_url,
-                    page_title=None,
-                    share_link_id=share_link_id
-                )
-                
-                proto = request.headers.get("x-forwarded-proto", "http")
-                api_base = os.getenv("API_BASE", "") or str(request.base_url)
-                if proto == "https" and api_base.startswith("http://"):
-                    api_base = "https://" + api_base[7:]
-                
-                is_next_site = "_next/static" in resp.text or "__NEXT_DATA__" in resp.text
-                if is_next_site and not session.conservative_render_mode:
-                    session.conservative_render_mode = True
-                    db.add(session)
-                    await db.commit()
-                    logger.info(f"[PROXY_REWRITE] Next.js detected via signature in proxy_initial. Flipping conservative_render_mode=True for session={session_id}")
-                
-                rewritten_html = rewrite_html(
-                    html=resp.text, 
-                    session_id=session_id, 
-                    page_url=base_url, 
-                    base_url=base_url, 
-                    api_base=api_base,
-                    conservative_render_mode=session.conservative_render_mode,
-                    snapshot_mode=snapshot_mode
-                )
-                
-                response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
-                response.headers["X-STAGE-Session"] = session_id
-                response.headers["X-STAGE-Page"] = base_url
-                
-                response.set_cookie(
-                    "stagesessionid", 
-                    session_id, 
-                    path="/", 
-                    httponly=True, 
-                    max_age=86400,
-                    samesite="none",
-                    secure=True
-                )
-                
-                # Apply Cache-Control header policy (Prompt 12)
-                set_cache_headers(response, urllib.parse.urlparse(base_url).path, request.url.query)
-                return prepare_proxy_response(response)
-            else:
-                response = Response(content=resp.content, media_type=content_type)
-                set_cache_headers(response, urllib.parse.urlparse(base_url).path, request.url.query)
-                return prepare_proxy_response(response)
-                
+            proto = request.headers.get("x-forwarded-proto", "http")
+            api_base = os.getenv("API_BASE", "") or str(request.base_url)
+            if proto == "https" and api_base.startswith("http://"):
+                api_base = "https://" + api_base[7:]
+            
+            is_next_site = "_next/static" in resp.text or "__NEXT_DATA__" in resp.text
+            if is_next_site and not session.conservative_render_mode:
+                session.conservative_render_mode = True
+                db.add(session)
+                await db.commit()
+                invalidate_session_base_url_cache(session_id)
+                logger.info(f"[PROXY_REWRITE] Next.js detected via signature in proxy_initial. Flipping conservative_render_mode=True for session={session_id}")
+            
+            rewritten_html = rewrite_html(
+                html=resp.text, 
+                session_id=session_id, 
+                page_url=base_url, 
+                base_url=base_url, 
+                api_base=api_base,
+                conservative_render_mode=session.conservative_render_mode,
+                snapshot_mode=snapshot_mode
+            )
+            
+            response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
+            response.headers["X-STAGE-Session"] = session_id
+            response.headers["X-STAGE-Page"] = base_url
+            
+            response.set_cookie(
+                "stagesessionid", 
+                session_id, 
+                path="/", 
+                httponly=True, 
+                max_age=86400,
+                samesite="none",
+                secure=True
+            )
+            
+            # Apply Cache-Control header policy (Prompt 12)
+            set_cache_headers(response, urllib.parse.urlparse(base_url).path, request.url.query)
+            return prepare_proxy_response(response)
+        else:
+            response = Response(content=resp.content, media_type=content_type)
+            set_cache_headers(response, urllib.parse.urlparse(base_url).path, request.url.query)
+            return prepare_proxy_response(response)
+            
     except Exception as e:
         return prepare_proxy_response(Response(
             content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target site {base_url} is unreachable.</p><p style='color:gray;'>{str(e)}</p></body></html>",
@@ -609,6 +669,7 @@ async def proxy_initial(
 async def proxy_page(
     session_id: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     url: Optional[str] = Query(None),
     parent_page_id: str = Query(None),
     share_token: str = Query(None),
@@ -671,86 +732,87 @@ async def proxy_page(
             "X-STAGE-Session": session_id
         }
         t_fetch_start = time.perf_counter()
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
-            resp = await send_with_cancellation(client, request, "GET", url, headers=headers)
-            t_fetch_ms = (time.perf_counter() - t_fetch_start) * 1000
+        client = get_proxy_http_client(request)
+        resp = await send_with_cancellation(client, request, "GET", url, headers=headers)
+        t_fetch_ms = (time.perf_counter() - t_fetch_start) * 1000
+        
+        if resp.status_code >= 400:
+            return prepare_proxy_response(Response(
+                content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target page {url} returned status code {resp.status_code}.</p></body></html>",
+                media_type="text/html",
+                status_code=503
+            ))
             
-            if resp.status_code >= 400:
-                return prepare_proxy_response(Response(
-                    content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target page {url} returned status code {resp.status_code}.</p></body></html>",
-                    media_type="text/html",
-                    status_code=503
-                ))
-                
-            content_type = resp.headers.get("content-type", "text/html")
+        content_type = resp.headers.get("content-type", "text/html")
+        
+        if "text/html" in content_type:
+            # Upsert PageVisit asynchronously in background
+            background_tasks.add_task(
+                background_record_page_visit,
+                session_id=session_id,
+                page_url=url,
+                page_title=None,
+                share_link_id=share_link_id,
+                parent_page_id=parent_page_id
+            )
             
-            if "text/html" in content_type:
-                # Upsert PageVisit
-                await record_page_visit(
-                    db=db,
-                    session_id=session_id,
-                    page_url=url,
-                    page_title=None,
-                    share_link_id=share_link_id,
-                    parent_page_id=parent_page_id
-                )
-                
-                proto = request.headers.get("x-forwarded-proto", "http")
-                api_base = os.getenv("API_BASE", "") or str(request.base_url)
-                if proto == "https" and api_base.startswith("http://"):
-                    api_base = "https://" + api_base[7:]
-                
-                is_next_site = "_next/static" in resp.text or "__NEXT_DATA__" in resp.text
-                if is_next_site and not session.conservative_render_mode:
-                    session.conservative_render_mode = True
-                    db.add(session)
-                    await db.commit()
-                    logger.info(f"[PROXY_REWRITE] Next.js detected via signature in proxy_page. Flipping conservative_render_mode=True for session={session_id}")
-                
-                t_rewrite_start = time.perf_counter()
-                rewritten_html = rewrite_html(
-                    html=resp.text, 
-                    session_id=session_id, 
-                    page_url=url, 
-                    base_url=base_url, 
-                    api_base=api_base,
-                    conservative_render_mode=session.conservative_render_mode,
-                    snapshot_mode=snapshot_mode
-                )
-                t_rewrite_ms = (time.perf_counter() - t_rewrite_start) * 1000
-                t_total_ms = (time.perf_counter() - t_req_start) * 1000
-                
-                parsed_host = urllib.parse.urlparse(url).netloc
-                logger.info(
-                    f"[PROXY_TIMING] session={session_id} host={parsed_host} "
-                    f"ssrf_ms={t_ssrf_ms:.2f} fetch_ms={t_fetch_ms:.2f} rewrite_ms={t_rewrite_ms:.2f} "
-                    f"total_ms={t_total_ms:.2f} status={resp.status_code} "
-                    f"bytes_before={len(resp.content)} bytes_after={len(rewritten_html.encode('utf-8'))}"
-                )
-                
-                response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
-                response.headers["X-STAGE-Session"] = session_id
-                response.headers["X-STAGE-Page"] = url
-                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-                
-                response.set_cookie(
-                    "stagesessionid", 
-                    session_id, 
-                    path="/", 
-                    httponly=True, 
-                    max_age=86400,
-                    samesite="none",
-                    secure=True
-                )
-                
-                # Apply Cache-Control header policy (Prompt 12)
-                set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
-                return prepare_proxy_response(response)
-            else:
-                response = Response(content=resp.content, media_type=content_type)
-                set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
-                return prepare_proxy_response(response)
-                
+            proto = request.headers.get("x-forwarded-proto", "http")
+            api_base = os.getenv("API_BASE", "") or str(request.base_url)
+            if proto == "https" and api_base.startswith("http://"):
+                api_base = "https://" + api_base[7:]
+            
+            is_next_site = "_next/static" in resp.text or "__NEXT_DATA__" in resp.text
+            if is_next_site and not session.conservative_render_mode:
+                session.conservative_render_mode = True
+                db.add(session)
+                await db.commit()
+                invalidate_session_base_url_cache(session_id)
+                logger.info(f"[PROXY_REWRITE] Next.js detected via signature in proxy_page. Flipping conservative_render_mode=True for session={session_id}")
+            
+            t_rewrite_start = time.perf_counter()
+            rewritten_html = rewrite_html(
+                html=resp.text, 
+                session_id=session_id, 
+                page_url=url, 
+                base_url=base_url, 
+                api_base=api_base,
+                conservative_render_mode=session.conservative_render_mode,
+                snapshot_mode=snapshot_mode
+            )
+            t_rewrite_ms = (time.perf_counter() - t_rewrite_start) * 1000
+            t_total_ms = (time.perf_counter() - t_req_start) * 1000
+            
+            parsed_host = urllib.parse.urlparse(url).netloc
+            logger.info(
+                f"[PROXY_TIMING] session={session_id} host={parsed_host} "
+                f"ssrf_ms={t_ssrf_ms:.2f} fetch_ms={t_fetch_ms:.2f} rewrite_ms={t_rewrite_ms:.2f} "
+                f"total_ms={t_total_ms:.2f} status={resp.status_code} "
+                f"bytes_before={len(resp.content)} bytes_after={len(rewritten_html.encode('utf-8'))}"
+            )
+            
+            response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
+            response.headers["X-STAGE-Session"] = session_id
+            response.headers["X-STAGE-Page"] = url
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            
+            response.set_cookie(
+                "stagesessionid", 
+                session_id, 
+                path="/", 
+                httponly=True, 
+                max_age=86400,
+                samesite="none",
+                secure=True
+            )
+            
+            # Apply Cache-Control header policy (Prompt 12)
+            set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
+            return prepare_proxy_response(response)
+        else:
+            response = Response(content=resp.content, media_type=content_type)
+            set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
+            return prepare_proxy_response(response)
+            
     except Exception as e:
         from services.cache import SYSTEM_METRICS
         SYSTEM_METRICS["fallback_to_screenshot"] += 1
@@ -782,8 +844,15 @@ def get_cached_asset(url: str) -> tuple[bytes, str]:
 
 
 MAX_CACHE_BYTES = 500 * 1024 * 1024  # 500 MB max cache limit
+_last_prune_time = 0.0
 
 def prune_disk_cache_if_needed():
+    global _last_prune_time
+    now = time.time()
+    # Run cache prune scan at most once every 10 minutes (600s) to prevent blocking event loop with thousands of os.stat calls
+    if now - _last_prune_time < 600.0:
+        return
+    _last_prune_time = now
     try:
         files = [os.path.join(CACHE_DIR, f) for f in os.listdir(CACHE_DIR)]
         total_bytes = sum(os.path.getsize(f) for f in files if os.path.isfile(f))
@@ -909,7 +978,7 @@ async def handle_proxy_asset_request(
         # Stream binary 3D assets directly without buffering into memory
         if is_binary_3d_url(url):
             try:
-                stream_client = httpx.AsyncClient(follow_redirects=True, timeout=60.0, verify=False)
+                stream_client = get_proxy_http_client(request)
                 return await stream_binary_asset(stream_client, request, url, session_id)
             except Exception as stream_err:
                 logger.error(f"[ASSET RESOLVER] Streaming error for 3D binary {url}: {stream_err}")
@@ -954,69 +1023,69 @@ async def handle_proxy_asset_request(
         
         # Track initial redirect check
         start_time = datetime.utcnow()
-        async with httpx.AsyncClient(follow_redirects=False, timeout=10.0, verify=False) as client:
-            while redirect_count < max_redirects:
-                if not is_ssrf_safe(current_url):
-                    logger.warning(f"[REDIRECT SAFEGUARD] SSRF target blocked: {current_url}")
-                    if is_binary_3d_url(current_url):
-                        return prepare_proxy_response(Response(content=b"SSRF blocked", status_code=403, media_type="text/plain", headers={"X-STAGE-Asset-Error": "ssrf-blocked"}), request)
-                    return prepare_proxy_response(Response(content=b"", status_code=204), request)
-                if not is_domain_allowed(current_url, base_url, is_asset=True):
-                    logger.warning(f"[REDIRECT SAFEGUARD] Redirect escaped domain scope: {current_url}")
-                    if is_binary_3d_url(current_url):
+        client = get_proxy_http_client(request)
+        while redirect_count < max_redirects:
+            if not is_ssrf_safe(current_url):
+                logger.warning(f"[REDIRECT SAFEGUARD] SSRF target blocked: {current_url}")
+                if is_binary_3d_url(current_url):
+                    return prepare_proxy_response(Response(content=b"SSRF blocked", status_code=403, media_type="text/plain", headers={"X-STAGE-Asset-Error": "ssrf-blocked"}), request)
+                return prepare_proxy_response(Response(content=b"", status_code=204), request)
+            if not is_domain_allowed(current_url, base_url, is_asset=True):
+                logger.warning(f"[REDIRECT SAFEGUARD] Redirect escaped domain scope: {current_url}")
+                if is_binary_3d_url(current_url):
+                    return prepare_proxy_response(Response(content=b"Domain blocked", status_code=403, media_type="text/plain", headers={"X-STAGE-Asset-Error": "domain-blocked"}), request)
+                return prepare_proxy_response(Response(content=b"", status_code=204), request)
+            
+            if request.method == "POST":
+                body = await request.body()
+                resp = await send_with_cancellation(client, request, "POST", current_url, content=body, headers=headers)
+            elif request.method == "OPTIONS":
+                resp = await send_with_cancellation(client, request, "OPTIONS", current_url, headers=headers)
+            else:
+                resp = await send_with_cancellation(client, request, "GET", current_url, headers=headers)
+
+            if resp.status_code in (301, 302, 303, 307, 308):
+                redirect_url = resp.headers.get("location", "")
+                if not redirect_url:
+                    break
+                # Validate redirect safety check
+                next_url = urllib.parse.urljoin(current_url, redirect_url)
+                if not is_domain_allowed(next_url, base_url, is_asset=True):
+                    logger.warning(f"[REDIRECT SAFEGUARD] Redirect to disallowed origin blocked: {next_url}")
+                    if is_binary_3d_url(next_url):
                         return prepare_proxy_response(Response(content=b"Domain blocked", status_code=403, media_type="text/plain", headers={"X-STAGE-Asset-Error": "domain-blocked"}), request)
                     return prepare_proxy_response(Response(content=b"", status_code=204), request)
-                
-                if request.method == "POST":
-                    body = await request.body()
-                    resp = await send_with_cancellation(client, request, "POST", current_url, content=body, headers=headers)
-                elif request.method == "OPTIONS":
-                    resp = await send_with_cancellation(client, request, "OPTIONS", current_url, headers=headers)
-                else:
-                    resp = await send_with_cancellation(client, request, "GET", current_url, headers=headers)
+                    
+                current_url = next_url
+                redirect_count += 1
+                logger.info(f"[REDIRECT SAFEGUARD] Following redirect {redirect_count}: {current_url}")
+            else:
+                break
 
-                if resp.status_code in (301, 302, 303, 307, 308):
-                    redirect_url = resp.headers.get("location", "")
-                    if not redirect_url:
-                        break
-                    # Validate redirect safety check
-                    next_url = urllib.parse.urljoin(current_url, redirect_url)
-                    if not is_domain_allowed(next_url, base_url, is_asset=True):
-                        logger.warning(f"[REDIRECT SAFEGUARD] Redirect to disallowed origin blocked: {next_url}")
-                        if is_binary_3d_url(next_url):
-                            return prepare_proxy_response(Response(content=b"Domain blocked", status_code=403, media_type="text/plain", headers={"X-STAGE-Asset-Error": "domain-blocked"}), request)
-                        return prepare_proxy_response(Response(content=b"", status_code=204), request)
-                        
-                    current_url = next_url
-                    redirect_count += 1
-                    logger.info(f"[REDIRECT SAFEGUARD] Following redirect {redirect_count}: {current_url}")
-                else:
-                    break
-
-            duration = (datetime.utcnow() - start_time).total_seconds() * 1000
+        duration = (datetime.utcnow() - start_time).total_seconds() * 1000
+        
+        if resp.status_code >= 400:
+            record_domain_failure(url)
+            logger.warning(f"[ASSET RESOLVER] Target server returned {resp.status_code} for URL: {url}")
             
-            if resp.status_code >= 400:
-                record_domain_failure(url)
-                logger.warning(f"[ASSET RESOLVER] Target server returned {resp.status_code} for URL: {url}")
-                
-                # Graceful fallback response for failure
-                fallback_response = get_asset_failure_fallback(url, resp.status_code)
-                logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy} (FALLBACK), Status={resp.status_code}, Duration={duration:.1f}ms")
-                return prepare_proxy_response(fallback_response, request)
-                
-            content_type = resp.headers.get("content-type", "application/octet-stream")
-            content_type = guess_binary_content_type(url, content_type)
-            if request.method == "GET":
-                save_cached_asset(url, resp.content, content_type)
+            # Graceful fallback response for failure
+            fallback_response = get_asset_failure_fallback(url, resp.status_code)
+            logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy} (FALLBACK), Status={resp.status_code}, Duration={duration:.1f}ms")
+            return prepare_proxy_response(fallback_response, request)
             
-            record_domain_success(url)
-            byte_size = len(resp.content)
-            logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy}, Status={resp.status_code}, Duration={duration:.1f}ms, Bytes={byte_size}")
-            response = Response(content=resp.content, status_code=resp.status_code, media_type=content_type)
-            set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
-            response.headers["X-STAGE-Cache"] = "MISS"
-            return prepare_proxy_response(response, request)
-            
+        content_type = resp.headers.get("content-type", "application/octet-stream")
+        content_type = guess_binary_content_type(url, content_type)
+        if request.method == "GET":
+            save_cached_asset(url, resp.content, content_type)
+        
+        record_domain_success(url)
+        byte_size = len(resp.content)
+        logger.info(f"[ASSET RESOLVER] [DECISION] Requested URL: {request.url.path}, Resolved URL: {url}, Strategy={resolution_strategy}, Status={resp.status_code}, Duration={duration:.1f}ms, Bytes={byte_size}")
+        response = Response(content=resp.content, status_code=resp.status_code, media_type=content_type)
+        set_cache_headers(response, urllib.parse.urlparse(url).path, request.url.query)
+        response.headers["X-STAGE-Cache"] = "MISS"
+        return prepare_proxy_response(response, request)
+        
     except Exception as e:
         record_domain_failure(url)
         logger.error(f"[ASSET RESOLVER] Exception resolving asset {url}: {str(e)}")
@@ -1076,38 +1145,39 @@ async def proxy_form(
             "X-STAGE-Session": session_id
         }
         
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, verify=False) as client:
-            resp = await client.post(action, data=dict(form_data), headers=headers)
-            content_type = resp.headers.get("content-type", "text/html")
+        client = get_proxy_http_client(request)
+        resp = await client.post(action, data=dict(form_data), headers=headers)
+        content_type = resp.headers.get("content-type", "text/html")
+        
+        if "text/html" in content_type:
+            # Log page visit on form landing URL (which could be different due to redirects)
+            landing_url = str(resp.url)
+            await record_page_visit(
+                db=db,
+                session_id=session_id,
+                page_url=landing_url,
+                page_title=None
+            )
             
-            if "text/html" in content_type:
-                # Log page visit on form landing URL (which could be different due to redirects)
-                landing_url = str(resp.url)
-                await record_page_visit(
-                    db=db,
-                    session_id=session_id,
-                    page_url=landing_url,
-                    page_title=None
-                )
-                
-                proto = request.headers.get("x-forwarded-proto", "http")
-                api_base = os.getenv("API_BASE", "") or str(request.base_url)
-                if proto == "https" and api_base.startswith("http://"):
-                    api_base = "https://" + api_base[7:]
-                rewritten_html = rewrite_html(
-                    html=resp.text, 
-                    session_id=session_id, 
-                    page_url=landing_url, 
-                    base_url=base_url, 
-                    api_base=api_base,
-                    conservative_render_mode=session.conservative_render_mode
-                )
-                response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
-                return prepare_proxy_response(response)
-            else:
-                return prepare_proxy_response(Response(content=resp.content, media_type=content_type))
+            proto = request.headers.get("x-forwarded-proto", "http")
+            api_base = os.getenv("API_BASE", "") or str(request.base_url)
+            if proto == "https" and api_base.startswith("http://"):
+                api_base = "https://" + api_base[7:]
+            rewritten_html = rewrite_html(
+                html=resp.text, 
+                session_id=session_id, 
+                page_url=landing_url, 
+                base_url=base_url, 
+                api_base=api_base,
+                conservative_render_mode=session.conservative_render_mode
+            )
+            response = Response(content=rewritten_html.encode("utf-8"), media_type="text/html")
+            return prepare_proxy_response(response)
+        else:
+            return prepare_proxy_response(Response(content=resp.content, media_type=content_type))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.post("/session/{session_id}/page-visit", response_model=PageVisitOut)
