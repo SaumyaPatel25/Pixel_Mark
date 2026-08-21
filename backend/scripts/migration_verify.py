@@ -142,13 +142,16 @@ async def verify_oracle_api(api_base_url: str):
 def main():
     parser = argparse.ArgumentParser(description="STAGE Migration Parity & Health Checker")
     parser.add_argument("--old-db", help="Source PostgreSQL Database URL")
-    parser.add_argument("--new-db", help="Target PostgreSQL Database URL")
+    parser.add_argument("--new-db", help="Target/New PostgreSQL Database URL")
+    parser.add_argument("--restored-db", help="Restored Test PostgreSQL Database URL (alias for --new-db)")
     parser.add_argument("--api-url", help="Oracle API Base URL (e.g. https://api-oracle.yourdomain.com)")
 
     args = parser.parse_args()
 
-    if args.old_db and args.new_db:
-        compare_databases(args.old_db, args.new_db)
+    target_db = args.new_db or args.restored_db
+
+    if args.old_db and target_db:
+        compare_databases(args.old_db, target_db)
     elif args.old_db:
         check_table_counts(args.old_db, "SOURCE DATABASE")
     
