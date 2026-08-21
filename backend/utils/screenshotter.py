@@ -23,7 +23,15 @@ async def take_screenshot(target_url: str, base_url: str) -> str:
 
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu"
+                ]
+            )
             page = await browser.new_page(viewport={"width": 1280, "height": 800})
             
             await page.goto(target_url, wait_until="networkidle", timeout=10000)
