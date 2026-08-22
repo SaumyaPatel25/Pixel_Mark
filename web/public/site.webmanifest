@@ -1,0 +1,28 @@
+{
+  "name": "STAGE — The Visual Website Feedback Tool Built for Product Teams",
+  "short_name": "STAGE",
+  "description": "Visual website feedback tool and QA bug reporting platform. Pin comments, capture DOM context, and stream real-time CSS/DOM edits.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF2F2",
+  "theme_color": "#FAF2F2",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48 32x32 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}

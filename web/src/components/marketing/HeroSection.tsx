@@ -217,7 +217,7 @@ const RandomHollowText = ({
         }
       }
       setHollowIndices(nextHollow);
-    }, 2000);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [text, isLightTheme, isHeroTextComplete, splitBy]);
@@ -765,7 +765,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                
         {/* Rebuilt Centered Hero Stack — always visible, springs up on burst */}
         <motion.div 
-          initial="collapsed"
+          initial={false}
           animate={isHeroTextComplete ? "burst" : "collapsed"}
           variants={textContainerVariants}
           style={{ willChange: 'transform' }}

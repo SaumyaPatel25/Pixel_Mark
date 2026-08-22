@@ -1,0 +1,45 @@
+# STAGE — The Visual Website Feedback Tool Built for Product Teams
+
+> STAGE is a visual website feedback, bug reporting, and design review platform developed by Entrext Labs. It enables product teams, developers, designers, and external client stakeholders to pin feedback markers directly onto live websites, capture automated technical diagnostics (XPath, computed styles, viewport dimensions, console logs), and stream real-time DOM/CSS edit suggestions.
+
+## Key Capabilities & Workflows
+
+1. **Visual Website Feedback Pinning**:
+   - Click anywhere on a live web page or staging URL to attach feedback pins.
+   - Works across standard HTML DOM elements, WebGL 3D scenes, Three.js meshes, and Single Page Applications (SPAs).
+
+2. **No-Code Client Review Links**:
+   - Generate secure, authenticated or public review links for external clients.
+   - Reviewers do not need an account, password, or browser extension to leave feedback.
+
+3. **Multi-Signal Automatic Issue Classifier**:
+   - Automatically detects whether an audited element is an interactive button/form, navigation link, typography/copy issue, visual asset/media glitch, or WebGL/3D canvas shader bug.
+
+4. **Real-Time Collaboration & Synchronization**:
+   - Real-time WebSocket event streaming reflects marker placements, comment replies, and status updates instantly across all active reviewers without manual page refreshes.
+
+5. **Automated Developer Telemetry**:
+   - Automatically records exact element selectors, XPath, computed CSS box models, browser user-agent, viewport resolution, and network/console error traces.
+
+6. **Blueprint Canvas & DOM Edit Streaming**:
+   - Suggest and preview live DOM and CSS modifications directly in the visual audit canvas.
+
+## Canonical Endpoints & Documentation
+
+- Homepage: https://stage.entrext.com/
+- Pricing & Plans: https://stage.entrext.com/pricing
+- Platform Features: https://stage.entrext.com/features
+- Developer REST API: https://stage.entrext.com/docs/api
+- Chrome Browser Extension: https://stage.entrext.com/chrome-extension
+- Diagnostic Support & System Health: https://stage.entrext.com/support/diagnostics
+- Frequently Asked Questions: https://stage.entrext.com/faq
+- Company & Mission: https://stage.entrext.com/company
+
+## Organization & Contact
+
+- Organization: Entrext Labs
+- Founder & Engineering Lead: Saumya Patel
+- Contact Email: saumya@entrext.com
+- Twitter/X: https://x.com/Stage0fficial (@Stage0fficial)
+- GitHub: https://github.com/sp25126
+- LinkedIn: https://www.linkedin.com/company/entrext

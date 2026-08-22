@@ -15,10 +15,10 @@ export const metadata: Metadata = {
     siteName: 'STAGE',
     images: [
       {
-        url: '/og-image.png',
+        url: `${seoConfig.siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: 'STAGE - Visual Website Feedback & Bug Reporting Tool',
+        alt: 'STAGE — The Visual Website Feedback Tool Built for Product Teams',
       },
     ],
     locale: 'en_US',
@@ -26,10 +26,11 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: seoConfig.twitterHandle,
+    creator: seoConfig.twitterHandle,
     title: seoConfig.title,
     description: seoConfig.description,
-    images: ['/og-image.png'],
-    creator: seoConfig.twitterHandle,
+    images: [`${seoConfig.siteUrl}/og-image.png`],
   },
 };
 
@@ -39,23 +40,29 @@ export default function Home() {
     "@type": "SoftwareApplication",
     "name": "STAGE",
     "operatingSystem": "Web, Windows, macOS, Linux",
-    "applicationCategory": "BusinessApplication",
-    "applicationSubCategory": "Bug Tracking Software",
-    "description": "Visual website feedback tool and QA bug reporting platform. Generate secure client review links to pin visual feedback directly on live websites.",
+    "applicationCategory": "DeveloperApplication",
+    "applicationSubCategory": "Bug Tracking & Visual Feedback Software",
+    "description": "Visual website feedback tool and QA bug reporting platform. Generate secure client review links to pin visual feedback directly on live web pages across DOM, WebGL 3D, and SPAs.",
     "url": seoConfig.siteUrl,
+    "author": {
+      "@type": "Organization",
+      "name": seoConfig.company,
+      "url": seoConfig.siteUrl
+    },
     "featureList": [
-      "Visual Website Feedback",
-      "Bug Reporting",
-      "QA Annotations",
-      "No-Code Integration",
-      "Client Review Links"
+      "Visual Website Feedback Pinning",
+      "Interactive DOM, WebGL 3D & Canvas Bug Reporting",
+      "Real-Time WebSocket Synchronization",
+      "Automated Technical Diagnostics & XPath Telemetry",
+      "No-Code Client Review Link Generation",
+      "Live CSS & DOM Edit Streaming"
     ],
     "offers": {
       "@type": "AggregateOffer",
       "priceCurrency": "USD",
       "lowPrice": "0",
       "highPrice": "29",
-      "offerCount": "2"
+      "offerCount": "3"
     }
   };
 

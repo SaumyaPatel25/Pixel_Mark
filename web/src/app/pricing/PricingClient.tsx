@@ -1,94 +1,325 @@
-'use client';
+'use client'
 
-import { motion } from 'framer-motion';
-import { Check, Layout, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import React, { useEffect, useState } from 'react'
+import { Check, Sparkles, Zap, Shield, ArrowRight, Mail } from 'lucide-react'
+import { useBillingStore } from '@/store/useBillingStore'
+import MarketingNav from '@/components/marketing/MarketingNav'
+import MarketingFooter from '@/components/marketing/MarketingFooter'
+import Link from 'next/link'
 
-const plans = [
-  {
-    name: "BASE",
-    price: "0",
-    desc: "For local dev & small probes.",
-    features: ["3 Active Projects", "100 Markers / Project", "Basic Markdown Export", "14-Day Data retention"],
-    color: "white/10"
-  },
-  {
-    name: "CORE",
-    price: "29",
-    desc: "For serious product teams.",
-    features: ["Infinity Projects", "Crystal Clarity (Screenshots)", "GitHub/Linear Triage Sync", "90-Day Interaction History", "Team RBAC Access"],
-    color: "purple-600",
-    accent: "bg-purple-600 shadow-xl shadow-purple-900/40"
-  },
-  {
-    name: "NEXUS",
-    price: "Custom",
-    desc: "For the entire enterprise substrate.",
-    features: ["SSO / SAML Identity", "Custom Integration Layer", "Priority Intelligence Node", "Infinity Retention", "On-Prem Deployment"],
-    color: "white/10"
-  }
-];
+const ENTERPRISE_CONTACT_EMAIL = process.env.NEXT_PUBLIC_ENTERPRISE_CONTACT_EMAIL || "saumya@entrext.com"
 
 export default function PricingClient() {
-  return (
-    <div className="min-h-screen bg-[#0a0a0c] text-white p-8 selection:bg-purple-500/20">
-      <div className="max-w-6xl mx-auto space-y-20">
-        <nav className="flex items-center justify-between h-20">
-           <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white">
-                <Layout className="w-6 h-6" />
-              </div>
-              <span className="font-black text-2xl tracking-tighter">STAGE</span>
-           </Link>
-           <Link href="/dashboard">
-              <Button variant="ghost" className="text-white/40 hover:text-white uppercase text-[10px] font-black tracking-widest">
-                Return to Dashboard <ArrowLeft className="ml-2 w-3 h-3" />
-              </Button>
-           </Link>
-        </nav>
+  const {
+    currentPlan,
+    isPaid,
+    isTestMode,
+    earlyBirdSlotsRemaining,
+    fetchEarlyBirdStatus,
+    fetchBillingStatus,
+    initiateCheckout
+  } = useBillingStore()
 
-        <div className="text-center space-y-6">
-          <h1 className="text-6xl font-black italic tracking-tighter">Choose your <span className="text-purple-500">Tier.</span></h1>
-          <p className="text-white/40 max-w-lg mx-auto font-medium leading-relaxed">Select the subscription model that fits your team's visual audit intensity.</p>
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchEarlyBirdStatus()
+    fetchBillingStatus()
+  }, [fetchEarlyBirdStatus, fetchBillingStatus])
+
+  const handleCheckout = async (planType: string) => {
+    setLoadingPlan(planType)
+    setErrorMsg(null)
+    try {
+      const checkoutUrl = await initiateCheckout(planType)
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl
+      } else {
+        setErrorMsg('Failed to initialize checkout session. Please try again.')
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error redirecting to checkout.')
+    } finally {
+      setLoadingPlan(null)
+    }
+  }
+
+  const isEarlyBirdActive = earlyBirdSlotsRemaining > 0
+  const isDevTeamActive = isPaid && (currentPlan === 'dev_team' || currentPlan === 'dev_team_early_bird')
+  const isStageTeamActive = currentPlan === 'stage_team'
+  const isFreeActive = !isPaid && (!currentPlan || currentPlan === 'free' || currentPlan === 'none')
+
+  return (
+    <div className="min-h-screen bg-pm-bg text-pm-text font-sans transition-colors duration-500 selection:bg-pm-accent/20">
+      <MarketingNav />
+
+      {/* Main Container */}
+      <div className="pt-28 pb-20 max-w-7xl mx-auto px-6">
+        
+        {/* Header Banner */}
+        <div className="text-center space-y-4 max-w-3xl mx-auto pb-10">
+          {/* Internal STAGE Team Banner */}
+          {isStageTeamActive && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-xs font-mono font-extrabold uppercase tracking-wider shadow-lg">
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Current Active Plan: STAGE Team (Internal Entitlement Tier)</span>
+            </div>
+          )}
+
+          {/* Test Mode Badge */}
+          {isTestMode && !isStageTeamActive && (
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-xs font-mono font-extrabold uppercase tracking-wider animate-pulse">
+              <Zap className="w-3.5 h-3.5" />
+              <span>STAGE Dodo Test Mode (Sandbox Environment)</span>
+            </div>
+          )}
+
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-pm-text">
+            Simple, Transparent Pricing for <span className="bg-gradient-to-r from-purple-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">STAGE</span>
+          </h1>
+          <p className="text-base text-pm-muted">
+            The collaboration layer between clients and developers. Pick the plan built for your workflow.
+          </p>
+
+          {errorMsg && (
+            <div className="max-w-md mx-auto p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs font-bold">
+              {errorMsg}
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {plans.map((plan, i) => (
-            <motion.div 
-              key={plan.name}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className={`p-10 rounded-[40px] border border-white/5 bg-white/[0.02] flex flex-col gap-8 relative overflow-hidden group hover:border-white/10 transition-colors ${plan.accent || ''}`}
-            >
-              <div className="space-y-2">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40">{plan.name} TIER</h3>
+        {/* Pricing Cards Grid (3 Columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
+          
+          {/* CARD 1: FREE PLAN */}
+          <div className="bg-pm-surface border border-pm-border rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 hover:border-pm-accent/30 shadow-xl relative">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-pm-muted">Free Plan</span>
+                {isFreeActive && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-pm-accent-subtle border border-pm-border text-pm-accent text-[10px] font-bold">Current Plan</span>
+                )}
+              </div>
+
+              <div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black">${plan.price}</span>
-                  {plan.price !== "Custom" && <span className="text-white/20 text-sm font-bold">/MO</span>}
+                  <span className="text-4xl font-extrabold text-pm-text">$0</span>
+                  <span className="text-xs font-medium text-pm-muted">/ month forever</span>
                 </div>
-                <p className="text-sm text-white/40 font-medium h-10">{plan.desc}</p>
+                <p className="text-xs text-pm-muted mt-1">Start visual collaboration with your developers instantly.</p>
               </div>
 
-              <div className="flex-1 space-y-4 pt-4">
-                {plan.features.map(f => (
-                  <div key={f} className="flex items-center gap-3">
-                    <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
-                      <Check className="w-3 h-3 text-purple-400" />
+              <div className="p-2.5 rounded-xl bg-pm-surface-2 border border-pm-border text-pm-text text-xs font-medium flex items-center gap-2">
+                <Shield className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                <span>Try the sandbox elements feedback</span>
+              </div>
+
+              <hr className="border-pm-border" />
+
+              <ul className="space-y-2.5 text-xs text-pm-muted">
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span><strong>1 Developer Seat</strong></span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span><strong>1 Project Allowed</strong></span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span>Only canvas sessions available</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span>Join existing developer organizations</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="pt-6">
+              {isFreeActive ? (
+                <button
+                  disabled
+                  className="w-full py-3 rounded-2xl bg-pm-surface-2 border border-pm-border text-pm-muted font-extrabold text-xs cursor-not-allowed opacity-60 flex items-center justify-center gap-2 text-center"
+                >
+                  <span>Current Plan</span>
+                </button>
+              ) : (
+                <Link
+                  href="/dashboard"
+                  className="w-full py-3 rounded-2xl bg-pm-surface-2 border border-pm-border hover:bg-pm-surface-3 text-pm-text font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
+                >
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* CARD 2: DEV TEAM (WITH EARLY BIRD BADGE OVERLAY) */}
+          <div className="bg-pm-surface border-2 border-pm-accent rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 shadow-2xl relative bg-gradient-to-b from-pm-accent/5 to-pm-surface">
+            {/* Early Bird Scarcity Badge */}
+            {isEarlyBirdActive && !isDevTeamActive && (
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-gradient-to-r from-purple-600 to-cyan-500 text-white text-[11px] font-extrabold shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>25% OFF EARLY BIRD — {earlyBirdSlotsRemaining} OF 50 SPOTS LEFT</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-pm-accent">
+                  {currentPlan === 'dev_team_early_bird' ? 'Dev Team Early Bird' : 'Dev Team'}
+                </span>
+                {isDevTeamActive && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-pm-accent/20 text-pm-accent text-[10px] font-bold">Current Plan</span>
+                )}
+              </div>
+
+              <div>
+                {isEarlyBirdActive && !isDevTeamActive ? (
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-extrabold text-pm-text">$21.75</span>
+                      <span className="text-sm line-through text-pm-muted">$29</span>
+                      <span className="text-xs font-medium text-pm-muted">/ month flat</span>
                     </div>
-                    <span className="text-[11px] font-bold text-white/60 tracking-tight">{f}</span>
+                    <p className="text-[11px] text-pm-accent font-bold mt-1">
+                      Includes 25% Early Bird Discount ({50 - earlyBirdSlotsRemaining}/50 claimed)
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-extrabold text-pm-text">$29</span>
+                      <span className="text-xs font-medium text-pm-muted">/ month flat</span>
+                    </div>
+                    <p className="text-xs text-pm-muted mt-1">Flat fee for up to 5 developers (not per-seat).</p>
+                  </div>
+                )}
               </div>
 
-              <Button className="w-full h-14 rounded-2xl bg-white text-black font-black uppercase tracking-widest text-[11px] hover:bg-white/90">
-                Initialize Plan
-              </Button>
-            </motion.div>
-          ))}
+              {/* Feature Highlight Badge */}
+              <div className="p-2.5 rounded-xl bg-pm-accent-subtle border border-pm-border text-pm-accent text-xs font-bold flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                <span>Includes Blueprint Canvas DOM Edit Mode</span>
+              </div>
+
+              <hr className="border-pm-border" />
+
+              <ul className="space-y-2.5 text-xs text-pm-muted">
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span><strong>Up to 5 Developer Seats</strong></span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span><strong>10 Projects Total</strong></span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span>Full Blueprint Canvas & Multi-user Presence</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span>AI Change Summaries & Version Control</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span>Unified Notifications & Email Delivery</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="pt-6">
+              {isDevTeamActive ? (
+                <button
+                  disabled
+                  className="w-full py-3 rounded-2xl bg-pm-accent/20 border border-pm-accent/40 text-pm-accent font-extrabold text-xs cursor-not-allowed opacity-80 flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Current Active Plan</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleCheckout('dev_team')}
+                  disabled={loadingPlan === 'dev_team'}
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-pm-accent to-purple-600 hover:from-pm-accent-bright hover:to-purple-500 text-white font-extrabold text-xs transition-all shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {loadingPlan === 'dev_team' ? (
+                    <span>Redirecting to Dodo Checkout...</span>
+                  ) : (
+                    <>
+                      <span>{isEarlyBirdActive ? 'Claim Early Bird (25% Off)' : 'Subscribe to Dev Team'}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* CARD 3: ENTERPRISE ("LET'S TALK") */}
+          <div className="bg-pm-surface border border-pm-border rounded-3xl p-6 flex flex-col justify-between hover:border-pm-accent/30 transition-all duration-200 shadow-xl relative">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-pm-accent">Enterprise</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-500 text-[10px] font-bold">Custom</span>
+              </div>
+
+              <div>
+                <span className="text-3xl font-extrabold text-pm-text">Custom SLA</span>
+                <p className="text-xs text-pm-muted mt-1">Tailored for large teams and enterprise organizations.</p>
+              </div>
+
+              <hr className="border-pm-border" />
+
+              <ul className="space-y-2.5 text-xs text-pm-muted">
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span><strong>Unlimited Developer Seats</strong></span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span><strong>Unlimited Projects</strong></span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span>Dedicated Support & SLA Guarantee</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span>Custom On-Premise / Hybrid Deployment</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
+                  <span>Custom Security & Compliance Audits</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="pt-6">
+              <a
+                href={`mailto:${ENTERPRISE_CONTACT_EMAIL}?subject=STAGE%20Enterprise%20Plan%20Inquiry`}
+                className="w-full py-3 rounded-2xl bg-pm-surface-2 hover:bg-pm-surface-3 text-pm-text border border-pm-border hover:border-pm-accent/20 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5 text-pm-accent" />
+                <span>Let's talk</span>
+              </a>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer info */}
+        <div className="max-w-4xl mx-auto pt-16 text-center text-xs text-pm-muted space-y-2">
+          <p>All subscriptions are powered safely by Dodo Payments in Sandbox Test Mode.</p>
+          <p>Need custom procurement or invoice billing? Contact {ENTERPRISE_CONTACT_EMAIL}</p>
         </div>
       </div>
+
+      <MarketingFooter />
     </div>
-  );
+  )
 }

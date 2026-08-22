@@ -15,26 +15,31 @@ const geistMono = Geist_Mono({
 
 export const viewport = {
   themeColor: '#FAF2F2',
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export const metadata: Metadata = {
   metadataBase: new URL(seoConfig.siteUrl),
   title: {
     default: seoConfig.title,
-    template: `%s | STAGE`
+    template: `%s | ${seoConfig.shortTitle}`
   },
   description: seoConfig.description,
+  alternates: {
+    canonical: './',
+  },
   openGraph: {
     title: seoConfig.title,
     description: seoConfig.description,
-    url: `${seoConfig.siteUrl}/`,
+    url: seoConfig.siteUrl,
     siteName: 'STAGE',
     images: [
       {
-        url: '/og-image.png',
+        url: `${seoConfig.siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: 'STAGE — Share. Review. Approve.',
+        alt: 'STAGE — The Visual Website Feedback Tool Built for Product Teams',
       },
     ],
     locale: 'en_US',
@@ -42,19 +47,31 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: seoConfig.twitterHandle,
+    creator: seoConfig.twitterHandle,
     title: seoConfig.title,
     description: seoConfig.description,
-    images: ['/og-image.png'],
-    creator: seoConfig.twitterHandle,
+    images: [`${seoConfig.siteUrl}/og-image.png`],
   },
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' }
+    ],
     shortcut: '/favicon.ico',
-    apple: '/logo.png',
+    apple: '/apple-touch-icon.png',
   },
+  manifest: '/site.webmanifest',
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   }
 };
 
@@ -78,11 +95,11 @@ export default function RootLayout({
     "@type": "Organization",
     "name": seoConfig.company,
     "url": seoConfig.siteUrl,
-    "logo": `${seoConfig.siteUrl}/og-image.png`,
+    "logo": `${seoConfig.siteUrl}/icon-512.png`,
     "sameAs": [
       seoConfig.githubUrl,
       seoConfig.linkedinCompanyUrl,
-      seoConfig.linkedinUrl
+      seoConfig.twitterUrl
     ],
     "contactPoint": {
       "@type": "ContactPoint",
@@ -98,6 +115,10 @@ export default function RootLayout({
     "url": seoConfig.siteUrl,
     "description": seoConfig.description,
     "keywords": "visual website feedback tool, bug reporting software, QA annotation tool, website review link generator",
+    "publisher": {
+      "@type": "Organization",
+      "name": seoConfig.company
+    },
     "potentialAction": {
       "@type": "SearchAction",
       "target": `${seoConfig.siteUrl}/?q={search_term_string}`,
@@ -112,9 +133,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
-        <link rel="preconnect" href="https://www.google-analytics.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://www.monkfeed.com" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <style
           dangerouslySetInnerHTML={{
             __html: `

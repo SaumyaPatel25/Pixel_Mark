@@ -15,9 +15,15 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const pathname     = usePathname()
   const searchParams = useSearchParams()
 
-  // Initialise PostHog once on the client
+  // Initialise PostHog during idle time on the client
   useEffect(() => {
-    initPostHog()
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => initPostHog(), { timeout: 3000 });
+      } else {
+        setTimeout(() => initPostHog(), 1500);
+      }
+    }
   }, [])
 
   // Fire page-view on every route change

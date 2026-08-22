@@ -1,59 +1,97 @@
-import React from 'react'
-import type { Metadata } from 'next'
-import PublicHeader from '@/components/marketing/PublicHeader'
-import SystemCheck from '@/components/support/SystemCheck'
-import { seoConfig } from '@/lib/seoConfig'
+import React from 'react';
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import MarketingNav from '@/components/marketing/MarketingNav';
+import MarketingFooter from '@/components/marketing/MarketingFooter';
+import SystemCheck from '@/components/support/SystemCheck';
+import { seoConfig } from '@/lib/seoConfig';
+import { Activity, ShieldAlert, CheckCircle2, ArrowRight, HelpCircle, Mail } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: "Diagnostic Support — STAGE",
+  title: "Diagnostic Support & System Health",
   description:
-    "Troubleshoot your STAGE setup. Check proxy connections, review session health, test agent injection, and diagnose common issues with your visual feedback workflow.",
+    "Troubleshoot your STAGE setup. Check proxy connections, review session health, test agent injection, and diagnose common visual feedback issues.",
   alternates: {
     canonical: `${seoConfig.siteUrl}/support/diagnostics`,
   },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Diagnostic Support — STAGE",
+    title: `Diagnostic Support & Health | ${seoConfig.shortTitle}`,
     description:
       "Troubleshoot your STAGE setup. Check proxy connections, review session health, and diagnose common issues.",
     type: 'website',
     url: `${seoConfig.siteUrl}/support/diagnostics`,
+    siteName: 'STAGE',
+    images: [
+      {
+        url: `${seoConfig.siteUrl}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: 'STAGE Diagnostic Support',
+      }
+    ],
   },
-}
+  twitter: {
+    card: 'summary_large_image',
+    site: seoConfig.twitterHandle,
+    creator: seoConfig.twitterHandle,
+    title: `Diagnostic Support & Health | ${seoConfig.shortTitle}`,
+    description: "Troubleshoot your STAGE setup and proxy connections.",
+    images: [`${seoConfig.siteUrl}/og-image.png`],
+  }
+};
 
 const issues = [
   {
-    title: 'Site not loading in review mode',
-    body: 'The target website may be blocking iframe embedding via X-Frame-Options or a strict Content-Security-Policy. Use the STAGE Chrome Extension to annotate any website directly from your browser tab without iframe restrictions.',
+    title: 'Site not loading in review frame',
+    body: 'The target website may enforce strict "X-Frame-Options: DENY" or "frame-ancestors" Content-Security-Policy headers. STAGE automatically routes through an authenticated diagnostic proxy to bypass sandbox framing restrictions.',
   },
   {
-    title: 'Markers not saving',
-    body: 'Verify that your review session is still active and that your API is reachable. Transient network interruptions or session expiry can prevent comment coordinates and screenshots from being persisted.',
+    title: 'Feedback markers not saving',
+    body: 'Verify your review session is still active and that the WebSocket connection is established. Network interruptions or expired share tokens can temporarily pause coordinate persistence.',
   },
   {
-    title: 'Share link not working',
-    body: 'Confirm the share token has not expired and that the correct password (if one was configured) is being used. Share tokens can be issued with strict lifetimes.',
+    title: 'Share review link expired or blocked',
+    body: 'Confirm that the share token lifetime has not expired. New share links with optional password protection can be regenerated in one click from your project dashboard.',
   },
   {
-    title: 'Exported file is empty',
-    body: 'Ensure the review session contains at least one saved feedback marker before exporting. Sessions with no markers produce empty CSV, JSON, or Markdown outputs.',
+    title: 'Exported file appears empty',
+    body: 'Ensure the review session contains at least one saved observation pin before generating a Markdown, JSON, or CSV summary export.',
   },
   {
-    title: 'Feedback overlay not appearing',
-    body: 'Ensure the STAGE widget script tag is correctly installed on the target page, or check that the Chrome Extension is toggled on for the current domain in the extension popup.',
+    title: 'Feedback overlay not appearing on client side',
+    body: 'Ensure the client is opening the secure STAGE review URL directly, or toggle the STAGE Chrome Extension active for that specific local or staging domain.',
   },
   {
-    title: 'Login not working after OAuth',
-    body: 'Clear your browser cookies and local storage, then retry the GitHub OAuth flow. In development mode, confirm that callback ports and redirect URIs exactly match those configured in your GitHub OAuth app.',
+    title: 'OAuth login redirect issues',
+    body: 'Clear cached browser cookies and session storage, then re-authenticate with GitHub. Confirm that third-party cookies are not blocked in private browsing mode.',
   },
-]
+];
 
 export default function DiagnosticsPage() {
   const jsonLd = [
     {
       '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: seoConfig.siteUrl,
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Support & Diagnostics',
+          item: `${seoConfig.siteUrl}/support/diagnostics`,
+        },
+      ],
+    },
+    {
+      '@context': 'https://schema.org',
       '@type': 'WebPage',
-      name: 'Diagnostic Support — STAGE',
+      name: `Diagnostic Support & System Health — ${seoConfig.company}`,
       description:
         'Troubleshoot your STAGE setup. Check proxy connections, review session health, test agent injection, and diagnose common issues with your visual feedback workflow.',
       url: `${seoConfig.siteUrl}/support/diagnostics`,
@@ -67,61 +105,50 @@ export default function DiagnosticsPage() {
         acceptedAnswer: { '@type': 'Answer', text: issue.body },
       })),
     },
-  ]
+  ];
 
   return (
-    <div className="min-h-screen bg-pm-bg text-pm-text font-sans selection:bg-purple-500/30 relative">
+    <div className="min-h-screen bg-pm-bg text-pm-text font-sans selection:bg-pm-accent/20 transition-colors duration-500 flex flex-col justify-between">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Dot-grid */}
-      <div
-        className="absolute inset-0 z-0 pointer-events-none opacity-[0.15]"
-        style={{
-          backgroundImage: 'radial-gradient(circle, #312e81 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-        }}
-      />
+      <MarketingNav />
 
-      <PublicHeader />
+      <main className="max-w-5xl mx-auto px-6 pt-28 pb-20 space-y-16 w-full relative z-10">
 
-      <main className="max-w-5xl mx-auto px-5 md:px-8 py-14 space-y-20 relative z-10">
-
-        {/* ── HERO ── */}
-        <section className="space-y-5 border-b border-pm-border pb-14">
-          <span className="inline-block text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-3 py-1">
-            Support Center
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
-            Diagnose and{' '}
-            <span className="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-              Fix Issues Fast
-            </span>
+        {/* ── HERO HEADER ── */}
+        <section className="space-y-4 border-b border-pm-border pb-12">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-pm-accent-subtle border border-pm-border text-pm-accent text-xs font-mono font-extrabold uppercase tracking-wider">
+            <Activity className="w-3.5 h-3.5" />
+            <span>Support & Diagnostics Center</span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-pm-text leading-tight">
+            Diagnose and <span className="bg-gradient-to-r from-purple-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">Fix Issues Fast</span>
           </h1>
           <p className="text-pm-muted text-sm md:text-base leading-relaxed max-w-2xl">
-            Use this guide to check your STAGE setup, test your connections, and resolve common issues.
+            Live infrastructure status checks, troubleshooting guides, and direct engineering escalation for your visual QA sessions.
           </p>
         </section>
 
-        {/* ── LIVE SYSTEM CHECK ── */}
-        <section className="space-y-5">
+        {/* ── LIVE INFRASTRUCTURE SYSTEM CHECK ── */}
+        <section className="space-y-4">
           <div className="space-y-1">
-            <h2 className="text-2xl font-black tracking-tight">System Status</h2>
-            <p className="text-xs text-pm-muted/50 font-bold uppercase tracking-wider">
-              Live health — auto-refreshes every 30 seconds
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-pm-text">Live Infrastructure Health</h2>
+            <p className="text-xs font-mono font-bold uppercase tracking-wider text-pm-muted">
+              Auto-refreshes every 30 seconds across API, Auth, and DB layers
             </p>
           </div>
           <SystemCheck />
         </section>
 
-        {/* ── COMMON ISSUES GRID ── */}
+        {/* ── COMMON ISSUES TROUBLESHOOTING GRID ── */}
         <section className="space-y-6">
           <div className="space-y-1">
-            <h2 className="text-2xl font-black tracking-tight">Common Troubleshooting Steps</h2>
-            <p className="text-xs text-pm-muted/50 font-bold uppercase tracking-wider">
-              Most issues are resolved by one of the following
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-pm-text">Troubleshooting & Resolutions</h2>
+            <p className="text-xs font-mono font-bold uppercase tracking-wider text-pm-muted">
+              Standard fixes for common review and proxy behaviors
             </p>
           </div>
 
@@ -129,41 +156,40 @@ export default function DiagnosticsPage() {
             {issues.map((issue, idx) => (
               <div
                 key={idx}
-                className="bg-pm-surface border border-pm-border rounded-2xl p-6 space-y-3 hover:border-purple-500/20 hover:shadow-md transition-all"
+                className="bg-pm-surface border border-pm-border rounded-3xl p-6 space-y-3 hover:border-pm-border-hover hover:shadow-lg transition-all shadow-sm flex flex-col justify-between"
               >
-                <div className="flex items-start gap-3">
-                  <span className="flex-shrink-0 text-[10px] font-black font-mono bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded px-2 py-0.5 mt-0.5">
-                    {String(idx + 1).padStart(2, '0')}
-                  </span>
-                  <h3 className="text-sm font-black text-pm-text leading-snug">{issue.title}</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-pm-accent">
+                    <HelpCircle className="w-4 h-4 flex-shrink-0" />
+                    <h3 className="text-sm font-extrabold text-pm-text leading-snug">{issue.title}</h3>
+                  </div>
+                  <p className="text-xs text-pm-muted leading-relaxed font-medium pl-6">{issue.body}</p>
                 </div>
-                <p className="text-xs text-pm-muted leading-relaxed pl-9">{issue.body}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ── CONTACT SUPPORT ── */}
-        <section className="bg-gradient-to-r from-purple-950/10 to-indigo-950/10 border border-purple-500/20 rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+        {/* ── ESCALATION BANNER ── */}
+        <section className="bg-pm-surface border-2 border-pm-accent/20 rounded-3xl p-8 md:p-10 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden bg-gradient-to-r from-pm-accent-subtle to-transparent">
           <div className="space-y-2 text-center sm:text-left">
-            <h3 className="text-lg font-black text-pm-text">Still stuck?</h3>
-            <p className="text-xs text-pm-muted leading-relaxed">
-              Reach our support team and we will help you diagnose your workspace configuration.
+            <h3 className="text-xl font-extrabold text-pm-text">Need engineering assistance?</h3>
+            <p className="text-xs text-pm-muted leading-relaxed font-medium">
+              Our team is ready to debug custom CSP proxies or on-premise deployments directly.
             </p>
           </div>
           <a
-            href="mailto:support@stage.io"
-            className="flex-shrink-0 px-7 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs transition-all shadow-lg shadow-purple-950/40 text-center"
+            href="mailto:saumya@entrext.com?subject=STAGE%20Diagnostic%20Support%20Inquiry"
+            className="flex-shrink-0 px-8 py-3.5 rounded-2xl bg-pm-accent hover:bg-pm-accent-bright text-white font-extrabold text-xs transition-all shadow-lg shadow-purple-600/20 flex items-center gap-2"
           >
-            Email Support
+            <Mail className="w-4 h-4" />
+            <span>Contact Engineering</span>
           </a>
         </section>
 
       </main>
 
-      <footer className="border-t border-pm-border py-8 text-center text-[10px] text-pm-muted/40 uppercase tracking-widest font-black">
-        &copy; {new Date().getFullYear()} {seoConfig.company}. All rights reserved.
-      </footer>
+      <MarketingFooter />
     </div>
-  )
+  );
 }

@@ -8,6 +8,7 @@ export default function MonkFeedWidget() {
   const user = useAuthStore(state => state.user);
   const pathname = usePathname();
   const [remountKey, setRemountKey] = useState(0);
+  const [shouldLoad, setShouldLoad] = useState(false);
 
   // Exclude MonkFeed widget from project review, session canvas, and audit workspace routes
   const isSessionPage = !!pathname && (
@@ -20,13 +21,19 @@ export default function MonkFeedWidget() {
   );
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const timer = setTimeout(() => setShouldLoad(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     setRemountKey(k => k + 1);
     if ((!user || isSessionPage) && (window as any).__monkfeed_cleanup) {
       (window as any).__monkfeed_cleanup();
     }
   }, [user, isSessionPage]);
 
-  if (isSessionPage) {
+  if (isSessionPage || !shouldLoad) {
     return null;
   }
 

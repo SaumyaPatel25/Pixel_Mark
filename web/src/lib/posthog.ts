@@ -18,10 +18,8 @@ export function initPostHog() {
     ui_host:                     'https://app.posthog.com',
     capture_pageview:            false, // handled manually via usePathname()
     capture_pageleave:           true,
-    session_recording: {
-      // Never record content inside the proxy iframe
-      maskAllInputs:  false,
-    },
+    autocapture:                 false,
+    disable_session_recording:   true,
     person_profiles:             'identified_only',
     loaded: (ph) => {
       if (process.env.NODE_ENV === 'development') ph.debug()

@@ -274,7 +274,7 @@ export default function StorySandbox() {
             <Sparkles className="w-4 h-4 animate-pulse" />
           </div>
           <div>
-            <h3 className="font-display text-sm font-bold uppercase tracking-wider text-pm-text">Know STAGE better</h3>
+            <h2 className="font-display text-sm font-bold uppercase tracking-wider text-pm-text">Know STAGE better</h2>
             <p className="text-[10px] text-pm-text/60">Follow the end-to-end review journey and watch how it works in real-time.</p>
           </div>
         </div>
@@ -283,6 +283,7 @@ export default function StorySandbox() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsPlaying(!isPlaying)}
+            aria-label={isPlaying ? "Pause auto-playing demo" : "Start auto-playing demo"}
             className={`px-4 py-2 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${isPlaying ? 'bg-pm-accent text-white border-pm-accent shadow-sm' : 'bg-pm-surface-2 text-pm-text border-pm-border hover:bg-pm-surface-3'}`}
           >
             {isPlaying ? (
@@ -302,6 +303,7 @@ export default function StorySandbox() {
             <button
               onClick={prevStep}
               disabled={currentStep === 1}
+              aria-label="Previous step"
               className="p-2 rounded-full hover:bg-pm-surface transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-pm-text" />
@@ -312,6 +314,7 @@ export default function StorySandbox() {
             <button
               onClick={nextStep}
               disabled={currentStep === steps.length}
+              aria-label="Next step"
               className="p-2 rounded-full hover:bg-pm-surface transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
             >
               <ArrowRight className="w-3.5 h-3.5 text-pm-text" />
