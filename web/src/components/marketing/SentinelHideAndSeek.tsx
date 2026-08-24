@@ -87,26 +87,13 @@ function SentinelMiniComponent() {
       </defs>
 
       {/* Rotating halo */}
-      {!shouldReduceMotion ? (
-        <motion.circle
-          cx="80" cy="80" r="66"
-          stroke="rgba(99,130,255,0.22)"
-          strokeWidth="1.5"
-          strokeDasharray="12 28 8 40"
-          fill="none"
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 12, ease: 'linear' }}
-          style={{ transformOrigin: '80px 80px', willChange: 'transform' }}
-        />
-      ) : (
-        <circle
-          cx="80" cy="80" r="66"
-          stroke="rgba(99,130,255,0.22)"
-          strokeWidth="1.5"
-          strokeDasharray="12 28 8 40"
-          fill="none"
-        />
-      )}
+      <circle
+        cx="80" cy="80" r="66"
+        stroke="rgba(99,130,255,0.22)"
+        strokeWidth="1.5"
+        strokeDasharray="12 28 8 40"
+        fill="none"
+      />
 
       {/* Ear fins */}
       <path d="M22 65 L12 70 L12 85 L22 80 Z" fill="#1b1c25" stroke="#374151" strokeWidth="1.5" />
@@ -135,31 +122,18 @@ function SentinelMiniComponent() {
       {/* Visor reflection */}
       <path d="M42 62 L90 62" stroke="#ffffff" strokeOpacity="0.06" strokeWidth="1" />
 
-      {/* Scanline - Composited translateY */}
-      {!shouldReduceMotion && (
-        <motion.line
-          x1="38" y1="58" x2="122" y2="58"
-          stroke="#818cf8" strokeWidth="1.5" opacity={0.25}
-          animate={{ y: [0, 42, 0] }}
-          transition={{ repeat: Infinity, duration: 3.2, ease: 'easeInOut' }}
-          style={{ willChange: 'transform' }}
-        />
-      )}
-
-      {/* Eye with subtle opacity pulse */}
-      <motion.ellipse
+      {/* Eye */}
+      <ellipse
         cx={80} cy={79}
         rx={8} ry={blink ? 0.5 : 8}
         fill="#818cf8"
-        animate={{ opacity: [0.85, 1, 0.85] }}
-        transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+        opacity={0.9}
       />
 
       {/* Status LED */}
-      <motion.circle
+      <circle
         cx="80" cy="112" r="2.5" fill="#818cf8"
-        animate={{ opacity: [0.4, 1, 0.4] }}
-        transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+        opacity={0.8}
       />
 
       {/* Corner UI ticks */}

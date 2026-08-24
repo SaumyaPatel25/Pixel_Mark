@@ -100,23 +100,14 @@ function OrbLayer({ orb, springX, springY }: {
         willChange: 'transform',
       }}
     >
-      <motion.div
-        className="rounded-full"
+      <div
+        className="rounded-full pointer-events-none"
         style={{
           width: orb.size,
           height: orb.size,
           background: orb.color,
           filter: `blur(${orb.blur})`,
           opacity: orb.opacity,
-          willChange: 'transform',
-        }}
-        animate={{ x: orb.driftX, y: orb.driftY }}
-        transition={{
-          duration: orb.duration,
-          delay: orb.delay,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          repeatType: 'mirror',
         }}
       />
     </motion.div>

@@ -28,12 +28,26 @@ function DarkHeroAura({ isDark }: DarkHeroAuraProps) {
 
     activeRef.current = true;
     const heroEl = document.getElementById('hero-section');
+    let cachedW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    let cachedH = typeof window !== 'undefined' ? window.innerHeight : 800;
+
+    const measureHero = () => {
+      if (heroEl) {
+        const r = heroEl.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) {
+          cachedW = r.width;
+          cachedH = r.height;
+        }
+      }
+    };
+    measureHero();
 
     const onMove = (e: MouseEvent) => {
       if (!heroEl) return;
+      if (cachedW === 0) measureHero();
       const r = heroEl.getBoundingClientRect();
-      cursor.current.x = (e.clientX - r.left) / r.width;
-      cursor.current.y = (e.clientY - r.top)  / r.height;
+      cursor.current.x = (e.clientX - r.left) / (r.width || 1);
+      cursor.current.y = (e.clientY - r.top)  / (r.height || 1);
     };
     const onEnter = () => { hovered.current = true; };
     const onLeave = () => {
@@ -44,6 +58,7 @@ function DarkHeroAura({ isDark }: DarkHeroAuraProps) {
     heroEl?.addEventListener('mousemove',  onMove,  { passive: true });
     heroEl?.addEventListener('mouseenter', onEnter, { passive: true });
     heroEl?.addEventListener('mouseleave', onLeave, { passive: true });
+    window.addEventListener('resize', measureHero, { passive: true });
 
     const tick = () => {
       rafRef.current = requestAnimationFrame(tick);
@@ -51,26 +66,32 @@ function DarkHeroAura({ isDark }: DarkHeroAuraProps) {
 
       const target = hovered.current ? cursor.current : { x: 0.5, y: 0.5 };
 
+      const diffX = Math.abs(target.x - auraPos.current.x);
+      const diffY = Math.abs(target.y - auraPos.current.y);
+
+      // Stop updating styles when settled and unhovered
+      if (!hovered.current && diffX < 0.001 && diffY < 0.001) {
+        if (auraRef.current) auraRef.current.style.opacity = '0';
+        if (bloomRef.current) bloomRef.current.style.opacity = '0';
+        return;
+      }
+
       auraPos.current.x  += (target.x          - auraPos.current.x)  * LERP;
       auraPos.current.y  += (target.y          - auraPos.current.y)  * LERP;
       bloomPos.current.x += (auraPos.current.x - bloomPos.current.x) * BLOOM;
       bloomPos.current.y += (auraPos.current.y - bloomPos.current.y) * BLOOM;
 
       if (auraRef.current) {
-        const el = auraRef.current;
-        const rect = heroEl ? heroEl.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
-        const px = auraPos.current.x * rect.width;
-        const py = auraPos.current.y * rect.height;
-        el.style.transform = `translate3d(${px - 250}px, ${py - 250}px, 0)`;
-        el.style.opacity   = hovered.current ? '1' : '0';
+        const px = auraPos.current.x * cachedW;
+        const py = auraPos.current.y * cachedH;
+        auraRef.current.style.transform = `translate3d(${px - 250}px, ${py - 250}px, 0)`;
+        auraRef.current.style.opacity   = hovered.current ? '1' : '0';
       }
       if (bloomRef.current) {
-        const el = bloomRef.current;
-        const rect = heroEl ? heroEl.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
-        const px = bloomPos.current.x * rect.width;
-        const py = bloomPos.current.y * rect.height;
-        el.style.transform = `translate3d(${px - 375}px, ${py - 375}px, 0)`;
-        el.style.opacity   = hovered.current ? '0.6' : '0';
+        const px = bloomPos.current.x * cachedW;
+        const py = bloomPos.current.y * cachedH;
+        bloomRef.current.style.transform = `translate3d(${px - 375}px, ${py - 375}px, 0)`;
+        bloomRef.current.style.opacity   = hovered.current ? '0.6' : '0';
       }
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -87,6 +108,7 @@ function DarkHeroAura({ isDark }: DarkHeroAuraProps) {
       heroEl?.removeEventListener('mousemove',  onMove);
       heroEl?.removeEventListener('mouseenter', onEnter);
       heroEl?.removeEventListener('mouseleave', onLeave);
+      window.removeEventListener('resize', measureHero);
       io.disconnect();
     };
   }, [isDark]);

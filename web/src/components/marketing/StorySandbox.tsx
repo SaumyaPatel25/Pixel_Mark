@@ -99,7 +99,7 @@ const ChartMini = ({ shouldReduceMotion }: { shouldReduceMotion: boolean }) => (
     <div className="flex justify-between items-center mb-1">
       <div className="flex items-center gap-1">
         <span className="w-1.5 h-1.5 rounded-full bg-pm-accent animate-pulse" />
-        <span className="text-[7px] font-mono font-bold text-pm-text/50">Live Analytics</span>
+        <span className="text-[8px] font-mono font-bold text-pm-text">Live Analytics</span>
       </div>
       <span className="text-[7.5px] font-mono text-emerald-500 font-bold">+18.4%</span>
     </div>
@@ -284,7 +284,7 @@ export default function StorySandbox() {
           <button
             onClick={() => setIsPlaying(!isPlaying)}
             aria-label={isPlaying ? "Pause auto-playing demo" : "Start auto-playing demo"}
-            className={`px-4 py-2 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${isPlaying ? 'bg-pm-accent text-white border-pm-accent shadow-sm' : 'bg-pm-surface-2 text-pm-text border-pm-border hover:bg-pm-surface-3'}`}
+            className={`px-4 py-2 rounded-full border text-[10px] font-mono font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${isPlaying ? 'bg-indigo-600 dark:bg-indigo-500 text-white border-indigo-600 shadow-sm' : 'bg-pm-surface-2 text-pm-text border-pm-border hover:bg-pm-surface-3'}`}
           >
             {isPlaying ? (
               <>

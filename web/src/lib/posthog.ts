@@ -24,6 +24,7 @@ export function initPostHog() {
     capture_dead_clicks:         false,
     capture_performance:         false,
     enable_recording_console_log: false,
+    advanced_disable_decide:     true,
     person_profiles:             'identified_only',
     loaded: (ph) => {
       if (process.env.NODE_ENV === 'development') ph.debug()
