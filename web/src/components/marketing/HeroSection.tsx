@@ -763,20 +763,15 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
 
       <div className="max-w-7xl mx-auto px-6 md:px-12 w-full flex-1 flex flex-col justify-start gap-12 relative z-10">
                
-        {/* Rebuilt Centered Hero Stack — always visible, springs up on burst */}
-        <motion.div 
-          initial={false}
-          animate={isHeroTextComplete ? "burst" : "collapsed"}
-          variants={textContainerVariants}
-          style={{ willChange: 'transform' }}
+        {/* Centered Hero Stack — always visible, zero LCP delay */}
+        <div 
           className="flex flex-col items-center text-center space-y-7 max-w-5xl mx-auto pt-8 md:pt-12 relative z-30"
         >
           {/* Headline Wrapper */}
           <div className="relative z-10 w-full max-w-full">
             {/* Base H1 */}
-            <motion.h1 
-              style={{ willChange: 'transform, opacity' }}
-              className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-pm-text leading-[0.98] transition-all duration-500 min-h-[2.1em] text-center relative z-10"
+            <h1 
+              className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-pm-text leading-[0.98] transition-colors duration-300 min-h-[2.1em] text-center relative z-10"
             >
               The visual website feedback tool
               <br />
@@ -784,24 +779,18 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
               <span className="font-serif italic font-semibold text-pm-accent inline-block">
                 product teams.
               </span>
-            </motion.h1>
+            </h1>
           </div>
 
           {/* Supporting Copy */}
-          <motion.p 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+          <p 
             className="text-sm md:text-base text-pm-muted leading-relaxed max-w-2xl font-sans min-h-[3.2em] text-center"
           >
             {descText || "Instantly share secure, interactive review links to collect visual feedback, annotations, and QA bug reports directly on live web pages. The fastest way to sign off website changes."}
-          </motion.p>
+          </p>
 
           {/* CTAs, Input, and Explainer Wrapper */}
-          <motion.div
-            variants={ctasVariants}
-            initial="collapsed"
-            animate={isHeroTextComplete ? "burst" : "collapsed"}
+          <div
             className="flex flex-col items-center space-y-7 w-full"
           >
             {/* CTAs & Trust Cue */}
@@ -879,8 +868,8 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
                 </div>
               </div>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
 
 
         {/* Sandbox Mockup Section with Dramatic Spacing and Spotlight framing */}
