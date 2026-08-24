@@ -37,7 +37,8 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
       {
-        userAgent: ['GPTBot', 'PerplexityBot', 'ClaudeBot', 'Google-Extended', 'Amazonbot'],
+        // Real-time AI Search Crawlers for live RAG and conversational citations
+        userAgent: ['OAI-SearchBot', 'Claude-SearchBot', 'PerplexityBot', 'ChatGPT-User', 'Claude-User'],
         allow: [
           '/',
           '/pricing',
@@ -55,7 +56,33 @@ export default function robots(): MetadataRoute.Robots {
           '/sessions',
           '/canvas',
           '/projects',
+          '/project',
+          '/review',
+          '/settings',
+          '/auth/',
           '/api/'
+        ],
+      },
+      {
+        // Foundation Model Scrapers
+        userAgent: ['GPTBot', 'ClaudeBot', 'Google-Extended', 'CCBot', 'Amazonbot'],
+        allow: [
+          '/',
+          '/pricing',
+          '/features',
+          '/docs/api',
+          '/faq',
+          '/company',
+          '/llms.txt'
+        ],
+        disallow: [
+          '/dashboard',
+          '/sessions',
+          '/canvas',
+          '/projects',
+          '/api/',
+          '/review',
+          '/settings'
         ],
       }
     ],

@@ -179,6 +179,47 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
+        <script
+          type="speculationrules"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              prerender: [
+                {
+                  where: {
+                    and: [
+                      { href_matches: "/*" },
+                      { not: { href_matches: "/auth/*" } },
+                      { not: { href_matches: "/logout" } },
+                      { not: { href_matches: "/api/*" } },
+                      { not: { href_matches: "/dashboard*" } },
+                      { not: { href_matches: "/project*" } },
+                      { not: { href_matches: "/review*" } },
+                      { not: { href_matches: "/blueprint*" } },
+                      { not: { href_matches: "/settings*" } },
+                      { not: { selector_matches: ".no-prerender" } }
+                    ]
+                  },
+                  eagerness: "moderate"
+                }
+              ],
+              prefetch: [
+                {
+                  urls: [
+                    "/pricing",
+                    "/features",
+                    "/faq",
+                    "/company",
+                    "/docs/api",
+                    "/chrome-extension",
+                    "/getting-started",
+                    "/support/diagnostics"
+                  ],
+                  eagerness: "conservative"
+                }
+              ]
+            })
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col bg-[var(--pm-bg)] text-[var(--pm-text)] selection:bg-cyan-500/20 selection:text-cyan-200">
         <GoogleAnalytics />
