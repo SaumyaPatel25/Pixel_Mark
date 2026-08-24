@@ -6,11 +6,15 @@ import { seoConfig } from "@/lib/seoConfig";
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
+  display: "swap",
+  preload: true,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+  preload: false,
 });
 
 export const viewport = {
@@ -179,6 +183,7 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
+        <link rel="dns-prefetch" href="https://pixel-mark.onrender.com" />
         <script
           type="speculationrules"
           dangerouslySetInnerHTML={{

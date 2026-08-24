@@ -15,6 +15,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: '/(logo.png|favicon.ico|icon.png|apple-icon.png|og-image.png)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           {
@@ -24,10 +33,6 @@ const nextConfig: NextConfig = {
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
           },
           {
             key: 'X-Content-Type-Options',

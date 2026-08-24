@@ -33,7 +33,14 @@ export function warmUpBackend() {
   if (typeof window === 'undefined' || isBackendWarmedUp) return;
   isBackendWarmedUp = true;
   const baseUrl = getApiBaseUrl();
-  fetch(`${baseUrl}/health`, { mode: 'cors' }).catch(() => {});
+  const runWarmup = () => {
+    fetch(`${baseUrl}/health`, { mode: 'cors' }).catch(() => {});
+  };
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(runWarmup, { timeout: 2000 });
+  } else {
+    setTimeout(runWarmup, 50);
+  }
 }
 
 export async function request(path: string, options: RequestInit = {}, isRetry = false): Promise<any> {
