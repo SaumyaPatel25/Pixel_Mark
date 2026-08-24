@@ -35,17 +35,20 @@ elif DATABASE_URL.startswith("postgres://"):
 if "sslmode=" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.split("?")[0]
 
-if "neon.tech" in DATABASE_URL or "render.com" in DATABASE_URL:
+if DATABASE_URL.startswith("postgresql+asyncpg://"):
     engine = create_async_engine(
         DATABASE_URL,
         echo=False,
         pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=300,
+        pool_timeout=15,
         connect_args={
             "ssl": True,
             "statement_cache_size": 0,
-            "prepared_statement_cache_size": 0
+            "prepared_statement_cache_size": 0,
+            "command_timeout": 15,
         },
     )
 else:

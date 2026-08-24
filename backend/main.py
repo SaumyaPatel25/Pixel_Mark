@@ -145,11 +145,10 @@ from models import Session, Project, Environment
 async def proxy_fallback_middleware(request: Request, call_next):
     path = request.url.path
     
-    # 1. Determine if this path is reserved for the primary STAGE backend API and static folders
     reserved_prefixes = (
         "/auth", "/projects", "/sessions", "/markers", "/canvas", "/shares", 
         "/proxy", "/export", "/websocket", "/health", "/metrics", "/static", "/docs", "/openapi.json",
-        "/share-links", "/review", "/ai", "/waitlist", "/settings", "/notifications", "/billing"
+        "/share-links", "/review", "/ai", "/waitlist", "/settings", "/notifications", "/billing", "/api"
     )
     is_reserved = any(path.startswith(prefix) for prefix in reserved_prefixes)
     
@@ -420,8 +419,10 @@ app.include_router(admin.router)
 app.include_router(redemption.router)
 
 @app.get("/health")
+@app.get("/api/v1/health")
+@app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "2.0.0"}
+    return {"status": "ok", "version": "2.0.0", "timestamp": datetime.utcnow().isoformat()}
 
 from dependencies import get_db, get_current_user
 

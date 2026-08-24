@@ -28,7 +28,16 @@ export class ApiError extends Error {
   }
 }
 
+let isBackendWarmedUp = false;
+export function warmUpBackend() {
+  if (typeof window === 'undefined' || isBackendWarmedUp) return;
+  isBackendWarmedUp = true;
+  const baseUrl = getApiBaseUrl();
+  fetch(`${baseUrl}/health`, { mode: 'cors' }).catch(() => {});
+}
+
 export async function request(path: string, options: RequestInit = {}, isRetry = false): Promise<any> {
+  warmUpBackend();
   const baseUrl = getApiBaseUrl()
   // Dual-read migration shim for auth token cookie
   const token = getCookie('stagetoken') || getCookie('pm_token') || getCookie('pmtoken')

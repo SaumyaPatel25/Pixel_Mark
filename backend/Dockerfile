@@ -27,4 +27,4 @@ COPY . .
 EXPOSE 8765
 
 # Start command utilizing the PORT environment variable injected by Render
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8765}"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8765} --timeout-keep-alive 65"]
