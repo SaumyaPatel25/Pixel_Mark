@@ -12,12 +12,12 @@ export default function MonkFeedWidget() {
 
   // Exclude MonkFeed widget from project review, session canvas, and audit workspace routes
   const isSessionPage = !!pathname && (
-    pathname.startsWith('/project/') ||
-    pathname.startsWith('/sessions/') ||
-    pathname.startsWith('/canvas/') ||
-    pathname.startsWith('/review/') ||
+    pathname.startsWith('/project') ||
+    pathname.startsWith('/sessions') ||
+    pathname.startsWith('/canvas') ||
+    pathname.startsWith('/review') ||
     pathname.startsWith('/t/') ||
-    pathname.startsWith('/blueprint/')
+    pathname.startsWith('/blueprint')
   );
 
   const isPublicMarketingPage = !pathname || pathname === '/' || pathname === '/pricing' || pathname === '/features' || pathname === '/faq' || pathname === '/company';
