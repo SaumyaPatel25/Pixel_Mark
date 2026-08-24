@@ -449,7 +449,7 @@ export default function StorySandbox() {
 
                   {/* Action buttons (relative target for Pin #1) */}
                   <div className="flex justify-center mt-3">
-                    <div className="relative px-4 py-1.5 rounded text-[8.5px] font-bold text-white transition-all duration-300 bg-pm-accent hover:bg-pm-accent-bright flex items-center justify-center select-none shadow-sm">
+                    <div className="relative px-4 py-1.5 rounded text-[8.5px] font-black text-white transition-all duration-300 bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center select-none shadow-sm">
                       {currentStep === 2 && (
                         <motion.div 
                           initial={{ opacity: 0 }}

@@ -15,15 +15,34 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const pathname     = usePathname()
   const searchParams = useSearchParams()
 
-  // Initialise PostHog during idle time on the client
+  // Initialise PostHog on interaction or idle time to keep initial paint blocking-free
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(() => initPostHog(), { timeout: 3000 });
-      } else {
-        setTimeout(() => initPostHog(), 1500);
-      }
-    }
+    if (typeof window === 'undefined') return;
+
+    const triggerInit = () => {
+      initPostHog();
+      cleanup();
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('scroll', triggerInit);
+      window.removeEventListener('pointerdown', triggerInit);
+      window.removeEventListener('keydown', triggerInit);
+      window.removeEventListener('touchstart', triggerInit);
+    };
+
+    window.addEventListener('scroll', triggerInit, { passive: true, once: true });
+    window.addEventListener('pointerdown', triggerInit, { passive: true, once: true });
+    window.addEventListener('keydown', triggerInit, { passive: true, once: true });
+    window.addEventListener('touchstart', triggerInit, { passive: true, once: true });
+
+    // Idle fallback after 8 seconds
+    const timer = setTimeout(triggerInit, 8000);
+
+    return () => {
+      cleanup();
+      clearTimeout(timer);
+    };
   }, [])
 
   // Fire page-view on every route change

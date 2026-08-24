@@ -35,16 +35,18 @@ export default function GoogleAnalytics() {
 
     const cleanup = () => {
       window.removeEventListener('scroll', triggerLoad);
-      window.removeEventListener('mousemove', triggerLoad);
+      window.removeEventListener('pointerdown', triggerLoad);
+      window.removeEventListener('keydown', triggerLoad);
       window.removeEventListener('touchstart', triggerLoad);
     };
 
     window.addEventListener('scroll', triggerLoad, { passive: true, once: true });
-    window.addEventListener('mousemove', triggerLoad, { passive: true, once: true });
+    window.addEventListener('pointerdown', triggerLoad, { passive: true, once: true });
+    window.addEventListener('keydown', triggerLoad, { passive: true, once: true });
     window.addEventListener('touchstart', triggerLoad, { passive: true, once: true });
 
-    // Fallback idle load after 4 seconds
-    const timer = setTimeout(triggerLoad, 4000);
+    // Fallback idle load after 10 seconds to protect initial Core Web Vitals audit
+    const timer = setTimeout(triggerLoad, 10000);
 
     return () => {
       cleanup();

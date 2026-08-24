@@ -778,97 +778,12 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
               style={{ willChange: 'transform, opacity' }}
               className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-pm-text leading-[0.98] transition-all duration-500 min-h-[2.1em] text-center relative z-10"
             >
-              {headline1.includes("feedback") ? (
-                <>
-                  <RandomHollowText 
-                    text={headline1.substring(0, headline1.indexOf("feedback"))} 
-                    isLightTheme={isLightTheme} 
-                    isHeroTextComplete={isHeroTextComplete} 
-                    strokeColor="#6366f1" 
-                    solidClassName="text-pm-text" 
-                  />
-                  <br />
-                  <RandomHollowText 
-                    text={headline1.substring(headline1.indexOf("feedback"))} 
-                    isLightTheme={isLightTheme} 
-                    isHeroTextComplete={isHeroTextComplete} 
-                    strokeColor="#6366f1" 
-                    solidClassName="text-pm-text" 
-                  />
-                </>
-              ) : (
-                <RandomHollowText 
-                  text={headline1} 
-                  isLightTheme={isLightTheme} 
-                  isHeroTextComplete={isHeroTextComplete} 
-                  strokeColor="#6366f1" 
-                  solidClassName="text-pm-text" 
-                />
-              )}
-              {headline1.length > 0 && headline1.length < 32 && (
-                <span className="inline-block w-[6px] h-[0.85em] bg-pm-text ml-1.5 align-middle animate-pulse" />
-              )}
-              {headline2.length > 0 && (
-                <>
-                  <br />
-                  {headline2.length <= 10 ? (
-                    <RandomHollowText 
-                      text={headline2} 
-                      isLightTheme={isLightTheme} 
-                      isHeroTextComplete={isHeroTextComplete} 
-                      strokeColor="#6366f1" 
-                      solidClassName="text-pm-text" 
-                    />
-                  ) : (
-                    <>
-                      <RandomHollowText 
-                        text={headline2.substring(0, 10)} 
-                        isLightTheme={isLightTheme} 
-                        isHeroTextComplete={isHeroTextComplete} 
-                        strokeColor="#6366f1" 
-                        solidClassName="text-pm-text" 
-                      />
-                      <br />
-                      {/* The Glassmorphic Capsule and Text (middle) */}
-                      <motion.span
-                        className={`relative z-10 inline-block transition-all duration-700 ${
-                          isLightTheme && isHeroTextComplete
-                            ? "bg-white/40 border border-blue-500/10 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.03)] px-5 py-1"
-                            : "border border-transparent px-0 py-0"
-                        }`}
-                        animate={isLightTheme && isHeroTextComplete ? {
-                          y: [0, -1.2, 0]
-                        } : {}}
-                        transition={{
-                          y: { repeat: Infinity, duration: 4.6, ease: "easeInOut", delay: 0.3 }
-                        }}
-                      >
-                        {isLightTheme ? (
-                          <RandomHollowText
-                            text={headline2.substring(10)}
-                            isLightTheme={isLightTheme}
-                            isHeroTextComplete={isHeroTextComplete}
-                            strokeColor={isLightTheme ? "#ec4899" : "#6366f1"}
-                            solidClassName={isLightTheme ? "text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-pink-600" : "text-pm-accent"}
-                            fontClassName="font-serif italic font-semibold"
-                          />
-                        ) : (
-                          <ScrambleAuto
-                            text={headline2.substring(10)}
-                            isDark={true}
-                            sweepDuration={1850}
-                            pauseBetween={4300}
-                            className="inline-block transition-all duration-700 font-serif italic font-semibold text-pm-accent"
-                          />
-                        )}
-                      </motion.span>
-                    </>
-                  )}
-                  {headline2.length < 24 && (
-                    <span className="inline-block w-[6px] h-[0.85em] bg-pm-accent ml-1.5 align-middle animate-pulse" />
-                  )}
-                </>
-              )}
+              The visual website feedback tool
+              <br />
+              built for{" "}
+              <span className="font-serif italic font-semibold text-pm-accent inline-block">
+                product teams.
+              </span>
             </motion.h1>
           </div>
 
@@ -894,7 +809,7 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
               <div className="flex flex-wrap gap-4 justify-center items-center">
                 <Link
                   href="/register"
-                  className="btn-primary-3d px-8 py-4 bg-pm-accent hover:bg-pm-accent-bright text-white rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 flex items-center gap-2 cursor-pointer"
+                  className="btn-primary-3d px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 flex items-center gap-2 cursor-pointer shadow-md"
                 >
                   Start Free Project
                   <ArrowRight className="w-4 h-4" />
