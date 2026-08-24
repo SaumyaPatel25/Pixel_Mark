@@ -366,9 +366,9 @@ export function ProjectCard({
               )}
             </div>
             
-            <h3 className="text-pm-text font-extrabold text-xl tracking-tight leading-tight group-hover:text-pm-accent transition-colors truncate">
+            <h2 className="text-pm-text font-extrabold text-xl tracking-tight leading-tight group-hover:text-pm-accent transition-colors truncate">
               {project.name}
-            </h3>
+            </h2>
             
             <p className="text-pm-muted text-xs leading-normal line-clamp-1">
               {project.description || "No description provided for this project."}
@@ -468,7 +468,7 @@ export function ProjectCard({
               </span>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1 text-[9px] text-pm-muted/60 font-mono">
+            <div className="hidden sm:flex items-center gap-1 text-[9px] text-pm-muted dark:text-zinc-400 font-semibold font-mono">
               <Calendar className="w-3 h-3" />
               <span>{lastActivity ? `Active ${lastActivity}` : 'No reviews'}</span>
             </div>

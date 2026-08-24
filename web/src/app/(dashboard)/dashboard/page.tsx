@@ -548,7 +548,7 @@ export default function DashboardPage() {
                   <AlertCircle className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-rose-500">Failed to load projects</h3>
+                  <h2 className="text-sm font-bold text-rose-500">Failed to load projects</h2>
                   <p className="text-xs text-pm-muted">{error}</p>
                 </div>
                 <button 
@@ -608,7 +608,7 @@ export default function DashboardPage() {
                   <Inbox className="w-8 h-8" />
                 </div>
                 <div className="space-y-1.5 max-w-sm">
-                  <h3 className="text-xl font-bold tracking-tight text-pm-text">No projects yet</h3>
+                  <h2 className="text-xl font-bold tracking-tight text-pm-text">No projects yet</h2>
                   <p className="text-xs text-pm-muted leading-relaxed font-semibold">
                     Create your first review project to initiate visual QA processes.
                   </p>
@@ -630,10 +630,10 @@ export default function DashboardPage() {
             
             {/* Recent Activity Panel */}
             <div className="bg-pm-surface border border-pm-border rounded-2xl p-5 shadow-sm space-y-5 transition-all">
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-pm-muted flex items-center gap-2 pb-2 border-b border-pm-border">
+              <h2 className="text-[10px] font-bold uppercase tracking-widest text-pm-muted flex items-center gap-2 pb-2 border-b border-pm-border">
                 <Compass className="w-4 h-4 text-pm-accent" />
                 Recent Activity
-              </h3>
+              </h2>
               
               {isLoading || projectsLoading ? (
                 <div className="space-y-4 py-2 animate-pulse">
@@ -706,7 +706,7 @@ export default function DashboardPage() {
               className="bg-pm-surface border border-pm-border rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-xl relative z-10 space-y-6 text-pm-text"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-pm-accent">New Review Project</h3>
+                <h2 className="text-sm font-bold uppercase tracking-widest text-pm-accent">New Review Project</h2>
                 <button onClick={closeCreateProjectModal} className="text-pm-muted hover:text-pm-text transition-colors p-1 hover:bg-pm-surface-2 rounded-lg cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
@@ -811,7 +811,7 @@ export default function DashboardPage() {
               className="bg-pm-surface border border-pm-border rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-xl relative z-10 space-y-6 text-pm-text"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-pm-accent">Launch Review Session</h3>
+                <h2 className="text-sm font-bold uppercase tracking-widest text-pm-accent">Launch Review Session</h2>
                 <button onClick={() => setNewSessionProject(null)} className="text-pm-muted hover:text-pm-text transition-colors p-1 hover:bg-pm-surface-2 rounded-lg cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>

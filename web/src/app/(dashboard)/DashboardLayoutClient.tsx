@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { StageLoader } from '@/components/ui/StageLoader'
-import { LayoutDashboard, Folder, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play, RotateCcw, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { LayoutDashboard, Folder, FolderKanban, FileText, Settings, CreditCard, Sparkles, Globe, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play, RotateCcw, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useOnboardingStore } from '@/store/onboardingStore'
 import { useProjectStore } from '@/store/projectStore'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
@@ -188,7 +188,14 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <Link href="/dashboard" className="block">
-                <img src="/logo.png" alt="STAGE" className="h-16 w-auto object-contain dark-theme-logo" />
+                <img 
+                  src="/logo.png" 
+                  alt="STAGE" 
+                  width={144} 
+                  height={64} 
+                  fetchPriority="high"
+                  className="h-16 w-auto object-contain dark-theme-logo" 
+                />
               </Link>
               <span className="text-[9px] font-mono tracking-widest text-pm-muted uppercase block leading-none pl-1">Visual QA OS</span>
             </div>
@@ -212,7 +219,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               }`}
             >
               <Home className="w-4 h-4" />
-              Back to Home
+              <span>Home</span>
             </Link>
 
             <Link 
@@ -224,8 +231,21 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
-              Dashboard
+              <span>Dashboard</span>
             </Link>
+
+            <Link 
+              href="/sessions" 
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                pathname === '/sessions' 
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>All Sessions</span>
+            </Link>
+
             <Link 
               href="/projects" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
@@ -234,9 +254,46 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
                   : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
               }`}
             >
-              <Folder className="w-4 h-4" />
-              Projects
+              <FolderKanban className="w-4 h-4" />
+              <span>Projects</span>
             </Link>
+
+            <Link 
+              href="/settings" 
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                pathname === '/settings' 
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Settings</span>
+            </Link>
+
+            <Link 
+              href="/pricing" 
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                pathname === '/pricing' 
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>Plans & Pricing</span>
+            </Link>
+
+            <Link 
+              href="/features" 
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                pathname === '/features' 
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Features</span>
+            </Link>
+
             <Link 
               href="/docs/api" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
@@ -246,19 +303,25 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              Developer API Docs
+              <span>API Reference</span>
             </Link>
+
             <Link 
-              href="/support/diagnostics" 
+              href="/chrome-extension" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
-                pathname === '/support/diagnostics' 
+                pathname === '/chrome-extension' 
                   ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
                   : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
               }`}
             >
-              <HelpCircle className="w-4 h-4" />
-              Diagnostic Support
+              <Globe className="w-4 h-4" />
+              <span>Chrome Extension</span>
             </Link>
+
+            <div className="pt-2 pb-1">
+              <div className="h-px bg-pm-border w-full" />
+            </div>
+
             {isDismissed && userRole ? (
               <>
                 <button 
@@ -282,20 +345,9 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
                   Restart Product Tour
                 </button>
               </>
-            ) : (
-              <button 
-                onClick={() => {
-                  startOnboarding('developer');
-                  router.push('/dashboard');
-                }}
-                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all w-full text-left cursor-pointer"
-              >
-                <Play className="w-4 h-4 text-purple-400" />
-                Restart Product Tour
-              </button>
-            )}
+            ) : null}
             <div 
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-sm text-pm-muted/60 cursor-not-allowed select-none"
+              className="flex items-center justify-between px-3 py-2 rounded-xl text-sm text-pm-muted dark:text-zinc-400 font-medium cursor-not-allowed select-none"
             >
               <div className="flex items-center gap-3">
                 <Download className="w-4 h-4 text-pm-muted" />

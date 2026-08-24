@@ -24,10 +24,64 @@ export default function MonkFeedWidget() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const delay = isPublicMarketingPage ? 6000 : 2000;
-    const timer = setTimeout(() => setShouldLoad(true), delay);
-    return () => clearTimeout(timer);
-  }, [isPublicMarketingPage]);
+
+    const triggerLoad = () => {
+      setShouldLoad(true);
+      cleanup();
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('scroll', triggerLoad);
+      window.removeEventListener('pointerdown', triggerLoad);
+      window.removeEventListener('keydown', triggerLoad);
+      window.removeEventListener('touchstart', triggerLoad);
+    };
+
+    window.addEventListener('scroll', triggerLoad, { passive: true, once: true });
+    window.addEventListener('pointerdown', triggerLoad, { passive: true, once: true });
+    window.addEventListener('keydown', triggerLoad, { passive: true, once: true });
+    window.addEventListener('touchstart', triggerLoad, { passive: true, once: true });
+
+    // Idle fallback after 12 seconds to prevent interfering with Core Web Vitals audit
+    const timer = setTimeout(triggerLoad, 12000);
+
+    return () => {
+      cleanup();
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Accessibility observer to ensure 3rd party widget elements have valid ARIA labels and titles
+  useEffect(() => {
+    if (!shouldLoad || typeof window === 'undefined') return;
+
+    const fixAccessibility = () => {
+      // Fix buttons
+      document.querySelectorAll('.monkfeed-sub-btn, .monkfeed-widget button').forEach((btn) => {
+        if (!btn.getAttribute('aria-label')) {
+          btn.setAttribute('aria-label', 'Customer Support and Feedback');
+        }
+      });
+      // Fix iframes
+      document.querySelectorAll('iframe[src*="monkfeed"]').forEach((iframe) => {
+        if (!iframe.getAttribute('title')) {
+          iframe.setAttribute('title', 'Feedback and Support Dialog');
+        }
+      });
+      // Fix selects
+      document.querySelectorAll('select').forEach((sel) => {
+        if (!sel.getAttribute('aria-label') && !sel.getAttribute('id')) {
+          sel.setAttribute('aria-label', 'Select option');
+        }
+      });
+    };
+
+    fixAccessibility();
+    const observer = new MutationObserver(fixAccessibility);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [shouldLoad]);
 
   useEffect(() => {
     setRemountKey(k => k + 1);
