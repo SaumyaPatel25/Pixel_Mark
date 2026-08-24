@@ -165,7 +165,8 @@ export default function PageTabBar({
         {/* Scroll Indicator Left */}
         <button 
           onClick={scrollLeft}
-          className="absolute left-0 z-10 w-6 h-full bg-gradient-to-r from-[#09090d] to-transparent flex items-center justify-start text-white/30 hover:text-white/70 transition-all"
+          aria-label="Scroll tabs left"
+          className="absolute left-0 z-10 w-6 h-full bg-gradient-to-r from-[#09090d] to-transparent flex items-center justify-start text-white/60 hover:text-white transition-all cursor-pointer"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
@@ -184,10 +185,10 @@ export default function PageTabBar({
                 data-active={isActive}
                 onClick={() => onSelectPage(visit.page_url)}
                 className={cn(
-                  "relative h-7 rounded-lg px-3.5 flex items-center gap-2 border transition-all text-left whitespace-nowrap overflow-hidden group flex-shrink-0",
+                  "relative h-7 rounded-lg px-3.5 flex items-center gap-2 border transition-all text-left whitespace-nowrap overflow-hidden group flex-shrink-0 cursor-pointer",
                   isActive
                     ? "bg-[#161324] border-purple-500/40 text-purple-200"
-                    : "bg-white/[0.015] border-white/[0.04] text-white/40 hover:bg-white/[0.04] hover:text-white/75 hover:border-white/[0.08]"
+                    : "bg-white/[0.04] border-white/10 text-white/80 hover:bg-white/[0.08] hover:text-white hover:border-white/20"
                 )}
               >
                 {/* Active Indicator Underline */}
@@ -204,7 +205,7 @@ export default function PageTabBar({
                   "w-3.5 h-3.5 rounded flex items-center justify-center text-[8px] font-black leading-none",
                   isActive 
                     ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" 
-                    : "bg-white/5 text-white/30 border border-white/5"
+                    : "bg-white/10 text-white/80 border border-white/10"
                 )}>
                   {index + 1}
                 </span>
@@ -216,7 +217,7 @@ export default function PageTabBar({
 
                 {/* Visit Count Badge */}
                 {visit.visit_count > 1 && (
-                  <span className="text-[7px] font-black uppercase text-white/25 px-1 py-0.2 bg-white/5 rounded border border-white/5 leading-none">
+                  <span className="text-[7px] font-black uppercase text-white/70 px-1 py-0.2 bg-white/10 rounded border border-white/10 leading-none">
                     {visit.visit_count}x
                   </span>
                 )}
@@ -228,7 +229,8 @@ export default function PageTabBar({
         {/* Scroll Indicator Right */}
         <button 
           onClick={scrollRight}
-          className="absolute right-0 z-10 w-6 h-full bg-gradient-to-l from-[#09090d] to-transparent flex items-center justify-end text-white/30 hover:text-white/70 transition-all"
+          aria-label="Scroll tabs right"
+          className="absolute right-0 z-10 w-6 h-full bg-gradient-to-l from-[#09090d] to-transparent flex items-center justify-end text-white/60 hover:text-white transition-all cursor-pointer"
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
@@ -237,7 +239,7 @@ export default function PageTabBar({
       <div className="h-5 w-px bg-white/5 flex-shrink-0 ml-4 mr-4" />
 
       {/* Stats Summary indicator */}
-      <div className="flex items-center gap-2 flex-shrink-0 text-white/30 text-[9px] font-black uppercase tracking-widest bg-white/[0.02] border border-white/5 px-3 py-1.5 rounded-lg">
+      <div className="flex items-center gap-2 flex-shrink-0 text-white/80 text-[9px] font-black uppercase tracking-widest bg-white/[0.04] border border-white/10 px-3 py-1.5 rounded-lg">
         <Compass className="w-3.5 h-3.5 text-purple-400" />
         <span>Visited: {visits.length} pages</span>
       </div>
