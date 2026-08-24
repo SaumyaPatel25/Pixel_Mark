@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Menu, X, ArrowRight, LogOut, Zap, Tag, Compass, 
   HelpCircle, Layers, FileCode2, Wrench, Sparkles,
-  ChevronDown, ExternalLink
+  ChevronDown, ExternalLink, Globe
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -78,6 +78,21 @@ export default function MarketingNav() {
 
   const navLinks: NavLinkItem[] = [
     {
+      name: 'Home',
+      href: '/',
+      preview: {
+        headerIcon: <Globe className="w-4 h-4 text-purple-400" />,
+        title: 'Home',
+        subtitle: 'The Visual Website Feedback Tool',
+        items: [
+          { iconEmoji: '✨', title: 'Interactive Demo', desc: 'Experience live DOM & 3D canvas pinning', href: '/' },
+          { iconEmoji: '🚀', title: 'Get Started', desc: 'Create your free project in seconds', href: '/register' },
+          { iconEmoji: '⚡', title: 'Platform Features', desc: 'Explore feedback & DOM edit capabilities', href: '/features' },
+          { iconEmoji: '🏷️', title: 'Pricing & Plans', desc: 'Free & Team options for product teams', href: '/pricing' },
+        ]
+      }
+    },
+    {
       name: 'Features',
       href: '/features',
       preview: {
@@ -120,36 +135,6 @@ export default function MarketingNav() {
           { iconEmoji: '📍', title: '2. Drop Context Pins', desc: 'Report layout bugs without screenshots', href: '/#how-it-works' },
           { iconEmoji: '💬', title: '3. Threaded Replies', desc: 'Align designers, developers & clients', href: '/#how-it-works' },
           { iconEmoji: '✅', title: '4. Instant Sign-Off', desc: 'Approve production changes in real time', href: '/#how-it-works' },
-        ]
-      }
-    },
-    {
-      name: 'Docs & API',
-      href: '/docs/api',
-      preview: {
-        headerIcon: <FileCode2 className="w-4 h-4 text-indigo-400" />,
-        title: 'Developer API',
-        subtitle: 'REST endpoints & webhooks',
-        items: [
-          { iconEmoji: '🔌', title: 'REST Endpoints', desc: 'CRUD projects, sessions & markers', href: '/docs/api' },
-          { iconEmoji: '📦', title: 'Export Formats', desc: 'Markdown, CSV & JSON data summaries', href: '/docs/api' },
-          { iconEmoji: '⚡', title: 'Real-Time Sync', desc: 'WebSocket live marker event streams', href: '/docs/api' },
-          { iconEmoji: '🛡️', title: 'Bearer Auth', desc: 'Secure API token authentication', href: '/docs/api' },
-        ]
-      }
-    },
-    {
-      name: 'Tools',
-      href: '/chrome-extension',
-      preview: {
-        headerIcon: <Wrench className="w-4 h-4 text-amber-400" />,
-        title: 'Tools & Diagnostics',
-        subtitle: 'Browser extensions & health',
-        items: [
-          { iconEmoji: '🧩', title: 'Chrome Extension', desc: 'Annotate any site without installing code', href: '/chrome-extension' },
-          { iconEmoji: '🩺', title: 'System Diagnostics', desc: 'Live proxy connection health check', href: '/support/diagnostics' },
-          { iconEmoji: '🚀', title: 'Getting Started', desc: '5-minute guided onboarding tour', href: '/getting-started' },
-          { iconEmoji: '📩', title: 'Engineering Support', desc: 'Direct founder contact at saumya@entrext.com', href: 'mailto:saumya@entrext.com' },
         ]
       }
     },

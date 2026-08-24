@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useMotionValue, useSpring } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
@@ -79,9 +78,6 @@ export default function HomeClient() {
   const [activeMode, setActiveMode] = useState<ModeType>('dom');
   const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null);
   const [isHeroTextComplete, setIsHeroTextComplete] = useState(true);
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
   // Mount all sections stably to prevent layout shift and page height jitter on reload
   const [loadStage] = useState(4);
   const [isDark, setIsDark] = useState(false);
@@ -98,37 +94,16 @@ export default function HomeClient() {
     return () => observer.disconnect();
   }, []);
 
-  // Smooth lagging spring configuration for the background spotlight glow
-  const glowX = useSpring(mouseX, { stiffness: 50, damping: 25 });
-  const glowY = useSpring(mouseY, { stiffness: 50, damping: 25 });
-
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.body.classList.add('homepage-active');
     }
-    
-    let ticking = false;
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          // Offset the coordinate by half the size of the glow element (250px)
-          // to keep it centered on the cursor
-          mouseX.set(e.clientX - 250);
-          mouseY.set(e.clientY - 250);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => {
       if (typeof document !== 'undefined') {
         document.body.classList.remove('homepage-active');
       }
-      window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [mouseX, mouseY]);
+  }, []);
 
   const processSection = React.useMemo(() => isDark ? <HowItWorksSection /> : <StoryProcessSection />, [isDark]);
   const outcomeSection = React.useMemo(() => <OutcomeSection />, []);

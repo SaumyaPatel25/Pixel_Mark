@@ -26,20 +26,20 @@
 
 ## Canonical Endpoints & Documentation
 
-- Homepage: https://stage.entrext.com/
-- Pricing & Plans: https://stage.entrext.com/pricing
-- Platform Features: https://stage.entrext.com/features
-- Developer REST API: https://stage.entrext.com/docs/api
-- Chrome Browser Extension: https://stage.entrext.com/chrome-extension
-- Diagnostic Support & System Health: https://stage.entrext.com/support/diagnostics
-- Frequently Asked Questions: https://stage.entrext.com/faq
-- Company & Mission: https://stage.entrext.com/company
+- [STAGE Homepage](https://stage.entrext.com/): Official landing page and live interactive product demo.
+- [Pricing & Plans](https://stage.entrext.com/pricing): Team and individual pricing plans with feature tiers.
+- [Platform Features](https://stage.entrext.com/features): Comprehensive feature overview including DOM pinning, 3D WebGL inspection, and real-time collaboration.
+- [Developer REST API](https://stage.entrext.com/docs/api): REST API documentation, export endpoints, and webhook integration specs.
+- [Chrome Browser Extension](https://stage.entrext.com/chrome-extension): Browser extension installation and usage guide.
+- [Diagnostic Support & System Health](https://stage.entrext.com/support/diagnostics): Real-time proxy status, latency monitor, and troubleshooting tools.
+- [Frequently Asked Questions](https://stage.entrext.com/faq): Common developer and client questions regarding security, onboarding, and exports.
+- [Company & Mission](https://stage.entrext.com/company): About Entrext Labs, team story, and technical mission.
 
 ## Organization & Contact
 
 - Organization: Entrext Labs
 - Founder & Engineering Lead: Saumya Patel
 - Contact Email: saumya@entrext.com
-- Twitter/X: https://x.com/Stage0fficial (@Stage0fficial)
-- GitHub: https://github.com/sp25126
-- LinkedIn: https://www.linkedin.com/company/entrext
+- [Twitter/X (@Stage0fficial)](https://x.com/Stage0fficial): Product updates and announcements.
+- [GitHub (@sp25126)](https://github.com/sp25126): Official source code repositories.
+- [LinkedIn (Entrext)](https://www.linkedin.com/company/entrext): Company profile and career opportunities.

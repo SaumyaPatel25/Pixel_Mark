@@ -7,9 +7,10 @@ interface ProjectState {
   currentProject:  Project | null
   loading:         boolean
   error:           string | null
+  lastProjectsFetchedAt: number
   projectAnalytics:  Record<string, { data: any; fetchedAt: number }>
   fetchAnalytics: (id: string, force?: boolean) => Promise<any>
-  fetchProjects:     () => Promise<void>
+  fetchProjects:     (force?: boolean) => Promise<Project[]>
   createProject:     (input: ProjectCreate) => Promise<Project>
   deleteProject:     (id: string) => Promise<void>
   setCurrentProject: (project: Project | null) => void
@@ -17,12 +18,14 @@ interface ProjectState {
 }
 
 const inFlightRequests: Record<string, Promise<any> | undefined> = {}
+let inFlightProjectsPromise: Promise<Project[]> | null = null
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projects:       [],
   currentProject: null,
   loading:        false,
   error:          null,
+  lastProjectsFetchedAt: 0,
   projectAnalytics: {},
 
   setCurrentProject: (project) => set({ currentProject: project }),
@@ -59,17 +62,43 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     return promise
   },
 
-  fetchProjects: async () => {
-    set({ loading: true, error: null })
-    try {
-      const projects = await api.projects.list()
-      set({ projects, loading: false })
-    } catch (err: unknown) {
-      set({ 
-        loading: false, 
-        error: err instanceof Error ? err.message : 'Failed to fetch projects' 
-      })
+  fetchProjects: async (force = false) => {
+    const { projects, lastProjectsFetchedAt } = get()
+    const now = Date.now()
+    const STALE_TIME = 1000 * 60 * 2 // 2 minutes stale time
+
+    // If we have cached projects within 2 minutes and not forced, return immediately
+    if (!force && projects.length > 0 && (now - lastProjectsFetchedAt < STALE_TIME)) {
+      return projects
     }
+
+    // If a request is already in-flight, return the existing promise
+    if (inFlightProjectsPromise) {
+      return inFlightProjectsPromise
+    }
+
+    // Only show loading spinner if we have no projects yet
+    if (projects.length === 0) {
+      set({ loading: true, error: null })
+    }
+
+    inFlightProjectsPromise = (async () => {
+      try {
+        const fetched = await api.projects.list()
+        set({ projects: fetched, lastProjectsFetchedAt: Date.now(), loading: false, error: null })
+        return fetched
+      } catch (err: unknown) {
+        set({ 
+          loading: false, 
+          error: err instanceof Error ? err.message : 'Failed to fetch projects' 
+        })
+        return get().projects
+      } finally {
+        inFlightProjectsPromise = null
+      }
+    })()
+
+    return inFlightProjectsPromise
   },
 
   createProject: async (input) => {
@@ -79,6 +108,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set(s => ({ 
         projects: [project, ...s.projects],
         currentProject: project,
+        lastProjectsFetchedAt: Date.now(),
         loading: false 
       }))
       return project
@@ -91,7 +121,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   deleteProject: async (id) => {
     const prev = get().projects
-    set(s => ({ projects: s.projects.filter(p => p.id !== id) }))
+    set(s => ({ 
+      projects: s.projects.filter(p => p.id !== id),
+      lastProjectsFetchedAt: Date.now()
+    }))
     
     try {
       await api.projects.delete(id)

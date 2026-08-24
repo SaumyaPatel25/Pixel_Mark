@@ -18,6 +18,7 @@ class ApiQueue {
   private activeWrites = 0
   private activeReads  = 0
   private pendingWrites: Map<string, Promise<unknown>> = new Map()
+  private pendingReadsMap: Map<string, Promise<unknown>> = new Map()
   
   private listeners: Set<(status: QueueStatus) => void> = new Set()
   
@@ -46,8 +47,13 @@ class ApiQueue {
     return promise
   }
   
-  enqueueRead<T>(label: string, fn: () => Promise<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
+  enqueueRead<T>(label: string, fn: () => Promise<T>, dedupeKey?: string): Promise<T> {
+    const key = dedupeKey || label
+    if (key && this.pendingReadsMap.has(key)) {
+      return this.pendingReadsMap.get(key) as Promise<T>
+    }
+
+    const promise = new Promise<T>((resolve, reject) => {
       this.readQueue.push({
         id: crypto.randomUUID(),
         fn, 
@@ -58,6 +64,13 @@ class ApiQueue {
       })
       this.drainReads()
     })
+
+    if (key) {
+      this.pendingReadsMap.set(key, promise as Promise<unknown>)
+      promise.finally(() => this.pendingReadsMap.delete(key))
+    }
+
+    return promise
   }
   
   private async drainWrites() {

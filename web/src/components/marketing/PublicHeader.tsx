@@ -11,9 +11,8 @@ const links = [
   { name: 'Home', href: '/' },
   { name: 'Features', href: '/features' },
   { name: 'Pricing', href: '/pricing' },
-  { name: 'Docs', href: '/docs/api' },
-  { name: 'Support', href: '/support/diagnostics' },
-  { name: 'Extension', href: '/chrome-extension' },
+  { name: 'FAQ', href: '/faq' },
+  { name: 'About', href: '/company' },
 ];
 
 export default function PublicHeader() {

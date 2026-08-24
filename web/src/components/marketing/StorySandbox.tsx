@@ -394,8 +394,8 @@ export default function StorySandbox() {
                 
                 {/* Visual Proxy Banner for Step 1 */}
                 {currentStep === 1 && (
-                  <div className="absolute top-2 right-2 flex items-center gap-1 text-[6.5px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 animate-fade-in">
-                    <span className="w-1 h-1 rounded-full bg-emerald-500 animate-ping" />
+                  <div className="absolute top-2 right-2 flex items-center gap-1 text-[7px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded border border-emerald-500/30 animate-fade-in">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                     <span>PROXY SCRIPTS INJECTED</span>
                   </div>
                 )}
@@ -407,18 +407,18 @@ export default function StorySandbox() {
                       <div className="w-3.5 h-3.5 rounded bg-gradient-to-tr from-pm-accent to-pm-cyan flex items-center justify-center text-[7px] text-white font-black">N</div>
                       <span className="font-display font-black text-[9.5px] text-pm-text">Nova</span>
                     </div>
-                    <div className="flex items-center gap-2.5 text-[8px] text-pm-text/60">
+                    <div className="flex items-center gap-2.5 text-[8px] text-pm-text/80 font-medium">
                       <span>Pricing</span>
                       <span>Docs</span>
                     </div>
-                    <div className="w-12 h-5 rounded bg-pm-text/5 flex items-center justify-center text-[7px] text-pm-text/50 font-bold">Sign In</div>
+                    <div className="w-12 h-5 rounded bg-pm-text/10 flex items-center justify-center text-[7.5px] text-pm-text font-bold">Sign In</div>
                   </div>
 
                   {/* Hero Copy */}
                   <div className="space-y-2 mt-2">
-                    <h4 className="font-display font-black text-center text-[13px] text-pm-text leading-tight tracking-tight uppercase">
+                    <div role="heading" aria-level={3} className="font-display font-black text-center text-[13px] text-pm-text leading-tight tracking-tight uppercase">
                       Scale your analytics
-                    </h4>
+                    </div>
                     
                     {/* Subheading element (relative target for Pin #2) */}
                     <div className="relative p-1 rounded transition-all duration-300">
@@ -430,7 +430,7 @@ export default function StorySandbox() {
                         />
                       )}
                       
-                      <p className={`text-center text-[8.5px] px-3 leading-relaxed text-pm-text/60 transition-all duration-500 max-w-[240px] mx-auto ${currentStep >= 7 ? 'font-bold text-pm-text' : 'font-light'}`}>
+                      <p className={`text-center text-[8.5px] px-3 leading-relaxed text-pm-text/80 transition-all duration-500 max-w-[240px] mx-auto ${currentStep >= 7 ? 'font-bold text-pm-text' : 'font-medium'}`}>
                         Connect all your data sources and get instant real-time query results.
                       </p>
                       
@@ -449,7 +449,7 @@ export default function StorySandbox() {
 
                   {/* Action buttons (relative target for Pin #1) */}
                   <div className="flex justify-center mt-3">
-                    <div className="relative px-4 py-1.5 rounded text-[8px] font-bold text-white transition-all duration-300 bg-pm-accent hover:bg-pm-accent-bright flex items-center justify-center select-none">
+                    <div className="relative px-4 py-1.5 rounded text-[8.5px] font-bold text-white transition-all duration-300 bg-pm-accent hover:bg-pm-accent-bright flex items-center justify-center select-none shadow-sm">
                       {currentStep === 2 && (
                         <motion.div 
                           initial={{ opacity: 0 }}

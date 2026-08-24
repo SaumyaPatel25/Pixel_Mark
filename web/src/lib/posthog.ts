@@ -20,6 +20,10 @@ export function initPostHog() {
     capture_pageleave:           true,
     autocapture:                 false,
     disable_session_recording:   true,
+    disable_surveys:             true,
+    capture_dead_clicks:         false,
+    capture_performance:         false,
+    enable_recording_console_log: false,
     person_profiles:             'identified_only',
     loaded: (ph) => {
       if (process.env.NODE_ENV === 'development') ph.debug()

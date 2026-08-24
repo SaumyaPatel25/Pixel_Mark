@@ -20,11 +20,14 @@ export default function MonkFeedWidget() {
     pathname.startsWith('/blueprint/')
   );
 
+  const isPublicMarketingPage = !pathname || pathname === '/' || pathname === '/pricing' || pathname === '/features' || pathname === '/faq' || pathname === '/company';
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const timer = setTimeout(() => setShouldLoad(true), 2500);
+    const delay = isPublicMarketingPage ? 6000 : 2000;
+    const timer = setTimeout(() => setShouldLoad(true), delay);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isPublicMarketingPage]);
 
   useEffect(() => {
     setRemountKey(k => k + 1);
