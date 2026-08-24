@@ -76,8 +76,8 @@ function ScrambleAuto({
   useEffect(() => {
     if (!isDark) return;
     mounted.current = true;
-    // Small delay on first run so it appears after hero text settles
-    timerRef.current = setTimeout(runSweep, 800);
+    // Delay first run until 4500ms to allow LCP metric to lock in cleanly without mutation delays
+    timerRef.current = setTimeout(runSweep, 4500);
 
     return () => {
       mounted.current = false;
@@ -94,7 +94,7 @@ function ScrambleAuto({
   return (
     <span
       className={className}
-      style={{ display: 'inline-block', fontVariantLigatures: 'none' }}
+      style={{ display: 'inline-block', fontVariantLigatures: 'none', fontVariantNumeric: 'tabular-nums' }}
     >
       {chars.map((ch, i) => {
         const isCode = ch !== ' ' && ch !== '.' && !text.split('').includes(ch) || (ch !== text[i]);
@@ -102,9 +102,9 @@ function ScrambleAuto({
           <span
             key={i}
             style={{
-              display: 'inline',
+              display: 'inline-block',
               fontFamily: ch === '|' || (isCode && ch !== text[i])
-                ? "'JetBrains Mono', monospace"
+                ? "'Geist Mono', monospace"
                 : 'inherit',
               color: ch === '|'
                 ? 'rgba(147,197,253,1)'
