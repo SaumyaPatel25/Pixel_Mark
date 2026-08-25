@@ -2094,6 +2094,7 @@
       let clientX = null;
       let clientY = null;
       let source = "none";
+      const anchor = pin.canonical_anchor || {};
 
       if (pin.selector && pin.selector !== "visual-canvas-context") {
         try { el = document.querySelector(pin.selector); } catch(e) {}
@@ -2115,7 +2116,6 @@
       }
 
       let degraded = false;
-      const anchor = pin.canonical_anchor || {};
 
       if (el instanceof Element) {
         try {

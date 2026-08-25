@@ -127,7 +127,10 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:8765",
     "http://localhost:8765",
     "https://tailwindcss.com",
+    "https://entrext.com",
     "https://stage.entrext.com",
+    "https://stge.entrext.com",
+    "https://pixel-mark.onrender.com",
     "https://web-zeta-sable-82.vercel.app",
 ]
 
@@ -372,7 +375,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"https://.*\.tailwindcss\.com|https://.*\.vercel\.app",
+    allow_origin_regex=r"https://.*\.entrext\.com|https://.*\.tailwindcss\.com|https://.*\.vercel\.app|https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
