@@ -168,7 +168,7 @@ export default function AmbientParallaxBackground({
     <div
       ref={containerRef}
       aria-hidden="true"
-      className="absolute inset-0 overflow-hidden pointer-events-none select-none"
+      className="hidden md:block absolute inset-0 overflow-hidden pointer-events-none select-none"
       style={{ zIndex: 0 }}
     >
       {orbs.map((orb) => (

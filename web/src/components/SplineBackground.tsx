@@ -570,7 +570,7 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
 
             {/* Ambient Cursor-Following Spotlight */}
             <motion.div
-                className="absolute inset-0 pointer-events-none transition-colors duration-500"
+                className="hidden md:block absolute inset-0 pointer-events-none transition-colors duration-500"
                 style={{ background: lightBg, zIndex: 1 }}
             />
 
