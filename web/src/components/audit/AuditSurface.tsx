@@ -6,7 +6,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useDOMEditStore } from '@/store/domEditStore'
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import {
   ArrowLeft, Monitor, Pin, Plus, X, Check,
   AlertTriangle, ChevronDown, MousePointer2, Layers,
@@ -549,7 +549,8 @@ export function AuditSurface({
     }
   }, [actor.id, actor.role])
 
-  // Drawer state
+  // Drawer state & Drag controls
+  const drawerDragControls = useDragControls()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isSharePanelOpen, setIsSharePanelOpen] = useState(false)
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
@@ -3170,20 +3171,25 @@ export function AuditSurface({
             aria-label="Feedback Submission Drawer"
             aria-modal="true"
             drag
+            dragControls={drawerDragControls}
+            dragListener={false}
             dragMomentum={false}
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
             transition={{ type: 'spring', damping: 25, stiffness: 220 }}
             className={cn(
-              "bg-[#0d0d14]/95 backdrop-blur-2xl shadow-2xl flex flex-col border border-white/10 rounded-3xl overflow-hidden select-none z-[9995]",
+              "bg-[#0d0d14]/95 backdrop-blur-2xl shadow-2xl flex flex-col border border-white/10 rounded-3xl overflow-hidden z-[9995]",
               // Draggable floating modal structure across mobile & desktop
               "fixed top-16 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[420px] h-[calc(100vh-5.5rem)] max-h-[840px]"
             )}
           >
 
-            {/* Drawer header (Draggable Handle) */}
-            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between flex-shrink-0 cursor-grab active:cursor-grabbing bg-[#0d0d14]/90 select-none">
+            {/* Drawer header (Draggable Handle Only) */}
+            <div 
+              onPointerDown={(e) => drawerDragControls.start(e)}
+              className="p-4 sm:p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between flex-shrink-0 cursor-grab active:cursor-grabbing bg-[#0d0d14]/90 select-none touch-none"
+            >
               <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
                 <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
                   <Pin className="w-4 h-4 text-purple-400" />
@@ -3211,9 +3217,11 @@ export function AuditSurface({
             </div>
           </div>
           <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null); setManualPlacementMode(false); setFeedbackModeActive(false) }}
             aria-label="Close feedback drawer"
-            className="p-1.5 rounded-lg text-slate-400 dark:text-white/30 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            className="p-1.5 rounded-lg text-slate-400 dark:text-white/30 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>

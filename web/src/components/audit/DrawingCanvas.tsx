@@ -224,6 +224,7 @@ export function DrawingCanvas({ baseImageUrl, onSave, initialShapes = [] }: Draw
   // Pointer event handlers
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault()
+    e.stopPropagation()
     const canvas = canvasRef.current
     if (!canvas || canvasSize.width === 0 || canvasSize.height === 0) return
 
@@ -261,6 +262,7 @@ export function DrawingCanvas({ baseImageUrl, onSave, initialShapes = [] }: Draw
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return
     e.preventDefault()
+    e.stopPropagation()
     const canvas = canvasRef.current
     if (!canvas || canvasSize.width === 0 || canvasSize.height === 0) return
 
@@ -278,6 +280,7 @@ export function DrawingCanvas({ baseImageUrl, onSave, initialShapes = [] }: Draw
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return
     e.preventDefault()
+    e.stopPropagation()
     const canvas = canvasRef.current
     if (canvas) {
       try { canvas.releasePointerCapture(e.pointerId) } catch (_) {}
