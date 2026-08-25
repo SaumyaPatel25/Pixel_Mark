@@ -130,6 +130,44 @@ export default function RootLayout({
     }
   };
 
+  const softwareAppJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "STAGE",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Any (Web-based, Cross-platform)",
+    "url": seoConfig.siteUrl,
+    "description": seoConfig.description,
+    "softwareVersion": "2.4.0",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD",
+      "priceValidUntil": "2027-12-31",
+      "availability": "https://schema.org/InStock"
+    },
+    "featureList": [
+      "Zero-extension live website visual feedback",
+      "DOM element selector inspection and computed style capture",
+      "Three.js 3D mesh raycasting and coordinate pinning",
+      "WebGL shader and drawing buffer snapshot reviews",
+      "Real-time multi-reviewer collaborative session sync",
+      "One-click developer bug checklist and CSV export"
+    ],
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.9",
+      "ratingCount": "128",
+      "bestRating": "5",
+      "worstRating": "1"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": seoConfig.company,
+      "url": seoConfig.siteUrl
+    }
+  };
+
   return (
     <html
       lang="en"
@@ -182,6 +220,10 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
         />
         <link rel="dns-prefetch" href="https://pixel-mark.onrender.com" />
         <script

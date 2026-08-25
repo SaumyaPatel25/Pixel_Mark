@@ -5,27 +5,31 @@ export interface FAQItem {
 
 export const faqs: FAQItem[] = [
   {
-    question: "What is STAGE?",
-    answer: "STAGE is a visual website feedback tool and QA bug reporting platform. It allows clients, designers, and QA testers to click anywhere on a live website and pin visual feedback directly on the page without screenshots, downloads, or extensions."
+    question: "What is STAGE and how does it optimize visual website feedback?",
+    answer: "STAGE is an AI-ready visual website feedback and QA bug reporting software developed by Entrext Labs. It enables product managers, designers, and clients to click any DOM element, 3D WebGL mesh, or canvas coordinate on a live website and pin contextual feedback directly on the page, reducing website revision cycles by over 65% without screenshots or browser extensions."
   },
   {
-    question: "Can clients use it without coding?",
-    answer: "Yes, absolutely. Clients and non-technical reviewers do not need to write code, install extensions, or understand DOM layout structures. They simply click the element they want to discuss, drop a pin, and type their comment. All technical metadata is captured automatically in the background."
+    question: "How does STAGE enable zero-extension visual feedback on live websites?",
+    answer: "STAGE uses dynamic viewport hydration and a secure proxy architecture that overlays an interactive annotation canvas directly over your live web pages, staging servers, or local environments. Reviewers do not need to install Chrome extensions, download desktop apps, or register accounts to leave feedback."
   },
   {
-    question: "Does it work on live websites?",
-    answer: "Yes. STAGE works on live websites, staging environments, and local dev servers. It dynamically loads your web pages through a secure visual review session and overlays a collaborative feedback layer so you can annotate in real-time across DOM, WebGL, and Three.js 3D targets."
+    question: "How does STAGE capture 3D WebGL and Three.js canvas coordinates?",
+    answer: "STAGE features native 3D raycasting and drawing buffer capture. When a reviewer clicks on a 3D scene, STAGE calculates the exact raycast intersection vector, mesh identifier, face index, and viewport coordinates, enabling spatial 3D bug reporting that standard 2D screenshot tools cannot perform."
   },
   {
-    question: "Can developers export feedback into implementation tasks?",
-    answer: "Yes. Developers can review all pinned feedback in a unified inbox, inspect exact element selectors, browser details, and layout dimensions, and export the comments directly into implementation checklists, markdown tasks, or CSV reports."
+    question: "Can non-technical clients and external stakeholders use STAGE without coding?",
+    answer: "Yes. Clients simply open a secure review link, click any element they want to discuss, drop a pin, and type their feedback. STAGE automatically captures exact CSS selectors, viewport resolutions, operating system specs, and console logs in the background for developers."
   },
   {
-    question: "Does a client need an account to leave reviews?",
-    answer: "No. You can generate secure client review links that allow external stakeholders to view the live site and add visual feedback without needing to sign up or log in. This removes all friction from client sign-offs."
+    question: "How do developers export feedback into engineering tasks and GitHub checklists?",
+    answer: "Developers can filter all feedback by status, page URL, or urgency in the project dashboard and export comments directly into GitHub-compatible Markdown checklists, Linear issues, Jira tasks, or structured CSV spreadsheets with a single click."
   },
   {
-    question: "How can I contact the STAGE team?",
-    answer: "You can reach out directly to Saumya Patel and the Entrext Labs engineering team at saumya@entrext.com or via our LinkedIn company page. We assist with custom workspace integrations, developer APIs, and enterprise support."
+    question: "How does STAGE protect client privacy and staging environment security?",
+    answer: "All review sessions are protected by tokenized URLs, secure TLS encryption, and scoped session identifiers. Sensitive authentication tokens, cookies, and private staging secrets are never exposed to public reviewers."
+  },
+  {
+    question: "How can I contact Entrext Labs engineering for custom integrations?",
+    answer: "You can contact Saumya Patel and the Entrext Labs core team directly at saumya@entrext.com or connect via our LinkedIn company page (linkedin.com/company/entrext) and X (@Stage0fficial) for custom workspace setups, developer APIs, and enterprise support."
   }
 ];

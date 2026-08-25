@@ -38,7 +38,16 @@ export default function robots(): MetadataRoute.Robots {
       },
       {
         // Real-time AI Search Crawlers for live RAG and conversational citations
-        userAgent: ['OAI-SearchBot', 'Claude-SearchBot', 'PerplexityBot', 'ChatGPT-User', 'Claude-User'],
+        userAgent: [
+          'OAI-SearchBot',
+          'Claude-SearchBot',
+          'PerplexityBot',
+          'ChatGPT-User',
+          'Claude-User',
+          'Applebot-Extended',
+          'Meta-ExternalAgent',
+          'Diffbot'
+        ],
         allow: [
           '/',
           '/pricing',
@@ -49,7 +58,8 @@ export default function robots(): MetadataRoute.Robots {
           '/faq',
           '/company',
           '/getting-started',
-          '/llms.txt'
+          '/llms.txt',
+          '/site.webmanifest'
         ],
         disallow: [
           '/dashboard',
@@ -64,8 +74,8 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
       {
-        // Foundation Model Scrapers
-        userAgent: ['GPTBot', 'ClaudeBot', 'Google-Extended', 'CCBot', 'Amazonbot'],
+        // Foundation Model Dataset Scrapers
+        userAgent: ['GPTBot', 'ClaudeBot', 'Google-Extended', 'CCBot', 'Amazonbot', 'Bytespider'],
         allow: [
           '/',
           '/pricing',
