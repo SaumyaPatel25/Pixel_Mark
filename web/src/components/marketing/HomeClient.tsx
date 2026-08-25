@@ -77,42 +77,6 @@ const modeColors = {
 export default function HomeClient() {
   const [activeMode, setActiveMode] = useState<ModeType>('dom');
   const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null);
-  const [isHeroTextComplete, setIsHeroTextComplete] = useState(true);
-  const [loadStage, setLoadStage] = useState(1);
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const scheduleStage = (stage: number, delay: number) => {
-      return setTimeout(() => {
-        if ('requestIdleCallback' in window) {
-          (window as any).requestIdleCallback(() => setLoadStage(stage));
-        } else {
-          setLoadStage(stage);
-        }
-      }, delay);
-    };
-    const t1 = scheduleStage(2, 200);
-    const t2 = scheduleStage(3, 400);
-    const t3 = scheduleStage(4, 600);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const checkTheme = () => {
-      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
-    };
-    checkTheme();
-
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -125,17 +89,11 @@ export default function HomeClient() {
     };
   }, []);
 
-  const processSection = React.useMemo(() => isDark ? <HowItWorksSection /> : <StoryProcessSection />, [isDark]);
-  const outcomeSection = React.useMemo(() => <OutcomeSection />, []);
-  const closingCTASection = React.useMemo(() => <ClosingCTASection />, []);
-  const entrextSection = React.useMemo(() => <EntrextSection />, []);
-  const footerSection = React.useMemo(() => <MarketingFooter />, []);
-
   return (
     <div
       className="homepage-root relative min-h-screen bg-[var(--pm-bg)] text-pm-text selection:bg-[#253B80]/30 selection:text-[#1D264F] font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
     >
-      <SplineBackground hoveredPosition={hoveredPosition} isHeroTextComplete={isHeroTextComplete} />
+      <SplineBackground hoveredPosition={hoveredPosition} isHeroTextComplete={true} />
       
       {/* Main Container */}
       <div className="relative z-10 flex flex-col min-h-screen">
@@ -145,16 +103,27 @@ export default function HomeClient() {
             activeMode={activeMode} 
             setActiveMode={setActiveMode} 
             onHoverChange={setHoveredPosition} 
-            isHeroTextComplete={isHeroTextComplete}
-            onHeroTextComplete={() => setIsHeroTextComplete(true)}
+            isHeroTextComplete={true}
           />
-          {loadStage >= 1 && processSection}
-          {loadStage >= 2 && <UseCasesSection onHoverChange={setHoveredPosition} />}
-          {loadStage >= 3 && outcomeSection}
-          {loadStage >= 4 && closingCTASection}
-          {loadStage >= 4 && entrextSection}
+          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
+            <HowItWorksSection />
+          </div>
+          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
+            <UseCasesSection onHoverChange={setHoveredPosition} />
+          </div>
+          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
+            <OutcomeSection />
+          </div>
+          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
+            <ClosingCTASection />
+          </div>
+          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
+            <EntrextSection />
+          </div>
         </main>
-        {loadStage >= 4 && footerSection}
+        <div className="[content-visibility:auto] [contain-intrinsic-size:1px_400px]">
+          <MarketingFooter />
+        </div>
       </div>
     </div>
   );
