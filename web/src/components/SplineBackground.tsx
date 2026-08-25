@@ -32,6 +32,19 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
     const [isMobile, setIsMobile] = useState(false)
     const [isInView, setIsInView] = useState(true)
+    const [canAnimate, setCanAnimate] = useState(false)
+
+    useEffect(() => {
+      if (typeof window === 'undefined') return;
+      const timer = setTimeout(() => {
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => setCanAnimate(true));
+        } else {
+          setCanAnimate(true);
+        }
+      }, 1200);
+      return () => clearTimeout(timer);
+    }, []);
 
 
     // Motion values for subtle hover parallax (ranging from -1 to 1)
@@ -598,7 +611,7 @@ export const SplineBackground = ({ hoveredPosition, isHeroTextComplete = false }
                             >
                                 {/* Slow continuous drifting squircle block with custom dimensional animations */}
                                 <motion.div
-                                    animate={isInView && !prefersReducedMotion && isHeroTextComplete ? card.idleAnimate : {
+                                    animate={canAnimate && isInView && !prefersReducedMotion && isHeroTextComplete ? card.idleAnimate : {
                                         rotateX: card.left ? 8 : 8,
                                         rotateY: card.left ? 12 : -12,
                                         rotateZ: card.left ? -3 : 3,

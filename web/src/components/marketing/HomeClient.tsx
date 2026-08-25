@@ -78,9 +78,29 @@ export default function HomeClient() {
   const [activeMode, setActiveMode] = useState<ModeType>('dom');
   const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null);
   const [isHeroTextComplete, setIsHeroTextComplete] = useState(true);
-  // Mount all sections stably to prevent layout shift and page height jitter on reload
-  const [loadStage] = useState(4);
+  const [loadStage, setLoadStage] = useState(1);
   const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const scheduleStage = (stage: number, delay: number) => {
+      return setTimeout(() => {
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => setLoadStage(stage));
+        } else {
+          setLoadStage(stage);
+        }
+      }, delay);
+    };
+    const t1 = scheduleStage(2, 200);
+    const t2 = scheduleStage(3, 400);
+    const t3 = scheduleStage(4, 600);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
