@@ -51,7 +51,7 @@ export default async function Image() {
               fontWeight: 'bold',
             }}
           >
-            P
+            S
           </div>
           <span style={{ fontSize: '48px', fontWeight: 900, letterSpacing: '-0.05em' }}>
             STAGE
@@ -92,7 +92,7 @@ export default async function Image() {
         >
           <span>Entrext Labs</span>
           <span>•</span>
-          <span>team@stage.dev</span>
+          <span>saumya@entrext.com</span>
         </div>
       </div>
     ),
