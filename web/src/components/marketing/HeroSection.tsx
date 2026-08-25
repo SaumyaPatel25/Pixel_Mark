@@ -384,8 +384,8 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
     onHeroTextCompleteRef.current = onHeroTextComplete;
   }, [onHeroTextComplete]);
 
-  const [urlInput, setUrlInput] = useState('https://entrext.com');
-  const [currentUrl, setCurrentUrl] = useState('https://entrext.com');
+  const [urlInput, setUrlInput] = useState('https://stage.entrext.com');
+  const [currentUrl, setCurrentUrl] = useState('https://stage.entrext.com');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [showConversion, setShowConversion] = useState(false);

@@ -5,7 +5,7 @@ interface JsonLdProps {
   type?: 'all' | 'organization' | 'product' | 'localBusiness' | 'website';
 }
 
-export const CANONICAL_PRODUCTION_URL = "https://entrext.com";
+export const CANONICAL_PRODUCTION_URL = "https://stage.entrext.com";
 
 export function JsonLd({ type = 'all' }: JsonLdProps) {
   // 1. Organization Schema

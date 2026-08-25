@@ -288,12 +288,8 @@ export function MarkerPinLayer({
       const marker = markers.find(m => m.id === pinId)
       if (!marker) return
 
-      const rect = iframeNode.getBoundingClientRect()
-      const scaleX = rect.width / (iframeNode.offsetWidth || iframeNode.clientWidth || 1)
-      const scaleY = rect.height / (iframeNode.offsetHeight || iframeNode.clientHeight || 1)
-
-      const iframeClientX = (finalClientX - rect.left) / scaleX
-      const iframeClientY = (finalClientY - rect.top) / scaleY
+      const iframeClientX = dragState.currentLeft - scrollPos.x
+      const iframeClientY = dragState.currentTop - scrollPos.y
 
       const iframeDoc = iframeNode.contentDocument || null
       const patch = buildDomMovePatch(marker, iframeDoc, iframeClientX, iframeClientY, scrollPos)
