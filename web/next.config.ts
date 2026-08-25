@@ -11,15 +11,16 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 31536000,
   },
   async headers() {
     return [
       {
-        source: '/(logo.png|favicon.ico|icon.png|apple-icon.png|og-image.png)',
+        source: '/(logo.png|favicon.ico|icon.png|apple-icon.png|og-image.png|icon-192.png|icon-512.png)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=86400, stale-while-revalidate=604800',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },

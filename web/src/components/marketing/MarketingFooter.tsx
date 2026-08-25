@@ -47,7 +47,7 @@ export default function MarketingFooter() {
           <nav aria-label="Footer Product Navigation" className="lg:col-span-2 space-y-4 text-left">
             <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent">Product</h4>
             <div className="flex flex-col gap-2.5 text-[11px] font-mono font-bold text-pm-muted">
-              <Link href="/#features" className="hover:text-pm-accent transition-colors">Features</Link>
+              <Link href="/features" className="hover:text-pm-accent transition-colors">Platform Features</Link>
               <Link href="/#how-it-works" className="hover:text-pm-accent transition-colors">How It Works</Link>
               <Link href="/pricing" className="hover:text-pm-accent transition-colors">Pricing</Link>
 

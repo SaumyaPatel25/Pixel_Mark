@@ -34,11 +34,11 @@ export async function middleware(request: NextRequest) {
   const isProtected = isProtectedRoute(path)
   const isPublic = isPublicRoute(path)
 
-  // Determine if this environment is staging / preview or non-production
-  const isStagingDomain = host?.includes('stage.entrext.com') || host?.includes('stge.entrext.com') || host?.includes('vercel.app') || process.env.VERCEL_ENV === 'preview'
+  // Determine if this environment is a preview or non-primary test domain
+  const isSecondaryStagingDomain = (host?.includes('stge.entrext.com') || (host?.includes('vercel.app') && !host?.includes('web-zeta-sable-82')) || process.env.ENFORCE_NOINDEX === 'true') && process.env.VERCEL_ENV !== 'production'
 
   const applySecurityAndSeoHeaders = (res: NextResponse) => {
-    if (isStagingDomain) {
+    if (isSecondaryStagingDomain) {
       res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
     }
     return res
