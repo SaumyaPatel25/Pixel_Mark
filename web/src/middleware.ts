@@ -34,20 +34,33 @@ export async function middleware(request: NextRequest) {
   const isProtected = isProtectedRoute(path)
   const isPublic = isPublicRoute(path)
 
+  // Determine if this environment is staging / preview or non-production
+  const isStagingDomain = host?.includes('stage.entrext.com') || host?.includes('stge.entrext.com') || host?.includes('vercel.app') || process.env.VERCEL_ENV === 'preview'
+
+  const applySecurityAndSeoHeaders = (res: NextResponse) => {
+    if (isStagingDomain) {
+      res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
+    }
+    return res
+  }
+
   // 1. Redirect authenticated users away from login/register back to /dashboard
   if (token && isAuthPage) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const redirectRes = NextResponse.redirect(new URL('/dashboard', request.url))
+    return applySecurityAndSeoHeaders(redirectRes)
   }
 
   // 2. Redirect unauthenticated users away from protected routes to /login
   if (!token && isProtected) {
     const redirectUrl = new URL('/login', request.url)
     redirectUrl.searchParams.set('redirect', path)
-    return NextResponse.redirect(redirectUrl)
+    const redirectRes = NextResponse.redirect(redirectUrl)
+    return applySecurityAndSeoHeaders(redirectRes)
   }
 
-  // 3. For all public or unclassified routes, allow access
-  return NextResponse.next()
+  // 3. For all public or unclassified routes, allow access with appropriate headers
+  const nextRes = NextResponse.next()
+  return applySecurityAndSeoHeaders(nextRes)
 }
 
 export const config = {
