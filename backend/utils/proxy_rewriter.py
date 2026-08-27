@@ -1904,6 +1904,52 @@ def strip_sri_attributes(html: str) -> str:
     return html
 
 
+# ── Cloudflare Artifacts stripping & script de-neutralization ─────────────────
+def strip_cloudflare_artifacts(html: str) -> str:
+    """
+    Strips Cloudflare Rocket Loader and Challenge Platform scripts that cause
+    'removeChild on Node' DOM crashes and break standard script execution in iframes.
+    Restores scripts neutralized by Rocket Loader (type="text/plain" -> type="text/javascript").
+    """
+    # 1. Remove Rocket Loader script tags (src-based)
+    html = re.sub(
+        r'<script\b[^>]*\bsrc=["\'][^"\']*(?:rocket-loader|cloudflare-static/rocket-loader)[^"\']*["\'][^>]*>(?:\s*</script>)?',
+        '',
+        html,
+        flags=re.IGNORECASE
+    )
+
+    # 2. Remove Cloudflare Challenge Platform telemetry scripts (src-based)
+    html = re.sub(
+        r'<script\b[^>]*\bsrc=["\'][^"\']*challenge-platform[^"\']*["\'][^>]*>(?:\s*</script>)?',
+        '',
+        html,
+        flags=re.IGNORECASE
+    )
+
+    # 3. Remove inline Cloudflare challenge scripts
+    def _strip_inline_cf(m: re.Match) -> str:
+        content = m.group(0)
+        if "__CF$cv$params" in content or "challenge-platform" in content or "rocket-loader" in content:
+            return ""
+        return content
+
+    html = re.sub(r'<script\b[^>]*>[\s\S]*?</script>', _strip_inline_cf, html, flags=re.IGNORECASE)
+
+    # 4. Restore scripts neutralized by Rocket Loader
+    def _restore_script(m: re.Match) -> str:
+        tag = m.group(0)
+        # If Cloudflare turned it into text/plain with data-cf-modified
+        if "data-cf-modified" in tag:
+            tag = re.sub(r'\s+type=["\']text/plain["\']', ' type="text/javascript"', tag, flags=re.IGNORECASE)
+            tag = re.sub(r'\s+data-cf-modified-[a-f0-9]+=["\'][^"\']*["\']', '', tag, flags=re.IGNORECASE)
+        tag = re.sub(r'\s+data-cf-settings=["\'][^"\']*["\']', '', tag, flags=re.IGNORECASE)
+        return tag
+
+    html = re.sub(r'<script\b[^>]+>', _restore_script, html, flags=re.IGNORECASE)
+    return html
+
+
 # ── __NEXT_DATA__ sanitization ───────────────────────────────────────────────
 def sanitize_next_data(html: str, api_base: str, session_id: str) -> str:
     """
@@ -1994,6 +2040,10 @@ def rewrite_html(
     # Strip SRI attributes globally
     html = strip_sri_attributes(html)
     logger.info("[PROXY_REWRITE] SRI integrity attributes stripped from all link/script tags")
+
+    # Strip Cloudflare Rocket Loader + telemetry; restore CF-neutralized scripts
+    html = strip_cloudflare_artifacts(html)
+    logger.info("[PROXY_REWRITE] Cloudflare Rocket Loader and challenge scripts removed; neutralized scripts restored")
 
     # ── Phase 2: snapshot_mode — strip all target script tags ──────────────────
     if snapshot_mode:
