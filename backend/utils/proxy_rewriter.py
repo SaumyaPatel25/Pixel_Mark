@@ -1704,10 +1704,13 @@ def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_
         if not href or href.startswith("data:") or href.startswith("blob:") or "proxy/session" in href or href.startswith("/static/") or "/static/" in href:
             return None
         # Resolve against origin root so root-relative paths are correct
-        resolved_url = urllib.parse.urljoin(origin + '/', href.lstrip('/') if href.startswith('/') else href)
-        # For absolute URLs on a different origin, use as-is
-        if href.startswith('http://') or href.startswith('https://'):
+        if href.startswith('//'):
+            parsed_origin = urllib.parse.urlparse(origin)
+            resolved_url = f"{parsed_origin.scheme}:{href}"
+        elif href.startswith('http://') or href.startswith('https://'):
             resolved_url = href
+        else:
+            resolved_url = urllib.parse.urljoin(origin + '/', href.lstrip('/') if href.startswith('/') else href)
         parsed_res = urllib.parse.urlparse(resolved_url)
         proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
         if parsed_res.query:
@@ -1782,9 +1785,13 @@ def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_
             url = m.group(1)
             if url.startswith("data:") or "proxy/session" in url:
                 return m.group(0)
-            resolved_url = urllib.parse.urljoin(origin + '/', url.lstrip('/') if url.startswith('/') else url)
-            if url.startswith('http://') or url.startswith('https://'):
+            if url.startswith('//'):
+                parsed_origin = urllib.parse.urlparse(origin)
+                resolved_url = f"{parsed_origin.scheme}:{url}"
+            elif url.startswith('http://') or url.startswith('https://'):
                 resolved_url = url
+            else:
+                resolved_url = urllib.parse.urljoin(origin + '/', url.lstrip('/') if url.startswith('/') else url)
             parsed_res = urllib.parse.urlparse(resolved_url)
             proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
             if parsed_res.query:
@@ -1814,9 +1821,13 @@ def proxy_media_attributes(html: str, api_base: str, session_id: str, page_url: 
         src_val = src_match.group(2)
         if src_val.startswith("data:") or src_val.startswith("blob:") or "proxy/session" in src_val:
             return tag
-        resolved_url = urllib.parse.urljoin(origin + '/', src_val.lstrip('/') if src_val.startswith('/') else src_val)
-        if src_val.startswith('http://') or src_val.startswith('https://'):
+        if src_val.startswith('//'):
+            parsed_origin = urllib.parse.urlparse(origin)
+            resolved_url = f"{parsed_origin.scheme}:{src_val}"
+        elif src_val.startswith('http://') or src_val.startswith('https://'):
             resolved_url = src_val
+        else:
+            resolved_url = urllib.parse.urljoin(origin + '/', src_val.lstrip('/') if src_val.startswith('/') else src_val)
         parsed_res = urllib.parse.urlparse(resolved_url)
         proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
         if parsed_res.query:
@@ -1855,9 +1866,13 @@ def proxy_srcset_attributes(html: str, api_base: str, session_id: str, page_url:
                 continue
             url = subparts[0]
             if not (url.startswith("data:") or "proxy/session" in url):
-                resolved_url = urllib.parse.urljoin(origin + '/', url.lstrip('/') if url.startswith('/') else url)
-                if url.startswith('http://') or url.startswith('https://'):
+                if url.startswith('//'):
+                    parsed_origin = urllib.parse.urlparse(origin)
+                    resolved_url = f"{parsed_origin.scheme}:{url}"
+                elif url.startswith('http://') or url.startswith('https://'):
                     resolved_url = url
+                else:
+                    resolved_url = urllib.parse.urljoin(origin + '/', url.lstrip('/') if url.startswith('/') else url)
                 parsed_res = urllib.parse.urlparse(resolved_url)
                 proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
                 if parsed_res.query:

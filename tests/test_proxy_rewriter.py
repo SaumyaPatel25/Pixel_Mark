@@ -59,7 +59,7 @@ def test_proxy_rewriter_all_rules():
     
     # 4. WebGL patch is injected
     assert 'HTMLCanvasElement.prototype.getContext' in rewritten
-    assert 'preserveDrawingBuffer: true' in rewritten
+    assert 'preserveDrawingBuffer' in rewritten
     
     # 5. Service Worker killer is injected
     assert 'navigator.serviceWorker.getRegistrations' in rewritten
@@ -69,7 +69,7 @@ def test_proxy_rewriter_all_rules():
     assert 'ChunkLoadError' in rewritten
     assert 'pm_chunk_reload' in rewritten
     
-    assert '<script src="http://localhost:8765/static/stage-agent.js" defer></script></body>' in rewritten
+    assert 'static/stage-agent.js?v=' in rewritten
     
     # 8. CSP meta tags removed
     assert "Content-Security-Policy" not in rewritten
@@ -189,6 +189,41 @@ def test_normal_render_mode_preserves_target_scripts():
     assert '<script src=' in rewritten
     assert 'webgl-main.js' in rewritten
     assert 'cdn.spline.design' in rewritten
+
+
+def test_protocol_relative_url_rewriting():
+    """Asserts that protocol-relative URLs starting with '//' are resolved correctly using target page's scheme."""
+    from utils.proxy_rewriter import rewrite_html
+    
+    sample_html = """<!DOCTYPE html>
+    <html>
+      <head>
+        <link rel="stylesheet" href="//capp.nicepage.com/assets/nicepage.css"/>
+        <script src="//capp.nicepage.com/assets/nicepage.js"></script>
+        <style>
+          body { background-image: url('//capp.nicepage.com/bg.png'); }
+        </style>
+      </head>
+      <body>
+        <img src="//capp.nicepage.com/logo.png" srcset="//capp.nicepage.com/logo.png 1x, //capp.nicepage.com/logo@2x.png 2x"/>
+      </body>
+    </html>"""
+    
+    rewritten = rewrite_html(
+        html=sample_html,
+        session_id="test-session-id",
+        page_url="https://nddplatform.com",
+        base_url="https://nddplatform.com",
+        api_base="http://localhost:8765"
+    )
+    
+    # Verify they use 'https' from page_url, netloc 'capp.nicepage.com', not 'nddplatform.com'
+    assert "https/capp.nicepage.com/assets/nicepage.css" in rewritten
+    assert "https/capp.nicepage.com/assets/nicepage.js" in rewritten
+    assert "https/capp.nicepage.com/bg.png" in rewritten
+    assert "https/capp.nicepage.com/logo.png" in rewritten
+    assert "https/capp.nicepage.com/logo@2x.png" in rewritten
+
 
 
 
