@@ -168,11 +168,9 @@ def is_domain_allowed(url: str, base_url: str, allow_external_assets: bool = Tru
         if target_host in ("example.com", "iana.org") or any(target_host.endswith("." + d) for d in ("example.com", "iana.org")):
             return True
             
-        # External asset check: Allow common safe CDNs, modern 3D asset hosts, and allowed asset domains
+        # External asset check: Allow all public SSRF-safe external assets
         if is_asset and allow_external_assets:
-            if target_host in ALLOWED_ASSET_DOMAINS:
-                return True
-            if any(target_host.endswith("." + d) for d in ALLOWED_ASSET_DOMAINS):
+            if is_ssrf_safe(url):
                 return True
                 
         logger.warning(f"[SSRF GUARD] URL {url} rejected as out of domain scope (Base: {base_url})")
