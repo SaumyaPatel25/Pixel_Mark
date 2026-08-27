@@ -231,8 +231,14 @@ export default function HowItWorksSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: '-20% 0px' });
   const isTimerActive = useInView(sectionRef, { once: false });
-  const shouldReduceMotion = useReducedMotion();
+  const rawReduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+  const shouldReduceMotion = mounted ? !!rawReduceMotion : false;
   const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
