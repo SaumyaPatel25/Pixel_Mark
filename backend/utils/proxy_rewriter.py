@@ -333,10 +333,16 @@ console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__
     const isGoogleCollect = (absoluteHost === 'www.google.com' || absoluteHost === 'google.com') && parsedAbsolute.pathname.startsWith('/g/collect');
     if (isExact || isSuffix || isGoogleCollect) return absoluteUrl;
 
-    // Bypass: URLs that are already on the proxy app origin itself
+    // Bypass: URLs that are already on the proxy app origin itself (only for STAGE internal /static/ assets)
     try {{
       const proxyHost = new URL(window.__STAGE_PROXY_ORIGIN__).host.toLowerCase();
-      if (absoluteHost === proxyHost) return url;
+      if (absoluteHost === proxyHost) {{
+        if (parsedAbsolute.pathname.startsWith('/static/')) {{
+          return url;
+        }}
+        // If client script used location.origin + '/path' to load an asset, re-anchor to targetOrigin
+        absoluteUrl = targetOrigin + (parsedAbsolute.pathname.startsWith('/') ? '' : '/') + parsedAbsolute.pathname + parsedAbsolute.search;
+      }}
     }} catch(e) {{}}
 
     // Route through canonical proxy asset builder — preserves absolute target URL in the path

@@ -397,6 +397,11 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+# Mount 3D model files (served for WebGL / Three.js scenes that load /models/*.fbx, *.glb etc.)
+models_dir = os.path.join(os.path.dirname(__file__), "static", "models")
+os.makedirs(models_dir, exist_ok=True)
+app.mount("/models", StaticFiles(directory=models_dir), name="models")
+
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(sessions.router)

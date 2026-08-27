@@ -39,8 +39,30 @@ def resolve_asset_url(url: str, target_origin: str) -> tuple[str, str]:
     if not parsed.netloc:
         resolved = urllib.parse.urljoin(target_origin, url)
         return resolved, "target-origin-relative"
-        
-    # 3. Check for common asset extensions to ensure correct resolution strategy
+
+    # 3. Check if netloc is the proxy server itself (e.g. 127.0.0.1:8765, localhost, pixel-mark.onrender.com)
+    # If a client-side script uses window.location.origin + "/path/model.fbx", it will send the proxy host.
+    # We must re-anchor this to target_origin unless it's STAGE's own internal /static/ assets.
+    api_base = os.getenv("API_BASE", "")
+    proxy_hosts = {"127.0.0.1", "localhost", "pixel-mark.onrender.com"}
+    if api_base:
+        try:
+            h = urllib.parse.urlparse(api_base).netloc.lower()
+            if h:
+                proxy_hosts.add(h.split(":")[0])
+        except Exception:
+            pass
+
+    target_host = (parsed.hostname or parsed.netloc or "").lower().split(":")[0]
+    is_proxy_host = (target_host in proxy_hosts or any(target_host.endswith("." + p) for p in proxy_hosts))
+    if is_proxy_host and not parsed.path.startswith("/static/"):
+        # Re-anchor path to original target_origin
+        resolved = urllib.parse.urljoin(target_origin, parsed.path)
+        if parsed.query:
+            resolved = f"{resolved}?{parsed.query}"
+        return resolved, "proxy-host-reanchored"
+
+    # 4. Check for common asset extensions to ensure correct resolution strategy
     ext = os.path.splitext(parsed.path)[1].lower()
     if ext in COMMON_ASSET_EXTENSIONS:
         return url, "common-asset-extension"
