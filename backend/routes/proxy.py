@@ -587,22 +587,42 @@ async def proxy_initial(
 
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "en-US,en;q=0.9",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
             "Connection": "keep-alive"
         }
         client = get_proxy_http_client(request)
         resp = await send_with_cancellation(client, request, "GET", base_url, headers=headers)
         
-        if resp.status_code >= 400:
+        html_text = None
+        status_code = resp.status_code
+        content_type = resp.headers.get("content-type", "text/html")
+
+        if resp.status_code in (403, 503) or (resp.status_code >= 400 and "text/html" in content_type):
+            logger.warning(f"[PROXY_INITIAL] HTTP fetch received status {resp.status_code} for {base_url}. Attempting Playwright fallback...")
+            from proxy.playwright_fetcher import fetch_with_playwright_fallback
+            pw_html, pw_status, pw_type = await fetch_with_playwright_fallback(base_url)
+            if pw_html:
+                html_text = pw_html
+                status_code = pw_status or 200
+                content_type = pw_type or "text/html"
+                logger.info(f"[PROXY_INITIAL] Playwright fallback succeeded for {base_url} (status: {status_code})")
+
+        if html_text is None and resp.status_code >= 400:
             return prepare_proxy_response(Response(
                 content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target site {base_url} returned status code {resp.status_code}.</p></body></html>",
                 media_type="text/html",
                 status_code=503
             ))
             
-        content_type = resp.headers.get("content-type", "text/html")
+        if html_text is None:
+            html_text = resp.text
         
         if "text/html" in content_type:
             # Upsert PageVisit asynchronously in background
@@ -619,7 +639,7 @@ async def proxy_initial(
             if proto == "https" and api_base.startswith("http://"):
                 api_base = "https://" + api_base[7:]
             
-            is_next_site = "_next/static" in resp.text or "__NEXT_DATA__" in resp.text
+            is_next_site = "_next/static" in html_text or "__NEXT_DATA__" in html_text
             if is_next_site and not session.conservative_render_mode:
                 session.conservative_render_mode = True
                 db.add(session)
@@ -628,7 +648,7 @@ async def proxy_initial(
                 logger.info(f"[PROXY_REWRITE] Next.js detected via signature in proxy_initial. Flipping conservative_render_mode=True for session={session_id}")
             
             rewritten_html = rewrite_html(
-                html=resp.text, 
+                html=html_text, 
                 session_id=session_id, 
                 page_url=base_url, 
                 base_url=base_url, 
@@ -730,9 +750,14 @@ async def proxy_page(
 
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "en-US,en;q=0.9",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
             "Connection": "keep-alive"
         }
         t_fetch_start = time.perf_counter()
@@ -740,14 +765,29 @@ async def proxy_page(
         resp = await send_with_cancellation(client, request, "GET", url, headers=headers)
         t_fetch_ms = (time.perf_counter() - t_fetch_start) * 1000
         
-        if resp.status_code >= 400:
+        html_text = None
+        status_code = resp.status_code
+        content_type = resp.headers.get("content-type", "text/html")
+
+        if resp.status_code in (403, 503) or (resp.status_code >= 400 and "text/html" in content_type):
+            logger.warning(f"[PROXY_PAGE] HTTP fetch received status {resp.status_code} for {url}. Attempting Playwright fallback...")
+            from proxy.playwright_fetcher import fetch_with_playwright_fallback
+            pw_html, pw_status, pw_type = await fetch_with_playwright_fallback(url)
+            if pw_html:
+                html_text = pw_html
+                status_code = pw_status or 200
+                content_type = pw_type or "text/html"
+                logger.info(f"[PROXY_PAGE] Playwright fallback succeeded for {url} (status: {status_code})")
+
+        if html_text is None and resp.status_code >= 400:
             return prepare_proxy_response(Response(
                 content=f"<html><body style='font-family:sans-serif;background:#0d0d14;color:#fff;padding:40px;text-align:center;'><h2>Service Unavailable</h2><p>Target page {url} returned status code {resp.status_code}.</p></body></html>",
                 media_type="text/html",
                 status_code=503
             ))
             
-        content_type = resp.headers.get("content-type", "text/html")
+        if html_text is None:
+            html_text = resp.text
         
         if "text/html" in content_type:
             # Upsert PageVisit asynchronously in background
@@ -765,7 +805,7 @@ async def proxy_page(
             if proto == "https" and api_base.startswith("http://"):
                 api_base = "https://" + api_base[7:]
             
-            is_next_site = "_next/static" in resp.text or "__NEXT_DATA__" in resp.text
+            is_next_site = "_next/static" in html_text or "__NEXT_DATA__" in html_text
             if is_next_site and not session.conservative_render_mode:
                 session.conservative_render_mode = True
                 db.add(session)
@@ -775,7 +815,7 @@ async def proxy_page(
             
             t_rewrite_start = time.perf_counter()
             rewritten_html = rewrite_html(
-                html=resp.text, 
+                html=html_text, 
                 session_id=session_id, 
                 page_url=url, 
                 base_url=base_url, 
