@@ -230,6 +230,64 @@ window.addEventListener('message', function(e) {{
   }}
 }});
 
+// ─── STAGE Universal Lazyload Hydrator ───────────────────────────────────────
+// Fixes lazy-loaded background and img elements (Nicepage, Webflow, Shopify, etc.)
+// Safely guarded against infinite MutationObserver loops.
+(function installLazyloadHydrator() {{
+  function hydrateLazyElements() {{
+    try {{
+      // 1. Hydrate <img> data-src
+      var lazyImgs = document.querySelectorAll('img[data-src]:not([data-stage-hydrated]), img[data-lazy-src]:not([data-stage-hydrated]), img[data-original]:not([data-stage-hydrated])');
+      for (var i = 0; i < lazyImgs.length; i++) {{
+        var img = lazyImgs[i];
+        img.setAttribute('data-stage-hydrated', 'true');
+        var realSrc = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original');
+        var currentSrc = img.getAttribute('src');
+        if (realSrc && (!currentSrc || currentSrc === '')) {{
+          img.setAttribute('src', realSrc);
+        }}
+      }}
+
+      // 2. Hydrate data-bg background images
+      var lazyBgs = document.querySelectorAll('[data-bg]:not([data-stage-hydrated])');
+      for (var j = 0; j < lazyBgs.length; j++) {{
+        var bgEl = lazyBgs[j];
+        bgEl.setAttribute('data-stage-hydrated', 'true');
+        var bgVal = bgEl.getAttribute('data-bg');
+        if (bgVal && (!bgEl.style.backgroundImage || bgEl.style.backgroundImage === 'none')) {{
+          if (bgVal.indexOf('url(') === -1 && bgVal.indexOf('gradient') === -1) {{
+            bgEl.style.backgroundImage = "url('" + bgVal + "')";
+          }} else {{
+            bgEl.style.backgroundImage = bgVal;
+          }}
+        }}
+      }}
+
+      // 3. Hydrate data-srcset
+      var lazySrcsets = document.querySelectorAll('[data-srcset]:not([data-stage-hydrated])');
+      for (var k = 0; k < lazySrcsets.length; k++) {{
+        var srcsetEl = lazySrcsets[k];
+        srcsetEl.setAttribute('data-stage-hydrated', 'true');
+        var srcsetVal = srcsetEl.getAttribute('data-srcset');
+        if (srcsetVal && !srcsetEl.getAttribute('srcset')) {{
+          srcsetEl.setAttribute('srcset', srcsetVal);
+        }}
+      }}
+    }} catch (_) {{}}
+  }}
+
+  if (document.readyState === 'loading') {{
+    document.addEventListener('DOMContentLoaded', hydrateLazyElements);
+  }} else {{
+    hydrateLazyElements();
+  }}
+  window.addEventListener('load', function() {{
+    hydrateLazyElements();
+    setTimeout(hydrateLazyElements, 500);
+    setTimeout(hydrateLazyElements, 1500);
+  }});
+}})();
+
 console.debug("[STAGE URL Model] targetUrl=" + window.__STAGE_TARGET_URL__);
 console.debug("[STAGE URL Model] targetOrigin=" + window.__STAGE_TARGET_ORIGIN__);
 console.debug("[STAGE URL Model] transportUrl=" + window.__STAGE_TRANSPORT_URL__);
@@ -1785,30 +1843,42 @@ def proxy_stylesheets_and_fonts(html: str, api_base: str, session_id: str, page_
         tag = re.sub(r'\s+crossorigin(?:=["\'][^"\']*["\'])?', '', tag, flags=re.IGNORECASE)
         return tag
 
-    def style_replacer(match):
-        content = match.group(0)
-        def url_replacer(m):
-            url = m.group(1)
-            if url.startswith("data:") or "proxy/session" in url:
-                return m.group(0)
-            if url.startswith('//'):
-                parsed_origin = urllib.parse.urlparse(origin)
-                resolved_url = f"{parsed_origin.scheme}:{url}"
-            elif url.startswith('http://') or url.startswith('https://'):
-                resolved_url = url
-            else:
-                resolved_url = urllib.parse.urljoin(origin + '/', url.lstrip('/') if url.startswith('/') else url)
-            parsed_res = urllib.parse.urlparse(resolved_url)
-            proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
-            if parsed_res.query:
-                proxy_url += f"?{parsed_res.query}"
-            return f"url('{proxy_url}')"
-        return re.sub(r'url\([\'"]?([^\'"\\)]+)[\'"]?\)', url_replacer, content, flags=re.IGNORECASE)
-
     html = re.sub(r'<link\s+[^>]+>', link_replacer, html, flags=re.IGNORECASE)
     html = re.sub(r'<script\b[^>]+>', script_src_replacer, html, flags=re.IGNORECASE)
-    html = re.sub(r'<style[^>]*>[\s\S]*?</style>', style_replacer, html, flags=re.IGNORECASE)
     return html
+
+
+# ── CSS URL Rewriting ──────────────────────────────────────────────────────────
+def proxy_css_urls(html: str, api_base: str, session_id: str, page_url: str) -> str:
+    """
+    Rewrites all url(...) declarations inside <style> blocks, style="..." attributes,
+    and data-bg="..." attributes to route through the proxy's asset endpoint.
+    """
+    origin = _target_origin(page_url)
+
+    def url_subber(match):
+        raw_url = match.group(1).strip()
+        cleaned_url = re.sub(r'^(?:["\']|&quot;)+|(?:["\']|&quot;)+$', '', raw_url).strip()
+
+        if not cleaned_url or cleaned_url.startswith("data:") or cleaned_url.startswith("blob:") or "proxy/session" in cleaned_url or cleaned_url.startswith("/static/"):
+            return match.group(0)
+
+        if cleaned_url.startswith('//'):
+            parsed_origin = urllib.parse.urlparse(origin)
+            resolved_url = f"{parsed_origin.scheme}:{cleaned_url}"
+        elif cleaned_url.startswith('http://') or cleaned_url.startswith('https://'):
+            resolved_url = cleaned_url
+        else:
+            resolved_url = urllib.parse.urljoin(origin + '/', cleaned_url.lstrip('/') if cleaned_url.startswith('/') else cleaned_url)
+
+        parsed_res = urllib.parse.urlparse(resolved_url)
+        proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
+        if parsed_res.query:
+            proxy_url += f"?{parsed_res.query}"
+
+        return f"url('{proxy_url}')"
+
+    return re.sub(r'url\(\s*(?:&quot;|["\'])?([^()"\']+?)(?:&quot;|["\'])?\s*\)', url_subber, html, flags=re.IGNORECASE)
 
 
 # ── Media rewriting ───────────────────────────────────────────────────────────
@@ -1821,31 +1891,146 @@ def proxy_media_attributes(html: str, api_base: str, session_id: str, page_url: 
 
     def media_replacer(match):
         tag = match.group(0)
-        src_match = re.search(r'\b(src|data)=["\']([^"\']+)["\']', tag, re.IGNORECASE)
-        if not src_match:
-            return tag
-        src_val = src_match.group(2)
-        if src_val.startswith("data:") or src_val.startswith("blob:") or "proxy/session" in src_val:
-            return tag
-        if src_val.startswith('//'):
-            parsed_origin = urllib.parse.urlparse(origin)
-            resolved_url = f"{parsed_origin.scheme}:{src_val}"
-        elif src_val.startswith('http://') or src_val.startswith('https://'):
-            resolved_url = src_val
-        else:
-            resolved_url = urllib.parse.urljoin(origin + '/', src_val.lstrip('/') if src_val.startswith('/') else src_val)
-        parsed_res = urllib.parse.urlparse(resolved_url)
-        proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
-        if parsed_res.query:
-            proxy_url += f"?{parsed_res.query}"
-        tag = tag[:src_match.start(2)] + proxy_url + tag[src_match.end(2):]
+        
+        def attr_replacer(attr_match):
+            attr_name = attr_match.group(1)
+            src_val = attr_match.group(2)
+            
+            if src_val.startswith("data:") or src_val.startswith("blob:") or "proxy/session" in src_val:
+                return attr_match.group(0)
+                
+            if src_val.startswith('//'):
+                parsed_origin = urllib.parse.urlparse(origin)
+                resolved_url = f"{parsed_origin.scheme}:{src_val}"
+            elif src_val.startswith('http://') or src_val.startswith('https://'):
+                resolved_url = src_val
+            else:
+                resolved_url = urllib.parse.urljoin(origin + '/', src_val.lstrip('/') if src_val.startswith('/') else src_val)
+                
+            parsed_res = urllib.parse.urlparse(resolved_url)
+            proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
+            if parsed_res.query:
+                proxy_url += f"?{parsed_res.query}"
+                
+            return f'{attr_name}="{proxy_url}"'
+
+        tag = re.sub(r'\b(src|data|data-src|data-image|data-image-src)=["\']([^"\']+)["\']', attr_replacer, tag, flags=re.IGNORECASE)
+        
         # Strip integrity/crossorigin
         tag = re.sub(r'\s+integrity=["\'][^"\']*["\']', '', tag, flags=re.IGNORECASE)
         tag = re.sub(r'\s+crossorigin(?:=["\'][^"\']*["\'])?', '', tag, flags=re.IGNORECASE)
         return tag
 
-    return re.sub(r'<(?:img|video|audio|source|embed|object)\b[^>]+>', media_replacer, html, flags=re.IGNORECASE)
+    html = re.sub(r'<(?:img|video|audio|source|embed|object)\b[^>]+>', media_replacer, html, flags=re.IGNORECASE)
 
+    # Add proxying for data-bg used heavily by Nicepage for lazyloading background images
+    def databg_replacer(match):
+        tag = match.group(0)
+
+        def proxy_single_url(raw_url):
+            """Proxy a single resolved URL through the asset endpoint."""
+            raw_url = raw_url.strip()
+            if not raw_url or raw_url.startswith("data:") or raw_url.startswith("blob:") or "proxy/session" in raw_url:
+                return raw_url
+            if raw_url.startswith('//'):
+                parsed_origin = urllib.parse.urlparse(origin)
+                resolved = f"{parsed_origin.scheme}:{raw_url}"
+            elif raw_url.startswith('http://') or raw_url.startswith('https://'):
+                resolved = raw_url
+            else:
+                resolved = urllib.parse.urljoin(origin + '/', raw_url.lstrip('/') if raw_url.startswith('/') else raw_url)
+            parsed_res = urllib.parse.urlparse(resolved)
+            if not parsed_res.scheme or not parsed_res.netloc:
+                return raw_url
+            proxy_url = f"{api_base.rstrip('/')}/proxy/session/{session_id}/asset/{parsed_res.scheme}/{parsed_res.netloc}{parsed_res.path}"
+            if parsed_res.query:
+                proxy_url += f"?{parsed_res.query}"
+            return proxy_url
+
+        def rewrite_databg_attr(attr_match):
+            attr_val = attr_match.group(1)
+
+            def rewrite_url_token(url_m):
+                # Extract the URL from inside url(...), stripping &quot;, ', "
+                inner = url_m.group(1).strip()
+                inner = inner.replace('&quot;', '').replace('"', '').replace("'", '').strip()
+                if not inner:
+                    return url_m.group(0)
+                proxied = proxy_single_url(inner)
+                return f"url('{proxied}')"
+
+            # Match url(...) patterns with optional &quot;/'/" around the URL
+            new_val = re.sub(
+                r"url\(\s*(?:&quot;|['\"])?\s*([^)'\"\s]+)\s*(?:&quot;|['\"])?\s*\)",
+                rewrite_url_token,
+                attr_val,
+                flags=re.IGNORECASE
+            )
+            return f'data-bg="{new_val}"'
+
+        def rewrite_databg_in_tag(tag_str):
+            """Find and rewrite the data-bg attribute value inside a tag string."""
+            # Find data-bg= in tag
+            m = re.search(r'data-bg=', tag_str, re.IGNORECASE)
+            if not m:
+                return tag_str
+            pos = m.end()
+            if pos >= len(tag_str):
+                return tag_str
+            quote_char = tag_str[pos]
+            if quote_char not in ('"', "'"):
+                return tag_str
+            # Walk to closing quote — but skip quotes that are inside url(...)
+            # We track nesting depth of url( to know when we're inside a url()
+            start = pos + 1
+            i = start
+            depth = 0
+            attr_val_chars = []
+            while i < len(tag_str):
+                c = tag_str[i]
+                remaining = tag_str[i:]
+                if remaining.lower().startswith('url('):
+                    depth += 1
+                    attr_val_chars.append(c)
+                    i += 1
+                    continue
+                if c == ')' and depth > 0:
+                    depth -= 1
+                    attr_val_chars.append(c)
+                    i += 1
+                    continue
+                if c == quote_char and depth == 0:
+                    # End of attribute value
+                    break
+                attr_val_chars.append(c)
+                i += 1
+
+            end = i  # position of closing quote in tag_str
+            attr_val = ''.join(attr_val_chars)
+
+            def rewrite_url_token(url_m):
+                inner = url_m.group(1).strip()
+                inner = inner.replace('&quot;', '').replace('"', '').replace("'", '').strip()
+                if not inner:
+                    return url_m.group(0)
+                proxied = proxy_single_url(inner)
+                return f"url('{proxied}')"
+
+            new_val = re.sub(
+                r"url\(\s*(?:&quot;|['\"])?\s*([^)'\"&\s]+)\s*(?:&quot;|['\"])?\s*\)",
+                rewrite_url_token,
+                attr_val,
+                flags=re.IGNORECASE
+            )
+
+            # Rebuild tag with new attribute value
+            return tag_str[:start] + new_val + tag_str[end:]
+
+        return rewrite_databg_in_tag(tag)
+
+    html = re.sub(r'<[^>]+data-bg=[^>]+>', databg_replacer, html, flags=re.IGNORECASE)
+
+    return html
 
 # ── Srcset rewriting ──────────────────────────────────────────────────────────
 def proxy_srcset_attributes(html: str, api_base: str, session_id: str, page_url: str) -> str:
@@ -2051,6 +2236,9 @@ def rewrite_html(
     html = strip_cloudflare_artifacts(html)
     logger.info("[PROXY_REWRITE] Cloudflare Rocket Loader and challenge scripts removed; neutralized scripts restored")
 
+    # Strip autofocus attributes to prevent cross-origin iframe focus-stealing warnings
+    html = re.sub(r'\s+autofocus(?:=["\'][^"\']*["\']|\b)', '', html, flags=re.IGNORECASE)
+    
     # ── Phase 2: snapshot_mode — strip all target script tags ──────────────────
     if snapshot_mode:
         logger.info(

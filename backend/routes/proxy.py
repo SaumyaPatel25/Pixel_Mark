@@ -41,6 +41,21 @@ def get_proxy_http_client(request: Optional[Request] = None) -> httpx.AsyncClien
         )
     return _shared_proxy_client
 
+_shared_asset_proxy_client: Optional[httpx.AsyncClient] = None
+
+def get_asset_proxy_http_client() -> httpx.AsyncClient:
+    global _shared_asset_proxy_client
+    if _shared_asset_proxy_client is None or _shared_asset_proxy_client.is_closed:
+        limits = httpx.Limits(max_keepalive_connections=100, max_connections=300, keepalive_expiry=30.0)
+        _shared_asset_proxy_client = httpx.AsyncClient(
+            limits=limits,
+            verify=False,
+            follow_redirects=False,
+            timeout=httpx.Timeout(15.0, connect=5.0)
+        )
+    return _shared_asset_proxy_client
+
+
 # Active IP sessions tracking with TTL pruning (2 hours)
 # Format: { ip: (session_id, timestamp) }
 ACTIVE_IP_SESSIONS = {}
@@ -1000,10 +1015,23 @@ async def handle_proxy_asset_request(
                 content=f'console.warn("STAGE Warning: Script asset blocked by domain scoping: {url}");'.encode("utf-8"),
                 media_type="application/javascript"
             ))
+            
+        # Images: return a 1x1 transparent PNG instead of empty JSON/octet-stream
+        IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif", ".ico")
+        if any(url.lower().split("?")[0].endswith(ext) for ext in IMAGE_EXTS) or "image" in url.lower():
+            TRANSPARENT_PNG = bytes.fromhex(
+                "89504e470d0a1a0a0000000d494844520000000100000001080600000" +
+                "01f15c4890000000a49444154789c6360000002000100" +
+                "5cceff690000000049454e44ae426082"
+            )
+            return prepare_proxy_response(Response(content=TRANSPARENT_PNG, media_type="image/png", status_code=200))
+            
         if is_third_party:
             content = b"{}" if "json" in url or "config" in url else b""
             media_type = "application/json" if "json" in url or "config" in url else "application/octet-stream"
             return prepare_proxy_response(Response(content=content, media_type=media_type, status_code=200))
+        
+        raise HTTPException(status_code=403, detail="Asset domain blocked")
     # Unconditional Next.js and RSC route forwarding (Prompts 2 and 11)
     is_rsc_request = "rsc" in request.headers or any(k.lower().startswith("next-") for k in request.headers.keys())
     if is_rsc_request or "/_next/" in url:
@@ -1068,7 +1096,7 @@ async def handle_proxy_asset_request(
         
         # Track initial redirect check
         start_time = datetime.utcnow()
-        client = get_proxy_http_client(request)
+        client = get_asset_proxy_http_client()
         while redirect_count < max_redirects:
             if not is_ssrf_safe(current_url):
                 logger.warning(f"[REDIRECT SAFEGUARD] SSRF target blocked: {current_url}")

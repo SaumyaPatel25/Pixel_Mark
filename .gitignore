@@ -44,3 +44,4 @@ backend/cache/
 backend/scratch/
 scratch/
 tests/check_db_markers.py
+*.dump

@@ -245,13 +245,13 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       webgl_clip_y: null,
       title: payload.title || 'New Marker',
       description: payload.description || null,
-      browser: null,
-      os: null,
-      device_pixel_ratio: null,
-      console_errors_json: null,
-      network_errors_json: null,
-      screenshot_url: null,
-      encrypted_context: null
+      browser: payload.browser || null,
+      os: payload.os || null,
+      device_pixel_ratio: payload.device_pixel_ratio || null,
+      console_errors_json: payload.console_errors_json || null,
+      network_errors_json: payload.network_errors_json || null,
+      screenshot_url: payload.screenshot_url || null,
+      encrypted_context: payload.encrypted_context || null
     }
 
     // Optimistically insert

@@ -1667,6 +1667,12 @@ export function AuditSurface({
             description: '',
             status: 'open',
             priority: 'medium',
+            // Diagnostic and environment context
+            browser: normalized.browser_info?.user_agent || (normalized.browser_info ? `${normalized.browser_info.browser || ''} ${normalized.browser_info.version || ''}`.trim() : null) || (typeof navigator !== 'undefined' ? navigator.userAgent : null),
+            os: normalized.browser_info?.os || normalized.browser_info?.platform || (typeof navigator !== 'undefined' ? navigator.platform : null),
+            device_pixel_ratio: normalized.device_pixel_ratio ?? normalized.viewport?.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1),
+            console_errors_json: normalized.console_errors ?? (normalized as any).consoleErrors ?? null,
+            network_errors_json: normalized.network_errors ?? (normalized as any).networkErrors ?? null,
           }
 
           let coordinateFields: Record<string, any> = {}
@@ -1798,7 +1804,12 @@ export function AuditSurface({
               scroll_x: data.scroll_x,
               scroll_y: data.scroll_y,
               canvas_id: data.canvas_id,
-              renderer_type: data.renderer_type
+              renderer_type: data.renderer_type,
+              browser: data.browser || (typeof navigator !== 'undefined' ? navigator.userAgent : null),
+              os: data.os || (typeof navigator !== 'undefined' ? navigator.platform : null),
+              device_pixel_ratio: data.device_pixel_ratio || (typeof window !== 'undefined' ? window.devicePixelRatio : 1),
+              console_errors_json: data.console_errors_json || data.console_errors || null,
+              network_errors_json: data.network_errors_json || data.network_errors || null,
             }, reviewerIdentity?.id)
             
             const { screenshotMode } = useScreenshotStore.getState()
@@ -2203,7 +2214,12 @@ export function AuditSurface({
           priority: severity,
           status: statusVal,
           renderer_type: rendererType,
-          screenshot_url: annotatedScreenshotUrl || captureCtx.screenshot_data_url || null
+          screenshot_url: annotatedScreenshotUrl || captureCtx.screenshot_data_url || null,
+          browser: captureCtx.browser_info?.user_agent || (typeof navigator !== 'undefined' ? navigator.userAgent : null),
+          os: captureCtx.browser_info?.os || captureCtx.browser_info?.platform || (typeof navigator !== 'undefined' ? navigator.platform : null),
+          device_pixel_ratio: captureCtx.device_pixel_ratio ?? captureCtx.viewport?.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1),
+          console_errors_json: captureCtx.console_errors ?? (captureCtx as any).consoleErrors ?? null,
+          network_errors_json: captureCtx.network_errors ?? (captureCtx as any).networkErrors ?? null,
         }
         console.log('[STAGE Submit] creating new canonical marker:', newPayload)
         resolvedMarker = await createMarkerViaApi(sessionId, newPayload, reviewerIdentity?.id)
@@ -3506,13 +3522,66 @@ export function AuditSurface({
                 </div>
               </div>
             )}
-            {/* ── Coordinates (read-only) ──────────────────────────────── */}
+            {/* ── Coordinates & Diagnostics (read-only) ────────────────── */}
             {captureCtx && (
-              <div className="bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/[0.04] rounded-xl p-3 flex items-center justify-between">
-                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/20">Pin Coordinates</span>
-                <span className="font-mono text-[9px] text-slate-500 dark:text-white/35">
-                  ({captureCtx.x}, {captureCtx.y})
-                </span>
+              <div className="bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/[0.04] rounded-2xl p-3.5 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[8px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">Captured Pin Context</span>
+                  <span className="font-mono text-[9px] text-slate-500 dark:text-white/40 font-bold">
+                    ({captureCtx.x}, {captureCtx.y})
+                  </span>
+                </div>
+
+                {/* Target Element Selector & Info */}
+                {(captureCtx.element_selector || captureCtx.xpath || captureCtx.element_tag) && (
+                  <div className="space-y-1 font-mono text-[9px] bg-slate-100 dark:bg-white/5 p-2 rounded-xl border border-slate-200 dark:border-white/5">
+                    <div className="text-purple-700 dark:text-purple-300 font-bold flex items-center gap-1.5">
+                      <span>Tag: &lt;{captureCtx.element_tag || 'element'}&gt;</span>
+                    </div>
+                    {captureCtx.element_selector && (
+                      <div className="text-slate-600 dark:text-white/70 truncate" title={captureCtx.element_selector}>
+                        <span className="text-slate-400 dark:text-white/30 font-sans">Selector: </span>{captureCtx.element_selector}
+                      </div>
+                    )}
+                    {captureCtx.xpath && (
+                      <div className="text-slate-600 dark:text-white/70 truncate" title={captureCtx.xpath}>
+                        <span className="text-slate-400 dark:text-white/30 font-sans">XPath: </span>{captureCtx.xpath}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Console Errors captured at pin moment */}
+                {captureCtx.console_errors && captureCtx.console_errors.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[8px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest block">
+                      Console Errors ({captureCtx.console_errors.length}):
+                    </span>
+                    <div className="max-h-24 overflow-y-auto space-y-1.5 font-mono text-[9px] text-rose-600 dark:text-rose-300 custom-scrollbar">
+                      {captureCtx.console_errors.map((err: any, i: number) => (
+                        <div key={i} className="truncate bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20" title={typeof err === 'string' ? err : err.message}>
+                          ⚠️ {typeof err === 'string' ? err : err.message || JSON.stringify(err)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Network Errors captured at pin moment */}
+                {captureCtx.network_errors && captureCtx.network_errors.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[8px] font-black text-amber-500 dark:text-amber-400 uppercase tracking-widest block">
+                      Network Errors ({captureCtx.network_errors.length}):
+                    </span>
+                    <div className="max-h-24 overflow-y-auto space-y-1.5 font-mono text-[9px] text-amber-600 dark:text-amber-300 custom-scrollbar">
+                      {captureCtx.network_errors.map((net: any, i: number) => (
+                        <div key={i} className="truncate bg-amber-500/10 p-1.5 rounded-lg border border-amber-500/20" title={net.url}>
+                          🌐 [{net.status || 'ERR'}] {net.method || 'GET'} {net.url}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
