@@ -361,9 +361,9 @@ export default function HeroSection({ activeMode, setActiveMode, onHoverChange, 
   const [demoState, setDemoState] = useState<DemoState>('awaitingUrl');
   const [demoStep, setDemoStep] = useState<DemoStep>('chooseMode');
 
-  const [headline1, setHeadline1] = useState('The visual website feedback tool');
-  const [headline2, setHeadline2] = useState('built for product teams.');
-  const [descText] = useState('Instantly share secure, interactive review links to collect visual feedback, annotations, and QA bug reports directly on live web pages. The fastest way to sign off website changes.');
+  const [headline1, setHeadline1] = useState('Visual QA for Live Web Pages');
+  const [headline2, setHeadline2] = useState('Pin bugs. Sync code. Launch faster.');
+  const [descText] = useState('Drop visual pins directly on live DOM nodes, WebGL 3D elements, and copy. Developers get exact CSS selectors, viewport state, and technical telemetry in one click.');
   const [isLightTheme, setIsLightTheme] = useState(true);
 
   useEffect(() => {

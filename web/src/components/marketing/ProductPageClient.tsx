@@ -78,12 +78,12 @@ export default function ProductPageClient() {
               transition={{ duration: 0.5, delay: 0.08 }}
               className="font-display text-4xl sm:text-6xl lg:text-7xl font-black tracking-[-0.04em] text-slate-900 dark:text-white max-w-5xl mx-auto leading-[1.08] sm:leading-[1.0] mb-6 sm:mb-8"
             >
-              Cut Website Review Cycles by{' '}
+              Cut Review Turnaround by{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-500 dark:from-indigo-400 dark:via-purple-400 dark:to-cyan-400">
                 <AnimatedMetricCounter value={80} suffix="%" />
               </span>
               <span className="block mt-2 font-extrabold text-slate-700 dark:text-slate-200">
-                With Instant Visual Context.
+                Real-Time Visual QA for Live Sites.
               </span>
             </motion.h1>
 
@@ -94,7 +94,7 @@ export default function ProductPageClient() {
               transition={{ duration: 0.5, delay: 0.16 }}
               className="text-base sm:text-lg lg:text-xl text-slate-600 dark:text-slate-300 max-w-2xl sm:max-w-3xl mx-auto leading-relaxed mb-10 sm:mb-12 font-normal px-2"
             >
-              Clients click directly on live DOM nodes, 3D meshes, and copy to leave feedback. Developers get exact CSS selectors, viewport state, and network telemetry in one clean click.
+              Pin bugs directly on live DOM nodes, 3D WebGL meshes, and copy. Developers get exact CSS selectors, viewport state, and network logs in one click.
             </motion.p>
 
             {/* Primary Call-to-Action */}
