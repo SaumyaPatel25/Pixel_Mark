@@ -75,8 +75,23 @@ async def get_dashboard_summary(
     )
     total_sessions = sess_count_res.scalar() or 0
 
-    total_markers = 0
-    open_issues = 0
+    from markers.models import Marker
+
+    marker_count_res = await db.execute(
+        select(func.count(Marker.id))
+        .join(Session, Marker.session_id == Session.id)
+        .join(Project, Session.project_id == Project.id)
+        .where(Project.org_id == member.org_id)
+    )
+    total_markers = marker_count_res.scalar() or 0
+
+    open_issues_res = await db.execute(
+        select(func.count(Marker.id))
+        .join(Session, Marker.session_id == Session.id)
+        .join(Project, Session.project_id == Project.id)
+        .where(Project.org_id == member.org_id, Marker.status == "open")
+    )
+    open_issues = open_issues_res.scalar() or 0
 
     summary_data = {
         "total_projects": total_projects,
@@ -105,7 +120,18 @@ async def list_projects(current_user: User = Depends(get_current_user), db: Asyn
     projects = result.scalars().all()
     
     # Serialize to dictionary for safe caching
-    data = [{"id": p.id, "name": p.name, "url": p.url, "created_at": p.created_at, "org_id": p.org_id} for p in projects]
+    data = [
+        {
+            "id": p.id,
+            "name": p.name,
+            "url": p.url,
+            "created_at": p.created_at,
+            "org_id": p.org_id,
+            "allow_reviewer_dom_edit": getattr(p, "allow_reviewer_dom_edit", True),
+            "sla_config": getattr(p, "sla_config", None),
+        }
+        for p in projects
+    ]
     cache.set(cache_key, data, 30)
     return data
 

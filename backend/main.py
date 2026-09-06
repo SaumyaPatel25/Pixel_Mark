@@ -60,44 +60,8 @@ async def lifespan(app: FastAPI):
             logger.info(f"Connecting to Neon DB (Attempt {i}/{retries})...")
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-                from sqlalchemy import text
-                if "sqlite" in str(engine.url):
-                    try:
-                        await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN past_due_since TIMESTAMP;"))
-                    except Exception:
-                        pass
-                    try:
-                        await conn.execute(text("ALTER TABLE projects ADD COLUMN status VARCHAR DEFAULT 'active';"))
-                    except Exception:
-                        pass
-                    try:
-                        await conn.execute(text("ALTER TABLE projects ADD COLUMN allow_reviewer_dom_edit BOOLEAN DEFAULT 1;"))
-                    except Exception:
-                        pass
-                    try:
-                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN email_frequency VARCHAR DEFAULT 'digest_15m';"))
-                    except Exception:
-                        pass
-                    try:
-                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN notify_on_all_pins BOOLEAN DEFAULT 0;"))
-                    except Exception:
-                        pass
-                    try:
-                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN notify_on_assigned BOOLEAN DEFAULT 1;"))
-                    except Exception:
-                        pass
-                    try:
-                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN notify_on_mentions BOOLEAN DEFAULT 1;"))
-                    except Exception:
-                        pass
-                    try:
-                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN notify_on_status_change BOOLEAN DEFAULT 1;"))
-                    except Exception:
-                        pass
-                else:
-                    await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS past_due_since TIMESTAMPTZ;"))
-                    await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';"))
-                    await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS allow_reviewer_dom_edit BOOLEAN DEFAULT 1;"))
+                from migrations.enhanced_core_migration import run_migration
+                await run_migration(conn)
             logger.info("✓ DB connection successful & tables verified!")
             break
         except Exception as e:

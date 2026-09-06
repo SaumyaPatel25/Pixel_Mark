@@ -233,7 +233,7 @@ async def enforce_pin_slas(db: AsyncSession) -> List[NotificationOutbox]:
 
     if new_escalations:
         await db.commit()
-        logger.info(f"✅ [SLA Daemon] Successfully committed {len(new_escalations)} escalation events to outbox.")
+        logger.info(f"[SLA Daemon] Successfully committed {len(new_escalations)} escalation events to outbox.")
 
     return new_escalations
 
@@ -249,7 +249,7 @@ async def run_sla_daemon(interval_seconds: int = SLA_CHECK_INTERVAL_SECONDS):
     """
     global _daemon_running
     _daemon_running = True
-    logger.info(f"⏰ [SLA Daemon] Started recurring SLA enforcement daemon (interval: {interval_seconds}s)")
+    logger.info(f"[SLA Daemon] Started recurring SLA enforcement daemon (interval: {interval_seconds}s)")
 
     # Initial warm-up grace delay to let FastAPI finish startup
     try:
