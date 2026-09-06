@@ -18,11 +18,10 @@ class MarkerService:
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="DOM-relative markers require target_selector or target_xpath"
                 )
-            if payload.offset_x_ratio is None or payload.offset_y_ratio is None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="DOM-relative markers require offset_x_ratio and offset_y_ratio"
-                )
+            if payload.offset_x_ratio is None:
+                payload.offset_x_ratio = 0.0
+            if payload.offset_y_ratio is None:
+                payload.offset_y_ratio = 0.0
             # Check conflicts
             conflicts = [
                 payload.viewport_x, payload.viewport_y,
@@ -168,6 +167,7 @@ class MarkerService:
         # Construct SQLAlchemy Model
         marker = Marker(
             project_id=payload.project_id,
+            session_id=payload.session_id,
             page_visit_id=payload.page_visit_id,
             creator_id=creator_id,
             creator_name=creator_name,

@@ -21,6 +21,7 @@ class ReviewerIdentityRead(BaseModel):
 
 class MarkerCreate(BaseModel):
     project_id: str
+    session_id: Optional[str] = None
     page_visit_id: Optional[str] = None
     creator_id: Optional[str] = None
     creator_name: Optional[str] = None

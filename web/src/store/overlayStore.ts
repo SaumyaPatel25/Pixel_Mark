@@ -106,7 +106,7 @@ export const deleteMarker = async (id: string): Promise<void> => {
       await api.markers.delete(id)
       console.log(`[Markers] backend confirmed delete id=${id}`)
     } catch (err: any) {
-      const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && err.message.includes('404'))
+      const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && (err.message.includes('404') || err.message.includes('Marker not found')))
       if (is404) {
         console.log(`STAGE delete reconciled stale marker [${id}]`)
         usePinStore.getState().removePin(id)

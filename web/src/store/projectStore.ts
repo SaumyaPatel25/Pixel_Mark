@@ -10,6 +10,7 @@ interface ProjectState {
   lastProjectsFetchedAt: number
   projectAnalytics:  Record<string, { data: any; fetchedAt: number }>
   fetchAnalytics: (id: string, force?: boolean) => Promise<any>
+  invalidateAnalytics: (id?: string) => void
   fetchProjects:     (force?: boolean) => Promise<Project[]>
   createProject:     (input: ProjectCreate) => Promise<Project>
   deleteProject:     (id: string) => Promise<void>
@@ -30,7 +31,26 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   setCurrentProject: (project) => set({ currentProject: project }),
   clearError:        () => set({ error: null }),
+  invalidateAnalytics: (id?: string) => {
+    if (id) {
+      set(s => {
+        const next = { ...s.projectAnalytics }
+        delete next[id]
+        return { projectAnalytics: next }
+      })
+    } else {
+      set({ projectAnalytics: {} })
+    }
+  },
+
   fetchAnalytics: async (id, force = false) => {
+    if (force) {
+      set(s => {
+        const next = { ...s.projectAnalytics }
+        delete next[id]
+        return { projectAnalytics: next }
+      })
+    }
     const cache = get().projectAnalytics[id]
     const now = Date.now()
     const STALE_TIME = 1000 * 60 * 5 // 5 minutes stale time

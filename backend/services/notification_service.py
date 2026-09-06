@@ -9,7 +9,151 @@ from services.notification_templates import (
     build_notification_subject, build_notification_body, build_preview_text, build_why_you_got_this
 )
 
+try:
+    from models.notifications import NotificationOutbox, NotificationPreference
+    from realtime.redis_broadcaster import redis_broadcaster
+except ImportError:
+    from backend.models.notifications import NotificationOutbox, NotificationPreference
+    from backend.realtime.redis_broadcaster import redis_broadcaster
+
 logger = logging.getLogger("stage.notifications")
+
+# Default settings for new users or unconfigured preferences
+DEFAULT_NOTIFICATION_PREFERENCES = {
+    "in_app_enabled": True,
+    "email_enabled": True,
+    "email_frequency": "digest_15m",
+    "notify_on_all_pins": False,
+    "notify_on_assigned": True,
+    "notify_on_mentions": True,
+    "notify_on_status_change": True,
+}
+
+
+async def resolve_user_notification_preferences(
+    db: AsyncSession,
+    user_id: str,
+    project_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Resolves effective notification preferences for a recipient.
+    Priority hierarchy:
+      1. Project-specific override (user_id + project_id)
+      2. User global default (user_id + project_id IS NULL)
+      3. System platform defaults
+    """
+    if not user_id:
+        return dict(DEFAULT_NOTIFICATION_PREFERENCES)
+
+    pref_row: Optional[NotificationPreference] = None
+
+    # 1. Check for project-specific preference first
+    if project_id:
+        stmt = (
+            select(NotificationPreference)
+            .where(
+                NotificationPreference.user_id == user_id,
+                NotificationPreference.project_id == project_id
+            )
+        )
+        res = await db.execute(stmt)
+        pref_row = res.scalar_one_or_none()
+
+    # 2. Fall back to global preference if not found
+    if not pref_row:
+        stmt = (
+            select(NotificationPreference)
+            .where(
+                NotificationPreference.user_id == user_id,
+                NotificationPreference.project_id.is_(None)
+            )
+        )
+        res = await db.execute(stmt)
+        pref_row = res.scalar_one_or_none()
+
+    # 3. Return resolved settings
+    if pref_row:
+        return {
+            "in_app_enabled": pref_row.in_app_enabled,
+            "email_enabled": pref_row.email_enabled,
+            "email_frequency": pref_row.email_frequency or "digest_15m",
+            "notify_on_all_pins": getattr(pref_row, "notify_on_all_pins", False),
+            "notify_on_assigned": getattr(pref_row, "notify_on_assigned", True),
+            "notify_on_mentions": getattr(pref_row, "notify_on_mentions", True),
+            "notify_on_status_change": getattr(pref_row, "notify_on_status_change", True),
+        }
+
+    return dict(DEFAULT_NOTIFICATION_PREFERENCES)
+
+
+async def emit_pin_event(
+    db: AsyncSession, 
+    event_type: str, 
+    marker: dict, 
+    session_id: str, 
+    project_id: str, 
+    actor_id: str, 
+    actor_role: str
+) -> Optional[NotificationOutbox]:
+    """
+    Writes the event to the outbox (must be called BEFORE db.commit()) 
+    and schedules the Redis broadcast according to recipient preferences.
+    """
+    # 1. Construct the immutable payload
+    payload = {
+        "event": event_type,
+        "project": {"id": project_id},
+        "session": {"id": session_id},
+        "actor": {"id": actor_id, "role": actor_role},
+        "pin": marker
+    }
+
+    # 2. Resolve recipient preferences
+    prefs = await resolve_user_notification_preferences(db, user_id=actor_id, project_id=project_id)
+
+    # 3. Check email preference: if 'off' or email disabled, skip Resend email queuing
+    outbox_record = None
+    email_freq = prefs.get("email_frequency", "digest_15m")
+    email_enabled = prefs.get("email_enabled", True)
+
+    if email_freq != "off" and email_enabled:
+        outbox_record = NotificationOutbox(
+            event_type=event_type,
+            project_id=project_id,
+            session_id=session_id,
+            marker_id=marker.get("id"),
+            actor_id=actor_id,
+            actor_role=actor_role,
+            payload=payload,
+            status="pending"
+        )
+        db.add(outbox_record)
+    else:
+        logger.info(
+            f"[NotificationService] Skipping email outbox queue for actor={actor_id}, "
+            f"project={project_id} (email_frequency={email_freq}, email_enabled={email_enabled})"
+        )
+
+    # 4. Check in-app delivery preference
+    if prefs.get("in_app_enabled", True):
+        try:
+            await redis_broadcaster.publish(
+                channel=f"session:{session_id}",
+                message={
+                    "type": "notification_dispatched",
+                    "data": payload
+                }
+            )
+        except Exception as re:
+            logger.warning(f"[WS] Fire-and-forget notification broadcast failed: {re}")
+    else:
+        logger.info(
+            f"[NotificationService] Skipping Redis in-app broadcast for actor={actor_id} "
+            f"(in_app_enabled=False)"
+        )
+
+    return outbox_record
+
 
 async def get_or_create_preferences(
     db: AsyncSession,

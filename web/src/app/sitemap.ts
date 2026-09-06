@@ -4,6 +4,9 @@ import { seoConfig } from '@/lib/seoConfig';
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     { path: '', priority: 1.0, changeFrequency: 'daily' as const },
+    { path: '/product', priority: 0.95, changeFrequency: 'daily' as const },
+    { path: '/landing', priority: 0.9, changeFrequency: 'weekly' as const },
+    { path: '/overview', priority: 0.85, changeFrequency: 'weekly' as const },
     { path: '/pricing', priority: 0.9, changeFrequency: 'weekly' as const },
     { path: '/features', priority: 0.9, changeFrequency: 'weekly' as const },
     { path: '/docs/api', priority: 0.8, changeFrequency: 'weekly' as const },

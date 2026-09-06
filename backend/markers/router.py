@@ -23,6 +23,16 @@ from realtime.events import build_marker_event, build_marker_deleted_event
 
 logger = logging.getLogger("stage.markers")
 
+def invalidate_project_analytics_cache(project_id: Optional[str]):
+    if not project_id:
+        return
+    try:
+        from services.cache import cache
+        cache.invalidate(f"user:*:project:{project_id}:analytics")
+        cache.invalidate("user:*:dashboard:summary")
+    except Exception as e:
+        logger.warning(f"[Cache] Failed to invalidate project analytics cache for {project_id}: {e}")
+
 router = APIRouter(tags=["markers"])
 
 # Helper function to resolve actor context
@@ -188,14 +198,34 @@ async def create_marker(
         actor_color=actor["color_token"]
     )
     marker.session_id = session_id
-
     await repo.create_marker(marker)
+    
+    # Ensure flush so marker.id is populated for the outbox payload
+    await db.flush()
+
+    # Write to outbox within the same transaction BEFORE db.commit()
+    try:
+        from services.notification_service import emit_pin_event
+        await emit_pin_event(
+            db=db,
+            event_type="pin.created",
+            marker={"id": marker.id, "title": marker.title or "New Pin", "status": marker.status},
+            session_id=session_id,
+            project_id=session.project_id,
+            actor_id=actor["id"],
+            actor_role=actor["role"]
+        )
+    except Exception as oe:
+        logger.warning(f"[Outbox] Failed to write outbox pin event: {oe}")
+
+    # Atomic commit guarantees marker creation and outbox write succeed together
     await db.commit()
     await db.refresh(marker)
+    invalidate_project_analytics_cache(marker.project_id)
 
     logger.info(f"STAGE marker author attached [{marker.id}] [{marker.creator_id}]")
 
-    # Autoritative realtime sync: Broadcast created event after successful REST commit
+    # Authoritative realtime sync: Broadcast created event after successful REST commit
     try:
         event = build_marker_event(
             event_type="marker_created",
@@ -210,27 +240,48 @@ async def create_marker(
 
     try:
         from services.notification_service import emit_session_notification
+        creator_name = actor.get("name") or marker.creator_name or "Reviewer"
+        target_desc = marker.target_selector or marker.page_url or "element"
+        pin_detail = marker.title or marker.description or (f"Pin #{marker.marker_number}" if marker.marker_number else "feedback pin")
+        
         await emit_session_notification(
             db=db,
             session_id=session_id,
             event_type="marker_created",
             entity_type="marker",
             entity_id=marker.id,
-            title="New Pin Added",
-            body=marker.description or marker.comment or f"Marker added on page '{marker.page_url or '/'}'",
+            title=f"New Pin: {marker.title or 'Feedback Pin'}",
+            body=f"{creator_name} added a pin on {target_desc}: \"{pin_detail}\"",
             project_id=session.project_id,
             user_id=actor["id"] if actor.get("role") == "user" else None,
             metadata={
                 "marker_id": marker.id,
                 "page_url": marker.page_url,
                 "target_selector": marker.target_selector,
-                "author_name": actor.get("name", "Reviewer")
+                "actor_name": creator_name,
+                "author_name": creator_name,
+                "title": marker.title,
+                "description": marker.description
             }
         )
     except Exception as ne:
         logger.warning(f"[STAGE Notification] Failed to emit marker_created event: {ne}")
 
     return marker
+
+
+@router.post("/markers/", response_model=MarkerRead, status_code=201)
+@router.post("/markers", response_model=MarkerRead, status_code=201)
+async def create_marker_root(
+    payload: MarkerCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_reviewer_id: Optional[str] = Header(None)
+):
+    if not payload.session_id:
+        raise HTTPException(status_code=422, detail="session_id is required in marker payload")
+    actor = await resolve_actor_context(payload.session_id, db, current_user, x_reviewer_id)
+    return await create_marker(session_id=payload.session_id, payload=payload, db=db, actor=actor)
 
 
 @router.get("/sessions/{session_id}/markers", response_model=List[MarkerRead])
@@ -335,6 +386,7 @@ async def update_marker(
     )
     await db.commit()
     await db.refresh(marker)
+    invalidate_project_analytics_cache(marker.project_id)
 
     # Broadcast updated event after commit
     try:
@@ -352,17 +404,25 @@ async def update_marker(
     if payload.status == "resolved" or marker.status == "resolved":
         try:
             from services.notification_service import emit_session_notification
+            creator_name = actor_ctx.get("name") or "Reviewer"
+            target_desc = marker.target_selector or marker.page_url or "element"
             await emit_session_notification(
                 db=db,
                 session_id=marker.session_id,
                 event_type="marker_resolved",
                 entity_type="marker",
                 entity_id=marker.id,
-                title="Pin Resolved",
-                body=f"Pin on selector '{marker.target_selector or marker.page_url or 'element'}' was marked as resolved.",
-                project_id=None,
+                title=f"Pin Resolved: {marker.title or 'Feedback Pin'}",
+                body=f"{creator_name} marked pin on {target_desc} as resolved.",
+                project_id=marker.project_id,
                 user_id=actor_ctx["id"] if actor_ctx.get("role") == "user" else None,
-                metadata={"marker_id": marker.id, "status": "resolved"}
+                metadata={
+                    "marker_id": marker.id,
+                    "status": "resolved",
+                    "actor_name": creator_name,
+                    "author_name": creator_name,
+                    "target_selector": marker.target_selector
+                }
             )
         except Exception as ne:
             logger.warning(f"[STAGE Notification] Failed to emit marker_resolved event: {ne}")
@@ -398,6 +458,7 @@ async def update_marker_position(
     )
     await db.commit()
     await db.refresh(marker)
+    invalidate_project_analytics_cache(marker.project_id)
 
     # Broadcast moved event after commit
     try:
@@ -445,6 +506,7 @@ async def delete_marker(
 
     await repo.soft_delete_marker(marker)
     await db.commit()
+    invalidate_project_analytics_cache(marker.project_id)
 
     # Broadcast deleted event after commit
     try:

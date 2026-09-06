@@ -48,9 +48,8 @@ class ApiQueue {
   }
   
   enqueueRead<T>(label: string, fn: () => Promise<T>, dedupeKey?: string): Promise<T> {
-    const key = dedupeKey || label
-    if (key && this.pendingReadsMap.has(key)) {
-      return this.pendingReadsMap.get(key) as Promise<T>
+    if (dedupeKey && this.pendingReadsMap.has(dedupeKey)) {
+      return this.pendingReadsMap.get(dedupeKey) as Promise<T>
     }
 
     const promise = new Promise<T>((resolve, reject) => {
@@ -65,9 +64,9 @@ class ApiQueue {
       this.drainReads()
     })
 
-    if (key) {
-      this.pendingReadsMap.set(key, promise as Promise<unknown>)
-      promise.finally(() => this.pendingReadsMap.delete(key))
+    if (dedupeKey) {
+      this.pendingReadsMap.set(dedupeKey, promise as Promise<unknown>)
+      promise.finally(() => this.pendingReadsMap.delete(dedupeKey))
     }
 
     return promise

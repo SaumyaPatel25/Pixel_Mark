@@ -93,6 +93,22 @@ export default function MarketingNav() {
       }
     },
     {
+      name: 'Product',
+      href: '/product',
+      badge: 'NEW',
+      preview: {
+        headerIcon: <Sparkles className="w-4 h-4 text-cyan-400" />,
+        title: 'Product Overview',
+        subtitle: 'Client vs Developer QA Platform',
+        items: [
+          { iconEmoji: '👥', title: 'Client vs Dev View', desc: 'Explore tailored value & time savings', href: '/product#roles' },
+          { iconEmoji: '🎬', title: 'Interactive Walkthrough', desc: '5-step live animation from URL to fix', href: '/product#demo-walkthrough' },
+          { iconEmoji: '🎁', title: 'Free Starter Plan', desc: '$0 forever with unlimited markers', href: '/product#pricing-free' },
+          { iconEmoji: '💬', title: 'Contact Founder', desc: 'Direct inquiry to saumya@entrext.com', href: '/product#contact-query' },
+        ]
+      }
+    },
+    {
       name: 'Features',
       href: '/features',
       preview: {

@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { StageLoader } from '@/components/ui/StageLoader'
-import { LayoutDashboard, Folder, FolderKanban, FileText, Settings, CreditCard, Sparkles, Globe, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play, RotateCcw, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { LayoutDashboard, Folder, FolderKanban, FileText, Settings, CreditCard, Sparkles, Globe, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play, RotateCcw, PanelLeftClose, PanelLeftOpen, ChevronDown } from 'lucide-react'
 import { useOnboardingStore } from '@/store/onboardingStore'
 import { useProjectStore } from '@/store/projectStore'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
@@ -24,6 +24,10 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   const isLoading = useAuthStore(s => s.isLoading)
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(pathname.startsWith('/canvas'))
+  const [resourcesOpen, setResourcesOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(
+    pathname === '/settings' || pathname === '/pricing'
+  )
 
   // Auto-collapse sidebar when entering canvas route
   useEffect(() => {
@@ -183,9 +187,9 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
-        <div className="space-y-8">
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Brand header + Collapse trigger */}
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between mb-6">
             <div className="space-y-1">
               <Link href="/dashboard" className="block">
                 <img 
@@ -208,8 +212,10 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
             </button>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="flex flex-col gap-1.5">
+          {/* Scrollable Navigation Area */}
+          <nav className="flex flex-col gap-0.5 flex-1 overflow-y-auto min-h-0 pr-1 -mr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            
+            {/* ── Home (ungrouped) ── */}
             <Link 
               href="/" 
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
@@ -221,6 +227,11 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               <Home className="w-4 h-4" />
               <span>Home</span>
             </Link>
+
+            {/* ── WORKSPACE GROUP ── */}
+            <div className="mt-4 mb-1">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-pm-muted/60 px-3">Workspace</span>
+            </div>
 
             <Link 
               href="/dashboard" 
@@ -258,72 +269,97 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               <span>Projects</span>
             </Link>
 
-            <Link 
-              href="/settings" 
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
-                pathname === '/settings' 
-                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
-                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
-              }`}
-            >
-              <Settings className="w-4 h-4" />
-              <span>Settings</span>
-            </Link>
+            {/* ── ACCOUNT GROUP (collapsible) ── */}
+            <div className="mt-4">
+              <button
+                onClick={() => setAccountOpen(!accountOpen)}
+                className="flex items-center justify-between w-full px-3 py-1 mb-1 cursor-pointer group"
+              >
+                <span className="text-[9px] font-bold uppercase tracking-widest text-pm-muted/60 group-hover:text-pm-muted transition-colors">Account</span>
+                <ChevronDown className={`w-3 h-3 text-pm-muted/40 transition-transform duration-200 ${accountOpen ? 'rotate-0' : '-rotate-90'}`} />
+              </button>
 
-            <Link 
-              href="/pricing" 
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
-                pathname === '/pricing' 
-                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
-                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
-              }`}
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>Plans & Pricing</span>
-            </Link>
+              {accountOpen && (
+                <div className="flex flex-col gap-0.5">
+                  <Link 
+                    href="/settings" 
+                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                      pathname === '/settings' 
+                        ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                        : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
+                    }`}
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Settings</span>
+                  </Link>
 
-            <Link 
-              href="/features" 
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
-                pathname === '/features' 
-                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
-                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Features</span>
-            </Link>
-
-            <Link 
-              href="/docs/api" 
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
-                pathname === '/docs/api' 
-                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
-                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>API Reference</span>
-            </Link>
-
-            <Link 
-              href="/chrome-extension" 
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
-                pathname === '/chrome-extension' 
-                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
-                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
-              }`}
-            >
-              <Globe className="w-4 h-4" />
-              <span>Chrome Extension</span>
-            </Link>
-
-            <div className="pt-2 pb-1">
-              <div className="h-px bg-pm-border w-full" />
+                  <Link 
+                    href="/pricing" 
+                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                      pathname === '/pricing' 
+                        ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                        : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
+                    }`}
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Plans & Pricing</span>
+                  </Link>
+                </div>
+              )}
             </div>
 
+            {/* ── RESOURCES GROUP (collapsible) ── */}
+            <div className="mt-3">
+              <button
+                onClick={() => setResourcesOpen(!resourcesOpen)}
+                className="flex items-center justify-between w-full px-3 py-1 mb-1 cursor-pointer group"
+              >
+                <span className="text-[9px] font-bold uppercase tracking-widest text-pm-muted/60 group-hover:text-pm-muted transition-colors">Resources</span>
+                <ChevronDown className={`w-3 h-3 text-pm-muted/40 transition-transform duration-200 ${resourcesOpen ? 'rotate-0' : '-rotate-90'}`} />
+              </button>
+
+              {resourcesOpen && (
+                <div className="flex flex-col gap-0.5">
+                  <Link 
+                    href="/features" 
+                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                      pathname === '/features' 
+                        ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                        : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Features</span>
+                  </Link>
+
+                  <Link 
+                    href="/docs/api" 
+                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                      pathname === '/docs/api' 
+                        ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                        : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
+                    }`}
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>API Reference</span>
+                  </Link>
+
+                  <div 
+                    className="flex items-center justify-between px-3 py-2 rounded-xl text-sm text-pm-muted/50 cursor-not-allowed select-none"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Download className="w-4 h-4" />
+                      <span>Chrome Extension</span>
+                    </div>
+                    <span className="text-[8px] font-black uppercase bg-pm-accent-subtle border border-pm-border text-pm-accent px-1.5 py-0.5 rounded">Soon</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Onboarding / Tour ── */}
             {isDismissed && userRole ? (
-              <>
+              <div className="mt-3 pt-3 border-t border-pm-border flex flex-col gap-0.5">
                 <button 
                   onClick={() => {
                     setDismissed(false);
@@ -332,7 +368,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
                   className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all w-full text-left cursor-pointer"
                 >
                   <Play className="w-4 h-4 text-emerald-400 animate-pulse" />
-                  Resume Product Tour
+                  Resume Tour
                 </button>
                 <button 
                   onClick={() => {
@@ -342,19 +378,11 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
                   className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all w-full text-left cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4 text-purple-400" />
-                  Restart Product Tour
+                  Restart Tour
                 </button>
-              </>
-            ) : null}
-            <div 
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-sm text-pm-muted dark:text-zinc-400 font-medium cursor-not-allowed select-none"
-            >
-              <div className="flex items-center gap-3">
-                <Download className="w-4 h-4 text-pm-muted" />
-                <span>Chrome Extension</span>
               </div>
-              <span className="text-[8px] font-black uppercase bg-pm-accent-subtle border border-pm-border text-pm-accent px-1.5 py-0.5 rounded">Soon</span>
-            </div>
+            ) : null}
+
           </nav>
         </div>
 

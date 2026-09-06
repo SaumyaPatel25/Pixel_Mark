@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { Marker, SessionSocketEvent } from '@/types/markers'
 import { api } from '@/lib/api'
 import { useOnboardingStore } from './onboardingStore'
+import { useProjectStore } from './projectStore'
 
 export function isPersistedMarker(marker: Marker): boolean {
   return marker && typeof marker.id === 'string' && !marker.id.startsWith('temp-')
@@ -188,11 +189,26 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
         })
       }
 
+      if (marker.project_id) {
+        setTimeout(() => {
+          useProjectStore.getState().invalidateAnalytics(marker.project_id)
+          useProjectStore.getState().fetchAnalytics(marker.project_id, true).catch(() => {})
+        }, 0)
+      }
+
       return { markersById, orderedMarkerIds }
     })
   },
 
   removeMarkerFromServer: (markerId) => {
+    const existingMarker = get().markersById[markerId]
+    if (existingMarker?.project_id) {
+      setTimeout(() => {
+        useProjectStore.getState().invalidateAnalytics(existingMarker.project_id)
+        useProjectStore.getState().fetchAnalytics(existingMarker.project_id, true).catch(() => {})
+      }, 0)
+    }
+
     set((state) => {
       const markersById = { ...state.markersById }
       if (markersById[markerId]) {
@@ -304,7 +320,19 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       const updated = await api.markers.update(markerId, { ...patch, expected_version }, xReviewerId)
       get().upsertMarkerFromServer(updated)
       return updated
-    } catch (err) {
+    } catch (err: any) {
+      const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && (err.message.includes('404') || err.message.includes('Marker not found')))
+      if (is404) {
+        console.log(`STAGE update reconciled stale/deleted marker [${markerId}]`)
+        get().removeMarkerLocally(markerId)
+        get().removeMarkerFromServer(markerId)
+        if (get().selectedMarkerId === markerId) {
+          set({ selectedMarkerId: null })
+        }
+        const current = get().currentSessionId
+        if (current) get().reconcileSessionMarkers(current)
+        return original || existing
+      }
       // Rollback on error
       if (original) {
         console.log(`STAGE optimistic rollback [${markerId}]`)
@@ -338,7 +366,19 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       const updated = await api.markers.patchPosition(markerId, { ...patch, expected_version }, xReviewerId)
       get().upsertMarkerFromServer(updated)
       return updated
-    } catch (err) {
+    } catch (err: any) {
+      const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && (err.message.includes('404') || err.message.includes('Marker not found')))
+      if (is404) {
+        console.log(`STAGE move reconciled stale/deleted marker [${markerId}]`)
+        get().removeMarkerLocally(markerId)
+        get().removeMarkerFromServer(markerId)
+        if (get().selectedMarkerId === markerId) {
+          set({ selectedMarkerId: null })
+        }
+        const current = get().currentSessionId
+        if (current) get().reconcileSessionMarkers(current)
+        return original || existing
+      }
       if (original) {
         console.log(`STAGE optimistic rollback [${markerId}]`)
         get().upsertMarkerFromServer(original, true)
@@ -369,11 +409,12 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
     try {
       await api.markers.delete(markerId, xReviewerId)
     } catch (err: any) {
-      // ApiError carries the status code, check for 404
-      const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && err.message.includes('404'))
+      // ApiError carries the status code, check for 404 or Marker not found
+      const is404 = err?.status === 404 || err?.statusCode === 404 || (err?.message && (err.message.includes('404') || err.message.includes('Marker not found')))
       if (is404) {
         console.log(`STAGE delete reconciled stale marker [${markerId}]`)
         get().removeMarkerLocally(markerId)
+        get().removeMarkerFromServer(markerId)
         if (get().selectedMarkerId === markerId) {
           set({ selectedMarkerId: null })
         }

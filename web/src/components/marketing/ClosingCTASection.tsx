@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { trackCtaClick } from '@/lib/analytics';
 
 export default function ClosingCTASection() {
   return (
@@ -54,7 +55,8 @@ export default function ClosingCTASection() {
         >
           <Link
             href="/register"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-lg hover:shadow-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+            onClick={() => trackCtaClick('closing_cta_signup', 'general')}
+            className="duol-shimmer-btn w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 min-h-[48px]"
           >
             Get Started Free
             <ArrowRight className="w-4 h-4" />

@@ -388,3 +388,15 @@ async def test_marker_number_increments():
     assert m1["marker_number"] == 1
     assert m2["marker_number"] == 2
 
+@pytest.mark.anyio
+async def test_update_marker_status_supported_values():
+    p = {"project_id": MOCK_PROJECT_ID, "anchor_kind": "manual", "title": "Status Test Pin"}
+    m = client.post(f"/sessions/{MOCK_SESSION_ID}/markers", json=p).json()
+    marker_id = m["id"]
+
+    for st in ["in_progress", "triaged", "dismissed", "resolved", "open"]:
+        resp = client.patch(f"/markers/{marker_id}", json={"status": st})
+        assert resp.status_code == 200
+        assert resp.json()["status"] == st
+
+

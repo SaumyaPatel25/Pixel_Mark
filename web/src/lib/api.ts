@@ -367,7 +367,7 @@ export const api = {
       }))
     },
     async getAnalytics(id: string): Promise<any> {
-      return apiQueue.enqueueRead('Loading analytics...', () => request(`/projects/${id}/analytics`))
+      return apiQueue.enqueueRead('Loading analytics...', () => request(`/projects/${id}/analytics`), `project-analytics-${id}`)
     },
     async update(id: string, data: Partial<Project>): Promise<Project> {
       return apiQueue.enqueueWrite('Updating project...', () => request(`/projects/${id}`, {
@@ -722,12 +722,22 @@ export const api = {
       return apiQueue.enqueueWrite('Resolving comment...', () => request(`/markers/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ status: 'resolved' }),
-      }))
+      })).catch((err) => {
+        if (err?.status === 404 || (err?.message && (err.message.includes('404') || err.message.includes('Marker not found')))) {
+          return undefined
+        }
+        throw err
+      })
     },
     async delete(id: string): Promise<void> {
       return apiQueue.enqueueWrite('Deleting comment...', () => request(`/markers/${id}`, {
         method: 'DELETE',
-      }))
+      })).catch((err) => {
+        if (err?.status === 404 || (err?.message && (err.message.includes('404') || err.message.includes('Marker not found')))) {
+          return undefined
+        }
+        throw err
+      })
     },
   },
 

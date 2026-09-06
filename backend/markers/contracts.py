@@ -20,7 +20,14 @@ class CreatorRole(str, Enum):
 
 class MarkerStatus(str, Enum):
     OPEN = "open"
+    TRIAGED = "triaged"
+    IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
+    DISMISSED = "dismissed"
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    FAILED = "failed"
+    ARCHIVED = "archived"
 
 class MarkerPriority(str, Enum):
     CRITICAL = "critical"

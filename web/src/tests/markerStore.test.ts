@@ -284,3 +284,83 @@ describe('MarkerStore: Derived Selectors', () => {
     expect(grouped['https://google.com'].markers.map(m => m.id)).toEqual(['m1', 'm2'])
   })
 })
+
+describe('MarkerStore: Graceful 404 Marker handling', () => {
+  const ApiErrorClass = class extends Error {
+    status: number
+    constructor(message: string, status: number) {
+      super(message)
+      this.status = status
+    }
+  }
+
+  beforeEach(() => {
+    const m1 = mockMarker({ id: 'm404-1', title: 'Stale Marker 1' })
+    const m2 = mockMarker({ id: 'm404-2', title: 'Stale Marker 2' })
+    useMarkerStore.setState({
+      markersById: { 'm404-1': m1, 'm404-2': m2 },
+      orderedMarkerIds: ['m404-1', 'm404-2'],
+      selectedMarkerId: 'm404-1',
+      currentSessionId: 'test-session',
+    })
+  })
+
+  it('handles 404 gracefully in updateMarkerViaApi without throwing', async () => {
+    const { api } = await import('@/lib/api')
+    const originalUpdate = api.markers.update
+    api.markers.update = async () => {
+      throw new ApiErrorClass('Marker not found', 404)
+    }
+
+    try {
+      await expect(
+        useMarkerStore.getState().updateMarkerViaApi('m404-1', { title: 'Updated' })
+      ).resolves.toBeDefined()
+
+      const state = useMarkerStore.getState()
+      expect(state.orderedMarkerIds).not.toContain('m404-1')
+      expect(state.selectedMarkerId).toBeNull()
+    } finally {
+      api.markers.update = originalUpdate
+    }
+  })
+
+  it('handles 404 gracefully in moveMarkerViaApi without throwing', async () => {
+    const { api } = await import('@/lib/api')
+    const originalPatch = api.markers.patchPosition
+    api.markers.patchPosition = async () => {
+      throw new ApiErrorClass('Marker not found', 404)
+    }
+
+    try {
+      await expect(
+        useMarkerStore.getState().moveMarkerViaApi('m404-2', { viewport_x: 500 })
+      ).resolves.toBeDefined()
+
+      const state = useMarkerStore.getState()
+      expect(state.orderedMarkerIds).not.toContain('m404-2')
+    } finally {
+      api.markers.patchPosition = originalPatch
+    }
+  })
+
+  it('handles 404 gracefully in deleteMarkerViaApi without throwing', async () => {
+    const { api } = await import('@/lib/api')
+    const originalDelete = api.markers.delete
+    api.markers.delete = async () => {
+      throw new ApiErrorClass('Marker not found', 404)
+    }
+
+    try {
+      await expect(
+        useMarkerStore.getState().deleteMarkerViaApi('m404-1')
+      ).resolves.toBeUndefined()
+
+      const state = useMarkerStore.getState()
+      expect(state.orderedMarkerIds).not.toContain('m404-1')
+      expect(state.selectedMarkerId).toBeNull()
+    } finally {
+      api.markers.delete = originalDelete
+    }
+  })
+})

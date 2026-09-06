@@ -31,7 +31,7 @@ import { StylePanel } from '@/components/edit/StylePanel'
 import { useUndoRedoStore } from '@/store/undoRedoStore'
 import { MarkerPinLayer } from '@/components/audit/MarkerPinLayer'
 import { useMarkerStore } from '@/store/markerStore'
-import { useSessionSocket } from '@/lib/useSessionSocket'
+import { useSessionSocket } from '@/hooks/useSessionSocket'
 import { ActorContext, canCurrentActorMutateMarker } from '@/lib/permissions'
 import { ReviewerIdentity } from '@/types/markers'
 import { DrawingCanvas } from './DrawingCanvas'
@@ -119,13 +119,14 @@ interface CaptureContext {
   screenshotsource?: string | null
 
   // Viewport
-  viewport: { width: number; height: number }
+  viewport: { width: number; height: number; scrollX?: number; scrollY?: number; devicePixelRatio?: number }
   scroll_position: { x: number; y: number }
 
   // Diagnostics
   console_errors: any[]
   network_errors: any[]
   browser_info: any
+  device_pixel_ratio?: number | null
 
   // Meta
   issue_type_hint: IssueType
@@ -227,7 +228,14 @@ type CapturePayload = {
     height?: number | null
     scrollX?: number | null
     scrollY?: number | null
+    devicePixelRatio?: number | null
   } | null
+
+  // diagnostic/environment context
+  browser_info?: Record<string, any> | null
+  device_pixel_ratio?: number | null
+  console_errors?: any
+  network_errors?: any
 
   [key: string]: unknown
 }

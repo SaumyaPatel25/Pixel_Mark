@@ -149,60 +149,74 @@ export default function DashboardPage() {
   }, [])
 
   // Load all telemetry from the unified parallel fetching flow
+  // Core data fetching logic — extracted so it can be called with or without loading spinners
+  const fetchDashboardDataCore = async () => {
+    const storeProjects = useProjectStore.getState().projects
+    const projectsPromise = storeProjects.length === 0
+      ? fetchProjects()
+      : Promise.resolve()
+
+    // Use Promise.allSettled for resilient telemetry fetching
+    const [_, sessionsResult, summaryResult] = await Promise.allSettled([
+      projectsPromise,
+      api.getAllSessions(),
+      api.getDashboardSummary()
+    ])
+
+    const projectsList = useProjectStore.getState().projects
+    const sessionsList: any[] = sessionsResult.status === 'fulfilled' ? (sessionsResult.value || []) : []
+    const summary: any = summaryResult.status === 'fulfilled' ? summaryResult.value : null
+
+    setSessionsData(sessionsList)
+
+    // Calculate stats values using summary or fallback calculation
+    setStatsData({
+      totalProjects: summary?.total_projects ?? projectsList.length,
+      totalSessions: summary?.total_sessions ?? sessionsList.length,
+      openIssues: summary?.open_issues ?? 0
+    })
+
+    // Aggregate recent activities using sessions
+    const activities: any[] = []
+    sessionsList.forEach((s: any) => {
+      const foundProj = projectsList.find((p: any) => p.id === s.project_id)
+      const pName = foundProj?.name || 'Unknown Project'
+      activities.push({
+        id: `session-${s.id}`,
+        type: 'session',
+        projectName: pName,
+        date: s.created_at,
+        description: `Session started for ${pName}`
+      })
+    })
+
+    const sortedActivities = activities
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5)
+
+    setRecentActivityData(sortedActivities)
+  }
+
+  // Initial load — shows loading skeletons
   const fetchDashboardData = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const storeProjects = useProjectStore.getState().projects
-      const projectsPromise = storeProjects.length === 0
-        ? fetchProjects()
-        : Promise.resolve()
-
-      // Use Promise.allSettled for resilient telemetry fetching
-      const [_, sessionsResult, summaryResult] = await Promise.allSettled([
-        projectsPromise,
-        api.getAllSessions(),
-        api.getDashboardSummary()
-      ])
-
-      const projectsList = useProjectStore.getState().projects
-      const sessionsList: any[] = sessionsResult.status === 'fulfilled' ? (sessionsResult.value || []) : []
-      const summary: any = summaryResult.status === 'fulfilled' ? summaryResult.value : null
-
-      setSessionsData(sessionsList)
-
-      // Calculate stats values using summary or fallback calculation
-      setStatsData({
-        totalProjects: summary?.total_projects ?? projectsList.length,
-        totalSessions: summary?.total_sessions ?? sessionsList.length,
-        openIssues: summary?.open_issues ?? 0
-      })
-
-      // Aggregate recent activities using sessions
-      const activities: any[] = []
-      sessionsList.forEach((s: any) => {
-        const foundProj = projectsList.find((p: any) => p.id === s.project_id)
-        const pName = foundProj?.name || 'Unknown Project'
-        activities.push({
-          id: `session-${s.id}`,
-          type: 'session',
-          projectName: pName,
-          date: s.created_at,
-          description: `Session started for ${pName}`
-        })
-      })
-
-      const sortedActivities = activities
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 5)
-
-      setRecentActivityData(sortedActivities)
-
+      await fetchDashboardDataCore()
     } catch (err: any) {
       console.error('[Dashboard] Fetch error:', err)
       setError(err.message || 'Failed to fetch dashboard data.')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Silent background refresh — no loading spinners, no skeleton flash
+  const silentRefresh = async () => {
+    try {
+      await fetchDashboardDataCore()
+    } catch {
+      // Silent failures on background refresh — don't overwrite existing data
     }
   }
 
@@ -214,7 +228,34 @@ export default function DashboardPage() {
     fetchDashboardData().then(() => {
       if (!isCancelled) completeTask('dashboard_visit')
     })
-    return () => { isCancelled = true }
+
+    const handleRealtimeUpdate = (e?: any) => {
+      if (isCancelled) return
+      const projectId = e?.detail?.project_id
+      if (projectId) {
+        useProjectStore.getState().invalidateAnalytics(projectId)
+        useProjectStore.getState().fetchAnalytics(projectId, true).catch(() => {})
+      }
+      silentRefresh()
+    }
+
+    window.addEventListener('stage_realtime_event', handleRealtimeUpdate)
+
+    // Silently refresh analytics on background interval (60s instead of 15s)
+    const interval = setInterval(() => {
+      if (!isCancelled) {
+        useProjectStore.getState().projects.forEach(p => {
+          useProjectStore.getState().fetchAnalytics(p.id, true).catch(() => {})
+        })
+        silentRefresh()
+      }
+    }, 60000)
+
+    return () => { 
+      isCancelled = true
+      window.removeEventListener('stage_realtime_event', handleRealtimeUpdate)
+      clearInterval(interval)
+    }
   }, [mounted])
 
   const handleCreateProject = async (e: React.FormEvent) => {

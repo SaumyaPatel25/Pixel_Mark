@@ -70,6 +70,25 @@ class RedisBroadcaster:
         # Degraded fallback: just broadcast locally
         await realtime_manager.broadcast_to_session_local(session_id, event)
 
+    async def publish(self, channel: str, message: dict):
+        """
+        Publishes a message directly to a channel. Used for custom WebSocket frames like notification_dispatched.
+        """
+        redis = await self.get_redis()
+        payload_str = json.dumps(message) if not isinstance(message, str) else message
+        if redis:
+            try:
+                await redis.publish(channel, payload_str)
+                return
+            except (ConnectionError, TimeoutError) as e:
+                logger.warning(f"[WS-Redis] Publish to {channel} failed: {e}. Falling back to local broadcast.")
+                self.redis = None
+            except Exception as e:
+                logger.error(f"[WS-Redis] Publish error: {e}. Falling back to local broadcast.")
+
+        session_id = channel.replace("session:", "") if channel.startswith("session:") else channel
+        await realtime_manager.broadcast_to_session_local(session_id, message)
+
     def subscribe_to_session(self, session_id: str):
         if session_id in self._subscriptions:
             return # already subscribed locally

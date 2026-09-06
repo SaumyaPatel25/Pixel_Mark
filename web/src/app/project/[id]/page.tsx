@@ -20,19 +20,20 @@ import { ObservationDetails } from '@/components/audit/ObservationDetails'
 import { StageLoader } from '@/components/ui/StageLoader'
 
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
-import { useSessionSocket } from '@/lib/useSessionSocket'
+import { useSessionSocket } from '@/hooks/useSessionSocket'
 
 import { useScreenCapture } from '@/hooks/useScreenCapture'
 import { useViewportHeight } from '@/hooks/useViewportHeight'
 import { useProjectStore } from '@/store/projectStore'
 import { useRealtimeStore } from '@/store/realtimeStore'
 import { useMarkerStore } from '@/store/markerStore'
-
+import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUIStore } from '@/store/uiStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ThemeSegmentedControl } from '@/components/ThemeToggle'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 const API_BASE = getApiBaseUrl()
 const WS_BASE  = (process.env.NEXT_PUBLIC_WS_BASE  || '').replace(/\/$/, '')
@@ -250,6 +251,15 @@ function ProjectPageContent() {
         updateCursor(msg.tester_id, msg.x, msg.y, msg.name || msg.tester_name)
         break
 
+      case 'notification_dispatched': {
+        const payload = msg.data || msg
+        useNotificationStore.getState().addNotification(payload)
+        const actor = payload.actor_name ? `${payload.actor_name}: ` : ''
+        const title = payload.title || payload.event_type || 'New Notification'
+        useUIStore.getState().addToast(`${actor}${title}`, 'info')
+        break
+      }
+
       default:
         // Forward all other events (marker_created, marker_updated, marker_deleted,
         // session_snapshot, presence_updated, etc.) to the marker store handler.
@@ -448,6 +458,9 @@ function ProjectPageContent() {
           )}
 
 
+
+          {/* STAGE Real-Time Notifications Bell */}
+          <NotificationBell projectId={id} />
 
           {/* More Actions Dropdown Menu */}
           <div className="relative">

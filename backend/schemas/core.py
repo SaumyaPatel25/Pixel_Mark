@@ -92,6 +92,7 @@ class UserAIProviderConfigUpdate(BaseModel):
 class ProjectCreate(BaseModel):
     name: str
     url: Optional[str] = None
+    sla_config: Optional[Dict[str, Any]] = None
 
 class ProjectOut(BaseModel):
     id: str
@@ -99,6 +100,7 @@ class ProjectOut(BaseModel):
     url: Optional[str]
     created_at: datetime
     allow_reviewer_dom_edit: bool = True
+    sla_config: Optional[Dict[str, Any]] = None
     class Config: from_attributes = True
 
 # Sessions
@@ -246,6 +248,7 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
     allow_reviewer_dom_edit: Optional[bool] = None
+    sla_config: Optional[Dict[str, Any]] = None
 
 # Reviewer DOM Edit Suggestions
 class ReviewerDomEditSuggestionCreate(BaseModel):

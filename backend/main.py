@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from database import engine, Base
 import asyncio
 import logging
-from routes import auth, projects, sessions, proxy, export, websocket, canvas, shares, flags, screenshot, blueprint_ws, notifications, billing, invites, admin, redemption
+from routes import auth, projects, sessions, proxy, export, websocket, canvas, shares, flags, screenshot, blueprint_ws, notifications, billing, invites, admin, redemption, webhooks, notification_preferences, admin_notifications, marketing
 from routers.share_links import router as share_links_router
 from routers.review import router as review_router
 from routers.ai import router as ai_router
@@ -74,6 +74,26 @@ async def lifespan(app: FastAPI):
                         await conn.execute(text("ALTER TABLE projects ADD COLUMN allow_reviewer_dom_edit BOOLEAN DEFAULT 1;"))
                     except Exception:
                         pass
+                    try:
+                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN email_frequency VARCHAR DEFAULT 'digest_15m';"))
+                    except Exception:
+                        pass
+                    try:
+                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN notify_on_all_pins BOOLEAN DEFAULT 0;"))
+                    except Exception:
+                        pass
+                    try:
+                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN notify_on_assigned BOOLEAN DEFAULT 1;"))
+                    except Exception:
+                        pass
+                    try:
+                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN notify_on_mentions BOOLEAN DEFAULT 1;"))
+                    except Exception:
+                        pass
+                    try:
+                        await conn.execute(text("ALTER TABLE notification_preferences ADD COLUMN notify_on_status_change BOOLEAN DEFAULT 1;"))
+                    except Exception:
+                        pass
                 else:
                     await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS past_due_since TIMESTAMPTZ;"))
                     await conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';"))
@@ -97,11 +117,27 @@ async def lifespan(app: FastAPI):
         follow_redirects=True,
         timeout=httpx.Timeout(15.0, connect=5.0)
     )
-    app.state.http_client = http_client
+    # Initialize notification outbox background dispatcher worker
+    from services.notification_dispatcher import run_notification_dispatcher, stop_notification_dispatcher
+    dispatcher_task = asyncio.create_task(run_notification_dispatcher())
+    app.state.notification_dispatcher_task = dispatcher_task
+
+    # Initialize SLA enforcement background daemon
+    from services.sla_daemon import run_sla_daemon, stop_sla_daemon
+    sla_daemon_task = asyncio.create_task(run_sla_daemon())
+    app.state.sla_daemon_task = sla_daemon_task
 
     try:
         yield
     finally:
+        stop_notification_dispatcher()
+        dispatcher_task.cancel()
+        stop_sla_daemon()
+        sla_daemon_task.cancel()
+        try:
+            await asyncio.gather(dispatcher_task, sla_daemon_task, return_exceptions=True)
+        except Exception:
+            pass
         await http_client.aclose()
 
 app = FastAPI(
@@ -151,7 +187,7 @@ async def proxy_fallback_middleware(request: Request, call_next):
     reserved_prefixes = (
         "/auth", "/projects", "/sessions", "/markers", "/canvas", "/shares", 
         "/proxy", "/export", "/websocket", "/health", "/metrics", "/static", "/docs", "/openapi.json",
-        "/share-links", "/review", "/ai", "/waitlist", "/settings", "/notifications", "/billing", "/api"
+        "/share-links", "/review", "/ai", "/waitlist", "/settings", "/notifications", "/billing", "/api", "/marketing"
     )
     is_reserved = any(path.startswith(prefix) for prefix in reserved_prefixes)
     
@@ -422,11 +458,17 @@ app.include_router(settings_router)
 app.include_router(markers_router)
 app.include_router(realtime_router)
 app.include_router(blueprint_ws.router)
+app.include_router(notification_preferences.router)
 app.include_router(notifications.router)
 app.include_router(billing.router)
 app.include_router(invites.router)
 app.include_router(admin.router)
 app.include_router(redemption.router)
+app.include_router(webhooks.router)
+app.include_router(admin_notifications.router)
+app.include_router(marketing.router)
+
+
 
 @app.get("/health")
 @app.get("/api/v1/health")

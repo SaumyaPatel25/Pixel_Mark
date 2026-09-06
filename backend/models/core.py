@@ -1,4 +1,5 @@
 from sqlalchemy import String, Text, Integer, ForeignKey, DateTime, Boolean, JSON, Enum as SAEnum, UniqueConstraint, Index
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from typing import Optional, Dict, Any, List
@@ -130,6 +131,11 @@ class Project(Base):
     frames: Mapped[list["CanvasFrame"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     flows: Mapped[list["CanvasFlow"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     allow_reviewer_dom_edit: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
+    sla_config: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"),
+        nullable=True,
+        default=lambda: {"critical_hours": 24, "high_hours": 48}
+    )
 
 class CanvasFrame(Base):
     __tablename__ = "canvas_frames"
@@ -478,40 +484,19 @@ class NotificationEventModel(Base):
     delivered_digest_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class NotificationPreferencesModel(Base):
-    __tablename__ = "notification_preferences"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    project_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
-    in_app_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    email_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    digest_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    allow_blueprint_events: Mapped[bool] = mapped_column(Boolean, default=True)
-    allow_session_events: Mapped[bool] = mapped_column(Boolean, default=True)
-    allow_critical: Mapped[bool] = mapped_column(Boolean, default=True)
-    allow_important: Mapped[bool] = mapped_column(Boolean, default=True)
-    allow_digest: Mapped[bool] = mapped_column(Boolean, default=True)
-    quiet_hours_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+from .notifications import (
+    NotificationOutbox,
+    NotificationPreference,
+    NotificationPreferencesModel
+)
 
 
-class NotificationDeliveryAttemptModel(Base):
-    __tablename__ = "notification_delivery_attempts"
+try:
+    from models.notifications import NotificationDeliveryAttempt, NotificationDeliveryAttemptModel
+except ImportError:
+    from backend.models.notifications import NotificationDeliveryAttempt, NotificationDeliveryAttemptModel
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    notification_event_id: Mapped[str] = mapped_column(ForeignKey("notification_events.id", ondelete="CASCADE"), nullable=False, index=True)
-    channel: Mapped[str] = mapped_column(String, nullable=False, default="email")  # in_app | email | digest_email
-    status: Mapped[str] = mapped_column(String, nullable=False, default="queued", index=True)  # queued | sent | failed | retrying | dead_letter
-    attempt_number: Mapped[int] = mapped_column(Integer, default=1)
-    provider_message_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    error_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    next_retry_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
-    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
-    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    sent_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
 
 
 class SubscriptionModel(Base):
@@ -603,6 +588,13 @@ class RedemptionCodeUseModel(Base):
     redeemed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     previous_plan: Mapped[str] = mapped_column(String, nullable=False)
     new_plan: Mapped[str] = mapped_column(String, nullable=False)
+
+
+try:
+    from models.webhooks import WebhookEndpoint
+except ImportError:
+    from backend.models.webhooks import WebhookEndpoint
+
 
 
 
