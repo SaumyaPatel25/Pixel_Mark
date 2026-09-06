@@ -21,7 +21,7 @@ export default function ProductPageClient() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--pm-bg)] text-[var(--pm-text)] selection:bg-[#253B80]/30 selection:text-[#1D264F] font-sans overflow-x-hidden scroll-smooth transition-colors duration-300">
+    <div className="relative min-h-screen bg-[var(--pm-bg)] text-[var(--pm-text)] selection:bg-[#253B80]/30 selection:text-[#1D264F] font-sans overflow-x-hidden scroll-smooth transition-colors duration-300" style={{ zoom: 0.9 }}>
       {/* Senior Motion Graphics Dynamic Background */}
       <MarketingMotionBackground />
 

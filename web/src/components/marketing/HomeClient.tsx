@@ -92,6 +92,7 @@ export default function HomeClient() {
   return (
     <div
       className="homepage-root relative min-h-screen bg-[var(--pm-bg)] text-pm-text selection:bg-[#253B80]/30 selection:text-[#1D264F] font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
+      style={{ zoom: 0.9 }}
     >
       <SplineBackground hoveredPosition={hoveredPosition} isHeroTextComplete={true} />
       
