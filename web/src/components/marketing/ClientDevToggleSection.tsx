@@ -96,17 +96,17 @@ export default function ClientDevToggleSection() {
             transition={{ duration: 0.25 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch"
           >
-            {/* Card 1: What You Get */}
+            {/* Card 1: Pain Points & Solution */}
             <div className="rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm dark:shadow-none flex flex-col justify-between hover:border-indigo-500/40 transition-colors">
               <div>
                 <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-5">
                   <Zap className="w-6 h-6" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-2">
-                  What you do in STAGE
+                  Client Pain Points & Solves
                 </h3>
                 <p className="text-slate-600 dark:text-slate-300 text-xs sm:text-sm mb-6">
-                  Zero setup. No software to download. Just open a link, point at what you want changed, and click.
+                  No IT permission requests, no software downloads, and no complex developer tools. Just open a link and point.
                 </p>
 
                 <div className="space-y-4">
@@ -114,10 +114,10 @@ export default function ClientDevToggleSection() {
                     <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
                     <div>
                       <div className="text-sm font-semibold text-slate-900 dark:text-slate-200">
-                        Click anywhere to leave a note
+                        Pain: "I don't know how to explain what's broken"
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Point right at the image, text, or button. Type what you want changed right on top of it.
+                        Solve: Click directly on the image, text, or button and type your note right on top of the live page.
                       </div>
                     </div>
                   </div>
@@ -126,10 +126,10 @@ export default function ClientDevToggleSection() {
                     <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
                     <div>
                       <div className="text-sm font-semibold text-slate-900 dark:text-slate-200">
-                        No downloads or accounts needed
+                        Pain: "IT blocks browser plugins and downloads"
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Works in any browser (Chrome, Safari, iPhone, Android). No browser extensions required.
+                        Solve: STAGE runs natively in any browser (Chrome, Safari, iOS, Android) without extensions or account setup.
                       </div>
                     </div>
                   </div>
@@ -138,10 +138,10 @@ export default function ClientDevToggleSection() {
                     <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
                     <div>
                       <div className="text-sm font-semibold text-slate-900 dark:text-slate-200">
-                        Watch fixes happen live
+                        Pain: "My feedback gets lost in email threads"
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Pins turn from "Open" to "Fixed" in real-time as developers work.
+                        Solve: Watch pins change from "Open" to "Fixed" live as developers complete updates.
                       </div>
                     </div>
                   </div>
@@ -150,10 +150,10 @@ export default function ClientDevToggleSection() {
 
               <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
                 <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-1">
-                  What it is best for
+                  Primary Benefit
                 </span>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Clients and founders who want fast changes without learning Jira, GitHub, or developer terminology.
+                  Clients give instant, accurate feedback without taking smartphone photos of their laptop screens.
                 </p>
               </div>
             </div>
@@ -265,17 +265,17 @@ export default function ClientDevToggleSection() {
             transition={{ duration: 0.25 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch"
           >
-            {/* Dev Card 1: What Developers Get */}
+            {/* Dev Card 1: Developer Pain Points & Solves */}
             <div className="rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm dark:shadow-none flex flex-col justify-between hover:border-purple-500/40 transition-colors">
               <div>
                 <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400 mb-5">
                   <Code2 className="w-6 h-6" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-2">
-                  What developers get
+                  Developer Pain Points & Solves
                 </h3>
                 <p className="text-slate-600 dark:text-slate-300 text-xs sm:text-sm mb-6">
-                  Every client pin automatically collects the technical context you need to fix the bug in seconds.
+                  Stop asking "what browser were you on?" or spending 4 hours reproducing vague layout bugs.
                 </p>
 
                 <div className="space-y-4">
@@ -283,10 +283,10 @@ export default function ClientDevToggleSection() {
                     <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
                     <div>
                       <div className="text-sm font-semibold text-slate-900 dark:text-slate-200">
-                        Exact CSS selector & styles
+                        Pain: "Cannot reproduce — missing browser/screen info"
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Inspect the HTML element, margins, paddings, and font rules with one click.
+                        Solve: Every pin auto-captures viewport width, device type, OS, browser version, and console errors.
                       </div>
                     </div>
                   </div>
@@ -295,10 +295,10 @@ export default function ClientDevToggleSection() {
                     <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
                     <div>
                       <div className="text-sm font-semibold text-slate-900 dark:text-slate-200">
-                        Exact screen size & device info
+                        Pain: "Where is this element in the DOM tree?"
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Viewport width, device type, browser version, and console errors captured automatically.
+                        Solve: STAGE extracts exact sub-pixel CSS selectors, XPath, computed styles, and 3D WebGL coordinates.
                       </div>
                     </div>
                   </div>
@@ -307,10 +307,10 @@ export default function ClientDevToggleSection() {
                     <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
                     <div>
                       <div className="text-sm font-semibold text-slate-900 dark:text-slate-200">
-                        1-Click Linear & GitHub export
+                        Pain: "Scattered tickets across Slack & Loom"
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Turn visual pins directly into bug tickets with deep links back to the exact page element.
+                        Solve: 1-click export to GitHub & Linear with deep links back to the live page element.
                       </div>
                     </div>
                   </div>
@@ -319,10 +319,10 @@ export default function ClientDevToggleSection() {
 
               <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
                 <span className="text-xs font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-1">
-                  What it is best for
+                  Primary Benefit
                 </span>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Ending "cannot reproduce" rejections and stopping Slack messages asking for screen resolutions.
+                  Fix bugs in minutes with total technical context instead of playing the QA guessing game.
                 </p>
               </div>
             </div>
