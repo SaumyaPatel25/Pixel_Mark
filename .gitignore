@@ -1,8 +1,10 @@
-# --- OS Files ---
+# --- OS & Security Files ---
 .DS_Store
 Thumbs.db
 *.swp
 *.bak
+*.pem
+*.key
 
 # --- Next.js / Node ---
 web/node_modules/

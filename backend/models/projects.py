@@ -12,9 +12,11 @@ from sqlalchemy.types import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 
 try:
-    from backend.models.core import Project, ProjectModel, Environment, CanvasFrame, CanvasFlow
+    from backend.models.core import Project, Environment, CanvasFrame, CanvasFlow
+    ProjectModel = Project
 except ImportError:
-    from models.core import Project, ProjectModel, Environment, CanvasFrame, CanvasFlow
+    from models.core import Project, Environment, CanvasFrame, CanvasFlow
+    ProjectModel = Project
 
 __all__ = [
     "Project",

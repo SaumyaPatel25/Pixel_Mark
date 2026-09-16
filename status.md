@@ -20,9 +20,12 @@ A file-by-file audit and directory reorganization has been completed across the 
 - **Frontend**: Next.js 16.2.2 (Turbopack, App Router, React 19, Tailwind CSS v4, Lucide React).
   - Production build: `39 routes` (Static pre-rendered + Dynamic server-rendered via Edge/Node runtimes).
   - Base Directory: `web/` (Source in `web/src/`).
-- **Backend**: FastAPI 0.115+ running on Python 3.11 with asynchronous ASGI event loop.
-  - Server runner: Uvicorn (`backend.main:app`) on port `8765`.
-  - Database: PostgreSQL on Neon Serverless (pgbouncer pool mode) via `asyncpg` + SQLAlchemy 2.0 async engine (`pool_pre_ping=True`, `statement_cache_size=0`).
+- **Backend & Database Infrastructure**: Oracle Cloud Infrastructure (OCI) Always Free Tier (ap-mumbai-1).
+  - Hardware: Ampere A1.Flex ARM64 (2 OCPUs, 12 GB RAM, 200 GB NVMe Storage).
+  - Container Stack: Docker Compose (`docker-compose.oracle.yml`).
+  - Database: Production PostgreSQL 16 (4GB shared_buffers, 12GB effective_cache_size) via `asyncpg` + SQLAlchemy 2.0 async engine.
+  - Cache & PubSub: Redis 7.
+  - Proxy & SSL: Nginx Reverse Proxy with Let's Encrypt TLS 1.2/1.3 SSL (`https://130.210.12.40.sslip.io`).
   - Base Directory: `backend/`.
 - **Fullstack Runner**: `run_app.py` in root orchestrates both Uvicorn and Next.js dev server with process group termination (`taskkill /F /T`).
 
@@ -241,4 +244,47 @@ All 20 stores follow modular single-responsibility design:
 - **Core Architecture Specs**: 7 detailed documents in `docs/` (`architecture.md`, `system-design.md`, `api.md`, `db.md`, `logic.md`, `memory.md`, `tech-stack.md`).
 - **Platform Onboarding**: Upgraded production **`README.md`**.
 - **System Health**: Backend Python modules compile with zero errors; Next.js 16 production build compiles with **0 errors** across all 39 static and dynamic routes.
+
+---
+
+## 7. Advanced Blueprint & Real-Time Expansions
+
+### 7.1 WebRTC & Yjs Vector Canvas
+- **[2026-09-12] WebRTC & Yjs Vector Canvas - In Progress**
+- **[2026-09-12] WebRTC & Yjs Vector Canvas - Complete**
+  - Added: `backend/routes/rtc.py` (LiveKit Auth API `POST /workspaces/{id}/call/token`)
+  - Changed: `web/src/store/yjsStore.ts` (CRDT raw `[x, y, pressure]` coordinate sync)
+  - Changed: `web/src/components/canvas/VectorOverlay.tsx` (GPU-executed `perfect-freehand` local SVG rendering)
+
+### 7.2 Unified Developer Board (Gmail & GitHub Ingestion)
+- **[2026-09-12] Unified Developer Board (Gmail/GitHub) - In Progress**
+- **[2026-09-12] Unified Developer Board (Gmail/GitHub) - Complete**
+  - Added: `backend/models/board.py` (`UnifiedBoardItem` schema)
+  - Added: `backend/routes/webhooks_github.py` (HMAC-SHA256 verified `POST /api/webhooks/github` ingress)
+  - Added: `backend/services/gmail_sync.py` (5-minute delta polling via `users.history.list`)
+
+### 7.3 Ephemeral Workspace Lifecycle (10-Day Purge)
+- **[2026-09-12] 10-Day Ephemeral Lifecycle Purge - In Progress**
+- **[2026-09-12] 10-Day Ephemeral Lifecycle Purge - Complete**
+  - Added: `backend/middleware/activity_tracker.py` (Redis 15-minute debounced access tracking `workspace:access:{id}`)
+  - Added: `backend/services/lifecycle_daemon.py` (S3 `DeleteObjects` 1000-chunk batch deletion + PostgreSQL `CASCADE` purge + 8-day warning dispatcher)
+
+### 7.4 Visual Code-Synchronization Engine (Figma, AST & GitHub)
+- **[2026-09-12] Visual Code-Synchronization Engine - In Progress**
+- **[2026-09-12] Visual Code-Synchronization Engine - Complete**
+  - Added: `models/integrations.py` & `routes/integrations_figma.py` (AES Encrypted OAuth & Figma Canvas Mapping)
+  - Added: `services/ast_engine.py` (BeautifulSoup HTML/Liquid DOM-to-Source mutating bridge)
+  - Added: `services/github_sync.py` (Atomic GraphQL `createCommitOnBranch` pushing)
+
+### 7.5 Code-Synchronization & Integration Test Suite
+- **[2026-09-12] Backend AST & Code-Sync Tests - In Progress**
+- **[2026-09-12] Backend AST & Code-Sync Tests - Complete**
+  - Added: `backend/tests/integration/test_ast_engine.py` (AST Liquid/HTML preservation & mutation test suite)
+  - Added: `backend/tests/integration/test_external_sync.py` (Figma bounding box & GitHub GraphQL atomic commit mocks)
+- **[2026-09-12] Playwright E2E Code-Sync Tests - In Progress**
+- **[2026-09-12] Playwright E2E Code-Sync Tests - Complete**
+  - Added: `web/tests/e2e/blueprint-integrations.spec.ts` (E2E Figma import, AST visual mutation & GitHub sync specs)
+
+
+
 

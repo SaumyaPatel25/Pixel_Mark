@@ -1,8 +1,8 @@
 # STAGE Database Schema Specification
 
-This document provides the definitive data model specification for **STAGE**. The production database runs on **Neon PostgreSQL Serverless** (PostgreSQL 16) utilizing `asyncpg` with PgBouncer connection pooling.
+This document provides the definitive data model specification for **STAGE**. The production database runs on **Oracle Cloud Infrastructure (OCI) PostgreSQL 16 Container Stack** (Ampere A1.Flex ARM64, 2 OCPUs, 12GB RAM, 4GB shared buffers) utilizing `asyncpg` with direct SQLAlchemy 2.0 async engine.
 
-> **Historical Architecture Note**: Early platform prototypes utilized Supabase client libraries. The production data layer has been fully migrated to Neon PostgreSQL with direct SQLAlchemy 2.0 async engine and Alembic migrations. All legacy Supabase artifacts in the frontend are deprecated stubs.
+> **Infrastructure Architecture Note**: The platform migrated from Neon PostgreSQL Serverless & Render to a dedicated high-performance **Oracle Cloud Infrastructure Always Free Bare-Metal Stack** (`130.210.12.40.sslip.io`). Database performance is tuned for 4GB shared buffers with 0 rate limits and 100% data parity across all 42 tables.
 
 ---
 

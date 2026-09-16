@@ -36,6 +36,21 @@ if "sslmode=" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.split("?")[0]
 
 if DATABASE_URL.startswith("postgresql+asyncpg://"):
+    # Enable SSL for Neon Cloud DB, or when DB_SSL is explicitly set to true
+    db_ssl_env = os.getenv("DB_SSL", "").lower()
+    if db_ssl_env in ("true", "1", "t", "require"):
+        use_ssl = True
+    elif db_ssl_env in ("false", "0", "f", "disable"):
+        use_ssl = False
+    else:
+        use_ssl = "neon.tech" in DATABASE_URL
+
+    connect_args = {
+        "ssl": use_ssl,
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+        "command_timeout": 15,
+    }
     engine = create_async_engine(
         DATABASE_URL,
         echo=False,
@@ -44,12 +59,7 @@ if DATABASE_URL.startswith("postgresql+asyncpg://"):
         max_overflow=20,
         pool_recycle=300,
         pool_timeout=15,
-        connect_args={
-            "ssl": True,
-            "statement_cache_size": 0,
-            "prepared_statement_cache_size": 0,
-            "command_timeout": 15,
-        },
+        connect_args=connect_args,
     )
 else:
     engine = create_async_engine(DATABASE_URL, echo=False)

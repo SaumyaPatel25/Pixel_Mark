@@ -209,7 +209,7 @@ export function BlueprintInspector() {
   return (
     <div 
       ref={containerRef}
-      className="w-80 bg-[#0d1322] border-l border-slate-800 flex flex-col text-slate-200 select-none z-10 shrink-0 shadow-2xl transition-all duration-200 ease-in-out"
+      className="h-full w-80 bg-[#0d1322] border-l border-slate-800 flex flex-col text-slate-200 select-none z-20 shrink-0 shadow-2xl transition-all duration-200 ease-in-out"
     >
       <aside className="w-full h-full flex flex-col">
       {/* Inspector Header */}

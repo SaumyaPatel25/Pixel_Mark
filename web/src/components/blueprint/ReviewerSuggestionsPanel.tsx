@@ -69,7 +69,7 @@ export function ReviewerSuggestionsPanel({ projectId }: ReviewerSuggestionsPanel
   const resolved = suggestions.filter(s => s.status !== 'pending')
 
   return (
-    <aside className="w-80 bg-slate-950 border-r border-slate-800 flex flex-col h-full text-slate-100 z-10 shrink-0">
+    <aside className="w-80 bg-slate-950 border-l border-slate-800 flex flex-col h-full text-slate-100 z-20 shrink-0">
       <div className="p-4 border-b border-slate-800 flex items-center justify-between">
         <div>
           <h2 className="text-sm font-black uppercase tracking-wider text-cyan-400">Reviewer Suggestions</h2>

@@ -215,9 +215,9 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
   const currentFrame = frames.find((f) => f.id === selectedFrameId)
 
   return (
-    <header className="h-14 bg-[#0d1322] border-b border-cyan-950/60 px-4 flex items-center justify-between text-slate-200 select-none z-20 shrink-0">
+    <header className="h-14 bg-[#0d1322] border-b border-cyan-950/60 px-3 flex items-center justify-between text-slate-200 select-none z-30 shrink-0 gap-2 overflow-x-auto no-scrollbar">
       {/* Left section: Navigation & Frame switcher */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 shrink-0">
         <Link
           href={`/project/${projectId}`}
           className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors focus:ring-2 focus:ring-cyan-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-slate-950"
@@ -270,7 +270,7 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
       </div>
 
       {/* Center section: Blueprint Tool selection */}
-      <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+      <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 shrink-0">
         <ToolButton
           tool="select"
           activeTool={activeTool}
@@ -340,7 +340,7 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
       </div>
 
       {/* Right section: Presence, Viewport controls, Preview, Save status, Share */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 shrink-0">
         {/* STAGE Multi-User Presence Stack */}
         <BlueprintPresenceStack />
 
