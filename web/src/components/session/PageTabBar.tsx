@@ -116,7 +116,7 @@ export default function PageTabBar({
 
   if (visits.length === 0 && isLoading) {
     return (
-      <div className="h-10 bg-[#0d0d14]/80 border-b border-white/5 flex items-center justify-center">
+      <div className="hidden md:flex h-10 bg-[#0d0d14]/80 border-b border-white/5 items-center justify-center">
         <span className="text-[10px] uppercase font-black tracking-widest text-white/20 animate-pulse">
           Synchronizing session pages...
         </span>
@@ -125,39 +125,42 @@ export default function PageTabBar({
   }
 
   return (
-    <div className="h-11 bg-[#09090d] border-b border-white/[0.04] flex items-center px-4 justify-between select-none relative z-30">
+    <div className={cn(
+      "bg-[#09090d] border-b border-white/[0.04] items-center justify-between select-none relative z-30 transition-all",
+      visits.length <= 1 ? "hidden md:flex h-11 px-4" : "flex h-8 md:h-11 px-2 md:px-4"
+    )}>
       
       {/* History controls */}
-      <div className="flex items-center gap-1 flex-shrink-0 mr-4">
+      <div className="flex items-center gap-1 flex-shrink-0 mr-2 md:mr-4">
         <button
           onClick={handlePrev}
           disabled={!canGoBack}
           aria-label="Previous visited page"
           className={cn(
-            "w-7 h-7 rounded-lg flex items-center justify-center transition-all",
+            "w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center transition-all",
             canGoBack 
               ? "text-white/70 hover:bg-white/5 hover:text-white" 
               : "text-white/10 cursor-not-allowed"
           )}
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-3.5 h-3.5 md:w-4 md:h-4" />
         </button>
         <button
           onClick={handleNext}
           disabled={!canGoForward}
           aria-label="Next visited page"
           className={cn(
-            "w-7 h-7 rounded-lg flex items-center justify-center transition-all",
+            "w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center transition-all",
             canGoForward 
               ? "text-white/70 hover:bg-white/5 hover:text-white" 
               : "text-white/10 cursor-not-allowed"
           )}
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
         </button>
       </div>
 
-      <div className="h-5 w-px bg-white/5 flex-shrink-0 mr-4" />
+      <div className="h-4 md:h-5 w-px bg-white/5 flex-shrink-0 mr-2 md:mr-4" />
 
       {/* Tabs Container */}
       <div className="flex-1 min-w-0 overflow-hidden relative flex items-center">
@@ -236,10 +239,10 @@ export default function PageTabBar({
         </button>
       </div>
 
-      <div className="h-5 w-px bg-white/5 flex-shrink-0 ml-4 mr-4" />
+      <div className="hidden md:block h-5 w-px bg-white/5 flex-shrink-0 ml-4 mr-4" />
 
-      {/* Stats Summary indicator */}
-      <div className="flex items-center gap-2 flex-shrink-0 text-white/80 text-[9px] font-black uppercase tracking-widest bg-white/[0.04] border border-white/10 px-3 py-1.5 rounded-lg">
+      {/* Stats Summary indicator (Desktop only) */}
+      <div className="hidden md:flex items-center gap-2 flex-shrink-0 text-white/80 text-[9px] font-black uppercase tracking-widest bg-white/[0.04] border border-white/10 px-3 py-1.5 rounded-lg">
         <Compass className="w-3.5 h-3.5 text-purple-400" />
         <span>Visited: {visits.length} pages</span>
       </div>

@@ -457,7 +457,7 @@ async def poll_and_buffer_pending_outbox(db: AsyncSession):
                 NotificationPreferencesModel.user_id == target_uid
             )
             pref_res = await db.execute(pref_stmt)
-            pref = pref_res.scalar_one_or_none()
+            pref = pref_res.scalars().first()
 
             # Check if user preference is digest_15m (default: digest_15m)
             if pref:
@@ -586,8 +586,8 @@ async def flush_expired_debounces(db: AsyncSession):
             # 5. Fetch session details
             sess_res = await db.execute(select(Session).where(Session.id == session_id))
             sess = sess_res.scalar_one_or_none()
-            session_title = sess.target_url if sess else "STAGE Review Session"
-            target_url = sess.target_url if sess else APP_URL
+            session_title = (sess.title if sess and sess.title else (sess.current_page_url if sess and sess.current_page_url else "STAGE Review Session"))
+            target_url = (sess.current_page_url if sess and sess.current_page_url else APP_URL)
             review_url = f"{APP_URL}/sessions/{session_id}"
 
             # 6. Compile aggregated email

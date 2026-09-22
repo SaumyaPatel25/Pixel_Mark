@@ -59,6 +59,7 @@ function ProjectPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const querySessionId = searchParams.get('session')
+  const queryMarkerId = searchParams.get('marker')
   const view = searchParams.get('view') || 'canvas'
 
   // Granular Stores
@@ -163,6 +164,18 @@ function ProjectPageContent() {
       }
     }
   }, [toggleCommandCenter, heavy_mode])
+
+  // Auto-focus and open observation details if marker is specified in URL redirect
+  useEffect(() => {
+    if (!queryMarkerId) return
+    const timer = setTimeout(() => {
+      useMarkerStore.getState().selectMarker(queryMarkerId)
+      if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+        toggleCommandCenter(true)
+      }
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [queryMarkerId, sessionId, toggleCommandCenter])
 
   // A11y Focus Management: shift focus to close button when opened, restore to trigger when closed
   useEffect(() => {
@@ -369,39 +382,39 @@ function ProjectPageContent() {
     >
       {/* Premium Navigation Header - Slim Adaptive Theme */}
       <header className={cn(
-        "border-b border-pm-border bg-pm-surface flex items-center justify-between px-4 md:px-6 z-45 relative gap-4 flex-shrink-0 shadow-sm transition-all duration-300",
-        isHeaderCollapsed ? "h-0 overflow-hidden border-b-0 py-0 opacity-0" : "h-14"
+        "border-b border-pm-border bg-pm-surface flex items-center justify-between px-2.5 sm:px-4 md:px-6 z-45 relative gap-2 sm:gap-4 flex-shrink-0 shadow-sm transition-all duration-300",
+        isHeaderCollapsed ? "h-0 overflow-hidden border-b-0 py-0 opacity-0" : "h-10 sm:h-12 md:h-14"
       )}>
-        <div className="flex items-center gap-4 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <button 
             onClick={() => router.push('/dashboard')}
-            className="w-9 h-9 rounded-xl flex items-center justify-center border border-pm-border bg-pm-surface text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all flex-shrink-0 cursor-pointer shadow-sm"
+            className="w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center border border-pm-border bg-pm-surface text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all flex-shrink-0 cursor-pointer shadow-sm"
             title="Return to Dashboard"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
           
-          <div className="h-8 w-[1px] bg-pm-border hidden sm:block flex-shrink-0" />
+          <div className="h-6 sm:h-8 w-[1px] bg-pm-border hidden sm:block flex-shrink-0" />
           
-          <div className="min-w-0 flex items-center gap-4">
+          <div className="min-w-0 flex items-center gap-2 sm:gap-4">
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm font-extrabold tracking-tight text-pm-text truncate max-w-[150px] sm:max-w-xs">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h1 className="text-xs sm:text-sm font-extrabold tracking-tight text-pm-text truncate max-w-[110px] sm:max-w-xs">
                   {currentProject?.name}
                 </h1>
-                <span className="px-2 py-0.5 rounded-full border border-pm-border bg-pm-surface-2 text-pm-text text-[8px] font-black uppercase tracking-widest flex-shrink-0">
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full border border-pm-border bg-pm-surface-2 text-pm-text text-[8px] font-black uppercase tracking-widest flex-shrink-0">
                   Active Review
                 </span>
                 
                 {/* Live Sync connection indicator */}
-                <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 ml-1 sm:ml-2 flex-shrink-0">
                   <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-500 animate-pulse" : "bg-rose-500")} />
-                  <span className="text-[8.5px] font-mono font-black uppercase tracking-widest text-pm-muted">
+                  <span className="hidden sm:inline text-[8.5px] font-mono font-black uppercase tracking-widest text-pm-muted">
                     {connected ? 'Live Sync' : 'Offline'}
                   </span>
                 </div>
               </div>
-              <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 font-mono text-pm-muted truncate max-w-[150px] sm:max-w-xs">
+              <p className="hidden sm:block text-[9px] font-bold uppercase tracking-wider mt-0.5 font-mono text-pm-muted truncate max-w-[150px] sm:max-w-xs">
                 {currentProject?.url}
               </p>
             </div>
@@ -448,7 +461,7 @@ function ProjectPageContent() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 justify-end flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 justify-end flex-shrink-0">
           {/* Drop Pin Guide Label for Non-Technical Clients */}
           {view !== 'details' && (
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-pm-cyan/10 border border-pm-border text-pm-text text-[9.5px] font-black uppercase tracking-widest font-mono transition-colors duration-300">
@@ -457,8 +470,6 @@ function ProjectPageContent() {
             </div>
           )}
 
-
-
           {/* STAGE Real-Time Notifications Bell */}
           <NotificationBell projectId={id} />
 
@@ -466,10 +477,10 @@ function ProjectPageContent() {
           <div className="relative">
             <button
               onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-              className="h-9 px-3 rounded-xl border border-pm-border bg-pm-surface text-pm-muted font-bold text-xs uppercase tracking-wider hover:bg-pm-surface-2 flex items-center gap-1.5 focus:outline-none cursor-pointer transition-all shadow-sm"
+              className="h-7.5 sm:h-9 px-2.5 sm:px-3 rounded-xl border border-pm-border bg-pm-surface text-pm-muted font-bold text-[11px] sm:text-xs uppercase tracking-wider hover:bg-pm-surface-2 flex items-center gap-1 sm:gap-1.5 focus:outline-none cursor-pointer transition-all shadow-sm"
             >
               <span>Actions</span>
-              <ChevronDown className="w-3.5 h-3.5 text-pm-muted" />
+              <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-pm-muted" />
             </button>
             
             <AnimatePresence>
@@ -605,9 +616,9 @@ function ProjectPageContent() {
             </AnimatePresence>
           </div>
 
-          {/* Feedback Feed Drawer Toggle Button */}
+          {/* Feedback Feed Drawer Toggle Button (Desktop/Tablet only - mobile has Pins pill on bottom thumb bar) */}
           {view !== 'details' && (
-            <>
+            <div className="hidden md:flex items-center gap-3">
               <div className="h-6 w-[1px] bg-pm-border" />
               <button 
                 id="command-center-trigger"
@@ -630,7 +641,7 @@ function ProjectPageContent() {
                   </span>
                 )}
               </button>
-            </>
+            </div>
           )}
         </div>
       </header>
@@ -695,25 +706,25 @@ function ProjectPageContent() {
               
               {/* Interactive Proxy Board - Frame */}
               {proxyStatus === 'failed' ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-pm-bg animate-fade-in">
-                       <AlertCircle className="w-12 h-12 text-rose-500 mb-4 opacity-40" />
-                       <h3 className="text-pm-text font-black uppercase tracking-widest text-xs mb-2">Proxy Negotiation Failed</h3>
-                       <p className="text-[10px] text-pm-muted font-bold uppercase tracking-[0.2em] max-w-sm text-center">Security policies are blocking the iframe. Try switching pages or contact admin.</p>
-                       <Button 
-                        onClick={() => setProxyStatus('ok')}
-                        className="mt-6 rounded-full bg-pm-surface-2 border border-pm-border text-pm-text text-[9px] font-black uppercase hover:bg-pm-surface-3 transition-colors"
-                       >
-                          Retry Connection
-                       </Button>
-                    </div>
+                     <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-pm-surface border border-pm-border rounded-xl">
+                        <AlertCircle className="w-8 h-8 text-rose-500 mb-4 animate-bounce" />
+                        <h3 className="text-pm-text font-black uppercase tracking-widest text-xs mb-2">Proxy Negotiation Failed</h3>
+                        <p className="text-[10px] text-pm-muted font-bold uppercase tracking-[0.2em] max-w-sm text-center">Security policies are blocking the iframe. Try switching pages or contact admin.</p>
+                        <Button 
+                         onClick={() => setProxyStatus('ok')}
+                         className="mt-6 rounded-full bg-pm-surface-2 border border-pm-border text-pm-text text-[9px] font-black uppercase hover:bg-pm-surface-3 transition-colors"
+                        >
+                           Retry Connection
+                        </Button>
+                     </div>
               ) : (
                     <div className={cn(
                       "w-full h-full bg-pm-bg flex flex-col overflow-hidden transition-all duration-300",
-                      isHeaderCollapsed ? "p-0" : "p-2"
+                      isHeaderCollapsed ? "p-0" : "p-0 md:p-2"
                     )}>
-                      {/* Premium Device Frame Mockup Header */}
+                      {/* Premium Device Frame Mockup Header (Desktop only: hidden on mobile to maximize canvas space) */}
                       <div className={cn(
-                        "rounded-t-xl bg-pm-surface-2 border-t border-x border-pm-border flex items-center justify-between px-4 flex-shrink-0 relative shadow-sm transition-all duration-300",
+                        "rounded-t-xl bg-pm-surface-2 border-t border-x border-pm-border hidden md:flex items-center justify-between px-4 flex-shrink-0 relative shadow-sm transition-all duration-300",
                         isHeaderCollapsed ? "h-0 overflow-hidden border-t-0 py-0 opacity-0" : "h-7.5"
                       )}>
                         <div className="flex items-center gap-1">
@@ -734,7 +745,7 @@ function ProjectPageContent() {
                         "flex-1 relative bg-pm-surface-2 transition-all duration-300",
                         isHeaderCollapsed 
                           ? "border-none rounded-none shadow-none" 
-                          : "border-b border-x border-pm-border rounded-b-xl overflow-hidden shadow-md"
+                          : "border-b border-x border-pm-border rounded-none md:rounded-b-xl overflow-hidden shadow-md"
                       )}>
                         {sessionId ? (
                           <AuditSurface
@@ -774,7 +785,7 @@ function ProjectPageContent() {
             )}
         </AnimatePresence>
 
-        {/* Command Center Slider (Movable & Closable Floating Menu Panel) */}
+        {/* Command Center Slider (Bottom sheet on mobile, Movable & Closable floating menu on desktop) */}
         <AnimatePresence>
             {view !== 'details' && isCommandCenterOpen && (
                 <motion.div
@@ -782,21 +793,20 @@ function ProjectPageContent() {
                     role="dialog"
                     aria-label="Feedback Feed Stream"
                     aria-modal="true"
-                    drag
-                    dragMomentum={false}
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    drag={false}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 220 }}
                     className={cn(
-                      "bg-pm-surface/95 backdrop-blur-xl shadow-2xl flex flex-col flex-shrink-0 border border-pm-border rounded-3xl overflow-hidden select-none z-[9990]",
-                      // Floating draggable panel positioning across Focus & No-Focus Mode
-                      "fixed top-16 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[400px] h-[calc(100vh-5.5rem)] max-h-[820px]"
+                      "bg-pm-surface/95 backdrop-blur-xl shadow-2xl flex flex-col flex-shrink-0 border border-pm-border overflow-hidden select-none z-[9990]",
+                      // Mobile: bottom sheet (65dvh max), Desktop: floating panel
+                      "fixed inset-x-0 bottom-0 w-full h-[65dvh] max-h-[70dvh] rounded-t-3xl border-t border-pm-border md:inset-auto md:top-16 md:right-4 sm:md:right-6 md:w-[400px] md:h-[calc(100vh-5.5rem)] md:max-h-[820px] md:rounded-3xl"
                     )}
                 >
                     {/* Swipe bar for mobile bottom sheet */}
-                    <div className="w-full flex justify-center py-2 md:hidden cursor-grab active:cursor-grabbing" onClick={() => toggleCommandCenter()}>
-                      <div className="w-12 h-1 rounded-full bg-pm-muted/30 hover:bg-pm-muted/50 transition-colors" />
+                    <div className="w-full flex justify-center py-2.5 md:hidden cursor-grab active:cursor-grabbing" onClick={() => toggleCommandCenter(false)}>
+                      <div className="w-12 h-1 rounded-full bg-pm-muted/40 hover:bg-pm-muted/60 transition-colors" />
                     </div>
                     <FeedbackFeed sessionId={sessionId} />
                 </motion.div>

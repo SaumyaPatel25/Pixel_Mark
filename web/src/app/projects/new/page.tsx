@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/store/projectStore';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Plus, Globe, FileText, Layout, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Globe, FileText, Layout, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -109,6 +109,21 @@ export default function NewProject() {
                       onChange={(e) => setFormData({ ...formData, target_url: `https://${e.target.value}` })}
                     />
                   </div>
+                  {formData.target_url.replace('https://', '').replace('http://', '').trim() && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: 'auto' }}
+                      className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2"
+                    >
+                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-[10px] tracking-wider uppercase">Link Engine Security Lock</p>
+                        <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                          Please verify this link. Once the project is created, this target environment link cannot be changed afterwards.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 {/* Description */}

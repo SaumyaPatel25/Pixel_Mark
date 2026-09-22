@@ -263,12 +263,12 @@ async def run_sla_daemon(interval_seconds: int = SLA_CHECK_INTERVAL_SECONDS):
             async with AsyncSessionLocal() as db:
                 breaches = await enforce_pin_slas(db)
                 if breaches:
-                    logger.warning(f"🚨 [SLA Daemon] Injected {len(breaches)} SLA breach escalations.")
+                    logger.warning(f"[SLA Daemon] Injected {len(breaches)} SLA breach escalations.")
         except asyncio.CancelledError:
-            logger.info("🛑 [SLA Daemon] Received cancellation signal. Exiting loop.")
+            logger.info("[SLA Daemon] Received cancellation signal. Exiting loop.")
             break
         except Exception as exc:
-            logger.exception(f"❌ [SLA Daemon] Error during SLA scan iteration: {exc}")
+            logger.exception(f"[SLA Daemon] Error during SLA scan iteration: {exc}")
 
         try:
             await asyncio.sleep(interval_seconds)
@@ -276,7 +276,7 @@ async def run_sla_daemon(interval_seconds: int = SLA_CHECK_INTERVAL_SECONDS):
             break
 
     _daemon_running = False
-    logger.info("🛑 [SLA Daemon] SLA enforcement daemon stopped.")
+    logger.info("[SLA Daemon] SLA enforcement daemon stopped.")
 
 
 def stop_sla_daemon():

@@ -16,7 +16,8 @@ import {
   Compass, 
   ExternalLink,
   Filter,
-  Layers
+  Layers,
+  AlertCircle
 } from 'lucide-react'
 import SessionFeedbackSummary from '@/components/session/SessionFeedbackSummary'
 import { useOnboardingStore } from '@/store/onboardingStore'
@@ -464,6 +465,21 @@ function SessionsList() {
                       className="w-full bg-pm-bg border border-pm-border hover:border-pm-border-bright rounded-xl pl-11 pr-4 py-3 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent outline-none transition-all shadow-inner"
                     />
                   </div>
+                  {newSessionUrl.trim() && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: 'auto' }}
+                      className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2"
+                    >
+                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-[10px] tracking-wider uppercase">Link Engine Security Lock</p>
+                        <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                          Please verify this link. Once the session is launched, this link cannot be changed afterwards.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 <div className="flex gap-2.5 justify-end pt-4 border-t border-pm-border">

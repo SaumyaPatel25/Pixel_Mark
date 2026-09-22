@@ -15,6 +15,7 @@ import { useOnboardingStore } from '@/store/onboardingStore'
 import { useBillingStore } from '@/store/useBillingStore'
 import { useUIStore } from '@/store/uiStore'
 import { CrownDoodle } from '@/components/ui/CrownDoodle'
+import { cn } from '@/lib/utils'
 import { 
   Plus, 
   Folder, 
@@ -484,13 +485,15 @@ export default function DashboardPage() {
               label: 'Active Projects', 
               val: statsData.totalProjects, 
               icon: Folder, 
-              color: 'text-pm-accent bg-pm-accent-subtle border-pm-border' 
+              color: 'text-pm-accent bg-pm-accent-subtle border-pm-border',
+              href: '/projects'
             },
             { 
               label: 'Review Sessions', 
               val: statsData.totalSessions, 
               icon: Play, 
-              color: 'text-emerald-500 bg-emerald-500/[0.08] border-emerald-500/20' 
+              color: 'text-emerald-500 bg-emerald-500/[0.08] border-emerald-500/20',
+              href: '/sessions'
             },
             { 
               label: 'Waiting Issues', 
@@ -498,15 +501,23 @@ export default function DashboardPage() {
               icon: AlertCircle, 
               color: statsData.openIssues > 0 
                 ? 'text-rose-500 bg-rose-500/[0.08] border-rose-500/20' 
-                : 'text-pm-muted bg-pm-surface-2 border-pm-border'
+                : 'text-pm-muted bg-pm-surface-2 border-pm-border',
+              href: '/issues?status=open'
             }
           ].map((stat, i) => (
             <div 
               key={i} 
-              className="p-5 rounded-2xl bg-pm-surface border border-pm-border flex items-center justify-between shadow-sm transition-all duration-300"
+              onClick={() => stat.href && router.push(stat.href)}
+              className={cn(
+                "p-5 rounded-2xl bg-pm-surface border border-pm-border flex items-center justify-between shadow-sm transition-all duration-300",
+                stat.href && "cursor-pointer hover:border-pm-accent/50 hover:bg-pm-surface-2 hover:scale-[1.01] active:scale-[0.99] group"
+              )}
             >
               <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-pm-muted block">{stat.label}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-pm-muted block group-hover:text-pm-text transition-colors">{stat.label}</span>
+                  {stat.href && <ChevronRight className="w-3 h-3 text-pm-muted/40 group-hover:text-pm-accent group-hover:translate-x-0.5 transition-all" />}
+                </div>
                 {(projectsLoading || isLoading) ? (
                   <div className="h-8 w-12 bg-pm-surface-2 animate-pulse rounded-lg mt-1" />
                 ) : error ? (
@@ -517,7 +528,7 @@ export default function DashboardPage() {
                   </p>
                 )}
               </div>
-              <div className={`p-3 rounded-xl border ${stat.color}`}>
+              <div className={`p-3 rounded-xl border ${stat.color} group-hover:scale-105 transition-transform`}>
                 <stat.icon className="w-5 h-5" />
               </div>
             </div>
@@ -781,6 +792,22 @@ export default function DashboardPage() {
                       className="w-full bg-pm-bg border border-pm-border rounded-xl pl-11 pr-4 py-3 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent outline-none transition-all shadow-inner"
                     />
                   </div>
+                  {newProjectUrl.trim() && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: 'auto' }}
+                      exit={{ opacity: 0, y: -4, height: 0 }}
+                      className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2"
+                    >
+                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-[10px] tracking-wider uppercase">Link Engine Security Lock</p>
+                        <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                          Please verify this link. Once the project is initialized, this target link cannot be changed afterwards.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 {projectError && (
@@ -892,6 +919,22 @@ export default function DashboardPage() {
                       className="w-full bg-pm-bg border border-pm-border rounded-xl pl-11 pr-4 py-3 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent outline-none transition-all shadow-inner"
                     />
                   </div>
+                  {newSessionUrl.trim() && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: 'auto' }}
+                      exit={{ opacity: 0, y: -4, height: 0 }}
+                      className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2"
+                    >
+                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-[10px] tracking-wider uppercase">Link Engine Security Lock</p>
+                        <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                          Please verify this link. Once the review session is launched, this link cannot be changed afterwards.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
                   <span className="text-[9px] text-pm-muted block leading-normal pt-1 font-medium font-sans">Leave empty to fall back to the default project url.</span>
                 </div>
 

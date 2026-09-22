@@ -377,6 +377,30 @@ export function AuditSurface({
   const [degradedAssets, setDegradedAssets] = useState<{ url: string; tagName: string }[]>([])
   const [bootTimeout, setBootTimeout] = useState(false)
   const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
+  const [mobileDesktopMode, setMobileDesktopMode] = useState<'mobile' | 'desktop'>('mobile')
+  const [siteNotMobileOptimized, setSiteNotMobileOptimized] = useState<{
+    hasMetaViewport?: boolean
+    docScrollWidth?: number
+    innerWidth?: number
+    hasDesktopMinWidth?: boolean
+    ratio?: string
+  } | null>(null)
+  const [dismissedMobileWarning, setDismissedMobileWarning] = useState(false)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768
+      setIsMobileDevice(isMobile)
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth)
+      }
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Diagnostic log for readiness transitions
   useEffect(() => {
@@ -766,8 +790,9 @@ export function AuditSurface({
 
       // Upsert and get ID
       const payload = normalizeCapturePayload(regionCtx as unknown as CapturePayload, currentUrl, currentTitle)
-      // Upsert handled implicitly or wait until screenshot completes
-      useUIStore.getState().toggleCommandCenter(true)
+      if (!isMobileDevice) {
+        useUIStore.getState().toggleCommandCenter(true)
+      }
     }
 
     const captureId = id; // save for closure
@@ -1531,6 +1556,12 @@ export function AuditSurface({
           break;
         }
 
+        case 'STAGE_SITE_NOT_MOBILE_OPTIMIZED': {
+          console.warn('[AuditSurface] Target site is not mobile-optimized:', data.payload)
+          setSiteNotMobileOptimized(data.payload || {})
+          break;
+        }
+
         case 'STAGE_OPEN_NEW_TAB': {
           console.log('[STAGE Parent] Received STAGE_OPEN_NEW_TAB:', data.payload)
           const targetUrl = data.payload?.url || data.url
@@ -1629,7 +1660,9 @@ export function AuditSurface({
             console.log(`[Markers] opened existing marker id=${normalized.id}`)
             selectMarker(normalized.id)
             setIsDrawerOpen(true)
-            useUIStore.getState().toggleCommandCenter(true)
+            if (!isMobileDevice) {
+              useUIStore.getState().toggleCommandCenter(true)
+            }
             break
           }
 
@@ -1729,7 +1762,9 @@ export function AuditSurface({
 
               selectMarker(newMarker.id)
               setIsDrawerOpen(true)
-              useUIStore.getState().toggleCommandCenter(true)
+              if (!isMobileDevice) {
+                useUIStore.getState().toggleCommandCenter(true)
+              }
 
               const pageUrl = normalized.pageUrl || currentUrl;
 
@@ -1944,7 +1979,9 @@ export function AuditSurface({
         console.log(`[STAGE Pins] CustomEvent STAGEOPENFEEDBACKDRAWER received for id=${payload.id}`)
         selectMarker(payload.id)
         setIsDrawerOpen(true)
-        useUIStore.getState().toggleCommandCenter(true)
+        if (!isMobileDevice) {
+          useUIStore.getState().toggleCommandCenter(true)
+        }
       }
     }
     window.addEventListener('STAGEOPENFEEDBACKDRAWER', handleCustomOpen)
@@ -2268,6 +2305,9 @@ export function AuditSurface({
     : rendererType === 'shadow_dom' ? 'Shadow DOM'
     : 'DOM'
 
+  const isMobileDesktopScaled = isMobileDevice && mobileDesktopMode === 'desktop'
+  const desktopScaleFactor = (isMobileDesktopScaled && containerWidth > 0) ? Math.min(1, containerWidth / 1280) : 1
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="w-full h-[100dvh] flex bg-black relative select-none">
@@ -2422,12 +2462,12 @@ export function AuditSurface({
 
         {/* Top bar */}
         <div className={cn(
-          "bg-[#0d0d14] border-b border-white/5 text-white/60 text-xs px-5 flex items-center justify-between z-20 select-none gap-4 transition-all duration-300",
-          isHeaderCollapsed ? "h-0 overflow-hidden border-b-0 py-0 opacity-0" : "h-12"
+          "bg-[#0d0d14] border-b border-white/5 text-white/60 text-xs px-2.5 sm:px-4 md:px-5 flex items-center justify-between z-20 select-none gap-2 sm:gap-4 transition-all duration-300",
+          isHeaderCollapsed ? "h-0 overflow-hidden border-b-0 py-0 opacity-0" : "h-8 sm:h-10 md:h-12"
         )}>
 
           {/* Left: back + URL */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             {!!shareToken && (
             <button
               id="onboarding-feedback-feed-btn"
@@ -2435,13 +2475,13 @@ export function AuditSurface({
               onClick={() => setIsListSidebarOpen(p => !p)}
               title="Toggle Feedback Feed"
               className={cn(
-                "p-1.5 rounded-xl border transition-all flex-shrink-0 focus:ring-2 focus:ring-purple-500 focus:outline-none",
+                "p-1 sm:p-1.5 rounded-lg sm:rounded-xl border transition-all flex-shrink-0 focus:ring-2 focus:ring-purple-500 focus:outline-none",
                 isListSidebarOpen 
                   ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
                   : "bg-white/[0.03] border-white/5 text-white/60 hover:bg-white/5 hover:text-white"
               )}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-4 sm:h-4"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
             </button>
             )}
             <button
@@ -2449,18 +2489,18 @@ export function AuditSurface({
               disabled={pageHistory.length <= 1}
               aria-label="Navigate back"
               className={cn(
-                "p-1.5 rounded-xl transition-all flex-shrink-0 border border-transparent focus:ring-2 focus:ring-purple-500 focus:outline-none",
+                "p-1 sm:p-1.5 rounded-lg sm:rounded-xl transition-all flex-shrink-0 border border-transparent focus:ring-2 focus:ring-purple-500 focus:outline-none",
                 pageHistory.length > 1
                   ? "text-white/80 hover:bg-white/5 hover:border-white/5 hover:text-white"
                   : "text-white/20 cursor-not-allowed"
               )}
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
-            <div className="h-4 w-px bg-white/10 flex-shrink-0" />
-            <div className="flex items-center gap-2 min-w-0 truncate" title={currentUrl}>
-              <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest font-mono flex-shrink-0">URL:</span>
-              <span className="text-[11px] font-mono text-white/60 truncate">
+            <div className="h-3.5 sm:h-4 w-px bg-white/10 flex-shrink-0" />
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 truncate" title={currentUrl}>
+              <span className="text-[8px] sm:text-[9px] font-black text-purple-400 uppercase tracking-widest font-mono flex-shrink-0">URL:</span>
+              <span className="text-[10px] sm:text-[11px] font-mono text-white/60 truncate max-w-[140px] sm:max-w-xs md:max-w-md">
                 {currentUrl || 'Connecting…'}
               </span>
             </div>
@@ -2503,7 +2543,7 @@ export function AuditSurface({
             <button
               onClick={() => onHeaderCollapsedChange?.(!isHeaderCollapsed)}
               title="Focus Mode (Hide Headers)"
-              className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all border border-[#293681]/20 bg-white/5 text-slate-300 hover:bg-white/10 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
+              className="hidden md:flex h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 items-center gap-1.5 transition-all border border-[#293681]/20 bg-white/5 text-slate-300 hover:bg-white/10 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
             >
               <Minimize2 className="w-3.5 h-3.5" />
               Focus Mode
@@ -2513,7 +2553,7 @@ export function AuditSurface({
             <button
               onClick={() => startOnboarding(reviewerIdentity ? 'reviewer' : 'developer')}
               title="Start Interactive Tutorial"
-              className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all border border-purple-500/20 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer"
+              className="hidden md:flex h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 items-center gap-1.5 transition-all border border-purple-500/20 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer"
             >
               <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
               Tutorial
@@ -2526,16 +2566,16 @@ export function AuditSurface({
                 setIsSharePanelOpen(true)
                 useOnboardingStore.getState().completeTask('share_session')
               }}
-              className="h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-3 flex items-center gap-1.5 transition-all border border-[#293681]/20 bg-white/5 text-slate-300 hover:bg-white/10 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
+              className="h-6.5 sm:h-8 rounded-lg sm:rounded-xl font-extrabold text-[9px] sm:text-[10px] uppercase tracking-widest px-2 sm:px-3 flex items-center gap-1 sm:gap-1.5 transition-all border border-[#293681]/20 bg-white/5 text-slate-300 hover:bg-white/10 active:scale-95 focus:ring-2 focus:ring-purple-400 focus:outline-none"
             >
-              <Share2 className="w-3.5 h-3.5" />
-              Share Review
+              <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline">Share Review</span>
             </button>
 
 
 
-            {/* ── MODE SWITCHER: Comment Mode / Edit Mode (Step 1) ────────── */}
-            <div className="flex items-center p-0.5 rounded-xl bg-white/[0.04] border border-white/10 select-none">
+            {/* ── MODE SWITCHER: Comment Mode / Edit Mode (Hidden on mobile, handled by bottom bar) ────────── */}
+            <div className="hidden md:flex items-center p-0.5 rounded-xl bg-white/[0.04] border border-white/10 select-none">
               <button
                 id="canvas-mode-comment-btn"
                 aria-label="Switch to Comment Mode"
@@ -2592,7 +2632,7 @@ export function AuditSurface({
               )}
             </div>
 
-            {/* ── PRIMARY CTA: Leave Feedback ────────────────────────────── */}
+            {/* ── PRIMARY CTA: Leave Feedback (Desktop only, mobile has bottom bar) ── */}
             <button
               id="leave-feedback-btn"
               aria-label="Leave visual feedback on the page"
@@ -2603,7 +2643,7 @@ export function AuditSurface({
                 setManualPlacementMode(false)
               }}
               className={cn(
-                "h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-4 flex items-center gap-1.5 transition-all border focus:ring-2 focus:ring-purple-500 focus:outline-none",
+                "hidden md:flex h-8 rounded-xl font-extrabold text-[10px] uppercase tracking-widest px-4 items-center gap-1.5 transition-all border focus:ring-2 focus:ring-purple-500 focus:outline-none",
                 feedbackModeActive
                   ? "bg-purple-500 border-purple-400 text-white shadow-lg shadow-purple-900/40 scale-105"
                   : "bg-purple-600 hover:bg-purple-500 active:scale-95 border-purple-500/30 text-white shadow-lg shadow-purple-900/20"
@@ -2670,44 +2710,92 @@ export function AuditSurface({
           ref={containerRef}
           onMouseMove={handleMouseMove}
           className={cn(
-            "flex-1 relative bg-white transition-all duration-300",
-            deviceViewport === 'mobile' ? 'max-w-[375px] mx-auto h-full border-x border-white/10' :
-            deviceViewport === 'tablet' ? 'max-w-[768px] mx-auto h-full border-x border-white/10' :
+            "flex-1 relative bg-white transition-all duration-300 overflow-hidden",
+            !isMobileDevice && deviceViewport === 'mobile' ? 'max-w-[375px] mx-auto h-full border-x border-white/10' :
+            !isMobileDevice && deviceViewport === 'tablet' ? 'max-w-[768px] mx-auto h-full border-x border-white/10' :
             'w-full h-full',
             feedbackModeActive
               ? "ring-2 ring-purple-600 ring-offset-2 ring-offset-[#0a0a0f] shadow-[0_0_50px_rgba(124,58,237,0.25)]"
               : ""
           )}
         >
-          {/* Only mount the iframe once a valid proxy URL with ?url= is available.
-              Never render <iframe src=""> — React will warn and the browser will
-              navigate the parent frame to the current page URL. */}
-          {proxyUrl ? (
-            <iframe
-              ref={iframeRef}
-              src={proxyUrl}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-              allow="accelerometer; autoplay; xr-spatial-tracking; clipboard-read; clipboard-write"
-              className="ph-no-capture"
-              style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', pointerEvents: 'auto', display: 'block' }}
-              onLoad={() => {
-                setReadinessState(current => {
-                  if (current === 'document-loading' || current === 'idle') {
-                    return 'document-loaded'
-                  }
-                  return current
-                })
-              }}
-              title="Proxied review site"
-            />
-          ) : (
-            // Stable placeholder that reserves layout space while the proxy URL resolves.
-            // Fixed dimensions prevent CLS; bg matches the dark surface.
-            <div
-              style={{ width: '100%', height: '100%', minHeight: '100%', background: '#0a0a0f', display: 'block' }}
-              aria-label="Loading review session…"
-            />
+          {/* ── Non-mobile optimized site advisory banner ── */}
+          {siteNotMobileOptimized && !dismissedMobileWarning && isMobileDevice && (
+            <div className="absolute top-3 inset-x-3 z-40 p-3 bg-[#0d0d16]/95 backdrop-blur-md border border-amber-500/40 rounded-2xl shadow-2xl flex items-center justify-between gap-3 text-amber-200 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 animate-pulse" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-amber-300">Desktop-Optimized Site</p>
+                  <p className="text-[10px] text-white/70 truncate">This page was designed for larger desktop displays.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {mobileDesktopMode !== 'desktop' && (
+                  <button
+                    onClick={() => {
+                      setMobileDesktopMode('desktop')
+                      setDismissedMobileWarning(true)
+                    }}
+                    className="h-7 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer"
+                  >
+                    Desktop View
+                  </button>
+                )}
+                <button
+                  onClick={() => setDismissedMobileWarning(true)}
+                  className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                  aria-label="Dismiss warning"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           )}
+
+          {/* ── Scaled Desktop / Native Mobile Wrapper ── */}
+          <div
+            style={
+              isMobileDesktopScaled
+                ? {
+                    width: 1280,
+                    height: desktopScaleFactor > 0 ? `calc(100% / ${desktopScaleFactor})` : '100%',
+                    transform: `scale(${desktopScaleFactor})`,
+                    transformOrigin: 'top left',
+                    position: 'relative'
+                  }
+                : { width: '100%', height: '100%', position: 'relative' }
+            }
+          >
+            {/* Only mount the iframe once a valid proxy URL with ?url= is available.
+                Never render <iframe src=""> — React will warn and the browser will
+                navigate the parent frame to the current page URL. */}
+            {proxyUrl ? (
+              <iframe
+                ref={iframeRef}
+                src={proxyUrl}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                allow="accelerometer; autoplay; xr-spatial-tracking; clipboard-read; clipboard-write"
+                className="ph-no-capture"
+                style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', pointerEvents: 'auto', display: 'block' }}
+                onLoad={() => {
+                  setReadinessState(current => {
+                    if (current === 'document-loading' || current === 'idle') {
+                      return 'document-loaded'
+                    }
+                    return current
+                  })
+                }}
+                title="Proxied review site"
+              />
+            ) : (
+              // Stable placeholder that reserves layout space while the proxy URL resolves.
+              // Fixed dimensions prevent CLS; bg matches the dark surface.
+              <div
+                style={{ width: '100%', height: '100%', minHeight: '100%', background: '#0a0a0f', display: 'block' }}
+                aria-label="Loading review session…"
+              />
+            )}
+          </div>
 
           {/* Subtle non-critical asset failure warning banner */}
           {failedAssets.length > 0 && !failedAssets.some(a => a.critical) && (
@@ -3186,7 +3274,85 @@ export function AuditSurface({
         </div>
       </div>
 
-      {/* ── Movable & Closable Feedback Item Modal / Drawer ────────────────────── */}
+      {/* ── Floating Mobile Thumb Bar ── */}
+      {isMobileDevice && (
+        <div
+          id="mobile-bottom-thumb-bar"
+          className="fixed bottom-3 inset-x-3 z-[9990] flex items-center justify-between gap-1.5 p-2 bg-[#0c0c14]/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/90 pointer-events-auto select-none"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}
+        >
+          {/* Mode toggle: Browse vs Comment */}
+          <div className="flex items-center p-0.5 bg-white/5 border border-white/10 rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setFeedbackModeActive(false)
+                notifyAgent(false)
+                setManualPlacementMode(false)
+              }}
+              className={cn(
+                "h-8 px-2.5 rounded-lg flex items-center gap-1 font-black text-[10px] uppercase tracking-wider transition-all cursor-pointer",
+                !feedbackModeActive
+                  ? "bg-white/15 text-white shadow-sm"
+                  : "text-white/40 hover:text-white/70"
+              )}
+            >
+              <MousePointer2 className="w-3 h-3" />
+              <span>Browse</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setFeedbackModeActive(true)
+                notifyAgent(true)
+                setManualPlacementMode(false)
+              }}
+              className={cn(
+                "h-8 px-2.5 rounded-lg flex items-center gap-1 font-black text-[10px] uppercase tracking-wider transition-all cursor-pointer",
+                feedbackModeActive
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-900/50 scale-[1.02]"
+                  : "text-white/40 hover:text-white/70"
+              )}
+            >
+              <Zap className={cn("w-3 h-3", feedbackModeActive ? "animate-pulse" : "")} />
+              <span>Comment</span>
+            </button>
+          </div>
+
+          {/* View mode toggle: Mobile 📱 / Desktop 💻 */}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileDesktopMode(prev => prev === 'mobile' ? 'desktop' : 'mobile')
+            }}
+            title={mobileDesktopMode === 'mobile' ? 'Switch to Desktop View' : 'Switch to Mobile View'}
+            className={cn(
+              "h-8 px-2.5 rounded-xl border flex items-center gap-1 font-black text-[9px] uppercase tracking-wider transition-all cursor-pointer",
+              mobileDesktopMode === 'desktop'
+                ? "bg-purple-900/40 border-purple-500/50 text-purple-300 shadow-sm"
+                : "bg-white/5 border-white/10 text-white/60 hover:text-white"
+            )}
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            <span>{mobileDesktopMode === 'desktop' ? 'Desktop' : 'Mobile'}</span>
+          </button>
+
+          {/* Pins feed button */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsDrawerOpen(prev => !prev)
+            }}
+            className="h-8 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-purple-900/30 cursor-pointer"
+          >
+            <Pin className="w-3 h-3" />
+            <span>Pins ({markers.length})</span>
+          </button>
+        </div>
+      )}
+
+      {/* ── Movable & Closable Feedback Item Modal / Drawer (Bottom sheet on mobile) ── */}
       <AnimatePresence>
         {isDrawerOpen && (
           <motion.div 
@@ -3194,32 +3360,49 @@ export function AuditSurface({
             role="dialog"
             aria-label="Feedback Submission Drawer"
             aria-modal="true"
-            drag
+            drag={isMobileDevice ? "y" : true}
+            dragConstraints={isMobileDevice ? { top: 0, bottom: 0 } : undefined}
+            onDragEnd={(_, info) => {
+              if (isMobileDevice && info.offset.y > 100) {
+                setIsDrawerOpen(false)
+                setCaptureCtx(null)
+                setManualPlacementMode(false)
+                setFeedbackModeActive(false)
+              }
+            }}
             dragControls={drawerDragControls}
-            dragListener={false}
+            dragListener={!isMobileDevice ? false : true}
             dragMomentum={false}
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            initial={isMobileDevice ? { opacity: 0, y: "100%" } : { opacity: 0, scale: 0.96, y: 12 }}
+            animate={isMobileDevice ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, y: 0 }}
+            exit={isMobileDevice ? { opacity: 0, y: "100%" } : { opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
             className={cn(
-              "bg-[#0d0d14]/95 backdrop-blur-2xl shadow-2xl flex flex-col border border-white/10 rounded-3xl overflow-hidden z-[9995]",
-              // Draggable floating modal structure across mobile & desktop
-              "fixed top-16 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[420px] h-[calc(100vh-5.5rem)] max-h-[840px]"
+              "bg-[#0d0d14]/95 backdrop-blur-2xl shadow-2xl flex flex-col border border-white/10 overflow-hidden z-[9995]",
+              isMobileDevice
+                ? "fixed inset-x-0 bottom-0 w-full h-[50dvh] max-h-[52dvh] rounded-t-3xl rounded-b-none border-t border-white/15"
+                : "fixed top-16 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[420px] h-[calc(100vh-5.5rem)] max-h-[840px] rounded-3xl"
             )}
           >
+            {/* Mobile swipe-down pull indicator */}
+            {isMobileDevice && (
+              <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mt-2 mb-0.5 flex-shrink-0" />
+            )}
 
             {/* Drawer header (Draggable Handle Only) */}
             <div 
               onPointerDown={(e) => drawerDragControls.start(e)}
-              className="p-4 sm:p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between flex-shrink-0 cursor-grab active:cursor-grabbing bg-[#0d0d14]/90 select-none touch-none"
+              className={cn(
+                "border-b border-slate-200 dark:border-white/10 flex items-center justify-between flex-shrink-0 cursor-grab active:cursor-grabbing bg-[#0d0d14]/90 select-none touch-none",
+                isMobileDevice ? "p-2.5 px-3.5" : "p-4 sm:p-5"
+              )}
             >
-              <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
-                <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
-                  <Pin className="w-4 h-4 text-purple-400" />
+              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 pointer-events-none">
+                <div className="w-6.5 h-6.5 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
+                  <Pin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white truncate">
+                  <h3 className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white truncate">
                     {isSubmitted ? 'Feedback Item' : isResolved ? 'Fixed Feedback ✓' : 'Leave Feedback'}
                   </h3>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -3253,16 +3436,18 @@ export function AuditSurface({
 
         <form onSubmit={handleDrawerSubmit} className="flex-1 overflow-y-auto flex flex-col">
           <ErrorBoundary>
-            <div className="p-5 flex flex-col gap-5 flex-1">
+            <div className={cn(isMobileDevice ? "p-3 flex flex-col gap-2.5 flex-1" : "p-5 flex flex-col gap-5 flex-1")}>
 
             {/* ── 1. Screenshot Evidence (Preserved with Annotations) ─── */}
             <div className="border-b border-slate-200 dark:border-white/5 pb-2">
               <button
                 type="button"
                 onClick={() => setScreenshotPanelExpanded(p => !p)}
-                className="w-full flex items-center justify-between py-2 text-left hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
+                className="w-full flex items-center justify-between py-1.5 sm:py-2 text-left hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
               >
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50">Screenshot Evidence</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50">
+                  Screenshot Evidence {!screenshotPanelExpanded ? ' (Tap to expand)' : ''}
+                </span>
                 <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 dark:text-white/30 transition-transform", screenshotPanelExpanded ? "rotate-180" : "")} />
               </button>
               {screenshotPanelExpanded && (
@@ -3413,7 +3598,7 @@ export function AuditSurface({
             </div>
 
             {/* ── 2. Issue Title ── */}
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">
                 Issue Title <span className="text-purple-400">*</span>
               </label>
@@ -3421,7 +3606,7 @@ export function AuditSurface({
                 type="text"
                 required
                 disabled={isFormReadOnly}
-                placeholder="e.g. Navigation overlaps logo, Button hover broken"
+                placeholder="e.g. Navigation overlaps logo, Button broken"
                 value={issueTitle}
                 onChange={(e) => {
                   const val = e.target.value
@@ -3430,19 +3615,22 @@ export function AuditSurface({
                     setIssueType(inferIssueType(captureCtx, val, noteText))
                   }
                 }}
-                className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className={cn(
+                  "w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+                  isMobileDevice ? "h-9 px-3 text-xs" : "h-11 px-4 text-xs"
+                )}
               />
             </div>
 
             {/* ── 3. Describe the problem (Description immediately after Title) ── */}
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-white/40 block">
                 Describe the problem <span className="text-slate-500 dark:text-white/20">(optional)</span>
               </label>
               <textarea
-                rows={4}
+                rows={isMobileDevice ? 2 : 4}
                 disabled={isFormReadOnly}
-                placeholder="What's wrong here? e.g. 'Button doesn't respond on mobile', 'Text overlaps the image'…"
+                placeholder="What's wrong here? e.g. 'Button doesn't respond on mobile'…"
                 value={noteText}
                 onChange={(e) => {
                   const val = e.target.value
@@ -3451,61 +3639,73 @@ export function AuditSurface({
                     setIssueType(inferIssueType(captureCtx, issueTitle, val))
                   }
                 }}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 p-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className={cn(
+                  "w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-white dark:placeholder:text-white/20 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+                  isMobileDevice ? "p-2.5 text-xs" : "p-4 text-xs"
+                )}
               />
             </div>
 
-            {/* ── 4. Issue Type Dropdown ── */}
-            <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-white/40 block">
-                Issue Type <span className="text-purple-400">*</span>
-              </label>
-              <div className="relative">
-                <select
-                  disabled={isFormReadOnly}
-                  value={issueType}
-                  onChange={(e) => {
-                    setIssueType(e.target.value as IssueType)
-                    setIsIssueTypeManuallySet(true)
-                  }}
-                  className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 dark:bg-[#0f0f15] dark:border-white/[0.08] dark:text-white px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none"
-                >
-                  {ISSUE_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label} — {t.description}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
-                  <ChevronDown className="w-4 h-4" />
+            {/* ── 4 & 5. Issue Type & Severity (Side-by-side on mobile, stacked on desktop) ── */}
+            <div className={cn(isMobileDevice ? "grid grid-cols-2 gap-2" : "space-y-4")}>
+              {/* Issue Type */}
+              <div className="space-y-1 sm:space-y-2">
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-white/40 block">
+                  Issue Type <span className="text-purple-400">*</span>
+                </label>
+                <div className="relative">
+                  <select
+                    disabled={isFormReadOnly}
+                    value={issueType}
+                    onChange={(e) => {
+                      setIssueType(e.target.value as IssueType)
+                      setIsIssueTypeManuallySet(true)
+                    }}
+                    className={cn(
+                      "w-full bg-slate-50 border border-slate-200 text-slate-900 dark:bg-[#0f0f15] dark:border-white/[0.08] dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none",
+                      isMobileDevice ? "h-9 px-2.5 text-[11px] rounded-xl" : "h-11 px-4 text-xs rounded-2xl"
+                    )}
+                  >
+                    {ISSUE_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-2 sm:right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
+                    <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* ── 5. Severity Dropdown ── */}
-            <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">Severity</label>
-              <div className="relative">
-                <select
-                  disabled={isFormReadOnly}
-                  value={severity}
-                  onChange={(e) => setSeverity(e.target.value as Severity)}
-                  className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 dark:bg-[#0f0f15] dark:border-white/[0.08] dark:text-white px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none"
-                >
-                  <option value="low">Low (Looks Good)</option>
-                  <option value="medium">Medium (Needs Work)</option>
-                  <option value="high">High Priority</option>
-                  <option value="critical">Critical Bug</option>
-                </select>
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
-                  <ChevronDown className="w-4 h-4" />
+              {/* Severity */}
+              <div className="space-y-1 sm:space-y-2">
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">Severity</label>
+                <div className="relative">
+                  <select
+                    disabled={isFormReadOnly}
+                    value={severity}
+                    onChange={(e) => setSeverity(e.target.value as Severity)}
+                    className={cn(
+                      "w-full bg-slate-50 border border-slate-200 text-slate-900 dark:bg-[#0f0f15] dark:border-white/[0.08] dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none",
+                      isMobileDevice ? "h-9 px-2.5 text-[11px] rounded-xl" : "h-11 px-4 text-xs rounded-2xl"
+                    )}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-2 sm:right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
+                    <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* ── 6. Status Dropdown (If Submitted) ── */}
             {isSubmitted && (
-              <div className="space-y-2">
+              <div className="space-y-1 sm:space-y-2">
                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40 block">Status</label>
                 <div className="relative">
                   <select
@@ -3516,7 +3716,10 @@ export function AuditSurface({
                       setStatusVal(newStatus)
                       console.log(`[OBSERVABILITY] [STATUS_CHANGE_DRAFT] Draft status changed to: ${newStatus}`)
                     }}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 text-slate-900 dark:bg-[#0f0f15] dark:border-white/[0.08] dark:text-white px-4 rounded-2xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none"
+                    className={cn(
+                      "w-full bg-slate-50 border border-slate-200 text-slate-900 dark:bg-[#0f0f15] dark:border-white/[0.08] dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500/50 outline-none transition-all cursor-pointer appearance-none",
+                      isMobileDevice ? "h-9 px-2.5 text-[11px] rounded-xl" : "h-11 px-4 text-xs rounded-2xl"
+                    )}
                   >
                     <option value="new">Waiting</option>
                     <option value="triaged">Triaged</option>
@@ -3524,80 +3727,80 @@ export function AuditSurface({
                     <option value="resolved">Fixed ✓</option>
                     <option value="dismissed">Dismissed</option>
                   </select>
-                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
-                    <ChevronDown className="w-4 h-4" />
+                  <div className="absolute inset-y-0 right-2 sm:right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
+                    <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                 </div>
               </div>
             )}
-            {/* ── Coordinates & Diagnostics (read-only) ────────────────── */}
+
+            {/* ── Coordinates & Diagnostics (collapsible on mobile, open on desktop) ── */}
             {captureCtx && (
-              <div className="bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/[0.04] rounded-2xl p-3.5 flex flex-col gap-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">Captured Pin Context</span>
-                  <span className="font-mono text-[9px] text-slate-500 dark:text-white/40 font-bold">
-                    ({captureCtx.x}, {captureCtx.y})
-                  </span>
+              <details className="bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/[0.04] rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 group">
+                <summary className="flex items-center justify-between cursor-pointer select-none">
+                  <span className="text-[8px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">Captured Context ({captureCtx.x}, {captureCtx.y})</span>
+                  <span className="text-[8px] text-slate-400 font-mono group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div className="mt-2.5 flex flex-col gap-2">
+                  {/* Target Element Selector & Info */}
+                  {(captureCtx.element_selector || captureCtx.xpath || captureCtx.element_tag) && (
+                    <div className="space-y-1 font-mono text-[9px] bg-slate-100 dark:bg-white/5 p-2 rounded-xl border border-slate-200 dark:border-white/5">
+                      <div className="text-purple-700 dark:text-purple-300 font-bold flex items-center gap-1.5">
+                        <span>Tag: &lt;{captureCtx.element_tag || 'element'}&gt;</span>
+                      </div>
+                      {captureCtx.element_selector && (
+                        <div className="text-slate-600 dark:text-white/70 truncate" title={captureCtx.element_selector}>
+                          <span className="text-slate-400 dark:text-white/30 font-sans">Selector: </span>{captureCtx.element_selector}
+                        </div>
+                      )}
+                      {captureCtx.xpath && (
+                        <div className="text-slate-600 dark:text-white/70 truncate" title={captureCtx.xpath}>
+                          <span className="text-slate-400 dark:text-white/30 font-sans">XPath: </span>{captureCtx.xpath}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Console Errors captured at pin moment */}
+                  {captureCtx.console_errors && captureCtx.console_errors.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest block">
+                        Console Errors ({captureCtx.console_errors.length}):
+                      </span>
+                      <div className="max-h-24 overflow-y-auto space-y-1.5 font-mono text-[9px] text-rose-600 dark:text-rose-300 custom-scrollbar">
+                        {captureCtx.console_errors.map((err: any, i: number) => (
+                          <div key={i} className="truncate bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20" title={typeof err === 'string' ? err : err.message}>
+                            ⚠️ {typeof err === 'string' ? err : err.message || JSON.stringify(err)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Network Errors captured at pin moment */}
+                  {captureCtx.network_errors && captureCtx.network_errors.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-black text-amber-500 dark:text-amber-400 uppercase tracking-widest block">
+                        Network Errors ({captureCtx.network_errors.length}):
+                      </span>
+                      <div className="max-h-24 overflow-y-auto space-y-1.5 font-mono text-[9px] text-amber-600 dark:text-amber-300 custom-scrollbar">
+                        {captureCtx.network_errors.map((net: any, i: number) => (
+                          <div key={i} className="truncate bg-amber-500/10 p-1.5 rounded-lg border border-amber-500/20" title={net.url}>
+                            🌐 [{net.status || 'ERR'}] {net.method || 'GET'} {net.url}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-                {/* Target Element Selector & Info */}
-                {(captureCtx.element_selector || captureCtx.xpath || captureCtx.element_tag) && (
-                  <div className="space-y-1 font-mono text-[9px] bg-slate-100 dark:bg-white/5 p-2 rounded-xl border border-slate-200 dark:border-white/5">
-                    <div className="text-purple-700 dark:text-purple-300 font-bold flex items-center gap-1.5">
-                      <span>Tag: &lt;{captureCtx.element_tag || 'element'}&gt;</span>
-                    </div>
-                    {captureCtx.element_selector && (
-                      <div className="text-slate-600 dark:text-white/70 truncate" title={captureCtx.element_selector}>
-                        <span className="text-slate-400 dark:text-white/30 font-sans">Selector: </span>{captureCtx.element_selector}
-                      </div>
-                    )}
-                    {captureCtx.xpath && (
-                      <div className="text-slate-600 dark:text-white/70 truncate" title={captureCtx.xpath}>
-                        <span className="text-slate-400 dark:text-white/30 font-sans">XPath: </span>{captureCtx.xpath}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Console Errors captured at pin moment */}
-                {captureCtx.console_errors && captureCtx.console_errors.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="text-[8px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest block">
-                      Console Errors ({captureCtx.console_errors.length}):
-                    </span>
-                    <div className="max-h-24 overflow-y-auto space-y-1.5 font-mono text-[9px] text-rose-600 dark:text-rose-300 custom-scrollbar">
-                      {captureCtx.console_errors.map((err: any, i: number) => (
-                        <div key={i} className="truncate bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20" title={typeof err === 'string' ? err : err.message}>
-                          ⚠️ {typeof err === 'string' ? err : err.message || JSON.stringify(err)}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Network Errors captured at pin moment */}
-                {captureCtx.network_errors && captureCtx.network_errors.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="text-[8px] font-black text-amber-500 dark:text-amber-400 uppercase tracking-widest block">
-                      Network Errors ({captureCtx.network_errors.length}):
-                    </span>
-                    <div className="max-h-24 overflow-y-auto space-y-1.5 font-mono text-[9px] text-amber-600 dark:text-amber-300 custom-scrollbar">
-                      {captureCtx.network_errors.map((net: any, i: number) => (
-                        <div key={i} className="truncate bg-amber-500/10 p-1.5 rounded-lg border border-amber-500/20" title={net.url}>
-                          🌐 [{net.status || 'ERR'}] {net.method || 'GET'} {net.url}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              </details>
             )}
           </div>
 
-          {/* ── Submit actions ─────────────────────────────────────────── */}
-          <div className="p-5 border-t border-slate-200 dark:border-white/5 flex flex-col gap-2 flex-shrink-0">
+          {/* Submit actions */}
+          <div className={cn("border-t border-slate-200 dark:border-white/5 flex flex-col gap-1.5 sm:gap-2 flex-shrink-0", isMobileDevice ? "p-2.5 pb-[max(env(safe-area-inset-bottom),10px)]" : "p-5")}>
             {submitSuccess ? (
-              <div className="h-12 w-full rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center gap-2 text-emerald-400 font-extrabold text-[10px] uppercase tracking-wider animate-pulse">
+              <div className="h-10 sm:h-12 w-full rounded-xl sm:rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center gap-2 text-emerald-400 font-extrabold text-[10px] uppercase tracking-wider animate-pulse">
                 <Check className="w-4 h-4" />
                 Feedback Pinned!
               </div>
@@ -3607,7 +3810,7 @@ export function AuditSurface({
                   <button
                     type="button"
                     disabled
-                    className="h-12 w-full rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 font-extrabold text-[10px] uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
+                    className="h-9.5 sm:h-12 w-full rounded-xl sm:rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 font-extrabold text-[9.5px] sm:text-[10px] uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     Fixed ✓ (Read Only)
                   </button>
@@ -3616,7 +3819,10 @@ export function AuditSurface({
                     type="submit"
                     disabled={isSubmitting}
                     aria-label={isSubmitted ? "Update feedback pin" : "Submit feedback pin"}
-                    className="h-12 w-full rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/40 disabled:text-white/30 text-white font-extrabold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-950/30 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className={cn(
+                      "w-full rounded-xl sm:rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/40 disabled:text-white/30 text-white font-extrabold uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-950/30 focus:ring-2 focus:ring-purple-500 focus:outline-none",
+                      isMobileDevice ? "h-9.5 text-[9.5px]" : "h-12 text-[10px]"
+                    )}
                   >
                     {isSubmitting ? (
                       <StageSpinner size={16} variant="white" />
@@ -3649,7 +3855,10 @@ export function AuditSurface({
                     setSubmitError(err.message || 'Failed to delete marker')
                   }
                 }}
-                className="h-10 w-full rounded-2xl bg-rose-950/30 border border-rose-500/30 hover:bg-rose-500/20 text-rose-400 font-extrabold text-[9px] uppercase tracking-widest transition-all focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                className={cn(
+                  "w-full rounded-xl sm:rounded-2xl bg-rose-950/30 border border-rose-500/30 hover:bg-rose-500/20 text-rose-400 font-extrabold uppercase tracking-widest transition-all focus:ring-2 focus:ring-rose-500 focus:outline-none",
+                  isMobileDevice ? "h-8 text-[8.5px]" : "h-10 text-[9px]"
+                )}
               >
                 Delete Feedback Pin
               </button>
@@ -3657,7 +3866,10 @@ export function AuditSurface({
             <button
               type="button"
               onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null); setManualPlacementMode(false); setFeedbackModeActive(false) }}
-              className="h-10 w-full rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-white/[0.03] dark:hover:bg-white/[0.07] text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80 font-black text-[9px] uppercase tracking-widest transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              className={cn(
+                "w-full rounded-xl sm:rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-white/[0.03] dark:hover:bg-white/[0.07] text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80 font-black uppercase tracking-widest transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none",
+                isMobileDevice ? "h-8 text-[8.5px]" : "h-10 text-[9px]"
+              )}
             >
               Cancel
             </button>

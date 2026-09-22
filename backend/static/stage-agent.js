@@ -1722,7 +1722,9 @@
 
   // ─── Payload builder (canonical) ──────────────────────────────────────────
   function buildCapturePayload(event, target, canvasCtx = null) {
-    const clickX = event.clientX, clickY = event.clientY;
+    const touch = (event.touches && event.touches[0]) || (event.changedTouches && event.changedTouches[0]);
+    const clickX = event.clientX !== undefined ? event.clientX : (touch ? touch.clientX : 0);
+    const clickY = event.clientY !== undefined ? event.clientY : (touch ? touch.clientY : 0);
     const pageX = Math.round(clickX + window.scrollX), pageY = Math.round(clickY + window.scrollY);
     const viewport = { width: window.innerWidth, height: window.innerHeight };
     const rendererType = window.__STAGE__.rendererType;
@@ -1843,13 +1845,13 @@
     }
   });
 
-  // Main capture handler – wired to click events when appropriate
-  function handleFeedbackCapture(e) {
+  // Main capture handler – wired to click events and mobile gestures
+  function handleFeedbackCapture(e, isLongPress = false) {
     try {
       const isAlt = e.altKey;
       const isMode = feedbackModeActive;
-      console.log("[STAGE Pins] click captured. feedbackModeActive=" + feedbackModeActive + ", altKey=" + e.altKey);
-      if (!isAlt && !isMode) return;
+      console.log("[STAGE Pins] capture event. feedbackModeActive=" + feedbackModeActive + ", altKey=" + isAlt + ", isLongPress=" + isLongPress);
+      if (!isAlt && !isMode && !isLongPress) return;
       
       const now = Date.now();
       if (window.__lastFeedbackTime && (now - window.__lastFeedbackTime < 600)) return; // throttle
@@ -1859,8 +1861,9 @@
       if (!target) return;
       if (isSTAGEOwnedNode(target)) return; // prevent self-capture
       
-      const clickX = e.clientX;
-      const clickY = e.clientY;
+      const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+      const clickX = e.clientX !== undefined ? e.clientX : (touch ? touch.clientX : 0);
+      const clickY = e.clientY !== undefined ? e.clientY : (touch ? touch.clientY : 0);
       const pageX = Math.round(clickX + window.scrollX);
       const pageY = Math.round(clickY + window.scrollY);
       const rendererType = window.__STAGE__.rendererType;
@@ -2210,24 +2213,113 @@
 
   // ─── Attach listeners ─────────────────────────────────────────────────────
   let pointerListenersAttached = false;
+  let activeTouchCount = 0;
+  let isPinchingOrMultiTouch = false;
+  let mobileLongPressTimer = null;
+  let mobileLongPressStart = null;
+  let mobileLongPressTarget = null;
 
   function attachPointerListeners() {
     if (pointerListenersAttached) return;
     pointerListenersAttached = true;
 
+    // Multi-touch shield: track touch count to prevent pinch-to-zoom dropping pins
+    document.addEventListener("touchstart", (e) => {
+      activeTouchCount = e.touches ? e.touches.length : 1;
+      if (activeTouchCount >= 2) {
+        isPinchingOrMultiTouch = true;
+        if (mobileLongPressTimer) {
+          clearTimeout(mobileLongPressTimer);
+          mobileLongPressTimer = null;
+        }
+        return;
+      }
+
+      // In Browse mode (feedbackModeActive === false and !altKey), start 500ms long-press timer
+      if (!feedbackModeActive && !e.altKey && activeTouchCount === 1) {
+        const touch = e.touches[0];
+        mobileLongPressStart = { x: touch.clientX, y: touch.clientY };
+        mobileLongPressTarget = e.composedPath?.()[0] || e.target;
+        if (mobileLongPressTimer) clearTimeout(mobileLongPressTimer);
+        mobileLongPressTimer = setTimeout(() => {
+          mobileLongPressTimer = null;
+          if (isPinchingOrMultiTouch || !mobileLongPressStart || !mobileLongPressTarget) return;
+
+          // Haptic feedback
+          if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+            try { navigator.vibrate(40); } catch (_) {}
+          }
+          console.log("[STAGE Pins] Mobile long-press pin dropped at", mobileLongPressStart);
+          const synthEvent = {
+            clientX: mobileLongPressStart.x,
+            clientY: mobileLongPressStart.y,
+            target: mobileLongPressTarget,
+            composedPath: () => [mobileLongPressTarget],
+            altKey: false,
+            preventDefault: () => {},
+            stopPropagation: () => {}
+          };
+          handleFeedbackCapture(synthEvent, true);
+        }, 500);
+      }
+    }, { capture: true, passive: true });
+
+    document.addEventListener("touchmove", (e) => {
+      activeTouchCount = e.touches ? e.touches.length : 1;
+      if (activeTouchCount >= 2) {
+        isPinchingOrMultiTouch = true;
+        if (mobileLongPressTimer) {
+          clearTimeout(mobileLongPressTimer);
+          mobileLongPressTimer = null;
+        }
+        return;
+      }
+      if (mobileLongPressTimer && mobileLongPressStart && e.touches && e.touches[0]) {
+        const touch = e.touches[0];
+        const moveDist = Math.hypot(touch.clientX - mobileLongPressStart.x, touch.clientY - mobileLongPressStart.y);
+        if (moveDist > 12) {
+          clearTimeout(mobileLongPressTimer);
+          mobileLongPressTimer = null;
+        }
+      }
+    }, { capture: true, passive: true });
+
+    const handleTouchReset = (e) => {
+      activeTouchCount = e.touches ? e.touches.length : 0;
+      if (activeTouchCount === 0) {
+        setTimeout(() => { isPinchingOrMultiTouch = false; }, 120);
+      }
+      if (mobileLongPressTimer) {
+        clearTimeout(mobileLongPressTimer);
+        mobileLongPressTimer = null;
+      }
+    };
+
+    document.addEventListener("touchend", handleTouchReset, { capture: true, passive: true });
+    document.addEventListener("touchcancel", handleTouchReset, { capture: true, passive: true });
+
     // Attach on pointerdown in the CAPTURE phase, not click in bubble phase
     document.addEventListener("pointerdown", (e) => {
+      if (isPinchingOrMultiTouch) return;
       if (!feedbackModeActive && !e.altKey) return;
       // Stamp the event so canvas-owned listeners downstream know STAGE already claimed it
-      e.__stagePinCandidate = { x: e.clientX, y: e.clientY, target: e.target };
+      e.__stagePinCandidate = {
+        x: e.clientX,
+        y: e.clientY,
+        target: e.composedPath?.()[0] || e.target,
+        pointerType: e.pointerType || 'mouse'
+      };
     }, { capture: true, passive: false });
 
     document.addEventListener("pointerup", (e) => {
+      if (isPinchingOrMultiTouch) return;
       const candidate = e.__stagePinCandidate;
       if (!candidate) return;
-      // Only fire if pointerup is close to pointerdown (avoid drag/orbit gestures)
+      // Only fire if pointerup is close to pointerdown (avoid drag/orbit/pinch gestures)
+      // Allow 18px drift for touch devices to accommodate finger wobble; 6px for mouse
+      const maxDrift = candidate.pointerType === 'touch' ? 18 : 6;
       const drift = Math.hypot(e.clientX - candidate.x, e.clientY - candidate.y);
-      if (drift > 6) return; // user was dragging the camera, not clicking
+      if (drift > maxDrift) return; // user was dragging/scrolling, not clicking
       e.__stageHandledByPointerUp = true;
       handleFeedbackCapture(e);
     }, { capture: true, passive: false });
@@ -2917,7 +3009,49 @@
           title: document.title || ""
         }, "*");
         console.log('[STAGE] STAGE_SITE_READY dispatched. degraded=' + !!degraded + ' renderer=' + rendererType + ' heavy=' + isHeavy);
+        setTimeout(checkMobileResponsiveness, 400);
       };
+
+      function checkMobileResponsiveness() {
+        try {
+          const isMobileViewport = window.innerWidth < 768;
+          if (!isMobileViewport) return;
+
+          const viewportMeta = document.querySelector('meta[name="viewport"]');
+          const hasMetaViewport = !!(viewportMeta && viewportMeta.content && viewportMeta.content.includes('width='));
+          const docScrollWidth = Math.max(
+            document.documentElement ? document.documentElement.scrollWidth : 0,
+            document.body ? document.body.scrollWidth : 0,
+            document.documentElement ? document.documentElement.offsetWidth : 0
+          );
+          const isOverflowing = docScrollWidth > (window.innerWidth * 1.2);
+
+          let hasDesktopMinWidth = false;
+          if (document.body) {
+            const bodyStyle = window.getComputedStyle(document.body);
+            if (bodyStyle) {
+              const minW = parseInt(bodyStyle.minWidth, 10);
+              if (minW && minW >= 800) hasDesktopMinWidth = true;
+            }
+          }
+
+          if (!hasMetaViewport || isOverflowing || hasDesktopMinWidth) {
+            console.warn('[STAGE Agent] Target page is not mobile-optimized:', { hasMetaViewport, docScrollWidth, innerWidth: window.innerWidth, hasDesktopMinWidth });
+            window.parent?.postMessage({
+              type: 'STAGE_SITE_NOT_MOBILE_OPTIMIZED',
+              payload: {
+                hasMetaViewport: hasMetaViewport,
+                docScrollWidth: docScrollWidth,
+                innerWidth: window.innerWidth,
+                hasDesktopMinWidth: hasDesktopMinWidth,
+                ratio: (docScrollWidth / window.innerWidth).toFixed(2)
+              }
+            }, '*');
+          }
+        } catch (err) {
+          console.warn('[STAGE Agent] checkMobileResponsiveness error:', err);
+        }
+      }
 
       function check() {
         const canvases = Array.from(document.querySelectorAll("canvas"));

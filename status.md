@@ -65,9 +65,15 @@ STAGE implements two decoupled, canonical authentication tracks unified into a s
   - Installs Universal Lazyload Hydrator (`installLazyloadHydrator`) for Nicepage, Webflow, Shopify, WordPress lazyload images (`data-src`, `data-bg`, `data-srcset`) safely guarded with `:not([data-stage-hydrated])`.
   - Rewrites media tags, CSS `url(...)` declarations, strips SRI `integrity` hashes, strips CSP headers, strips `autofocus`, and removes Cloudflare Rocket Loader.
   - Injects `stage-agent.js` deferred script.
-- **Injected Reviewer Agent**: `backend/static/stage-agent.js` (3,800+ lines).
+- **Injected Reviewer Agent**: `backend/static/stage-agent.js` (3,900+ lines).
   - Multi-Signal Site Readiness: Observes DOM loading, WebGL/Three.js canvases, requestAnimationFrame loops, and posts `STAGE_SITE_READY` to parent window.
-  - Click & Pin Capture: Coordinates DOM node identification, XPath generation, CSS selector generation, bounding client rect capture, and iframe-to-parent messaging via `window.postMessage`.
+  - Click, Touch & Pin Capture: Coordinates DOM node identification, XPath generation, CSS selector generation, bounding client rect capture, multi-touch pinch shields, 500ms haptic long-press capture, and iframe-to-parent messaging via `window.postMessage`.
+  - Mobile Responsiveness Analyzer: Inspects `<meta name="viewport">` and overflow width, dispatching `STAGE_SITE_NOT_MOBILE_OPTIMIZED` for non-responsive target pages.
+- **Mobile Session Canvas Architecture (`AuditSurface.tsx`)**:
+  - Uncluttered Mobile Chrome: Hides desktop-only panels on small viewports (<768px).
+  - Floating Bottom Thumb Bar: Reachable mode switcher (`Browse` vs `Comment`), `[Mobile / Desktop]` view toggle, and `Pins (N)` counter.
+  - Mobile Bottom Sheet: Touch-native Framer Motion bottom drawer with drag-to-dismiss for feedback submission.
+  - Scaled Desktop Mode: 1280px container with CSS scale transform for viewing desktop layouts on mobile.
 
 ### 2.5 Blueprint Canvas vs Session Review Boundaries
 The platform maintains strict functional and data boundaries between two distinct review surfaces:
@@ -285,6 +291,20 @@ All 20 stores follow modular single-responsibility design:
 - **[2026-09-12] Playwright E2E Code-Sync Tests - Complete**
   - Added: `web/tests/e2e/blueprint-integrations.spec.ts` (E2E Figma import, AST visual mutation & GitHub sync specs)
 
+### 7.6 Mobile Canvas & Responsive Pinning Optimization
+- **[2026-09-21] Mobile Canvas Viewport & Pin Placement Ergonomics - Complete**
+  - Changed: `web/src/app/project/[id]/page.tsx` (Compressed mobile header from `h-14` to `h-10`, hid redundant desktop badges/actions, removed fake macOS mockup frame and outer padding on mobile for edge-to-edge canvas view; suppressed full-screen Command Center drawer when placing pins on mobile devices).
+  - Changed: `web/src/components/audit/AuditSurface.tsx` (Compressed mobile URL bar to `h-8`; constrained mobile pin feedback bottom drawer from `h-[85dvh]` to `h-[50dvh] max-h-[52dvh]`, converted form controls to compact 2-column layout and collapsible accordion to prevent canvas obstruction).
+  - Changed: `web/src/components/session/PageTabBar.tsx` (Conditionally hidden single-page tabs on mobile; streamlined multi-page tabs to `h-8` compact strip).
+  - Changed: `web/src/components/markers/MarkerComponents.tsx` (Added touch gesture zoom guard to prevent false pin placement during two-finger pinch-to-zoom).
+  - Changed: `backend/services/notification_dispatcher.py` & `backend/services/sla_daemon.py` (Fixed multi-result query edge case and removed console emoji logs to ensure Unicode safety on Windows).
 
-
+### 7.7 Issues Dashboard, Canvas Deep-Linking & Link Engine Security Lock
+- **[2026-09-22] Dedicated Issues Page, Mark as Fixed Action & Link Immutability Notice - Complete**
+  - Added: `web/src/app/(dashboard)/issues/page.tsx` (Complete Issue Tracker dashboard with KPI stat cards, multi-facet filtering by status/priority/project, responsive search, 1-click 'Mark as Fixed' / 'Reopen' action with optimistic UI updates, and direct 'Open in Canvas' redirect links).
+  - Added: `backend/markers/router.py` (`GET /markers` and `GET /markers/` endpoints with organization isolation and query filters for status, priority, and project).
+  - Changed: `web/src/app/(dashboard)/dashboard/page.tsx` (Connected 'Waiting Issues' stat card to navigate to `/issues?status=open`; integrated Link Engine immutability notice beneath URL inputs).
+  - Changed: `web/src/app/(dashboard)/DashboardLayoutClient.tsx` (Added 'Issues' nav item to Workspace group with `AlertCircle` icon).
+  - Changed: `web/src/app/(dashboard)/sessions/page.tsx` & `web/src/app/projects/new/page.tsx` (Added animated Link Engine security lock notice informing users that once entered and initialized, target links cannot be changed afterwards).
+  - Changed: `web/src/app/project/[id]/page.tsx` (Added `queryMarkerId` support to searchParams for seamless canvas auto-focus and observation drawer trigger when redirecting from issues).
 

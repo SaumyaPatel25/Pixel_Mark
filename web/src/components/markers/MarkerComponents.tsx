@@ -39,7 +39,7 @@ export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClic
     >
       {/* Dot */}
       <div
-        className={`${sizeClass} rounded-full flex items-center justify-center font-black border-2 shadow-lg transition-transform ${dragging ? 'scale-125 ring-4 ring-purple-500/30' : (isHovered ? 'scale-110' : '')}`}
+        className={`${sizeClass} rounded-full flex items-center justify-center font-black border-2 shadow-lg transition-transform touch-manipulation relative after:absolute after:-inset-2.5 after:content-[''] ${dragging ? 'scale-125 ring-4 ring-purple-500/30' : (isHovered ? 'scale-110' : '')}`}
         style={{
           backgroundColor: colors.dot,
           borderColor: colors.border,

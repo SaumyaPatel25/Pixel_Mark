@@ -284,6 +284,50 @@ async def create_marker_root(
     return await create_marker(session_id=payload.session_id, payload=payload, db=db, actor=actor)
 
 
+@router.get("/markers", response_model=List[MarkerRead])
+@router.get("/markers/", response_model=List[MarkerRead])
+async def list_all_markers(
+    status: Optional[str] = None,
+    project_id: Optional[str] = None,
+    priority: Optional[str] = None,
+    include_deleted: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from models.core import Session, OrgMember, Project
+    from sqlalchemy import select, desc
+
+    # 1. Resolve user organization
+    res = await db.execute(
+        select(OrgMember).where(OrgMember.user_id == current_user.id)
+    )
+    member = res.scalars().first()
+    if not member:
+        return []
+
+    # 2. Build query joined with Session and Project to enforce organization-level data isolation
+    query = (
+        select(Marker)
+        .join(Session, Marker.session_id == Session.id)
+        .join(Project, Session.project_id == Project.id)
+        .where(Project.org_id == member.org_id)
+    )
+
+    if not include_deleted:
+        query = query.where(Marker.is_deleted == False)
+    if status is not None and status.lower() != "all":
+        query = query.where(Marker.status == status.lower())
+    if project_id is not None and project_id != "all":
+        query = query.where(Session.project_id == project_id)
+    if priority is not None and priority.lower() != "all":
+        query = query.where(Marker.priority == priority.lower())
+
+    query = query.order_by(desc(Marker.created_at))
+    result = await db.execute(query)
+    markers = list(result.scalars().all())
+    return markers
+
+
 @router.get("/sessions/{session_id}/markers", response_model=List[MarkerRead])
 async def list_markers(
     session_id: str,

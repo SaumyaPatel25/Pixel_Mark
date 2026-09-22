@@ -81,7 +81,7 @@ async def get_dashboard_summary(
         select(func.count(Marker.id))
         .join(Session, Marker.session_id == Session.id)
         .join(Project, Session.project_id == Project.id)
-        .where(Project.org_id == member.org_id)
+        .where(Project.org_id == member.org_id, Marker.is_deleted == False)
     )
     total_markers = marker_count_res.scalar() or 0
 
@@ -89,7 +89,7 @@ async def get_dashboard_summary(
         select(func.count(Marker.id))
         .join(Session, Marker.session_id == Session.id)
         .join(Project, Session.project_id == Project.id)
-        .where(Project.org_id == member.org_id, Marker.status == "open")
+        .where(Project.org_id == member.org_id, Marker.status == "open", Marker.is_deleted == False)
     )
     open_issues = open_issues_res.scalar() or 0
 
@@ -156,6 +156,7 @@ async def get_project(project_id: str, current_user: User = Depends(get_current_
 
 @router.get("/{project_id}/analytics")
 async def get_project_analytics(project_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # Verify valid UUID format
     try:
         uuid.UUID(project_id)
     except ValueError:
@@ -166,9 +167,9 @@ async def get_project_analytics(project_id: str, current_user: User = Depends(ge
     if not member:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    proj_res = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id))
-    project = proj_res.scalar_one_or_none()
-    if not project:
+    # Verify project belongs to user's org
+    proj_res = await db.execute(select(Project).where(Project.id == project_id, Project.org_id == member.org_id, Project.status != "soft_deleted"))
+    if not proj_res.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Project not found")
 
     from services.cache import cache
@@ -180,7 +181,7 @@ async def get_project_analytics(project_id: str, current_user: User = Depends(ge
     from markers.models import Marker
     from datetime import datetime
     
-    res_markers = await db.execute(select(Marker).where(Marker.project_id == project_id))
+    res_markers = await db.execute(select(Marker).where(Marker.project_id == project_id, Marker.is_deleted == False))
     markers = res_markers.scalars().all()
 
     total = len(markers)

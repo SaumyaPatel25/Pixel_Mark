@@ -76,7 +76,10 @@ export const metadata: Metadata = {
       'max-image-preview': 'large',
       'max-snippet': -1,
     },
-  }
+  },
+  verification: {
+    google: 'googlee491c29c89efd2fd.html',
+  },
 };
 
 import { Suspense } from "react";

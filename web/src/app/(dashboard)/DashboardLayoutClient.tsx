@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { StageLoader } from '@/components/ui/StageLoader'
-import { LayoutDashboard, Folder, FolderKanban, FileText, Settings, CreditCard, Sparkles, Globe, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play, RotateCcw, PanelLeftClose, PanelLeftOpen, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Folder, FolderKanban, FileText, AlertCircle, Settings, CreditCard, Sparkles, Globe, LogOut, BookOpen, HelpCircle, Download, Home, Compass, Play, RotateCcw, PanelLeftClose, PanelLeftOpen, ChevronDown } from 'lucide-react'
 import { useOnboardingStore } from '@/store/onboardingStore'
 import { useProjectStore } from '@/store/projectStore'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
@@ -255,6 +255,18 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
             >
               <FileText className="w-4 h-4" />
               <span>All Sessions</span>
+            </Link>
+
+            <Link 
+              href="/issues" 
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                pathname.startsWith('/issues') 
+                  ? 'bg-pm-accent-subtle text-pm-accent font-semibold' 
+                  : 'text-pm-muted hover:text-pm-text hover:bg-pm-surface-2'
+              }`}
+            >
+              <AlertCircle className="w-4 h-4" />
+              <span>Issues</span>
             </Link>
 
             <Link 
