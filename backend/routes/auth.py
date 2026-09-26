@@ -271,18 +271,31 @@ async def handle_oauth_user_login(
     return RedirectResponse(url=f"{dest.rstrip('/')}/auth/oauth-callback?token={token}")
 @router.get("/oauth/github/start")
 async def github_start(request: Request, origin: Optional[str] = None):
+    import urllib.parse
     state = secrets.token_urlsafe(32)
-    redirect_uri = settings.github_redirect_uri or f"{settings.backend_url.rstrip('/')}/auth/oauth/github/callback"
+
+    # 1. Dynamically determine the backend callback URL:
+    # Priority: explicit settings.github_redirect_uri -> forwarded Nginx host -> backend_url
+    if settings.github_redirect_uri and settings.github_redirect_uri.strip():
+        redirect_uri = settings.github_redirect_uri.strip()
+    else:
+        proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+        if host and "localhost" not in host and "127.0.0.1" not in host:
+            base_url = f"{proto}://{host}".rstrip("/")
+        else:
+            base_url = settings.backend_url.rstrip("/")
+        redirect_uri = f"{base_url}/auth/oauth/github/callback"
+
     github_auth_url = (
         "https://github.com/login/oauth/authorize"
         f"?client_id={settings.github_client_id}"
-        f"&redirect_uri={redirect_uri}"
+        f"&redirect_uri={urllib.parse.quote(redirect_uri, safe=':/')}"
         f"&scope=user:email"
         f"&state={state}"
     )
     
-    # Try to determine the frontend origin that initiated the login request
-    import urllib.parse
+    # 2. Try to determine the frontend origin that initiated the login request
     if not origin:
         referer = request.headers.get("referer")
         origin = settings.frontend_url
@@ -293,6 +306,8 @@ async def github_start(request: Request, origin: Optional[str] = None):
             except Exception:
                 pass
 
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+
     response = RedirectResponse(url=github_auth_url)
     response.set_cookie(
         key="oauth_state",
@@ -300,7 +315,7 @@ async def github_start(request: Request, origin: Optional[str] = None):
         httponly=True,
         max_age=600,
         samesite="lax",
-        secure=settings.environment == "production"
+        secure=is_https
     )
     response.set_cookie(
         key="oauth_origin",
@@ -308,7 +323,7 @@ async def github_start(request: Request, origin: Optional[str] = None):
         httponly=True,
         max_age=600,
         samesite="lax",
-        secure=settings.environment == "production"
+        secure=is_https
     )
     return response
 
@@ -316,15 +331,33 @@ import logging
 logger = logging.getLogger("stage.auth")
 
 @router.get("/oauth/github/callback")
-async def github_callback(request: Request, code: str, state: str, db: AsyncSession = Depends(get_db)):
+async def github_callback(
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    error_description: Optional[str] = None,
+    iss: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
     try:
         oauth_origin = request.cookies.get("oauth_origin") or settings.frontend_url
         
+        if error:
+            logger.warning(f"[GITHUB_OAUTH] GitHub returned error: {error} - {error_description}")
+            return RedirectResponse(url=f"{oauth_origin.rstrip('/')}/auth/oauth-callback?error={error}")
+
+        if not code:
+            logger.warning("[GITHUB_OAUTH] Missing code parameter in GitHub callback")
+            return RedirectResponse(url=f"{oauth_origin.rstrip('/')}/auth/oauth-callback?error=missing_code")
+
         cookie_state = request.cookies.get("oauth_state")
-        if settings.environment != "development" and (not cookie_state or cookie_state != state):
+        if cookie_state and state and cookie_state != state:
+            logger.warning(f"[GITHUB_OAUTH] CSRF state mismatch: cookie={cookie_state}, query={state}")
             return RedirectResponse(url=f"{oauth_origin.rstrip('/')}/auth/oauth-callback?error=csrf_failure")
             
         if not settings.github_client_id or not settings.github_client_secret:
+            logger.error("[GITHUB_OAUTH] GitHub OAuth client credentials are missing in configuration")
             return RedirectResponse(url=f"{oauth_origin.rstrip('/')}/auth/oauth-callback?error=github_not_configured")
             
         token_url = "https://github.com/login/oauth/access_token"
@@ -338,17 +371,20 @@ async def github_callback(request: Request, code: str, state: str, db: AsyncSess
         async with httpx.AsyncClient() as client:
             response = await client.post(token_url, json=data, headers=headers)
             if response.status_code != 200:
+                logger.error(f"[GITHUB_OAUTH] Token exchange failed with status {response.status_code}")
                 return RedirectResponse(url=f"{oauth_origin.rstrip('/')}/auth/oauth-callback?error=token_exchange_failed")
             token_data = response.json()
             access_token = token_data.get("access_token")
             
             if not access_token:
+                logger.error(f"[GITHUB_OAUTH] Access token missing from response: {token_data}")
                 return RedirectResponse(url=f"{oauth_origin.rstrip('/')}/auth/oauth-callback?error=missing_access_token")
                 
             profile_url = "https://api.github.com/user"
             headers_auth = {"Authorization": f"Bearer {access_token}", "User-Agent": "STAGE"}
             profile_response = await client.get(profile_url, headers=headers_auth)
             if profile_response.status_code != 200:
+                logger.error(f"[GITHUB_OAUTH] Failed to fetch profile from GitHub: {profile_response.text}")
                 return RedirectResponse(url=f"{oauth_origin.rstrip('/')}/auth/oauth-callback?error=profile_fetch_failed")
             profile = profile_response.json()
             
@@ -369,6 +405,7 @@ async def github_callback(request: Request, code: str, state: str, db: AsyncSess
                         email = emails_list[0].get("email")
                         
             if not email or not provider_user_id:
+                logger.error(f"[GITHUB_OAUTH] Missing email or provider_user_id (email={email}, id={provider_user_id})")
                 return RedirectResponse(url=f"{oauth_origin.rstrip('/')}/auth/oauth-callback?error=missing_email_or_id")
                 
             return await handle_oauth_user_login("github", str(provider_user_id), email, name, db, avatar_url=avatar_url, frontend_url=oauth_origin)

@@ -11,6 +11,7 @@ import { useMascotFormState } from '@/hooks/useMascotFormState';
 import { event as trackEvent } from '@/lib/analytics';
 import { signInWithPopup, sendSignInLinkToEmail } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '@/lib/firebase';
+import { getApiBaseUrl } from '@/lib/api';
 
 type ScenePhase = 'projecting' | 'submitting' | 'success' | 'error';
 
@@ -122,7 +123,7 @@ export default function LoginClient() {
     setError(null);
     setPhase('submitting');
     trackEvent({ action: 'github_login', category: 'auth' });
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '') : 'http://127.0.0.1:8000';
+    const baseUrl = getApiBaseUrl();
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     window.location.href = `${baseUrl}/auth/oauth/github/start?origin=${encodeURIComponent(origin)}`;
   };
