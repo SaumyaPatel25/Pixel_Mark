@@ -99,6 +99,8 @@ async def create_session(
     # Auto-clean stale sessions in the background
     background_tasks.add_task(close_stale_sessions)
 
+    user_id = str(current_user.id)
+
     # 1. Reuse existing active session if created within a short window (5 minutes)
     five_min_ago = datetime.utcnow() - timedelta(minutes=5)
     existing_res = await db.execute(
@@ -121,7 +123,7 @@ async def create_session(
         return existing
 
     # 2. Enforce concurrency limits: max 3 active sessions per organization
-    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == current_user.id))
+    org_member = await db.execute(select(OrgMember).where(OrgMember.user_id == user_id))
     member = org_member.scalars().first()
     if member:
         active_count_res = await db.execute(
@@ -152,10 +154,9 @@ async def create_session(
         # Auto-title logic
         title = f"Session - {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
     
-    session = Session(id=str(uuid.uuid4()), project_id=data.project_id, title=title, status="active")
+    session_id = str(uuid.uuid4())
+    session = Session(id=session_id, project_id=data.project_id, title=title, status="active")
     db.add(session)
-    await db.commit()
-    await db.refresh(session)
 
     # Auto-create CanvasFrame for this new session
     f_count_res = await db.execute(
@@ -166,8 +167,8 @@ async def create_session(
     frame = CanvasFrame(
         id=str(uuid.uuid4()),
         project_id=data.project_id,
-        session_id=session.id,
-        title=session.title,
+        session_id=session_id,
+        title=title,
         position_x=existing_count * 380.0,
         position_y=60.0,
         width=320.0,
@@ -176,22 +177,26 @@ async def create_session(
     )
     db.add(frame)
     await db.commit()
+    await db.refresh(session)
 
-    await emit_session_notification(
-        db=db,
-        session_id=session.id,
-        event_type="session_started",
-        entity_type="session",
-        entity_id=session.id,
-        title=f"Session Started: {session.title}",
-        body=f"New review session started for project {data.project_id}.",
-        project_id=data.project_id,
-        user_id=current_user.id,
-        category="important"
-    )
+    try:
+        await emit_session_notification(
+            db=db,
+            session_id=session.id,
+            event_type="session_started",
+            entity_type="session",
+            entity_id=session.id,
+            title=f"Session Started: {session.title}",
+            body=f"New review session started for project {data.project_id}.",
+            project_id=data.project_id,
+            user_id=user_id,
+            category="important"
+        )
+    except Exception as ne:
+        logging.getLogger("stage.sessions").warning(f"[STAGE Notification] Session started notification failed: {ne}")
     
     # Invalidate cache keys affected by the mutation
-    cache.invalidate(f"user:{current_user.id}:*")
+    cache.invalidate(f"user:{user_id}:*")
     cache.invalidate("*:projects")
     cache.invalidate("*:project:*:analytics")
 
@@ -280,6 +285,8 @@ async def delete_session(
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid UUID format")
 
+    user_id = str(current_user.id) if current_user else None
+
     result = await db.execute(select(Session).where(Session.id == session_id))
     session = result.scalar_one_or_none()
     if not session:
@@ -307,14 +314,15 @@ async def delete_session(
             title=f"Session Closed: {session_title}",
             body=f"Session '{session_title}' has been closed.",
             project_id=project_id,
-            user_id=current_user.id if current_user else None,
+            user_id=user_id,
             category="important"
         )
     except Exception as ne:
         logging.getLogger("stage.sessions").warning(f"[STAGE Notification] Failed to emit session_closed event: {ne}")
 
     # Invalidate cache
-    cache.invalidate(f"user:{current_user.id}:*")
+    if user_id:
+        cache.invalidate(f"user:{user_id}:*")
     cache.invalidate("*:projects")
     cache.invalidate("*:project:*:analytics")
 

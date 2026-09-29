@@ -279,7 +279,21 @@ async def run_migration(target_conn=None):
             """))
             print("[OK] org_invites table created successfully!")
 
-        # 10. Performance Indexes
+        # 10. Notification delivery attempts columns
+        if "notification_delivery_attempts" in tables:
+            nda_res = await conn.execute(text(f"SELECT column_name FROM information_schema.columns WHERE table_name = 'notification_delivery_attempts'" if is_postgres else "PRAGMA table_info(notification_delivery_attempts)"))
+            nda_cols = set([row[0] if is_postgres else row[1] for row in nda_res.fetchall()])
+            if "outbox_id" not in nda_cols:
+                print("Adding outbox_id to notification_delivery_attempts...")
+                await conn.execute(text("ALTER TABLE notification_delivery_attempts ADD COLUMN outbox_id VARCHAR NULL"))
+            if "target" not in nda_cols:
+                print("Adding target to notification_delivery_attempts...")
+                await conn.execute(text("ALTER TABLE notification_delivery_attempts ADD COLUMN target VARCHAR NULL"))
+            if "error_context" not in nda_cols:
+                print("Adding error_context to notification_delivery_attempts...")
+                await conn.execute(text(f"ALTER TABLE notification_delivery_attempts ADD COLUMN error_context {json_type} NULL"))
+
+        # 11. Performance Indexes
         if "markers" in tables:
             await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_markers_session_id ON markers (session_id)"))
             await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_markers_page_url ON markers (page_url)"))

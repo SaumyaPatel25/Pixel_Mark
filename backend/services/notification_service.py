@@ -257,20 +257,19 @@ async def emit_blueprint_notification(
 
         # Send email if enabled
         if user_id:
-            pref = await get_or_create_preferences(db, user_id, project_id)
-            if pref.email_enabled:
-                if event:
-                    await deliver_email_notification(db, event.id)
-                else:
-                    await deliver_email_notification_direct(db, user_id, project_id, "blueprint", event_type, title, body, metadata)
+            try:
+                pref = await get_or_create_preferences(db, user_id, project_id)
+                if pref.email_enabled:
+                    if event:
+                        await deliver_email_notification(db, event.id)
+                    else:
+                        await deliver_email_notification_direct(db, user_id, project_id, "blueprint", event_type, title, body, metadata)
+            except Exception as mail_err:
+                logger.warning(f"[STAGE Email] Failed to send email for blueprint notification: {mail_err}")
 
         return event
     except Exception as err:
         logger.warning(f"[STAGE Notification] Blueprint notification emit failed: {err}")
-        try:
-            await db.rollback()
-        except Exception:
-            pass
         return None
 
 
@@ -333,20 +332,19 @@ async def emit_session_notification(
 
         # Send email if enabled
         if user_id:
-            pref = await get_or_create_preferences(db, user_id, project_id)
-            if pref.email_enabled:
-                if event:
-                    await deliver_email_notification(db, event.id)
-                else:
-                    await deliver_email_notification_direct(db, user_id, project_id, "session", event_type, title, body, merged_meta)
+            try:
+                pref = await get_or_create_preferences(db, user_id, project_id)
+                if pref.email_enabled:
+                    if event:
+                        await deliver_email_notification(db, event.id)
+                    else:
+                        await deliver_email_notification_direct(db, user_id, project_id, "session", event_type, title, body, merged_meta)
+            except Exception as mail_err:
+                logger.warning(f"[STAGE Email] Failed to send email for session notification: {mail_err}")
 
         return event
     except Exception as err:
         logger.warning(f"[STAGE Notification] Session notification emit failed: {err}")
-        try:
-            await db.rollback()
-        except Exception:
-            pass
         return None
 
 
@@ -466,8 +464,8 @@ async def deliver_email_notification(db: AsyncSession, notification_id: str, max
             )
             db.add(attempt)
             await db.commit()
-        except Exception:
-            await db.rollback()
+        except Exception as attempt_err:
+            logger.warning(f"[STAGE Email] Could not record delivery attempt failure: {attempt_err}")
         return False
 
 
