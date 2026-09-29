@@ -1,5 +1,6 @@
 export type MarkerAnchorKind = 'dom-relative' | 'viewport-absolute' | 'canvas-relative' | 'webgl-clip-space' | 'manual';
-export type MarkerRendererType = 'dom' | 'shadow-dom' | 'canvas2d' | 'webgl' | 'threejs' | 'mixed' | 'spa';
+export type CanonicalRendererType = 'dom' | 'shadow-dom' | 'canvas2d' | 'webgl' | 'threejs';
+export type MarkerRendererType = CanonicalRendererType | 'mixed' | 'spa';
 export type CreatorRole = 'developer' | 'reviewer';
 export type MarkerStatus = 'open' | 'triaged' | 'in_progress' | 'resolved' | 'dismissed';
 export type MarkerPriority = 'critical' | 'high' | 'medium' | 'low';

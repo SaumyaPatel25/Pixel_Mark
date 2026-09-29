@@ -88,11 +88,34 @@ class MarkerCreate(BaseModel):
             return max(-1.0, min(1.0, v))
         return v
 
+    @field_validator('renderer_type', mode='before')
+    @classmethod
+    def normalize_renderer_type(cls, v: Any) -> Optional[MarkerRendererType]:
+        if v is None or v == "":
+            return None
+        if isinstance(v, MarkerRendererType):
+            return v
+        if isinstance(v, str):
+            clean = v.lower().strip()
+            if clean in (MarkerRendererType.DOM.value, "dom", "spa", "mixed", "unknown"):
+                return MarkerRendererType.DOM
+            if clean in (MarkerRendererType.SHADOW_DOM.value, "shadow-dom", "shadow_dom", "shadowdom"):
+                return MarkerRendererType.SHADOW_DOM
+            if clean in (MarkerRendererType.CANVAS2D.value, "canvas2d", "canvas", "2d"):
+                return MarkerRendererType.CANVAS2D
+            if clean in (MarkerRendererType.WEBGL.value, "webgl", "webgl2", "degraded-webgl", "experimental-webgl"):
+                return MarkerRendererType.WEBGL
+            if clean in (MarkerRendererType.THREEJS.value, "threejs", "three.js", "three", "r3f"):
+                return MarkerRendererType.THREEJS
+            return MarkerRendererType.DOM
+        return MarkerRendererType.DOM
+
 class MarkerUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[MarkerStatus] = None
     priority: Optional[MarkerPriority] = None
+    renderer_type: Optional[MarkerRendererType] = None
     color_token: Optional[str] = None
     screenshot_url: Optional[str] = None
     browser: Optional[str] = None
@@ -102,6 +125,28 @@ class MarkerUpdate(BaseModel):
     network_errors_json: Optional[List[Any]] = None
     expected_version: Optional[int] = None
     anchor_mode: Optional[str] = None
+
+    @field_validator('renderer_type', mode='before')
+    @classmethod
+    def normalize_renderer_type(cls, v: Any) -> Optional[MarkerRendererType]:
+        if v is None or v == "":
+            return None
+        if isinstance(v, MarkerRendererType):
+            return v
+        if isinstance(v, str):
+            clean = v.lower().strip()
+            if clean in (MarkerRendererType.DOM.value, "dom", "spa", "mixed", "unknown"):
+                return MarkerRendererType.DOM
+            if clean in (MarkerRendererType.SHADOW_DOM.value, "shadow-dom", "shadow_dom", "shadowdom"):
+                return MarkerRendererType.SHADOW_DOM
+            if clean in (MarkerRendererType.CANVAS2D.value, "canvas2d", "canvas", "2d"):
+                return MarkerRendererType.CANVAS2D
+            if clean in (MarkerRendererType.WEBGL.value, "webgl", "webgl2", "degraded-webgl", "experimental-webgl"):
+                return MarkerRendererType.WEBGL
+            if clean in (MarkerRendererType.THREEJS.value, "threejs", "three.js", "three", "r3f"):
+                return MarkerRendererType.THREEJS
+            return MarkerRendererType.DOM
+        return MarkerRendererType.DOM
 
 class MarkerPositionPatch(BaseModel):
     # DOM Placement

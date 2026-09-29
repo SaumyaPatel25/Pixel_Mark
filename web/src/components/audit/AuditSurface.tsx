@@ -157,8 +157,19 @@ const issueTypeColorMap: Record<string, string> = {
   slate:  'bg-slate-600 border-slate-500 text-white shadow-slate-950/30',
 }
 
-const VALID_RENDERER_TYPES = ['dom', 'shadow-dom', 'canvas2d', 'webgl', 'threejs', 'canvas'] as const
-type RendererType = (typeof VALID_RENDERER_TYPES)[number]
+export const VALID_RENDERER_TYPES = ['dom', 'shadow-dom', 'canvas2d', 'webgl', 'threejs'] as const
+export type CanonicalRendererType = (typeof VALID_RENDERER_TYPES)[number]
+export type RendererType = CanonicalRendererType
+
+export function normalizeRendererType(val: unknown): CanonicalRendererType {
+  if (!val || typeof val !== 'string') return 'dom'
+  const clean = val.toLowerCase().trim()
+  if (clean === 'shadow-dom' || clean === 'shadow_dom' || clean === 'shadowdom') return 'shadow-dom'
+  if (clean === 'canvas2d' || clean === 'canvas' || clean === '2d') return 'canvas2d'
+  if (clean === 'threejs' || clean === 'three.js' || clean === 'three' || clean === 'r3f') return 'threejs'
+  if (clean === 'webgl' || clean === 'webgl2' || clean === 'degraded-webgl' || clean === 'experimental-webgl') return 'webgl'
+  return 'dom'
+}
 
 const VALID_ANCHOR_KINDS = [
   'dom-relative',
@@ -268,12 +279,10 @@ function normalizeCapturePayload(
   const id = typeof raw.id === 'string' ? raw.id : generateId()
 
   const rawRendererType = raw.rendererType ?? raw.renderer_type ?? 'dom'
-  const rendererType: RendererType = VALID_RENDERER_TYPES.includes(rawRendererType as RendererType)
-    ? (rawRendererType as RendererType)
-    : 'dom'
+  const rendererType: RendererType = normalizeRendererType(rawRendererType)
 
   const rawAnchorKind = raw.anchorKind ?? raw.anchor_kind
-  const isCanvas = rendererType === 'webgl' || rendererType === 'threejs' || rendererType === 'canvas2d' || rendererType === 'canvas'
+  const isCanvas = rendererType === 'webgl' || rendererType === 'threejs' || rendererType === 'canvas2d'
   const selectorVal = raw.selector ?? raw.target?.selector ?? null
   const computedAnchorKind = isCanvas ? 'canvas-relative' : (selectorVal ? 'dom-relative' : 'viewport-absolute')
 
@@ -776,7 +785,7 @@ export function AuditSurface({
           bottom: rect.y - iframeTop + rect.height
         } as any,
         xpath: '',
-        renderer_type: rendererType,
+        renderer_type: normalizeRendererType(rendererType),
         canvas_context: null,
         screenshot_data_url: 'pending',
         screenshot_required: true,
@@ -860,7 +869,7 @@ export function AuditSurface({
           aria_role: marker.element_rect_json?.ariaRole ?? null,
           bounding_box: null,
           xpath: marker.target_xpath ?? '',
-          renderer_type: marker.renderer_type ?? 'dom',
+          renderer_type: normalizeRendererType(marker.renderer_type),
           canvas_context: null,
           screenshot_data_url: marker.screenshot_url ?? null,
           screenshot_required: false,
@@ -1666,7 +1675,7 @@ export function AuditSurface({
 
           console.log(`[Markers] opening feedback drawer at x=${normalized.displayX} y=${normalized.displayY}`)
 
-          const safeRendererType = normalized.rendererType || rendererType || 'dom'
+          const safeRendererType = normalizeRendererType(normalized.rendererType || rendererType || 'dom')
           const safeAnchorKind = normalized.anchorKind || (normalized.target?.selector ? 'dom-relative' : 'viewport-absolute')
 
           // Build context for the feedback drawer
@@ -1787,7 +1796,7 @@ export function AuditSurface({
               scroll_x: data.scroll_x,
               scroll_y: data.scroll_y,
               canvas_id: data.canvas_id,
-              renderer_type: data.renderer_type,
+              renderer_type: normalizeRendererType(data.renderer_type),
               browser: data.browser || (typeof navigator !== 'undefined' ? navigator.userAgent : null),
               os: data.os || (typeof navigator !== 'undefined' ? navigator.platform : null),
               device_pixel_ratio: data.device_pixel_ratio || (typeof window !== 'undefined' ? window.devicePixelRatio : 1),
@@ -1987,7 +1996,7 @@ export function AuditSurface({
       scroll_x: captureCtx.scroll_position?.x,
       scroll_y: captureCtx.scroll_position?.y,
       canvas_id: null,
-      renderer_type: (captureCtx.renderer_type as MarkerRendererType) || 'dom',
+      renderer_type: normalizeRendererType(captureCtx.renderer_type),
       creator_id: reviewerIdentity?.id || 'reviewer',
       creator_name: reviewerIdentity?.display_name || 'Reviewer',
       creator_role: 'reviewer',
@@ -2174,7 +2183,7 @@ export function AuditSurface({
       aria_role: null,
       bounding_box: bbox,
       xpath: '',
-      renderer_type: rendererType,
+      renderer_type: normalizeRendererType(rendererType),
       canvas_context: null,
       screenshot_data_url: null,
       screenshot_required: false,
@@ -2254,7 +2263,7 @@ export function AuditSurface({
           category: issueType,
           priority: severity,
           status: statusVal,
-          renderer_type: rendererType,
+          renderer_type: normalizeRendererType(captureCtx.renderer_type || rendererType),
           screenshot_url: annotatedScreenshotUrl || captureCtx.screenshot_data_url || null,
           browser: captureCtx.browser_info?.user_agent || (typeof navigator !== 'undefined' ? navigator.userAgent : null),
           os: captureCtx.browser_info?.os || captureCtx.browser_info?.platform || (typeof navigator !== 'undefined' ? navigator.platform : null),
@@ -2298,7 +2307,7 @@ export function AuditSurface({
   const rendererLabel = rendererType === 'threejs' ? 'Three.js'
     : rendererType === 'webgl' ? 'WebGL'
     : rendererType === 'canvas2d' ? 'Canvas2D'
-    : rendererType === 'shadow_dom' ? 'Shadow DOM'
+    : (rendererType === 'shadow-dom' || (rendererType as string) === 'shadow_dom') ? 'Shadow DOM'
     : 'DOM'
 
   const isMobileDesktopScaled = isMobileDevice && mobileDesktopMode === 'desktop'
@@ -2919,7 +2928,7 @@ export function AuditSurface({
               )}
 
               {/* Centre instruction banner (hidden in heavy modes to maximize screen space) */}
-              {!(rendererType === 'webgl' || rendererType === 'threejs' || rendererType === 'canvas' || rendererType === 'mixed') && (
+              {!(rendererType === 'webgl' || rendererType === 'threejs' || rendererType === 'canvas2d' || (rendererType as string) === 'canvas' || (rendererType as string) === 'mixed') && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="bg-[#0f0f16]/95 border border-purple-500/30 text-white px-7 py-5 rounded-3xl shadow-2xl flex flex-col items-center gap-3 text-center max-w-xs pointer-events-auto">
                     <div className="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">

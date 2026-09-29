@@ -870,10 +870,19 @@ export const api = {
       if (xReviewerId) {
         headers['X-Reviewer-Id'] = xReviewerId
       }
+      const sanitized = { ...data }
+      if (sanitized.renderer_type) {
+        const clean = String(sanitized.renderer_type).toLowerCase().trim()
+        if (clean === 'shadow-dom' || clean === 'shadow_dom' || clean === 'shadowdom') sanitized.renderer_type = 'shadow-dom'
+        else if (clean === 'canvas2d' || clean === 'canvas' || clean === '2d') sanitized.renderer_type = 'canvas2d'
+        else if (clean === 'threejs' || clean === 'three.js' || clean === 'three' || clean === 'r3f') sanitized.renderer_type = 'threejs'
+        else if (clean === 'webgl' || clean === 'webgl2' || clean === 'degraded-webgl' || clean === 'experimental-webgl') sanitized.renderer_type = 'webgl'
+        else sanitized.renderer_type = 'dom'
+      }
       return apiQueue.enqueueWrite('Creating marker...', () => request(`/sessions/${sessionId}/markers`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(data),
+        body: JSON.stringify(sanitized),
       }), undefined, 'high')
     },
     async update(markerId: string, data: { title?: string; description?: string; status?: string; priority?: string; color_token?: string; expected_version?: number }, xReviewerId?: string): Promise<any> {

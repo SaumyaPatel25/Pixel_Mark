@@ -399,4 +399,32 @@ async def test_update_marker_status_supported_values():
         assert resp.status_code == 200
         assert resp.json()["status"] == st
 
+@pytest.mark.anyio
+async def test_renderer_type_normalization_supported_values():
+    test_cases = [
+        ("canvas", "canvas2d"),
+        ("canvas2d", "canvas2d"),
+        ("shadow_dom", "shadow-dom"),
+        ("shadow-dom", "shadow-dom"),
+        ("webgl2", "webgl"),
+        ("webgl", "webgl"),
+        ("threejs", "threejs"),
+        ("three.js", "threejs"),
+        ("mixed", "dom"),
+        ("spa", "dom"),
+        ("unknown", "dom"),
+    ]
+    for raw_type, expected in test_cases:
+        p = {
+            "project_id": MOCK_PROJECT_ID,
+            "anchor_kind": "manual",
+            "title": f"Renderer Test {raw_type}",
+            "renderer_type": raw_type
+        }
+        resp = client.post(f"/sessions/{MOCK_SESSION_ID}/markers", json=p)
+        assert resp.status_code == 200, f"Failed for {raw_type}: {resp.text}"
+        data = resp.json()
+        assert data["renderer_type"] == expected, f"Expected {expected} for {raw_type}, got {data['renderer_type']}"
+
+
 
