@@ -79,7 +79,7 @@ export default function PricingClient() {
             Simple, Transparent Pricing for <span className="bg-gradient-to-r from-purple-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">STAGE</span>
           </h1>
           <p className="text-base text-pm-muted">
-            The collaboration layer between clients and developers. Pick the plan built for your workflow.
+            Pay for projects and team members. Reviewers are free.
           </p>
 
           {errorMsg && (

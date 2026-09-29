@@ -80,13 +80,13 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
             <Layers className="w-3.5 h-3.5 text-pm-cyan" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-xs font-extrabold text-pm-text truncate">Open Feedback</h3>
+            <h3 className="text-xs font-extrabold text-pm-text truncate">Comments</h3>
             <p className="text-[8px] text-pm-muted font-bold uppercase tracking-wider mt-0.5">Drag to move menu</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="px-2 py-0.5 rounded-full bg-pm-surface-2 border border-pm-border text-[9px] font-black text-pm-text font-mono pointer-events-none">
-            {filteredMarkers.length} Pins
+            {filteredMarkers.length} Comments
           </span>
           <button
             id="close-command-center-btn"
@@ -94,7 +94,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
               e.stopPropagation();
               toggleCommandCenter(false);
             }}
-            aria-label="Close Feedback Feed Drawer"
+            aria-label="Close Comments Drawer"
             className="w-7 h-7 rounded-lg border border-pm-border text-pm-muted hover:text-pm-text hover:bg-pm-surface-2 transition-all flex items-center justify-center cursor-pointer active:scale-95"
           >
             <X className="w-3.5 h-3.5" />
@@ -102,7 +102,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
         </div>
       </div>
 
-      {/* Command Center Tabs - Segmented tabs */}
+      {/* Comments Tabs - Segmented tabs */}
       <div className="flex border-b border-pm-border bg-pm-surface-2 p-1 gap-1 flex-shrink-0 transition-colors duration-300">
         <button
           type="button"
@@ -114,7 +114,7 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
               : "text-pm-muted hover:text-pm-text"
           )}
         >
-          Feedback
+          Comments
           <span className="px-1.5 py-0.5 rounded bg-pm-surface-3 text-[8.5px] font-bold text-pm-text">{filteredMarkers.length}</span>
         </button>
         <button

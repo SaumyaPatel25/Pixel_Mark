@@ -280,7 +280,8 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
         const markersById = { ...state.markersById }
         delete markersById[tempId]
         const orderedMarkerIds = state.orderedMarkerIds.filter(id => id !== tempId)
-        return { markersById, orderedMarkerIds }
+        const selectedMarkerId = state.selectedMarkerId === tempId ? created.id : state.selectedMarkerId
+        return { markersById, orderedMarkerIds, selectedMarkerId }
       })
       get().upsertMarkerFromServer(created)
       useOnboardingStore.getState().completeTask('drop_pin')
@@ -292,7 +293,8 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
         const markersById = { ...state.markersById }
         delete markersById[tempId]
         const orderedMarkerIds = state.orderedMarkerIds.filter(id => id !== tempId)
-        return { markersById, orderedMarkerIds }
+        const selectedMarkerId = state.selectedMarkerId === tempId ? null : state.selectedMarkerId
+        return { markersById, orderedMarkerIds, selectedMarkerId }
       })
       throw err
     }

@@ -18,7 +18,7 @@ export const faqs: FAQItem[] = [
   },
   {
     question: "Can non-technical clients and external stakeholders use STAGE without coding?",
-    answer: "Yes. Clients simply open a secure review link, click any element they want to discuss, drop a pin, and type their feedback. STAGE automatically captures exact CSS selectors, viewport resolutions, operating system specs, and console logs in the background for developers."
+    answer: "Yes. Clients open the review link, enter their name and leave a comment directly on the page. They install nothing."
   },
   {
     question: "How do developers export feedback into engineering tasks and GitHub checklists?",

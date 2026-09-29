@@ -11,7 +11,7 @@ import {
   ArrowLeft, Monitor, Pin, Plus, X, Check,
   AlertTriangle, ChevronDown, MousePointer2, Layers,
   Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil, Share2, Minimize2, Maximize2,
-  MessageSquare, PanelRightClose
+  MessageSquare, PanelRightClose, Trash2, Move
 } from 'lucide-react'
 import { StageSpinner, StageLoader } from '@/components/ui/StageLoader'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
@@ -33,7 +33,7 @@ import { MarkerPinLayer } from '@/components/audit/MarkerPinLayer'
 import { useMarkerStore } from '@/store/markerStore'
 import { useSessionSocket } from '@/hooks/useSessionSocket'
 import { ActorContext, canCurrentActorMutateMarker } from '@/lib/permissions'
-import { ReviewerIdentity } from '@/types/markers'
+import { Marker, ReviewerIdentity, MarkerRendererType, MarkerStatus, MarkerPriority } from '@/types/markers'
 import { DrawingCanvas } from './DrawingCanvas'
 import { inferIssueType, type IssueType } from '@/utils/issueClassifier'
 
@@ -393,6 +393,9 @@ export function AuditSurface({
     const handleResize = () => {
       const isMobile = window.innerWidth < 768
       setIsMobileDevice(isMobile)
+      if (isMobile) {
+        setScreenshotPanelExpanded(false)
+      }
       if (containerRef.current) {
         setContainerWidth(containerRef.current.clientWidth)
       }
@@ -604,7 +607,7 @@ export function AuditSurface({
   
   // Collapsible Evidence Panel States (Phase 3.5 Upgrade)
   const [inspectorPanelExpanded, setInspectorPanelExpanded] = useState(false)
-  const [screenshotPanelExpanded, setScreenshotPanelExpanded] = useState(true)
+  const [screenshotPanelExpanded, setScreenshotPanelExpanded] = useState(false)
   const [imgErrorId, setImgErrorId] = useState<string | null>(null)
   const [domPanelExpanded, setDomPanelExpanded] = useState(true)
   const [canvasPanelExpanded, setCanvasPanelExpanded] = useState(true)
@@ -835,11 +838,8 @@ export function AuditSurface({
   const isFormReadOnly = (isResolved && statusVal === 'resolved') || !canMutate
 
   useEffect(() => {
-    setIsDrawerOpen(!!selectedMarkerId)
-  }, [selectedMarkerId])
-
-  useEffect(() => {
     if (selectedMarkerId) {
+      setIsDrawerOpen(true)
       const marker = useMarkerStore.getState().markersById[selectedMarkerId]
       if (marker) {
         const existingMode = useScreenshotStore.getState().markerModes[selectedMarkerId] || 'element'
@@ -898,15 +898,6 @@ export function AuditSurface({
           setIsIssueTypeManuallySet(false)
         }
       }
-    } else {
-      setCaptureCtx(null)
-      setNoteText('')
-      setIssueTitle('')
-      setTags('')
-      setIssueType('layout')
-      setIsIssueTypeManuallySet(false)
-      setSeverity('medium')
-      setStatusVal('new')
     }
   }, [selectedMarkerId])
 
@@ -1673,148 +1664,97 @@ export function AuditSurface({
           normalized.pageX = coords.pageX
           normalized.pageY = coords.pageY
 
-          console.log(`[Markers] creating marker id=${normalized.id} x=${normalized.displayX} y=${normalized.displayY}`)
-          console.log(`[STAGE Click Test] Click at known location:`, {
-            inputX: normalized.displayX,
-            inputY: normalized.displayY,
-            storedPageX: normalized.pageX,
-            storedPageY: normalized.pageY,
-            scrollX: normalized.scrollX ?? normalized.viewport?.scrollX ?? normalized.scroll_position?.x ?? 0,
-            scrollY: normalized.scrollY ?? normalized.viewport?.scrollY ?? normalized.scroll_position?.y ?? 0,
-          })
+          console.log(`[Markers] opening feedback drawer at x=${normalized.displayX} y=${normalized.displayY}`)
 
-          const safeRendererType = normalized.rendererType
-          const safeAnchorKind = normalized.anchorKind
+          const safeRendererType = normalized.rendererType || rendererType || 'dom'
+          const safeAnchorKind = normalized.anchorKind || (normalized.target?.selector ? 'dom-relative' : 'viewport-absolute')
 
-          // Build anchor-kind-specific coordinate fields — backend enforces strict separation
-          const basePayload = {
-            project_id: projectId,
-            anchor_kind: safeAnchorKind,
-            page_url: normalized.pageUrl,
-            page_title: normalized.pageTitle,
-            viewport_width: normalized.viewportWidth,
-            viewport_height: normalized.viewportHeight,
-            scroll_x: normalized.scrollX ?? normalized.viewport?.scrollX ?? normalized.scroll_position?.x ?? 0,
-            scroll_y: normalized.scrollY ?? normalized.viewport?.scrollY ?? normalized.scroll_position?.y ?? 0,
-            element_rect_json: normalized.target ? {
-              tagName: normalized.target.tagName,
-              classList: normalized.target.classList,
-              ariaLabel: normalized.target.ariaLabel,
-              ariaRole: normalized.target.ariaRole,
-            } : null,
-            canvas_id: normalized.canvasId || null,
+          // Build context for the feedback drawer
+          const newCaptureCtx: CaptureContext = {
+            page_url: normalized.pageUrl || currentUrl,
+            page_title: normalized.pageTitle || currentTitle,
+            x: normalized.coordinates?.pageX ?? normalized.pageX ?? 0,
+            y: normalized.coordinates?.pageY ?? normalized.pageY ?? 0,
+            displayX: normalized.displayX,
+            displayY: normalized.displayY,
+            viewport_x: normalized.coordinates?.viewportX ?? normalized.displayX ?? 0,
+            viewport_y: normalized.coordinates?.viewportY ?? normalized.displayY ?? 0,
+            element_selector: normalized.selector || normalized.target?.selector || '',
+            element_text: normalized.target?.text || normalized.dom_text_excerpt || '',
+            element_tag: normalized.target?.tagName || 'ELEMENT',
+            element_id: '',
+            aria_label: normalized.target?.ariaLabel || null,
+            aria_role: normalized.target?.ariaRole || null,
+            bounding_box: normalized.boundingBox || null,
+            xpath: normalized.xpath || normalized.target?.xpath || '',
             renderer_type: safeRendererType,
-            title: '',
-            description: '',
-            status: 'open',
-            priority: 'medium',
-            // Diagnostic and environment context
-            browser: normalized.browser_info?.user_agent || (normalized.browser_info ? `${normalized.browser_info.browser || ''} ${normalized.browser_info.version || ''}`.trim() : null) || (typeof navigator !== 'undefined' ? navigator.userAgent : null),
-            os: normalized.browser_info?.os || normalized.browser_info?.platform || (typeof navigator !== 'undefined' ? navigator.platform : null),
-            device_pixel_ratio: normalized.device_pixel_ratio ?? normalized.viewport?.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1),
-            console_errors_json: normalized.console_errors ?? (normalized as any).consoleErrors ?? null,
-            network_errors_json: normalized.network_errors ?? (normalized as any).networkErrors ?? null,
+            canvas_context: normalized.canvas_context || null,
+            screenshot_data_url: null,
+            screenshot_required: false,
+            viewport: {
+              width: normalized.viewportWidth || window.innerWidth,
+              height: normalized.viewportHeight || window.innerHeight
+            },
+            scroll_position: {
+              x: normalized.scrollX ?? normalized.viewport?.scrollX ?? 0,
+              y: normalized.scrollY ?? normalized.viewport?.scrollY ?? 0
+            },
+            console_errors: normalized.console_errors ?? (normalized as any).consoleErrors ?? [],
+            network_errors: normalized.network_errors ?? (normalized as any).networkErrors ?? [],
+            browser_info: {
+              browser: normalized.browser_info?.browser || (typeof navigator !== 'undefined' ? navigator.userAgent : ''),
+              os: normalized.browser_info?.os || (typeof navigator !== 'undefined' ? navigator.platform : '')
+            },
+            issue_type_hint: 'other',
+            created_via: 'manual',
+            agent_version: '2.0',
+            timestamp: new Date().toISOString()
           }
 
-          let coordinateFields: Record<string, any> = {}
-
-          if (safeAnchorKind === 'dom-relative') {
-            coordinateFields = {
-              target_selector: normalized.selector || normalized.target?.selector || null,
-              target_xpath: normalized.xpath || normalized.target?.xpath || null,
-              dom_text_excerpt: normalized.target?.text || normalized.dom_text_excerpt || null,
-              offset_x_ratio: typeof normalized.coordinates?.normX === 'number' ? normalized.coordinates.normX : 0.5,
-              offset_y_ratio: typeof normalized.coordinates?.normY === 'number' ? normalized.coordinates.normY : 0.5,
-              page_x: normalized.coordinates?.pageX ?? normalized.pageX ?? 0,
-              page_y: normalized.coordinates?.pageY ?? normalized.pageY ?? 0,
-            }
-          } else if (safeAnchorKind === 'canvas-relative') {
-            coordinateFields = {
-              canvas_x_ratio: typeof normalized.coordinates?.normX === 'number' ? normalized.coordinates.normX : 0.5,
-              canvas_y_ratio: typeof normalized.coordinates?.normY === 'number' ? normalized.coordinates.normY : 0.5,
-              page_x: normalized.coordinates?.pageX ?? normalized.pageX ?? 0,
-              page_y: normalized.coordinates?.pageY ?? normalized.pageY ?? 0,
-            }
-          } else if (safeAnchorKind === 'webgl-clip-space') {
-            coordinateFields = {
-              webgl_clip_x: normalized.webglClipX ?? 0,
-              webgl_clip_y: normalized.webglClipY ?? 0,
-            }
-          } else {
-            // viewport-absolute or manual
-            coordinateFields = {
-              viewport_x: normalized.coordinates?.viewportX ?? normalized.displayX ?? 0,
-              viewport_y: normalized.coordinates?.viewportY ?? normalized.displayY ?? 0,
-              page_x: normalized.coordinates?.pageX ?? normalized.pageX ?? 0,
-              page_y: normalized.coordinates?.pageY ?? normalized.pageY ?? 0,
-            }
+          // Open drawer instantly without network latency or blocking API queues
+          selectMarker(null)
+          setCaptureCtx(newCaptureCtx)
+          setNoteText('')
+          setIssueTitle('')
+          setSubmitError(null)
+          setSubmitSuccess(false)
+          const inferred = inferIssueType(newCaptureCtx)
+          setIssueType(inferred)
+          setIsIssueTypeManuallySet(false)
+          setSeverity('medium')
+          setStatusVal('open')
+          setIsDrawerOpen(true)
+          if (!isMobileDevice) {
+            useUIStore.getState().toggleCommandCenter(true)
           }
 
-          const markerPayload = { ...basePayload, ...coordinateFields }
+          // Trigger asynchronous background screenshot for drawer preview
+          const { screenshotMode } = useScreenshotStore.getState()
+          let cropRect = undefined
+          if (screenshotMode === 'element' && normalized.boundingBox) {
+            const bb = normalized.boundingBox as any
+            cropRect = { x: bb.left || bb.x || 0, y: bb.top || bb.y || 0, width: bb.width || 0, height: bb.height || 0 }
+          }
 
-          console.log('[AuditSurface] Creating marker payload:', markerPayload)
-
-          // Asynchronously create the marker in the backend
-          createMarkerViaApi(sessionId, markerPayload, reviewerIdentity?.id)
-            .then((newMarker) => {
-              const { screenshotMode } = useScreenshotStore.getState();
-              useScreenshotStore.getState().setModeForMarker(newMarker.id, screenshotMode);
-
-              selectMarker(newMarker.id)
-              setIsDrawerOpen(true)
-              if (!isMobileDevice) {
-                useUIStore.getState().toggleCommandCenter(true)
-              }
-
-              const pageUrl = normalized.pageUrl || currentUrl;
-
-              const runBackgroundScreenshot = (markerId: string, url: string, bbox: any) => {
-                useScreenshotStore.getState().setScreenshotState('capturing', null, null, null);
-
-                let cropRect = undefined;
-                if (screenshotMode === 'element' && bbox) {
-                  const bb = bbox as any;
-                  cropRect = { x: bb.left || bb.x || 0, y: bb.top || bb.y || 0, width: bb.width || 0, height: bb.height || 0 };
-                }
-
-                Promise.all([
-                  import('@/utils/captureOrchestrator'),
-                ]).then(([{ orchestrateScreenshot, createDetailedPlaceholderScreenshot }]) => {
-                  orchestrateScreenshot(sessionId, url, screenshotMode, cropRect, shareToken, iframeRef.current)
-                    .then((res) => {
-                      useScreenshotStore.getState().setScreenshotState('success', res.dataUrl, res.source, null);
-                      updateMarkerViaApi(markerId, { screenshot_url: res.dataUrl }, reviewerIdentity?.id)
-                    })
-                    .catch((err) => {
-                      console.error('[STAGE Screenshot] background capture failed:', err);
-                      const fallbackPng = createDetailedPlaceholderScreenshot({
-                        url: pageUrl,
-                        title: normalized.pageTitle || currentTitle,
-                        tag: normalized.target?.tagName || 'ELEMENT',
-                        selector: normalized.target?.selector || '',
-                        reason: err.message || String(err),
-                        timestamp: new Date().toISOString()
-                      });
-
-                      useScreenshotStore.getState().setScreenshotState('failed', fallbackPng, 'placeholder-error', err.message || String(err));
-                      updateMarkerViaApi(markerId, { screenshot_url: fallbackPng }, reviewerIdentity?.id)
-                    });
-                }).catch((err) => {
-                  console.error('[STAGE Screenshot] failed to import orchestrator:', err);
-                });
-              };
-
-              if (screenshotMode === 'region') {
-                setPendingRegionCaptureId(newMarker.id)
-              } else {
-                setTimeout(() => {
-                  runBackgroundScreenshot(newMarker.id, pageUrl, normalized.boundingBox);
-                }, screenshotMode === 'fullpage' ? 300 : 0);
-              }
-            })
-            .catch((err) => {
-              console.error('[AuditSurface] Failed to create marker on open drawer:', err)
-            })
+          import('@/utils/captureOrchestrator').then(({ orchestrateScreenshot, createDetailedPlaceholderScreenshot }) => {
+            orchestrateScreenshot(sessionId, newCaptureCtx.page_url, screenshotMode, cropRect, shareToken, iframeRef.current)
+              .then((res) => {
+                useScreenshotStore.getState().setScreenshotState('success', res.dataUrl, res.source, null)
+                setCaptureCtx(prev => prev ? { ...prev, screenshot_data_url: res.dataUrl } : null)
+              })
+              .catch((err) => {
+                const fallbackPng = createDetailedPlaceholderScreenshot({
+                  url: newCaptureCtx.page_url,
+                  title: newCaptureCtx.page_title,
+                  tag: newCaptureCtx.element_tag,
+                  selector: newCaptureCtx.element_selector,
+                  reason: err.message || String(err),
+                  timestamp: new Date().toISOString()
+                })
+                useScreenshotStore.getState().setScreenshotState('failed', fallbackPng, 'placeholder-error', err.message || String(err))
+                setCaptureCtx(prev => prev ? { ...prev, screenshot_data_url: fallbackPng } : null)
+              })
+          }).catch(console.error)
 
           break
         }
@@ -2023,8 +1963,64 @@ export function AuditSurface({
     })
   }, [currentUrl, isLoading, sessionId, shareToken, fetchEdits, iframeReady])
 
-  const pinsSignature = JSON.stringify(orderedMarkerIds.map(id => {
-    const c = markersById[id]
+  const draftMarker: Marker | null = useMemo(() => {
+    if (!isDrawerOpen || selectedMarkerId || !captureCtx) return null
+    return {
+      id: '__draft_pin__',
+      session_id: sessionId,
+      project_id: projectId,
+      anchor_kind: captureCtx.element_tag === 'MANUAL' ? 'viewport-absolute' : (captureCtx.element_selector ? 'dom-relative' : 'viewport-absolute'),
+      page_url: captureCtx.page_url || currentUrl,
+      page_title: captureCtx.page_title || currentTitle,
+      target_selector: captureCtx.element_selector,
+      target_xpath: captureCtx.xpath,
+      dom_text_excerpt: captureCtx.element_text,
+      offset_x_ratio: 0.5,
+      offset_y_ratio: 0.5,
+      viewport_x: captureCtx.viewport_x,
+      viewport_y: captureCtx.viewport_y,
+      page_x: captureCtx.x,
+      page_y: captureCtx.y,
+      viewport_width: captureCtx.viewport?.width,
+      viewport_height: captureCtx.viewport?.height,
+      element_rect_json: null,
+      scroll_x: captureCtx.scroll_position?.x,
+      scroll_y: captureCtx.scroll_position?.y,
+      canvas_id: null,
+      renderer_type: (captureCtx.renderer_type as MarkerRendererType) || 'dom',
+      creator_id: reviewerIdentity?.id || 'reviewer',
+      creator_name: reviewerIdentity?.display_name || 'Reviewer',
+      creator_role: 'reviewer',
+      color_token: '#8b5cf6',
+      status: (statusVal as MarkerStatus) || 'open',
+      priority: (severity as MarkerPriority) || 'medium',
+      version: 1,
+      is_deleted: false,
+      created_at: captureCtx.timestamp || new Date().toISOString(),
+      updated_at: null,
+      page_visit_id: null,
+      canvas_x_ratio: null,
+      canvas_y_ratio: null,
+      webgl_clip_x: null,
+      webgl_clip_y: null,
+      title: issueTitle || 'New Comment',
+      description: noteText || null,
+      browser: null,
+      os: null,
+      device_pixel_ratio: null,
+      console_errors_json: null,
+      network_errors_json: null,
+      screenshot_url: captureCtx.screenshot_data_url || null,
+      encrypted_context: null
+    }
+  }, [isDrawerOpen, selectedMarkerId, captureCtx, sessionId, projectId, currentUrl, currentTitle, reviewerIdentity, statusVal, severity, issueTitle, noteText])
+
+  const visibleMarkers = useMemo(() => {
+    return draftMarker ? [...markers, draftMarker] : markers
+  }, [markers, draftMarker])
+
+  const pinsSignature = JSON.stringify([...orderedMarkerIds, ...(draftMarker ? ['__draft_pin__'] : [])].map(id => {
+    const c = id === '__draft_pin__' ? draftMarker : markersById[id]
     if (!c) return null
     const pageX = c.page_x ?? 0
     const pageY = c.page_y ?? 0
@@ -2947,18 +2943,24 @@ export function AuditSurface({
 
           {/* ── Marker Pin Layer (Dedicated Portalled Layer) ────────────────── */}
           <MarkerPinLayer
-            markers={markers}
-            orderedMarkerIds={orderedMarkerIds}
+            markers={visibleMarkers}
+            orderedMarkerIds={[...orderedMarkerIds, ...(draftMarker ? ['__draft_pin__'] : [])]}
             currentUrl={currentUrl}
             scrollPos={scrollPos}
             iframeNode={iframeRef.current}
-            selectedMarkerId={selectedMarkerId}
+            selectedMarkerId={selectedMarkerId || (draftMarker ? '__draft_pin__' : null)}
             actor={actor}
             onSelectPin={(id) => {
+              if (id === '__draft_pin__') return
               selectMarker(id)
               setIsDrawerOpen(true)
             }}
             onDeletePin={async (id) => {
+              if (id === '__draft_pin__') {
+                setIsDrawerOpen(false)
+                setCaptureCtx(null)
+                return
+              }
               try {
                 await deleteMarkerViaApi(id, reviewerIdentity?.id)
               } catch (e) {
@@ -2966,6 +2968,18 @@ export function AuditSurface({
               }
             }}
             onUpdateMarker={async (id, patch) => {
+              if (id === '__draft_pin__') {
+                if (patch.page_x !== undefined && patch.page_y !== undefined) {
+                  setCaptureCtx(prev => prev ? {
+                    ...prev,
+                    x: patch.page_x ?? prev.x,
+                    y: patch.page_y ?? prev.y,
+                    viewport_x: patch.viewport_x ?? prev.viewport_x,
+                    viewport_y: patch.viewport_y ?? prev.viewport_y
+                  } : null)
+                }
+                return
+              }
               try {
                 await moveMarkerViaApi(id, patch, reviewerIdentity?.id)
                 debouncedRecapture(id)
@@ -3338,7 +3352,7 @@ export function AuditSurface({
             <span>{mobileDesktopMode === 'desktop' ? 'Desktop' : 'Mobile'}</span>
           </button>
 
-          {/* Pins feed button */}
+          {/* Comments feed button */}
           <button
             type="button"
             onClick={() => {
@@ -3347,13 +3361,27 @@ export function AuditSurface({
             className="h-8 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-purple-900/30 cursor-pointer"
           >
             <Pin className="w-3 h-3" />
-            <span>Pins ({markers.length})</span>
+            <span>Comments ({markers.length})</span>
           </button>
         </div>
       )}
 
       {/* ── Movable & Closable Feedback Item Modal / Drawer (Bottom sheet on mobile) ── */}
       <AnimatePresence>
+        {isDrawerOpen && isMobileDevice && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              setIsDrawerOpen(false)
+              setCaptureCtx(null)
+              setManualPlacementMode(false)
+              setFeedbackModeActive(false)
+            }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9990]"
+          />
+        )}
         {isDrawerOpen && (
           <motion.div 
             id="onboarding-feedback-item-form"
@@ -3371,7 +3399,7 @@ export function AuditSurface({
               }
             }}
             dragControls={drawerDragControls}
-            dragListener={!isMobileDevice ? false : true}
+            dragListener={false}
             dragMomentum={false}
             initial={isMobileDevice ? { opacity: 0, y: "100%" } : { opacity: 0, scale: 0.96, y: 12 }}
             animate={isMobileDevice ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, y: 0 }}
@@ -3380,13 +3408,18 @@ export function AuditSurface({
             className={cn(
               "bg-[#0d0d14]/95 backdrop-blur-2xl shadow-2xl flex flex-col border border-white/10 overflow-hidden z-[9995]",
               isMobileDevice
-                ? "fixed inset-x-0 bottom-0 w-full h-[50dvh] max-h-[52dvh] rounded-t-3xl rounded-b-none border-t border-white/15"
+                ? "fixed inset-x-0 bottom-0 w-full h-[85dvh] max-h-[90dvh] rounded-t-3xl rounded-b-none border-t border-white/15 shadow-2xl"
                 : "fixed top-16 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[420px] h-[calc(100vh-5.5rem)] max-h-[840px] rounded-3xl"
             )}
           >
-            {/* Mobile swipe-down pull indicator */}
+            {/* Mobile swipe-down pull indicator handle */}
             {isMobileDevice && (
-              <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mt-2 mb-0.5 flex-shrink-0" />
+              <div 
+                onPointerDown={(e) => drawerDragControls.start(e)}
+                className="w-full py-2 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none bg-[#0d0d14]"
+              >
+                <div className="w-12 h-1.5 rounded-full bg-white/30" />
+              </div>
             )}
 
             {/* Drawer header (Draggable Handle Only) */}
@@ -3403,17 +3436,15 @@ export function AuditSurface({
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white truncate">
-                    {isSubmitted ? 'Feedback Item' : isResolved ? 'Fixed Feedback ✓' : 'Leave Feedback'}
+                    {isSubmitted ? 'Comment' : isResolved ? 'Fixed ✓' : 'Leave a comment'}
                   </h3>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={cn(
                   "px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest text-[7px]",
                   isResolved ? "bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400" :
-                  isSubmitted ? "bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400" :
-                  isFailed ? "bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400" :
                   "bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-400"
                 )}>
-                  {activeMarker?.status || 'draft'}
+                  {isResolved ? 'Fixed' : 'Open'}
                 </span>
                 {activeMarker?.id && (
                   <span className="font-mono text-[7px] text-slate-500 dark:text-white/30">
@@ -3423,20 +3454,47 @@ export function AuditSurface({
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null); setManualPlacementMode(false); setFeedbackModeActive(false) }}
-            aria-label="Close feedback drawer"
-            className="p-1.5 rounded-lg text-slate-400 dark:text-white/30 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {activeMarker && canMutate && (
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={async () => {
+                  if (confirm('Delete this feedback pin?')) {
+                    try {
+                      await deleteMarkerViaApi(activeMarker.id, reviewerIdentity?.id)
+                      setIsDrawerOpen(false)
+                      selectMarker(null)
+                      setCaptureCtx(null)
+                      setManualPlacementMode(false)
+                      setFeedbackModeActive(false)
+                    } catch (err: any) {
+                      setSubmitError(err.message || 'Failed to delete marker')
+                    }
+                  }
+                }}
+                title="Delete Feedback Pin"
+                aria-label="Delete feedback pin"
+                className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all focus:ring-2 focus:ring-rose-500 focus:outline-none cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => { setIsDrawerOpen(false); setCaptureCtx(null); setManualPlacementMode(false); setFeedbackModeActive(false) }}
+              aria-label="Close feedback drawer"
+              className="p-1.5 rounded-lg text-slate-400 dark:text-white/30 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all focus:ring-2 focus:ring-purple-500 focus:outline-none cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleDrawerSubmit} className="flex-1 overflow-y-auto flex flex-col">
+        <form onSubmit={handleDrawerSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <ErrorBoundary>
-            <div className={cn(isMobileDevice ? "p-3 flex flex-col gap-2.5 flex-1" : "p-5 flex flex-col gap-5 flex-1")}>
+            <div className={cn("flex-1 overflow-y-auto min-h-0", isMobileDevice ? "p-3 flex flex-col gap-2.5" : "p-5 flex flex-col gap-5")}>
 
             {/* ── 1. Screenshot Evidence (Preserved with Annotations) ─── */}
             <div className="border-b border-slate-200 dark:border-white/5 pb-2">
@@ -3553,7 +3611,7 @@ export function AuditSurface({
                                 src={annotatedScreenshotUrl || screenshotUrl}
                                 alt="Page snapshot at capture time"
                                 className="w-full object-cover"
-                                style={{ maxHeight: 240 }}
+                                style={{ maxHeight: isMobileDevice ? 150 : 240 }}
                                 onError={() => setImgErrorId(activeMarker?.id || 'current')}
                               />
                             </div>
@@ -3721,11 +3779,8 @@ export function AuditSurface({
                       isMobileDevice ? "h-9 px-2.5 text-[11px] rounded-xl" : "h-11 px-4 text-xs rounded-2xl"
                     )}
                   >
-                    <option value="new">Waiting</option>
-                    <option value="triaged">Triaged</option>
-                    <option value="in_progress">Being Fixed</option>
-                    <option value="resolved">Fixed ✓</option>
-                    <option value="dismissed">Dismissed</option>
+                    <option value="new">Open</option>
+                    <option value="resolved">Fixed</option>
                   </select>
                   <div className="absolute inset-y-0 right-2 sm:right-4 flex items-center pointer-events-none text-slate-500 dark:text-white/40">
                     <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -3797,10 +3852,10 @@ export function AuditSurface({
             )}
           </div>
 
-          {/* Submit actions */}
-          <div className={cn("border-t border-slate-200 dark:border-white/5 flex flex-col gap-1.5 sm:gap-2 flex-shrink-0", isMobileDevice ? "p-2.5 pb-[max(env(safe-area-inset-bottom),10px)]" : "p-5")}>
+          {/* Submit actions - Sticky Bottom Bar */}
+          <div className={cn("border-t border-slate-200 dark:border-white/10 flex flex-col gap-2 flex-shrink-0 bg-[#0d0d14] z-20", isMobileDevice ? "p-3 pb-[max(env(safe-area-inset-bottom),14px)] shadow-2xl" : "p-5")}>
             {submitSuccess ? (
-              <div className="h-10 sm:h-12 w-full rounded-xl sm:rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center gap-2 text-emerald-400 font-extrabold text-[10px] uppercase tracking-wider animate-pulse">
+              <div className="h-11 sm:h-12 w-full rounded-xl sm:rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center gap-2 text-emerald-400 font-extrabold text-[10px] uppercase tracking-wider animate-pulse">
                 <Check className="w-4 h-4" />
                 Feedback Pinned!
               </div>
@@ -3810,7 +3865,7 @@ export function AuditSurface({
                   <button
                     type="button"
                     disabled
-                    className="h-9.5 sm:h-12 w-full rounded-xl sm:rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 font-extrabold text-[9.5px] sm:text-[10px] uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
+                    className="h-11 sm:h-12 w-full rounded-xl sm:rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 font-extrabold text-[9.5px] sm:text-[10px] uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     Fixed ✓ (Read Only)
                   </button>
@@ -3820,8 +3875,8 @@ export function AuditSurface({
                     disabled={isSubmitting}
                     aria-label={isSubmitted ? "Update feedback pin" : "Submit feedback pin"}
                     className={cn(
-                      "w-full rounded-xl sm:rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/40 disabled:text-white/30 text-white font-extrabold uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-950/30 focus:ring-2 focus:ring-purple-500 focus:outline-none",
-                      isMobileDevice ? "h-9.5 text-[9.5px]" : "h-12 text-[10px]"
+                      "w-full rounded-xl sm:rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/40 disabled:text-white/30 text-white font-extrabold uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-950/30 focus:ring-2 focus:ring-purple-500 focus:outline-none cursor-pointer",
+                      isMobileDevice ? "h-11 text-[11px]" : "h-12 text-[10px]"
                     )}
                   >
                     {isSubmitting ? (

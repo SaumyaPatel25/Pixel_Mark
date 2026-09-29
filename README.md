@@ -1,6 +1,7 @@
-# STAGE — Collaborative Visual QA & Review Operating System
+# STAGE: Website Feedback on the Live Page, No Install
 
-> **STAGE is the zero-installation collaborative QA and visual review operating system that enables engineering teams to inspect, annotate, and visually edit any live web application in real-time without modifying target code or installing browser extensions.**
+> **Share. Review. Fix.**  
+> STAGE lets clients and teammates pin comments and bug reports directly on a live website from one review link, with nothing to install. Your developer sees the exact element and a screenshot for every comment.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.2-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2.4-blue?logo=react)](https://react.dev/)

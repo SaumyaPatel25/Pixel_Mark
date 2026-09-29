@@ -50,6 +50,7 @@ export default function MarketingFooter() {
               <Link href="/features" className="hover:text-pm-accent transition-colors">Platform Features</Link>
               <Link href="/#how-it-works" className="hover:text-pm-accent transition-colors">How It Works</Link>
               <Link href="/pricing" className="hover:text-pm-accent transition-colors">Pricing</Link>
+              <Link href="/feedback" className="hover:text-pm-accent transition-colors">Share Feedback</Link>
 
               <Link href={isUserLoggedIn ? "/dashboard" : "/register"} className="hover:text-pm-accent transition-colors">
                 {isUserLoggedIn ? "Dashboard" : "Start Free"}

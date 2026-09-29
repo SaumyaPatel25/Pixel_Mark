@@ -163,7 +163,7 @@ ${formData.message}`;
                 How STAGE Started
               </h2>
               <p className="text-xs text-pm-muted font-mono leading-relaxed">
-                The journey from fragmented screenshots to a precise visual collaboration layer.
+                The journey from fragmented screenshots to commenting directly on the live website.
               </p>
             </div>
             
@@ -172,7 +172,7 @@ ${formData.message}`;
                 Every team building for the web encounters the same friction: review feedback is inherently imprecise. A designer notices a structural misalignment; a QA tester spots a visual bug; a client wants a copy change. They take screenshots, draw red circles, write Slack descriptions, or open Jira tickets. 
               </p>
               <p className="border-l-2 border-[#253B80]/40 pl-6 my-6 italic text-[#1D264F] font-medium bg-[#253B80]/2 p-4 rounded-r-xl">
-                "The core insight was simple: why capture static mockups when the feedback belongs directly on the live DOM of the web page?"
+                "The core insight was simple: why capture static mockups when the feedback belongs directly on the live web page?"
               </p>
               <p>
                 STAGE was born to resolve this disconnect. Instead of static mockups or complex setup pipelines, STAGE lets product teams instantly launch a secure review session. Anyone can click, point, and leave a visual feedback pin directly on the live website. It captures element-level context, screen size, and system metadata automatically.

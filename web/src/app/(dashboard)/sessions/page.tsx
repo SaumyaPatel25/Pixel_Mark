@@ -219,43 +219,45 @@ function SessionsList() {
         }}
       />
 
-      <div className="max-w-6xl mx-auto space-y-8 relative z-10">
+      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 relative z-10">
         {/* Header bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-pm-border pb-6 transition-all">
-          <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-pm-border pb-5 sm:pb-6 transition-all">
+          <div className="space-y-1.5 sm:space-y-2">
             <Link 
               href="/dashboard"
-              className="inline-flex items-center gap-2 text-xs text-pm-muted hover:text-pm-text transition-colors uppercase font-bold tracking-wider"
+              className="inline-flex items-center gap-2 text-xs text-pm-muted hover:text-pm-text transition-colors uppercase font-bold tracking-wider py-0.5"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Back to dashboard
             </Link>
-            <h1 className="text-3xl font-black tracking-tight text-pm-text leading-tight flex items-center gap-3">
-              <Folder className="w-8 h-8 text-pm-accent" />
-              {activeProject ? activeProject.name : 'All Review Sessions'}
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-pm-text leading-tight flex items-center gap-2.5 sm:gap-3">
+              <Folder className="w-7 h-7 sm:w-8 h-8 text-pm-accent flex-shrink-0" />
+              <span className="truncate">{activeProject ? activeProject.name : 'All Review Sessions'}</span>
             </h1>
-            <p className="text-pm-muted text-xs truncate max-w-md">
+            <p className="text-pm-muted text-xs truncate max-w-full sm:max-w-md">
               {activeProject?.url || (projects.length > 0 ? `${allSessions.length} total sessions across ${projects.length} workspace projects` : 'No projects configured')}
             </p>
           </div>
 
-          <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
+          <div className="flex items-center gap-2.5 sm:gap-3 self-stretch sm:self-auto flex-col sm:flex-row sm:flex-wrap">
             {/* Project Filter Dropdown */}
             {projects.length > 1 && (
-              <div className="flex items-center gap-2 bg-pm-surface border border-pm-border rounded-xl px-3 py-2 text-xs">
-                <Filter className="w-3.5 h-3.5 text-pm-muted" />
-                <select
-                  value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="bg-transparent text-pm-text font-bold text-xs outline-none cursor-pointer"
-                >
-                  <option value="all" className="bg-pm-surface text-pm-text">All Projects ({projects.length})</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id} className="bg-pm-surface text-pm-text">
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex items-center gap-2 bg-pm-surface border border-pm-border rounded-xl px-3 py-2.5 sm:py-2 text-xs w-full sm:w-auto justify-between sm:justify-start">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-pm-muted flex-shrink-0" />
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="bg-transparent text-pm-text font-bold text-xs outline-none cursor-pointer pr-2"
+                  >
+                    <option value="all" className="bg-pm-surface text-pm-text">All Projects ({projects.length})</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id} className="bg-pm-surface text-pm-text">
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
 
@@ -263,10 +265,10 @@ function SessionsList() {
               <button
                 id="onboarding-new-session-btn"
                 onClick={openCreateModal}
-                className="rounded-xl h-11 bg-pm-accent hover:bg-pm-accent-bright text-white font-black text-xs px-6 shadow-md transition-all flex items-center gap-2 active:scale-95 flex-shrink-0 cursor-pointer"
+                className="rounded-xl h-11 bg-pm-accent hover:bg-pm-accent-bright text-white font-black text-xs px-5 sm:px-6 shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 flex-shrink-0 w-full sm:w-auto cursor-pointer"
               >
-                <Plus className="w-4 h-4" />
-                New Session
+                <Plus className="w-4 h-4 flex-shrink-0" />
+                <span>New Session</span>
               </button>
             )}
           </div>
@@ -274,9 +276,9 @@ function SessionsList() {
 
         {/* Sessions list layout grid */}
         {filteredSessions.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             {/* Left side: Sessions List */}
-            <div className="lg:col-span-7 space-y-4">
+            <div className="lg:col-span-7 space-y-3.5 sm:space-y-4">
               {filteredSessions.map((s) => {
                 const isSelected = selectedSessionId === s.id
                 return (
@@ -286,14 +288,14 @@ function SessionsList() {
                       setSelectedSessionId(s.id)
                       setSelectedSessionTitle(s.title || '')
                     }}
-                    className={`bg-pm-surface border rounded-2xl p-5 shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 ${
+                    className={`bg-pm-surface border rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 ${
                       isSelected 
                         ? 'border-pm-accent ring-2 ring-pm-accent-subtle shadow-md' 
                         : 'border-pm-border'
                     }`}
                   >
-                    <div className="space-y-2 min-w-0">
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-2 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h2 className="text-sm font-bold text-pm-text leading-snug truncate">{s.title}</h2>
                         {selectedProjectId === 'all' && s.project_name && (
                           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-pm-accent-subtle text-pm-accent border border-pm-border truncate max-w-[120px]">
@@ -301,38 +303,38 @@ function SessionsList() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-[10px] text-pm-muted dark:text-zinc-400 font-semibold uppercase tracking-wider">
-                        <span className="flex items-center gap-1.5 font-mono">
+                      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-[10px] text-pm-muted dark:text-zinc-400 font-semibold uppercase tracking-wider">
+                        <span className="flex items-center gap-1.5 font-mono flex-shrink-0">
                           <Clock className="w-3.5 h-3.5 text-pm-muted" />
                           Started {new Date(s.created_at).toLocaleDateString()}
                         </span>
                         {s.current_page_url && (
-                          <span className="truncate max-w-[240px] font-mono">
+                          <span className="truncate max-w-[200px] sm:max-w-[240px] font-mono">
                             Last page: {s.current_page_url}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-pm-border/60" onClick={(e) => e.stopPropagation()}>
                       <Link
                         id="onboarding-audit-canvas-btn"
                         href={`/project/${s.project_id}?session=${s.id}`}
                         prefetch={false}
                         title="Audit Canvas"
-                        className="group h-10 px-4 rounded-xl bg-pm-accent-subtle hover:bg-pm-accent/20 border border-pm-border text-pm-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm whitespace-nowrap overflow-hidden"
+                        className="group flex-1 sm:flex-none h-10 px-3.5 sm:px-4 rounded-xl bg-pm-accent-subtle hover:bg-pm-accent/20 border border-pm-border text-pm-accent text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-sm whitespace-nowrap overflow-hidden"
                       >
                         <Play className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="max-w-0 opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 transition-all duration-300 overflow-hidden">Audit Canvas</span>
+                        <span className="inline sm:max-w-0 sm:opacity-0 sm:group-hover:max-w-[200px] sm:group-hover:opacity-100 transition-all duration-300 overflow-hidden">Audit Canvas</span>
                       </Link>
                       <Link
                         href={`/project/${s.project_id}?session=${s.id}&view=details`}
                         prefetch={false}
                         title="Observation Details"
-                        className="group h-10 px-4 rounded-xl bg-pm-surface border border-pm-border hover:bg-pm-surface-2 text-pm-muted hover:text-pm-text text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm whitespace-nowrap overflow-hidden"
+                        className="group flex-1 sm:flex-none h-10 px-3.5 sm:px-4 rounded-xl bg-pm-surface border border-pm-border hover:bg-pm-surface-2 text-pm-muted hover:text-pm-text text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-sm whitespace-nowrap overflow-hidden"
                       >
                         <Compass className="w-3.5 h-3.5 text-pm-accent flex-shrink-0" />
-                        <span className="max-w-0 opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 transition-all duration-300 overflow-hidden">Observation Details</span>
+                        <span className="inline sm:max-w-0 sm:opacity-0 sm:group-hover:max-w-[200px] sm:group-hover:opacity-100 transition-all duration-300 overflow-hidden">Details</span>
                       </Link>
                     </div>
                   </div>
@@ -341,7 +343,7 @@ function SessionsList() {
             </div>
 
             {/* Right side: Detailed Live Session Analytics Card */}
-            <div className="lg:col-span-5 sticky top-6">
+            <div className="lg:col-span-5 lg:sticky lg:top-6 mt-2 lg:mt-0">
               <SessionFeedbackSummary 
                 sessionId={selectedSessionId}
                 sessionTitle={selectedSessionTitle}
@@ -466,19 +468,12 @@ function SessionsList() {
                     />
                   </div>
                   {newSessionUrl.trim() && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, height: 0 }}
-                      animate={{ opacity: 1, y: 0, height: 'auto' }}
-                      className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2"
-                    >
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2">
                       <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
-                      <div className="space-y-0.5">
-                        <p className="font-bold text-[10px] tracking-wider uppercase">Link Engine Security Lock</p>
-                        <p className="text-[11px] text-amber-300/90 leading-relaxed">
-                          Please verify this link. Once the session is launched, this link cannot be changed afterwards.
-                        </p>
-                      </div>
-                    </motion.div>
+                      <p className="text-[11px] text-amber-300/90 leading-relaxed font-medium">
+                        The website address cannot be changed after you create the session. To review a different site, create a new project.
+                      </p>
+                    </div>
                   )}
                 </div>
 

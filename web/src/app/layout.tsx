@@ -43,7 +43,7 @@ export const metadata: Metadata = {
         url: `${seoConfig.siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: 'STAGE — The Visual Website Feedback Tool Built for Product Teams',
+        alt: 'STAGE review of a live website with a numbered pin and the comment attached to it',
       },
     ],
     locale: 'en_US',

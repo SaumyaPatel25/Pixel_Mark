@@ -1,3 +1,5 @@
+type QueuePriority = 'high' | 'normal'
+
 type QueueItem = {
   id: string
   fn: () => Promise<unknown>
@@ -5,12 +7,13 @@ type QueueItem = {
   reject: (reason?: unknown) => void
   retries: number
   label: string
+  priority: QueuePriority
 }
 
-const WRITE_CONCURRENCY = 1
+const WRITE_CONCURRENCY = 4
 const READ_CONCURRENCY  = 4
-const MAX_RETRIES = 3
-const RETRY_BASE_MS = 800
+const MAX_RETRIES = 2
+const RETRY_BASE_MS = 400
 
 class ApiQueue {
   private writeQueue: QueueItem[] = []
@@ -22,20 +25,31 @@ class ApiQueue {
   
   private listeners: Set<(status: QueueStatus) => void> = new Set()
   
-  enqueueWrite<T>(label: string, fn: () => Promise<T>, dedupeKey?: string): Promise<T> {
+  enqueueWrite<T>(label: string, fn: () => Promise<T>, dedupeKey?: string, priority: QueuePriority = 'normal'): Promise<T> {
     if (dedupeKey && this.pendingWrites.has(dedupeKey)) {
       return this.pendingWrites.get(dedupeKey) as Promise<T>
     }
     
     const promise = new Promise<T>((resolve, reject) => {
-      this.writeQueue.push({
+      const item: QueueItem = {
         id: crypto.randomUUID(),
         fn, 
         resolve: resolve as (v: unknown) => void,
         reject, 
         retries: 0, 
-        label
-      })
+        label,
+        priority
+      }
+      if (priority === 'high') {
+        const firstNormalIndex = this.writeQueue.findIndex(i => i.priority !== 'high')
+        if (firstNormalIndex === -1) {
+          this.writeQueue.push(item)
+        } else {
+          this.writeQueue.splice(firstNormalIndex, 0, item)
+        }
+      } else {
+        this.writeQueue.push(item)
+      }
       this.drainWrites()
     })
 
@@ -59,7 +73,8 @@ class ApiQueue {
         resolve: resolve as (v: unknown) => void,
         reject, 
         retries: 0, 
-        label
+        label,
+        priority: 'normal'
       })
       this.drainReads()
     })
@@ -73,20 +88,18 @@ class ApiQueue {
   }
   
   private async drainWrites() {
-    if (this.activeWrites >= WRITE_CONCURRENCY) return
-    const item = this.writeQueue.shift()
-    if (!item) return
-    this.activeWrites++
-    this.notify()
-    try {
-      const result = await this.executeWithRetry(item)
-      item.resolve(result)
-    } catch (err) {
-      item.reject(err)
-    } finally {
-      this.activeWrites--
+    while (this.activeWrites < WRITE_CONCURRENCY && this.writeQueue.length > 0) {
+      const item = this.writeQueue.shift()!
+      this.activeWrites++
       this.notify()
-      this.drainWrites()
+      this.executeWithRetry(item)
+        .then(item.resolve)
+        .catch(item.reject)
+        .finally(() => {
+          this.activeWrites--
+          this.notify()
+          this.drainWrites()
+        })
     }
   }
   
@@ -111,7 +124,7 @@ class ApiQueue {
         return await item.fn()
       } catch (err: unknown) {
         const isRetryable = err instanceof Error &&
-          (err.message.includes('fetch') || err.message.includes('network'))
+          (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch'))
         if (!isRetryable || attempt === MAX_RETRIES) throw err
         const delay = RETRY_BASE_MS * Math.pow(2, attempt)
         await new Promise(r => setTimeout(r, delay))

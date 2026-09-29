@@ -622,7 +622,7 @@ function ProjectPageContent() {
               <div className="h-6 w-[1px] bg-pm-border" />
               <button 
                 id="command-center-trigger"
-                aria-label="Toggle Feedback Feed"
+                aria-label="Toggle Comments Drawer"
                 aria-controls="command-center-drawer"
                 aria-expanded={isCommandCenterOpen}
                 onClick={() => toggleCommandCenter()}
@@ -634,7 +634,7 @@ function ProjectPageContent() {
                 )}
               >
                 {isCommandCenterOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
-                <span className="hidden sm:inline">Open Feedback</span>
+                <span className="hidden sm:inline">Comments</span>
                 {markerCount > 0 && (
                   <span className="bg-pm-accent text-white text-[8.5px] font-mono font-black px-1.5 py-0.5 rounded-md ml-1 animate-pulse">
                     {markerCount}
@@ -785,13 +785,13 @@ function ProjectPageContent() {
             )}
         </AnimatePresence>
 
-        {/* Command Center Slider (Bottom sheet on mobile, Movable & Closable floating menu on desktop) */}
+        {/* Comments Drawer (Bottom sheet on mobile, Movable & Closable floating menu on desktop) */}
         <AnimatePresence>
             {view !== 'details' && isCommandCenterOpen && (
                 <motion.div
                     id="command-center-drawer"
                     role="dialog"
-                    aria-label="Feedback Feed Stream"
+                    aria-label="Comments Stream"
                     aria-modal="true"
                     drag={false}
                     initial={{ opacity: 0, y: 20 }}

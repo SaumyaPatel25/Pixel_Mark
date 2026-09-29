@@ -116,7 +116,7 @@ export default function EntrextSection() {
 
             {/* Body */}
             <p className="text-xs md:text-sm text-pm-muted leading-relaxed max-w-2xl font-sans">
-              STAGE is developed by Entrext Labs, an engineering group dedicated to creating visual collaboration layers for the modern web. We build workflows that empower designers, developers, QA leads, and clients to align with absolute confidence.
+              STAGE is developed by Entrext Labs, an engineering group dedicated to creating simple, precise feedback tools for the modern web. We build workflows that empower designers, developers, QA leads, and clients to align with absolute confidence.
             </p>
 
             {/* CTAs */}

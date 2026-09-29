@@ -462,6 +462,7 @@ export function MarkerPinLayer({
                   onClick={onSelectPin}
                   onDelete={onDeletePin}
                   dragging={isDragging}
+                  isSelected={isActive}
                   onDragStart={(id, e) => {
                     const targetMarker = markers.find(m => m.id === id)
                     if (!targetMarker || !canCurrentActorMutateMarker(actor, targetMarker)) {

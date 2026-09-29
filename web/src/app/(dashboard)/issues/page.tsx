@@ -243,11 +243,11 @@ function IssuesContent() {
               <AlertCircle className="w-5 h-5" />
             </div>
             <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-pm-text">
-              Issue Tracker
+              Comments
             </h1>
           </div>
           <p className="text-xs text-pm-muted font-medium">
-            Inspect, filter, resolve, and navigate to all feedback pins and bug observations across your projects.
+            Inspect, filter, and resolve comments and bug reports across your projects.
           </p>
         </div>
 
@@ -256,7 +256,7 @@ function IssuesContent() {
             onClick={() => loadIssues(true)}
             disabled={isLoading || isRefreshing}
             className="px-4 py-2.5 rounded-xl bg-pm-surface border border-pm-border hover:bg-pm-surface-2 text-pm-text text-xs font-bold transition-all flex items-center gap-2 active:scale-95 shadow-sm cursor-pointer disabled:opacity-50"
-            title="Refresh issues list"
+            title="Refresh comments list"
           >
             <RefreshCw className={cn("w-3.5 h-3.5 text-pm-muted", isRefreshing && "animate-spin text-pm-accent")} />
             <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
@@ -560,7 +560,7 @@ function IssuesContent() {
                         </p>
                       ) : (
                         <p className="text-[11px] text-pm-muted/60 italic leading-relaxed">
-                          No descriptive summary attached. Click "Open in Canvas" to inspect the highlighted element in context.
+                          No descriptive summary attached. Click "Open on page" to inspect the highlighted element in context.
                         </p>
                       )}
                     </div>
@@ -629,12 +629,12 @@ function IssuesContent() {
                       )}
                     </button>
 
-                    {/* Open in Canvas Redirect Link Button */}
+                    {/* Open on Page Redirect Link Button */}
                     <Link
                       href={directCanvasUrl}
                       className="px-4 py-2 rounded-xl bg-pm-accent hover:bg-pm-accent-bright text-white text-xs font-bold transition-all flex items-center gap-2 active:scale-95 shadow-sm group/btn"
                     >
-                      <span>Open in Canvas</span>
+                      <span>Open on page</span>
                       <ExternalLink className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
                     </Link>
 
@@ -666,11 +666,11 @@ function IssuesContent() {
             <Inbox className="w-8 h-8" />
           </div>
           <div className="space-y-1.5 max-w-md">
-            <h3 className="text-base font-bold text-pm-text">No issues found</h3>
+            <h3 className="text-base font-bold text-pm-text">No comments found</h3>
             <p className="text-xs text-pm-muted leading-relaxed">
               {searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || projectFilter !== 'all'
-                ? "No issues match your active search or filter criteria. Try adjusting or clearing filters."
-                : "No issues or feedback pins have been dropped yet. Start a review session to drop pins and document feedback on your web app."}
+                ? "No comments match your active search or filter criteria. Try adjusting or clearing filters."
+                : "No comments have been posted yet. Start a review session to comment directly on your web app."}
             </p>
           </div>
           {(searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || projectFilter !== 'all') ? (
@@ -705,7 +705,7 @@ export default function IssuesPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-pm-bg text-pm-text flex flex-col items-center justify-center">
-        <StageLoader size="md" text="Loading issue tracker..." />
+        <StageLoader size="md" text="Loading comments..." />
       </div>
     }>
       <IssuesContent />

@@ -13,6 +13,7 @@ interface MarkerPinProps {
   onClick?: (markerId: string) => void
   size?: 'sm' | 'md'
   dragging?: boolean
+  isSelected?: boolean
 }
 
 /**
@@ -20,13 +21,14 @@ interface MarkerPinProps {
  * Color is driven deterministically by marker.color_token.
  * Delete/move affordances are shown only if the actor has permission.
  */
-export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClick, size = 'md', dragging = false }: MarkerPinProps) {
+export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClick, size = 'md', dragging = false, isSelected = false }: MarkerPinProps) {
   const colors = getMarkerColors(marker.color_token)
   const canMutate = canCurrentActorMutateMarker(actor, marker)
-  const initials = (marker.creator_name ?? '?').slice(0, 2).toUpperCase()
+  const initials = marker.id === '__draft_pin__' ? '+' : (marker.creator_name ?? '?').slice(0, 2).toUpperCase()
   const sizeClass = size === 'sm' ? 'w-7 h-7 text-[10px]' : 'w-9 h-9 text-xs'
   const [isHovered, setIsHovered] = useState(false)
 
+  // Show action strip on hover (desktop), while direct drag on the pin itself handles mobile/desktop dragging
   const showStrip = canMutate && (onDelete || onMove || onDragStart) && isHovered && !dragging
 
   return (
@@ -37,44 +39,82 @@ export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClic
       onClick={() => { if (!dragging) onClick?.(marker.id) }}
       title={`${marker.creator_name ?? 'Anonymous'}: ${marker.title ?? ''}`}
     >
-      {/* Dot */}
+      {/* Dot with direct touch/pointer drag trigger */}
       <div
-        className={`${sizeClass} rounded-full flex items-center justify-center font-black border-2 shadow-lg transition-transform touch-manipulation relative after:absolute after:-inset-2.5 after:content-[''] ${dragging ? 'scale-125 ring-4 ring-purple-500/30' : (isHovered ? 'scale-110' : '')}`}
+        onPointerDown={(e) => {
+          if (canMutate && onDragStart) {
+            const startX = e.clientX
+            const startY = e.clientY
+            const pointerId = e.pointerId
+            let hasDragged = false
+
+            const onMove = (moveEvent: PointerEvent) => {
+              if (moveEvent.pointerId !== pointerId) return
+              const dist = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY)
+              if (dist > 5 && !hasDragged) {
+                hasDragged = true
+                window.removeEventListener('pointermove', onMove)
+                window.removeEventListener('pointerup', onUp)
+                onDragStart(marker.id, e)
+              }
+            }
+
+            const onUp = (upEvent: PointerEvent) => {
+              if (upEvent.pointerId !== pointerId) return
+              window.removeEventListener('pointermove', onMove)
+              window.removeEventListener('pointerup', onUp)
+            }
+
+            window.addEventListener('pointermove', onMove)
+            window.addEventListener('pointerup', onUp)
+          }
+        }}
+        className={`${sizeClass} rounded-full flex items-center justify-center font-black border-2 shadow-lg transition-transform touch-none relative after:absolute after:-inset-2.5 after:content-[''] ${dragging ? 'scale-125 ring-4 ring-purple-500/30' : (isHovered || isSelected ? 'scale-115 ring-2 ring-white/40' : '')}`}
         style={{
           backgroundColor: colors.dot,
-          borderColor: colors.border,
+          borderColor: isSelected ? '#FFFFFF' : colors.border,
           color: '#fff',
-          boxShadow: dragging ? `0 0 15px ${colors.dot}` : `0 0 0 3px ${colors.dot}30`,
+          boxShadow: dragging ? `0 0 15px ${colors.dot}` : isSelected ? `0 0 0 4px ${colors.dot}60, 0 4px 12px rgba(0,0,0,0.5)` : `0 0 0 3px ${colors.dot}30`,
         }}
       >
         {initials}
       </div>
 
-      {/* Invisible bridge fills the gap between pin bottom and action strip so mousing down stays within hover zone */}
+      {/* Invisible bridge fills the gap between pin bottom and action strip */}
       {canMutate && (onDelete || onMove || onDragStart) && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-full w-20 h-3" />
+        <div className="absolute left-1/2 -translate-x-1/2 top-full w-24 h-3" />
       )}
 
-      {/* Hover action strip (delete / move) */}
+      {/* Action strip (delete / move) - shown on hover AND on select */}
       {showStrip && (
-        <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-pm-surface border border-pm-border rounded-2xl p-1.5 shadow-2xl z-10 animate-in fade-in zoom-in-95 duration-100 transition-all">
+        <div 
+          className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-pm-surface/95 backdrop-blur-md border border-pm-border rounded-2xl p-1.5 shadow-2xl z-20 animate-in fade-in zoom-in-95 duration-100 transition-all"
+          onClick={(e) => e.stopPropagation()}
+        >
           {(onMove || onDragStart) && (
             <button
               title="Move marker (Drag me)"
-              onClick={(e) => { e.stopPropagation(); onMove?.(marker.id) }}
-              onPointerDown={(e) => { e.stopPropagation(); onDragStart?.(marker.id, e) }}
-              className="p-1.5 border border-pm-border hover:border-pm-accent-bright/30 rounded-lg hover:text-pm-accent text-pm-muted bg-pm-surface-2 hover:bg-pm-accent/10 transition-colors cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => { 
+                e.stopPropagation()
+                onDragStart?.(marker.id, e) 
+              }}
+              className="p-2 sm:p-1.5 border border-pm-border hover:border-pm-accent-bright/30 rounded-xl hover:text-pm-accent text-pm-muted bg-pm-surface-2 hover:bg-pm-accent/10 transition-colors cursor-grab active:cursor-grabbing touch-none flex items-center justify-center"
             >
-              <Move className="w-3.5 h-3.5" />
+              <Move className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
             </button>
           )}
           {onDelete && (
             <button
               title="Delete marker"
-              onClick={(e) => { e.stopPropagation(); onDelete(marker.id) }}
-              className="p-1.5 border border-pm-border hover:border-rose-500/30 rounded-lg hover:text-rose-500 text-pm-muted bg-pm-surface-2 hover:bg-rose-500/10 transition-colors"
+              onClick={(e) => { 
+                e.stopPropagation()
+                if (confirm('Delete this marker pin?')) {
+                  onDelete(marker.id)
+                }
+              }}
+              className="p-2 sm:p-1.5 border border-pm-border hover:border-rose-500/30 rounded-xl hover:text-rose-500 text-pm-muted bg-pm-surface-2 hover:bg-rose-500/10 transition-colors flex items-center justify-center cursor-pointer"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-rose-400" />
             </button>
           )}
         </div>
@@ -92,7 +132,7 @@ interface MarkerCardProps {
 }
 
 /**
- * A marker card for use in the developer command center list.
+ * A comment card for use in the feedback list.
  * Shows creator name, color, title, status, priority.
  * Delete is shown based on actor permissions.
  */
@@ -146,15 +186,9 @@ export function MarkerCard({ marker, actor, onDelete, isSelected, onClick }: Mar
         {/* Status + Priority row */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
-            marker.status === 'resolved' ? 'bg-green-900/30 text-green-400' :
-            marker.status === 'in_progress' ? 'bg-blue-900/30 text-blue-400' :
-            marker.status === 'dismissed' ? 'bg-white/5 text-white/30' :
-            'bg-purple-900/30 text-purple-400'
+            marker.status === 'resolved' ? 'bg-green-900/30 text-green-400' : 'bg-purple-900/30 text-purple-400'
           }`}>
-            {marker.status === 'resolved' ? '✓ Fixed' :
-             marker.status === 'in_progress' ? '⚡ In Progress' :
-             marker.status === 'dismissed' ? '— Dismissed' :
-             '● Open'}
+            {marker.status === 'resolved' ? '✓ Fixed' : '● Open'}
           </span>
           {marker.priority && (
             <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${

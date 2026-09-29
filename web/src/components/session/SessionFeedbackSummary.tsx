@@ -242,7 +242,7 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
   }
 
   return (
-    <div className="bg-pm-surface border border-pm-border rounded-3xl p-6 shadow-md hover:shadow-lg transition-all space-y-6 select-none flex flex-col justify-between relative overflow-hidden min-h-[360px]">
+    <div className="bg-pm-surface border border-pm-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-md hover:shadow-lg transition-all space-y-5 sm:space-y-6 select-none flex flex-col justify-between relative overflow-hidden min-h-[340px] sm:min-h-[360px]">
       <div role="status" aria-live="polite" className="sr-only">
         {`Session analytics loaded. ${stats.total} total feedback pins.`}
       </div>
@@ -251,7 +251,7 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
       <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-400 via-[#253B80] to-indigo-500" />
 
       {/* Header with Title and Page Tabs */}
-      <div className="border-b border-pm-border pb-4 flex items-center justify-between gap-4">
+      <div className="border-b border-pm-border pb-3.5 sm:pb-4 flex items-center justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
           <h3 className="text-[9px] font-black uppercase tracking-widest text-pm-muted">
             Live Session Analytics
@@ -266,7 +266,7 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
           <button
             type="button"
             onClick={() => setActiveTab('metrics')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'metrics'
                 ? 'bg-pm-surface text-pm-accent shadow-sm'
                 : 'text-pm-muted hover:text-pm-text'
@@ -278,7 +278,7 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
           <button
             type="button"
             onClick={() => setActiveTab('timeline')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'timeline'
                 ? 'bg-pm-surface text-pm-accent shadow-sm'
                 : 'text-pm-muted hover:text-pm-text'
@@ -300,12 +300,12 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 12 }}
               transition={{ duration: 0.2 }}
-              className="space-y-6 flex-1 flex flex-col justify-between"
+              className="space-y-5 sm:space-y-6 flex-1 flex flex-col justify-between"
             >
               {/* Completion Donut & Stats */}
-              <div className="flex items-center gap-6 bg-pm-surface-2 border border-pm-border rounded-2xl p-5 shadow-inner">
+              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 bg-pm-surface-2 border border-pm-border rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-inner">
                 <DetailedCompletionRing percent={stats.completionPercent} />
-                <div className="space-y-3 min-w-0 flex-1">
+                <div className="space-y-3 min-w-0 w-full sm:w-auto flex-1">
                   <div>
                     <h4 className="text-[9px] font-black uppercase tracking-wider text-pm-muted">
                       Resolution Progress
@@ -364,9 +364,9 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
                     return (
                       <div
                         key={p.participantId}
-                        className="flex items-center justify-between bg-pm-surface border border-pm-border rounded-2xl px-4 py-2.5 shadow-sm hover:border-pm-border-bright hover:shadow-md transition-all duration-200"
+                        className="flex items-center justify-between bg-pm-surface border border-pm-border rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2.5 shadow-sm hover:border-pm-border-bright hover:shadow-md transition-all duration-200"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                           <div
                             className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black text-white shadow-md flex-shrink-0"
                             style={{ backgroundColor: p.color }}
@@ -383,7 +383,7 @@ export default function SessionFeedbackSummary({ sessionId, sessionTitle }: Sess
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
                           <span className="text-[9px] font-mono text-pm-muted font-bold uppercase tracking-wider">
                             {p.resolvedCount} / {p.count}
                           </span>

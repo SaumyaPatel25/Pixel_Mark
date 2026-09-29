@@ -201,7 +201,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
                   className="h-16 w-auto object-contain dark-theme-logo" 
                 />
               </Link>
-              <span className="text-[9px] font-mono tracking-widest text-pm-muted uppercase block leading-none pl-1">Visual QA OS</span>
+              <span className="text-[9px] font-mono tracking-widest text-pm-muted uppercase block leading-none pl-1">Share. Review. Fix.</span>
             </div>
             <button
               onClick={() => setIsSidebarCollapsed(true)}
@@ -266,7 +266,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               }`}
             >
               <AlertCircle className="w-4 h-4" />
-              <span>Issues</span>
+              <span>Comments</span>
             </Link>
 
             <Link 

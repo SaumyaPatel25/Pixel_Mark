@@ -874,7 +874,7 @@ export const api = {
         method: 'POST',
         headers,
         body: JSON.stringify(data),
-      }))
+      }), undefined, 'high')
     },
     async update(markerId: string, data: { title?: string; description?: string; status?: string; priority?: string; color_token?: string; expected_version?: number }, xReviewerId?: string): Promise<any> {
       const headers: Record<string, string> = {}
@@ -885,7 +885,7 @@ export const api = {
         method: 'PATCH',
         headers,
         body: JSON.stringify(data),
-      }))
+      }), undefined, 'high')
     },
     async patchPosition(markerId: string, data: any, xReviewerId?: string): Promise<any> {
       const headers: Record<string, string> = {}
@@ -896,7 +896,7 @@ export const api = {
         method: 'PATCH',
         headers,
         body: JSON.stringify(data),
-      }))
+      }), undefined, 'high')
     },
     async delete(markerId: string, xReviewerId?: string): Promise<{ success: boolean; message: string }> {
       const headers: Record<string, string> = {}
@@ -906,7 +906,7 @@ export const api = {
       return apiQueue.enqueueWrite('Deleting marker...', () => request(`/markers/${markerId}`, {
         method: 'DELETE',
         headers,
-      }))
+      }), undefined, 'high')
     },
     async registerReviewerIdentity(sessionId: string, data: { display_name: string; color_token?: string }): Promise<any> {
       return apiQueue.enqueueWrite('Registering reviewer...', () => request(`/sessions/${sessionId}/reviewer-identities`, {

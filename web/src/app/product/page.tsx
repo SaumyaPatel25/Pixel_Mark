@@ -3,14 +3,14 @@ import { seoConfig } from '@/lib/seoConfig';
 import ProductPageClient from '@/components/marketing/ProductPageClient';
 
 export const metadata: Metadata = {
-  title: 'Product Overview — Client & Developer Visual QA Engine',
-  description: 'The real-time visual collaboration layer for clients and developers. Cut QA turnaround by 80% with zero-install live proxies, 3D WebGL raycasting, Outbox digests, and SLA escalations.',
+  title: 'Product Overview — STAGE',
+  description: 'STAGE lets clients and teammates pin comments and bug reports directly on a live website from one review link, with nothing to install.',
   alternates: {
     canonical: `${seoConfig.siteUrl}/product`,
   },
   openGraph: {
-    title: 'STAGE Product Overview — Client & Developer Visual QA Engine',
-    description: 'Cut QA turnaround by 80%. Zero browser extensions. Interactive proxy, 3D WebGL pinning, and automated telemetry.',
+    title: 'Product Overview — STAGE',
+    description: 'Share a review link, pin comments on any live web page, and pass fixes to your developer with screenshots and element details.',
     url: `${seoConfig.siteUrl}/product`,
     siteName: 'STAGE',
     images: [

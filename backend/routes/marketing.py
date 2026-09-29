@@ -236,3 +236,153 @@ async def submit_contact_query(
         "id": query.id,
         "message": "Thank you! Your query has been received and our team will get back to you shortly."
     }
+
+
+class FeedbackSubmissionRequest(BaseModel):
+    category: str = Field(..., description="Category: improve, add, remove, bug, general")
+    message: str = Field(..., min_length=3, max_length=5000)
+    rating: Optional[int] = Field(None, ge=1, le=5)
+    name: Optional[str] = Field("Anonymous", max_length=128)
+    email: Optional[str] = Field(None, max_length=256)
+    role: Optional[str] = Field("user", max_length=32)
+    sentiment: Optional[str] = Field(None, max_length=32)
+
+
+@router.post("/marketing/feedback", status_code=status.HTTP_201_CREATED)
+@router.post("/api/marketing/feedback", status_code=status.HTTP_201_CREATED)
+async def submit_feedback(
+    payload: FeedbackSubmissionRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Submits user feedback about STAGE directly to saumya@entrext.com
+    without requiring the user to open an external mail client.
+    Stores record in database for backup.
+    """
+    category_labels = {
+        "improve": ("What to Improve", "#8b5cf6", "🚀"),
+        "add": ("What to Add / Feature Request", "#06b6d4", "💡"),
+        "remove": ("What to Remove / Simplify", "#f59e0b", "✂️"),
+        "bug": ("Bug / Issue Report", "#ef4444", "🐞"),
+        "general": ("General Feedback", "#3b82f6", "💬"),
+    }
+
+    category_key = payload.category.strip().lower()
+    cat_label, cat_color, cat_emoji = category_labels.get(category_key, ("Product Feedback", "#6366f1", "📝"))
+
+    sender_name = (payload.name.strip() if payload.name and payload.name.strip() else "Anonymous User")[:128]
+    sender_email = (payload.email.strip().lower() if payload.email and payload.email.strip() else "anonymous@stage.entrext.com")[:256]
+    stars_str = f" ({payload.rating}/5 ⭐)" if payload.rating else ""
+
+    subject_header = f"[STAGE Feedback] {cat_emoji} {cat_label}{stars_str} - from {sender_name}"
+
+    # 1. Persist to database
+    query_record = LandingQuery(
+        name=sender_name,
+        email=sender_email,
+        role="feedback",
+        subject=f"[{category_key.upper()}] {cat_label}{stars_str}",
+        message=payload.message.strip(),
+        status="pending"
+    )
+
+    db.add(query_record)
+    await db.commit()
+    await db.refresh(query_record)
+
+    # 2. Render rich HTML email
+    reply_button_html = ""
+    if payload.email and "@" in payload.email:
+        reply_button_html = f"""
+        <div style="text-align: center; margin-top: 28px;">
+          <a href="mailto:{sender_email}?subject=Re: {subject_header}" 
+             style="display: inline-block; background: #6366f1; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4);">
+            Reply to {sender_name} ({sender_email})
+          </a>
+        </div>
+        """
+
+    rating_row_html = ""
+    if payload.rating:
+        stars_visual = "★" * payload.rating + "☆" * (5 - payload.rating)
+        rating_row_html = f"""
+          <tr>
+            <td style="color: #94a3b8; padding: 6px 0; width: 130px;"><strong>Rating:</strong></td>
+            <td style="color: #fbbf24; padding: 6px 0; font-size: 16px; font-weight: bold;">{stars_visual} ({payload.rating}/5)</td>
+          </tr>
+        """
+
+    html_body = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0b0f19; color: #f3f4f6; margin: 0; padding: 32px 16px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #111827; border: 1px solid #1f2937; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+    <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 24px; color: #ffffff;">
+      <h1 style="margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.025em;">STAGE · Direct Product Feedback</h1>
+      <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;">Direct user submission from stage.entrext.com/feedback</p>
+    </div>
+    <div style="padding: 28px;">
+      <div style="background: #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 24px; border: 1px solid #334155;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="color: #94a3b8; padding: 6px 0; width: 130px;"><strong>Category:</strong></td>
+            <td style="color: #f1f5f9; padding: 6px 0;">
+              <span style="display: inline-block; background: {cat_color}22; color: {cat_color}; border: 1px solid {cat_color}44; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 9999px;">
+                {cat_emoji} {cat_label.upper()}
+              </span>
+            </td>
+          </tr>
+          {rating_row_html}
+          <tr>
+            <td style="color: #94a3b8; padding: 6px 0;"><strong>Sender:</strong></td>
+            <td style="color: #f1f5f9; padding: 6px 0;">{sender_name}</td>
+          </tr>
+          <tr>
+            <td style="color: #94a3b8; padding: 6px 0;"><strong>Email:</strong></td>
+            <td style="color: #38bdf8; padding: 6px 0;">
+              {f'<a href="mailto:{sender_email}" style="color: #38bdf8; text-decoration: none;">{sender_email}</a>' if payload.email else '<span style="color: #64748b; font-style: italic;">Not provided (Anonymous)</span>'}
+            </td>
+          </tr>
+          <tr>
+            <td style="color: #94a3b8; padding: 6px 0;"><strong>Received At:</strong></td>
+            <td style="color: #94a3b8; padding: 6px 0;">{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</td>
+          </tr>
+        </table>
+      </div>
+      
+      <div style="margin-bottom: 24px;">
+        <h3 style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin: 0 0 10px 0;">Feedback Details</h3>
+        <div style="background: #0f172a; border-radius: 8px; padding: 20px; border: 1px solid #1e293b; color: #e2e8f0; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">
+{payload.message.strip()}
+        </div>
+      </div>
+
+      {reply_button_html}
+    </div>
+    <div style="border-top: 1px solid #1f2937; padding: 16px 28px; background: #0b0f19; text-align: center; font-size: 12px; color: #64748b;">
+      Dispatched directly to {TARGET_EMAIL} from STAGE In-App Feedback Gateway.
+    </div>
+  </div>
+</body>
+</html>"""
+
+    fallback_text = f"New STAGE Feedback [{cat_label}]:\nFrom: {sender_name} ({sender_email})\nRating: {payload.rating or 'N/A'}/5\n\n{payload.message.strip()}"
+
+    try:
+        send_email_wrapper(
+            subject=subject_header,
+            to=TARGET_EMAIL,
+            html=html_body,
+            fallback_msg=fallback_text
+        )
+        logger.info(f"[STAGE FEEDBACK] Email dispatched to {TARGET_EMAIL} for feedback id={query_record.id}")
+    except Exception as e:
+        logger.error(f"[STAGE FEEDBACK] Failed to send email to {TARGET_EMAIL}: {e}")
+
+    return {
+        "success": True,
+        "id": query_record.id,
+        "message": "Thank you! Your feedback has been sent directly to the creator."
+    }
+

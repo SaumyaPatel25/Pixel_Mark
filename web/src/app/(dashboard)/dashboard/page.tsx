@@ -793,20 +793,12 @@ export default function DashboardPage() {
                     />
                   </div>
                   {newProjectUrl.trim() && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, height: 0 }}
-                      animate={{ opacity: 1, y: 0, height: 'auto' }}
-                      exit={{ opacity: 0, y: -4, height: 0 }}
-                      className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2"
-                    >
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2">
                       <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
-                      <div className="space-y-0.5">
-                        <p className="font-bold text-[10px] tracking-wider uppercase">Link Engine Security Lock</p>
-                        <p className="text-[11px] text-amber-300/90 leading-relaxed">
-                          Please verify this link. Once the project is initialized, this target link cannot be changed afterwards.
-                        </p>
-                      </div>
-                    </motion.div>
+                      <p className="text-[11px] text-amber-300/90 leading-relaxed font-medium">
+                        The website address cannot be changed after you create the project. To review a different site, create a new project.
+                      </p>
+                    </div>
                   )}
                 </div>
 
@@ -920,20 +912,12 @@ export default function DashboardPage() {
                     />
                   </div>
                   {newSessionUrl.trim() && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, height: 0 }}
-                      animate={{ opacity: 1, y: 0, height: 'auto' }}
-                      exit={{ opacity: 0, y: -4, height: 0 }}
-                      className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2"
-                    >
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2">
                       <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
-                      <div className="space-y-0.5">
-                        <p className="font-bold text-[10px] tracking-wider uppercase">Link Engine Security Lock</p>
-                        <p className="text-[11px] text-amber-300/90 leading-relaxed">
-                          Please verify this link. Once the review session is launched, this link cannot be changed afterwards.
-                        </p>
-                      </div>
-                    </motion.div>
+                      <p className="text-[11px] text-amber-300/90 leading-relaxed font-medium">
+                        The website address cannot be changed after you create the session. To review a different site, create a new project.
+                      </p>
+                    </div>
                   )}
                   <span className="text-[9px] text-pm-muted block leading-normal pt-1 font-medium font-sans">Leave empty to fall back to the default project url.</span>
                 </div>

@@ -2,9 +2,9 @@
  * Shared SEO Constants & Defaults for STAGE
  */
 export const seoConfig = {
-  title: "STAGE — Visual Website Feedback & QA Bug Reporting Software",
+  title: "STAGE: Website Feedback on the Live Page, No Install",
   shortTitle: "STAGE",
-  description: "Instantly share secure, interactive review links to collect visual feedback, annotations, and QA bug reports directly on live web pages across DOM and 3D.",
+  description: "Visual website feedback with one review link. Clients and teammates pin comments and bug reports on your live site, including 3D pages. No install.",
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://stage.entrext.com",
   company: "Entrext Labs",
   owner: "Saumya Patel",

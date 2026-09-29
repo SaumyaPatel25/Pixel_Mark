@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Menu, X, ArrowRight, LogOut, Zap, Tag, Compass, 
   HelpCircle, Layers, FileCode2, Wrench, Sparkles,
-  ChevronDown, ExternalLink, Globe
+  ChevronDown, ExternalLink, Globe, MessageSquareHeart
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -109,6 +109,21 @@ export default function MarketingNav() {
       }
     },
     {
+      name: 'Feedback',
+      href: '/feedback',
+      preview: {
+        headerIcon: <MessageSquareHeart className="w-4 h-4 text-rose-400" />,
+        title: 'STAGE Feedback',
+        subtitle: 'Shape the next release',
+        items: [
+          { iconEmoji: '🚀', title: 'What to Improve', desc: 'Tell us how to make STAGE faster & cleaner', href: '/feedback?category=improve' },
+          { iconEmoji: '💡', title: 'Request Features', desc: 'Suggest tools & workflows you need', href: '/feedback?category=add' },
+          { iconEmoji: '✂️', title: 'What to Remove', desc: 'Flag clunky or confusing tools', href: '/feedback?category=remove' },
+          { iconEmoji: '📬', title: 'Direct to Founder', desc: 'Sent directly to saumya@entrext.com', href: '/feedback' },
+        ]
+      }
+    },
+    {
       name: 'Features',
       href: '/features',
       preview: {
@@ -177,7 +192,7 @@ export default function MarketingNav() {
         title: 'About STAGE',
         subtitle: 'By Entrext Labs',
         items: [
-          { iconEmoji: '🚀', title: 'Our Mission', desc: 'The visual collaboration layer for the web', href: '/company' },
+          { iconEmoji: '🚀', title: 'Our Mission', desc: 'Website feedback directly on live pages', href: '/company' },
           { iconEmoji: '🏛️', title: 'Company Story', desc: 'Built for developers, QA & clients', href: '/company#story' },
           { iconEmoji: '🤝', title: 'Careers & Hub', desc: 'Join the Entrext Labs engineering team', href: '/company' },
           { iconEmoji: '🐦', title: 'Twitter @Stage0fficial', desc: 'Follow us for product updates & drops', href: 'https://x.com/Stage0fficial' },
