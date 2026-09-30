@@ -18,7 +18,7 @@ export const metadata: Metadata = {
         url: `${seoConfig.siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: 'STAGE — The Visual Website Feedback Tool Built for Product Teams',
+        alt: 'STAGE review of a live website with a numbered pin and the comment attached to it',
       },
     ],
     locale: 'en_US',
@@ -41,8 +41,8 @@ export default function Home() {
     "name": "STAGE",
     "operatingSystem": "Web, Windows, macOS, Linux",
     "applicationCategory": "DeveloperApplication",
-    "applicationSubCategory": "Bug Tracking & Visual Feedback Software",
-    "description": "Visual website feedback tool and QA bug reporting platform. Generate secure client review links to pin visual feedback directly on live web pages across DOM, WebGL 3D, and SPAs.",
+    "applicationSubCategory": "Visual Website Feedback Software",
+    "description": "Visual website feedback with one review link. Clients and teammates pin comments and bug reports on your live site, including 3D pages. No install.",
     "url": seoConfig.siteUrl,
     "author": {
       "@type": "Organization",
@@ -50,12 +50,12 @@ export default function Home() {
       "url": seoConfig.siteUrl
     },
     "featureList": [
-      "Visual Website Feedback Pinning",
-      "Interactive DOM, WebGL 3D & Canvas Bug Reporting",
-      "Real-Time WebSocket Synchronization",
-      "Automated Technical Diagnostics & XPath Telemetry",
-      "No-Code Client Review Link Generation",
-      "Live CSS & DOM Edit Streaming"
+      "Pin comments on live web pages",
+      "Instant client review links without logins",
+      "Automated screenshot and element telemetry",
+      "Works on live and public staging websites",
+      "Send comments directly to GitHub issues",
+      "Phone and desktop viewport review modes"
     ],
     "offers": {
       "@type": "AggregateOffer",

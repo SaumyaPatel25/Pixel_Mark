@@ -1,46 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { ArrowRight, Zap, MousePointer2, Search, RefreshCw, Globe, Box, Grid, Compass, HelpCircle, CheckCircle2, Layers, Info, Trash2, PlusCircle, Play } from 'lucide-react';
-import FloatingHeroShape from '@/components/marketing/FloatingHeroShape';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ArrowRight, Globe, Check, AlertCircle, 
+  Smartphone, Monitor, MessageSquare, CheckCircle2, 
+  ChevronDown, RotateCcw, Lock, ExternalLink
+} from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ModeType } from './HomeClient';
-import SentinelHideAndSeek from '@/components/marketing/SentinelHideAndSeek';
 import { useAuthStore } from '@/store/authStore';
-import AmbientParallaxBackground from './AmbientParallaxBackground';
-import DarkHeroAura from './DarkHeroAura';
-import ScrambleAuto from './ScrambleAuto';
-import StorySandbox from './StorySandbox';
-
-interface MockPin {
-  id: number;
-  x: number;
-  y: number;
-  element: string;
-  selector: string;
-  width?: string;
-  height?: string;
-  display?: string;
-  xpath?: string;
-  meshName?: string;
-  geometry?: string;
-  material?: string;
-  raycastCoords?: string;
-  faceIndex?: number;
-  webglContext?: string;
-  gpuVendor?: string;
-  gpuRenderer?: string;
-  canvasX?: number;
-  canvasY?: number;
-  activeRoute?: string;
-  routeHistory?: string[];
-  routeLoadTime?: string;
-  performanceMetrics?: { fid: string; lcp: string };
-  shadowHost?: string;
-  shadowMode?: string;
-  composedPath?: string;
-}
 
 interface HeroSectionProps {
   activeMode: ModeType;
@@ -50,915 +20,540 @@ interface HeroSectionProps {
   isHeroTextComplete?: boolean;
 }
 
-type DemoState = 'awaitingUrl' | 'mockDemo' | 'sandboxReady' | 'sandboxActive';
-type DemoStep = 'chooseMode' | 'hoverTarget' | 'dropPin' | 'openDrawer' | 'submitFeedback';
-
-const modeColors = {
-  dom: {
-    accent: '#7c3aed',
-    bright: '#8b5cf6',
-    vivid: '#a78bfa',
-    glow: 'rgba(124, 58, 237, 0.35)',
-    subtle: 'rgba(124, 58, 237, 0.08)',
-    mid: 'rgba(124, 58, 237, 0.16)',
-    gradientEnd: '#06b6d4',
-    borderBright: 'rgba(140, 120, 255, 0.22)',
-  },
-  threejs: {
-    accent: '#06b6d4',
-    bright: '#0891b2',
-    vivid: '#22d3ee',
-    glow: 'rgba(6, 182, 212, 0.35)',
-    subtle: 'rgba(6, 182, 212, 0.08)',
-    mid: 'rgba(6, 182, 212, 0.16)',
-    gradientEnd: '#3b82f6',
-    borderBright: 'rgba(6, 182, 212, 0.22)',
-  },
-  webgl: {
-    accent: '#d97706',
-    bright: '#f59e0b',
-    vivid: '#fbbf24',
-    glow: 'rgba(245, 158, 11, 0.35)',
-    subtle: 'rgba(245, 158, 11, 0.08)',
-    mid: 'rgba(245, 158, 11, 0.16)',
-    gradientEnd: '#06b6d4',
-    borderBright: 'rgba(245, 158, 11, 0.22)',
-  },
-  spa: {
-    accent: '#059669',
-    bright: '#10b981',
-    vivid: '#34d399',
-    glow: 'rgba(16, 185, 129, 0.35)',
-    subtle: 'rgba(16, 185, 129, 0.08)',
-    mid: 'rgba(16, 185, 129, 0.16)',
-    gradientEnd: '#14b8a6',
-    borderBright: 'rgba(16, 185, 129, 0.22)',
-  },
-  'shadow-dom': {
-    accent: '#c026d3',
-    bright: '#d946ef',
-    vivid: '#e879f9',
-    glow: 'rgba(217, 70, 239, 0.35)',
-    subtle: 'rgba(217, 70, 239, 0.08)',
-    mid: 'rgba(217, 70, 239, 0.16)',
-    gradientEnd: '#6366f1',
-    borderBright: 'rgba(217, 70, 239, 0.22)',
-  },
-};
-
-const cursorTargets = {
-  dom: { x: 60, y: 65, label: 'h2.heading-main', selector: 'html > body > main > h2.heading-main' },
-  threejs: { x: 50, y: 45, label: 'Mesh#cube-01', selector: 'html > body > main > canvas#threejs-canvas' },
-  webgl: { x: 55, y: 50, label: 'canvas#shader-canvas', selector: 'html > body > main > canvas#shader-canvas' },
-  spa: { x: 45, y: 58, label: 'div.card-feed', selector: 'html > body > main > div.card-feed' },
-  'shadow-dom': { x: 52, y: 60, label: 'button.btn-like', selector: 'button.btn-like' }
-};
-
-const getMockPinForMode = (mode: ModeType, x: number, y: number): MockPin => {
-  switch (mode) {
-    case 'dom':
-      return {
-        id: 1,
-        x,
-        y,
-        element: '<button#demo-cta-btn>',
-        selector: 'html > body > main > div > button.btn-cta',
-        xpath: '/html/body/main/div/button',
-        width: '160px',
-        height: '40px',
-        display: 'inline-block'
-      };
-    case 'threejs':
-      return {
-        id: 2,
-        x,
-        y,
-        element: 'Mesh#cube-01',
-        selector: 'html > body > main > canvas#threejs-canvas',
-        meshName: 'Mesh#cube-01',
-        geometry: 'BoxGeometry(4, 4, 4)',
-        material: 'MeshStandardMaterial',
-        raycastCoords: '[1.45, -0.89, 0.12]',
-        faceIndex: 4
-      };
-    case 'webgl':
-      return {
-        id: 3,
-        x,
-        y,
-        element: 'canvas#shader-canvas',
-        selector: 'html > body > main > canvas#shader-canvas',
-        webglContext: 'webgl2',
-        gpuVendor: 'Google Inc. (NVIDIA)',
-        gpuRenderer: 'ANGLE (NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11)',
-        canvasX: 231,
-        canvasY: 184
-      };
-    case 'spa':
-      return {
-        id: 4,
-        x,
-        y,
-        element: 'div.card-feed',
-        selector: 'html > body > main > div.card-feed',
-        activeRoute: '/explore',
-        routeHistory: ['/', '/explore'],
-        routeLoadTime: '42ms',
-        performanceMetrics: { fid: '8ms', lcp: '240ms' }
-      };
-    case 'shadow-dom':
-      return {
-        id: 5,
-        x,
-        y,
-        element: 'button.btn-like',
-        selector: 'button.btn-like',
-        shadowHost: '<custom-card>',
-        shadowMode: 'open',
-        composedPath: 'custom-card => shadow-root => div.footer > button.btn-like'
-      };
-  }
-};
-
-interface RandomHollowTextProps {
-  text: string;
-  isLightTheme: boolean;
-  isHeroTextComplete: boolean;
-  strokeColor: string;
-  solidClassName?: string;
-  fontClassName?: string;
-  splitBy?: 'words' | 'chars';
+interface SandboxPin {
+  id: number;
+  x: number;
+  y: number;
+  selector: string;
+  comment: string;
+  isBug: boolean;
+  status: 'open' | 'fixed';
 }
 
-const RandomHollowText = ({
-  text,
-  isLightTheme,
-  isHeroTextComplete,
-  strokeColor,
-  solidClassName = 'text-pm-text',
-  fontClassName = '',
-  splitBy = 'words',
-}: RandomHollowTextProps) => {
-  const [hollowIndices, setHollowIndices] = useState<Set<number>>(new Set());
+export default function HeroSection({
+  activeMode,
+  setActiveMode,
+  onHoverChange,
+  onHeroTextComplete,
+  isHeroTextComplete = false,
+}: HeroSectionProps) {
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
 
-  useEffect(() => {
-    if (!isLightTheme || !isHeroTextComplete) {
-      setHollowIndices(new Set());
-      return;
-    }
+  // Quick Start URL State
+  const [siteUrl, setSiteUrl] = useState('');
+  const [deviceView, setDeviceView] = useState<'desktop' | 'mobile'>('desktop');
+  const [sandboxMode, setSandboxMode] = useState<'comment' | 'browse'>('comment');
 
-    const items = (splitBy === 'words' ? text.split(' ') : text.split('')).filter(item => item !== '');
+  // Interactive Live Demo Pins State
+  const [pins, setPins] = useState<SandboxPin[]>([
+    {
+      id: 1,
+      x: 58,
+      y: 42,
+      selector: 'button.cta-primary',
+      comment: 'Button font weight should be 600, and padding feels a bit tight.',
+      isBug: true,
+      status: 'open',
+    },
+  ]);
 
-    const interval = setInterval(() => {
-      const nextHollow = new Set<number>();
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].trim() !== '' && Math.random() < 0.25) {
-          nextHollow.add(i);
-        }
-      }
-      setHollowIndices(nextHollow);
-    }, 4000);
+  const [activePinId, setActivePinId] = useState<number | null>(1);
+  const [draftPin, setDraftPin] = useState<{ x: number; y: number; selector: string } | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [isBugDraft, setIsBugDraft] = useState(false);
+  const [hasJustPosted, setHasJustPosted] = useState(false);
 
-    return () => clearInterval(interval);
-  }, [text, isLightTheme, isHeroTextComplete, splitBy]);
-
-  const items = (splitBy === 'words' ? text.split(' ') : text.split('')).filter(item => item !== '');
-
-  return (
-    <span className={fontClassName}>
-      {items.map((item, index) => {
-        const isHollow = isLightTheme && isHeroTextComplete && hollowIndices.has(index);
-        
-        return (
-          <span key={index} className="inline">
-            <span
-              className={`inline-block transition-all duration-700 ease-out ${
-                isHollow ? 'text-transparent bg-none' : solidClassName
-              }`}
-              style={{
-                WebkitTextStroke: isHollow ? `1.5px ${strokeColor}` : '1.5px transparent',
-              }}
-            >
-              {item}
-            </span>
-            {splitBy === 'words' && index < items.length - 1 && ' '}
-          </span>
-        );
-      })}
-    </span>
-  );
-};
-
-const textContainerVariants = {
-  collapsed: {
-    y: '210px',
-    scale: 0.82,
-    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }
-  },
-  burst: {
-    y: '0px',
-    scale: 1,
-    transition: {
-      type: 'spring' as const,
-      stiffness: 90,
-      damping: 18,
-      mass: 0.85
-    }
-  }
-};
-
-const headlineColorVariants = {
-  collapsed: { color: '#f8fafc' },
-  burst: { color: '#1D264F', transition: { duration: 0.5 } }
-};
-
-const descColorVariants = {
-  collapsed: { color: '#cbd5e1' },
-  burst: { color: '#4B5563', transition: { duration: 0.5 } }
-};
-
-const badgeVariants = {
-  collapsed: {
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    color: '#f1f5f9'
-  },
-  burst: {
-    borderColor: '#E2F3F5',
-    backgroundColor: 'rgba(226, 243, 245, 0.6)',
-    color: '#253B80',
-    transition: { duration: 0.4 }
-  }
-};
-
-const ctasVariants = {
-  collapsed: {
-    opacity: 0,
-    y: 16,
-    scale: 0.96,
-    pointerEvents: 'none' as const
-  },
-  burst: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    pointerEvents: 'auto' as const,
-    transition: {
-      type: 'spring' as const,
-      stiffness: 85,
-      damping: 16,
-      delay: 0.12
-    }
-  }
-};
-
-const sandboxVariants = {
-  collapsed: {
-    y: '-390px',
-    scale: 1.03,
-    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }
-  },
-  burst: {
-    y: '0px',
-    scale: 1,
-    transition: {
-      type: 'spring' as const,
-      stiffness: 90,
-      damping: 18,
-      mass: 0.85
-    }
-  }
-};
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.05
-    }
-  }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 18 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: 'spring' as const,
-      stiffness: 110,
-      damping: 18
-    }
-  }
-};
-
-export default function HeroSection({ activeMode, setActiveMode, onHoverChange, onHeroTextComplete, isHeroTextComplete = false }: HeroSectionProps) {
-  const isFirstRender = useRef(true);
-
-  // Demo State Machine: mockDemo -> sandboxReady -> sandboxActive
-  const [demoState, setDemoState] = useState<DemoState>('awaitingUrl');
-  const [demoStep, setDemoStep] = useState<DemoStep>('chooseMode');
-
-  const [headline1, setHeadline1] = useState('Visual QA for Live Web Pages');
-  const [headline2, setHeadline2] = useState('Pin bugs. Sync code. Launch faster.');
-  const [descText] = useState('Drop visual pins directly on live DOM nodes, WebGL 3D elements, and copy. Developers get exact CSS selectors, viewport state, and technical telemetry in one click.');
-  const [isLightTheme, setIsLightTheme] = useState(true);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const checkTheme = () => {
-      setIsLightTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
-    };
-    checkTheme();
-
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
-
-  // Keep a stable ref to the callback
-  const onHeroTextCompleteRef = useRef(onHeroTextComplete);
-  useEffect(() => {
-    onHeroTextCompleteRef.current = onHeroTextComplete;
-  }, [onHeroTextComplete]);
-
-  const [urlInput, setUrlInput] = useState('https://stage.entrext.com');
-  const [currentUrl, setCurrentUrl] = useState('https://stage.entrext.com');
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingText, setLoadingText] = useState('');
-  const [showConversion, setShowConversion] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const user = useAuthStore(state => state.user);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isUserLoggedIn = mounted && !!user;
-  
-  // Interactive guided demo states
-  const [activePin, setActivePin] = useState<MockPin | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [hoveredElement, setHoveredElement] = useState<string | null>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
-
-  // Local state for SPA mode simulated route
-  const [spaTab, setSpaTab] = useState<'home' | 'explore' | 'settings'>('explore');
-
-  // Sandbox active state variables
-  const [isFeedbackMode, setIsFeedbackMode] = useState(true);
-  const [pinsList, setPinsList] = useState<MockPin[]>([]);
-
-  // Cinematic & Interactive Mode states
-  const [isInteractive, setIsInteractive] = useState(false);
-  const [cinematicStep, setCinematicStep] = useState(0);
-  const [typedComment, setTypedComment] = useState('');
-  const [commentInput, setCommentInput] = useState('');
-
-  // Start interactive sandbox mode
-  const startInteractiveMode = () => {
-    setIsInteractive(true);
-    setDemoState('sandboxActive');
-    setActivePin(null);
-    setDrawerOpen(false);
-    setHoveredElement(null);
-    setTypedComment('');
-    setCommentInput('');
-  };
-
-  // Reset sequence when activeMode changes
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    setActivePin(null);
-    setDrawerOpen(false);
-    // Switch to interactive mode if they click other tabs
-    setIsInteractive(true);
-  }, [activeMode]);
-
-  // Cinematic Auto-playing Sequence
-  useEffect(() => {
-    if (isInteractive || demoState === 'awaitingUrl') return;
-
-    if (cinematicStep === 0) {
-      setTypedComment('');
-      setActivePin(null);
-      setDrawerOpen(false);
-      setHoveredElement(null);
-      setShowConversion(false);
-    }
-
-    let timer: any;
-    if (cinematicStep === 0) {
-      // Step 1: Cursor entering
-      timer = setTimeout(() => {
-        setCinematicStep(1);
-      }, 100);
-    } else if (cinematicStep === 1) {
-      // Step 2: Hover State & Glide to button
-      timer = setTimeout(() => {
-        setCinematicStep(2);
-      }, 1500); // 1.5s glide
-    } else if (cinematicStep === 2) {
-      // Step 3: Click button & Pin drop
-      setHoveredElement('button');
-      timer = setTimeout(() => {
-        const mockPin = {
-          id: 9999,
-          x: 50,
-          y: 75,
-          element: '<button#demo-cta-btn>',
-          selector: 'html > body > main > div > button.btn-cta',
-          xpath: '/html/body/main/div/button',
-          width: '160px',
-          height: '40px',
-          display: 'inline-block'
-        };
-        setActivePin(mockPin);
-        setCinematicStep(3);
-      }, 1000); // Hold hover for 1s then click
-    } else if (cinematicStep === 3) {
-      // Step 4: Drawer Slides In
-      timer = setTimeout(() => {
-        setDrawerOpen(true);
-        setCinematicStep(4);
-      }, 600); // Pin bounce duration
-    } else if (cinematicStep === 4) {
-      // Step 5: Evidence Auto-Populates & Text Types
-      const fullText = "Button hover state is sluggish.";
-      let currentLength = 0;
-      const typeTimer = setInterval(() => {
-        currentLength++;
-        setTypedComment(fullText.slice(0, currentLength));
-        if (currentLength >= fullText.length) {
-          clearInterval(typeTimer);
-          setCinematicStep(5);
-        }
-      }, 50); // ~1.5s typing
-      return () => clearInterval(typeTimer);
-    } else if (cinematicStep === 5) {
-      // Step 6: Cursor glides to the submit button inside the drawer
-      timer = setTimeout(() => {
-        setCinematicStep(6);
-      }, 1500); // 1.5s glide to submit
-    } else if (cinematicStep === 6) {
-      // Step 7: Click submit button, triggering conversion overlay
-      timer = setTimeout(() => {
-        setShowConversion(true);
-        setCinematicStep(7);
-      }, 500); // click delay
-    } else if (cinematicStep === 7) {
-      // Step 8: Hold conversion overlay for 8 seconds, then loop
-      timer = setTimeout(() => {
-        setShowConversion(false);
-        setCinematicStep(0);
-      }, 8000);
-    }
-
-    return () => clearTimeout(timer);
-  }, [cinematicStep, isInteractive, demoState]);
-
-  // Show Conversion when Launch Sandbox is clicked
-  const launchSandbox = () => {
-    if (demoState !== 'sandboxActive' || !isInteractive) {
-      startInteractiveMode();
-    } else {
-      setShowConversion(true);
-    }
-  };
-
-  const previewX = useMotionValue(0.5);
-  const previewY = useMotionValue(0.5);
-  const previewRotateX = useSpring(useTransform(previewY, [0, 1], [4, -4]), { stiffness: 120, damping: 18 });
-  const previewRotateY = useSpring(useTransform(previewX, [0, 1], [-4, 4]), { stiffness: 120, damping: 18 });
-
-  const handlePreviewMouseMove = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    previewX.set((e.clientX - rect.left) / rect.width);
-    previewY.set((e.clientY - rect.top) / rect.height);
-  };
-
-  const handlePreviewMouseLeave = () => {
-    previewX.set(0.5);
-    previewY.set(0.5);
-    onHoverChange(null);
-  };
-
-  const handlePreviewMouseEnter = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-    const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-    onHoverChange({ x, y });
-  };
-
-  // Run the loading simulation when a URL is submitted
-  const handleUrlSubmit = (e: React.FormEvent) => {
+  // Handle Quick Start URL submission
+  const handleQuickStart = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!urlInput.trim()) return;
+    const cleanUrl = siteUrl.trim();
+    if (!cleanUrl) {
+      if (user) {
+        router.push('/dashboard');
+      } else {
+        router.push('/register');
+      }
+      return;
+    }
 
-    setIsLoading(true);
-    setShowConversion(false);
-    setDrawerOpen(false);
-    setActivePin(null);
-    setLoadingText('Connecting sandbox...');
+    let normalized = cleanUrl;
+    if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+      normalized = `https://${normalized}`;
+    }
 
-    setTimeout(() => {
-      setLoadingText('Capturing elements...');
-    }, 150);
-
-    setTimeout(() => {
-      setLoadingText('Loading page content...');
-    }, 300);
-
-    setTimeout(() => {
-      setIsLoading(false);
-      setCurrentUrl(urlInput);
-      setActiveMode('dom');
-      setIsInteractive(true);
-      setDemoState('sandboxActive');
-    }, 450);
-  };
-
-  // Click handler to drop a pin inside the interactive sandboxActive mode
-  const handleAddSandboxPin = (
-    elementName: string,
-    selector: string,
-    e: React.MouseEvent,
-    customProps?: Partial<MockPin>
-  ) => {
-    e.stopPropagation();
-    if (demoState !== 'sandboxActive' || !isFeedbackMode || isLoading || showConversion) return;
-
-    if (previewRef.current) {
-      const rect = previewRef.current.getBoundingClientRect();
-      const clickX = ((e.clientX - rect.left) / rect.width) * 100;
-      const clickY = ((e.clientY - rect.top) / rect.height) * 100;
-
-      const newPin: MockPin = {
-        id: Date.now(),
-        x: clickX,
-        y: clickY,
-        element: elementName,
-        selector: selector,
-        ...customProps
-      };
-
-      setPinsList(prev => [...prev, newPin]);
-      setActivePin(newPin);
-      setDrawerOpen(true);
+    if (user) {
+      router.push(`/sessions?create=true&url=${encodeURIComponent(normalized)}`);
+    } else {
+      router.push(`/register?redirect=${encodeURIComponent(`/sessions?create=true&url=${normalized}`)}`);
     }
   };
 
-  // Click handler on general preview frame
-  const handleGeneralPreviewClick = (e: React.MouseEvent) => {
-    if (demoState !== 'sandboxActive' || !isFeedbackMode) return;
+  // Canvas click to place a new pin
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (sandboxMode !== 'comment') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xPct = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const yPct = Math.round(((e.clientY - rect.top) / rect.height) * 100);
 
-    if (activeMode === 'dom') {
-      handleAddSandboxPin('<div.container>', 'html > body > main > div.container', e, {
-        xpath: '/html/body/main/div',
-        width: '960px',
-        height: '400px',
-        display: 'block'
-      });
-    } else if (activeMode === 'threejs') {
-      handleAddSandboxPin('Mesh#sphere-02', 'html > body > main > canvas#threejs-canvas', e, {
-        meshName: 'Mesh#sphere-02',
-        geometry: 'SphereGeometry(2, 32, 32)',
-        material: 'MeshPhongMaterial',
-        raycastCoords: '[0.54, 1.12, -0.98]',
-        faceIndex: 12
-      });
-    } else if (activeMode === 'webgl') {
-      const rect = previewRef.current?.getBoundingClientRect();
-      const cx = rect ? Math.round(e.clientX - rect.left) : 231;
-      const cy = rect ? Math.round(e.clientY - rect.top) : 184;
-      handleAddSandboxPin('canvas#shader-canvas', 'html > body > main > canvas#shader-canvas', e, {
-        webglContext: 'webgl2',
-        gpuVendor: 'Google Inc. (NVIDIA)',
-        gpuRenderer: 'ANGLE (NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11)',
-        canvasX: cx,
-        canvasY: cy
-      });
-    } else if (activeMode === 'spa') {
-      handleAddSandboxPin('div.home-card', 'html > body > main > div.home-card', e, {
-        activeRoute: `/${spaTab}`,
-        routeHistory: ['/', `/explore`, `/${spaTab}`],
-        routeLoadTime: '36ms',
-        performanceMetrics: { fid: '7ms', lcp: '210ms' }
-      });
-    } else if (activeMode === 'shadow-dom') {
-      handleAddSandboxPin('img.avatar-img', 'img.avatar-img', e, {
-        shadowHost: '<user-avatar>',
-        shadowMode: 'open',
-        composedPath: 'user-avatar => shadow-root => div.container > img.avatar-img'
-      });
-    }
+    // Identify target element
+    const target = e.target as HTMLElement;
+    const tagName = target.tagName.toLowerCase();
+    const className = target.className && typeof target.className === 'string' ? target.className.split(' ')[0] : '';
+    const selector = className ? `${tagName}.${className}` : tagName;
+
+    setDraftPin({ x: xPct, y: yPct, selector });
+    setActivePinId(null);
+    setCommentText('');
+    setIsBugDraft(false);
+    setHasJustPosted(false);
   };
 
-  // Systems details matching 5 modes
-  const systems = [
-    {
-      id: 'dom' as ModeType,
-      name: 'Standard Layout',
-      icon: Globe,
-      color: 'text-purple-400',
-      glow: 'shadow-[0_0_20px_rgba(124,58,237,0.15)]',
-      border: 'hover:border-purple-500/30',
-      accentBg: 'bg-purple-500/10',
-      description: 'Resolves element selectors, computed CSS styles & layout parameters.'
-    },
-    {
-      id: 'threejs' as ModeType,
-      name: 'Three.js 3D',
-      icon: Box,
-      color: 'text-cyan-400',
-      glow: 'shadow-[0_0_20px_rgba(6,182,212,0.15)]',
-      border: 'hover:border-cyan-500/30',
-      accentBg: 'bg-cyan-500/10',
-      description: 'Native 3D raycasting pins comments directly on meshes.'
-    },
-    {
-      id: 'webgl' as ModeType,
-      name: 'WebGL Shader',
-      icon: Grid,
-      color: 'text-amber-500',
-      glow: 'shadow-[0_0_20px_rgba(245,158,11,0.15)]',
-      border: 'hover:border-amber-500/30',
-      accentBg: 'bg-amber-500/10',
-      description: 'Drawing buffer snapshots with custom CORS support.'
-    },
-    {
-      id: 'spa' as ModeType,
-      name: 'SPA Router',
-      icon: Compass,
-      color: 'text-emerald-400',
-      glow: 'shadow-[0_0_20px_rgba(52,211,153,0.15)]',
-      border: 'hover:border-emerald-500/30',
-      accentBg: 'bg-emerald-500/10',
-      description: 'Hydrates router viewports dynamically without reloads.'
-    },
-    {
-      id: 'shadow-dom' as ModeType,
-      name: 'Encapsulated Element',
-      icon: Layers,
-      color: 'text-fuchsia-400',
-      glow: 'shadow-[0_0_20px_rgba(217,70,239,0.15)]',
-      border: 'hover:border-fuchsia-500/30',
-      accentBg: 'bg-fuchsia-500/10',
-      description: 'Traverses encapsulated layouts to pinpoint nested elements.'
-    }
-  ];
+  const handlePostDraft = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draftPin || !commentText.trim()) return;
 
-  const onboardingSteps = [
-    { num: '1', title: 'Open a site', desc: 'Paste a URL to generate a review link' },
-    { num: '2', title: 'Click any element', desc: 'Drop a pin to capture element context' },
-    { num: '3', title: 'Add feedback', desc: 'Write notes and set workflow states' },
-    { num: '4', title: 'Share session', desc: 'Send link to devs with zero extension walls' }
-  ];
+    const newPin: SandboxPin = {
+      id: pins.length + 1,
+      x: draftPin.x,
+      y: draftPin.y,
+      selector: draftPin.selector,
+      comment: commentText.trim(),
+      isBug: isBugDraft,
+      status: 'open',
+    };
 
-  // Mode-specific descriptive copy
-  const modeExplainer = {
-    dom: {
-      hint: 'Click elements inside the mockup site (like the hero heading, logo, or CTA button) to see how the layout capture engine isolates computed CSS styles and selectors in real-time.',
-      label: 'Visual Layout Sandbox',
-    },
-    threejs: {
-      hint: 'Click anywhere on the spinning 3D cube model. The Three.js raycaster captures absolute 3D mesh vectors, face indices, and active geometry data automatically.',
-      label: 'Three.js 3D Raycaster',
-    },
-    webgl: {
-      hint: 'Click the animated WebGL shader substrate canvas. The renderer engine isolates the raw drawing buffer, recording WebGL context attributes and GPU specifications.',
-      label: 'WebGL Canvas Buffer',
-    },
-    spa: {
-      hint: 'Navigate client-side using the tab routing bar (/index, /explore, /settings). Place comments inside each sub-view to verify pins filter reactively based on active routes.',
-      label: 'SPA Router Sandbox',
-    },
-    'shadow-dom': {
-      hint: 'Click inside custom component interfaces. The traversal engine follows the composed path inside encapsulated components to record elements hidden from standard selectors.',
-      label: 'Encapsulated Layout Traverser',
-    },
+    setPins([...pins, newPin]);
+    setActivePinId(newPin.id);
+    setDraftPin(null);
+    setHasJustPosted(true);
+    setTimeout(() => setHasJustPosted(false), 3500);
   };
 
-  // Find coordinates based on demo step
-  const getCursorPosition = () => {
-    if (demoStep === 'chooseMode') {
-      return { x: 32, y: -4 };
-    }
-    const target = cursorTargets[activeMode];
-    return { x: target.x, y: target.y };
+  const togglePinStatus = (id: number) => {
+    setPins(
+      pins.map((p) =>
+        p.id === id ? { ...p, status: p.status === 'open' ? 'fixed' : 'open' } : p
+      )
+    );
   };
+
+  const activePin = pins.find((p) => p.id === activePinId);
 
   return (
-    <section id="hero-section" className="relative min-h-screen pt-36 pb-28 flex flex-col justify-start overflow-hidden bg-transparent dot-grid" style={{ isolation: 'isolate' }}>
-      {/* Ambient 3D Parallax Background — z-0, pointer-events-none */}
-      <AmbientParallaxBackground variant="full" />
-
-      {/* Dark-theme-only hero aura / hover atmosphere */}
-      <DarkHeroAura isDark={!isLightTheme} />
-
-      <div className="max-w-7xl mx-auto px-6 md:px-12 w-full flex-1 flex flex-col justify-start gap-12 relative z-10">
-               
-        {/* Centered Hero Stack — always visible, zero LCP delay */}
-        <div 
-          className="flex flex-col items-center text-center space-y-7 max-w-5xl mx-auto pt-8 md:pt-12 relative z-30"
+    <section
+      id="hero-section"
+      className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden bg-transparent"
+    >
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 w-full flex flex-col items-center text-center relative z-10 space-y-10">
+        
+        {/* Top Minimal Category Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-pm-border bg-pm-surface/80 text-pm-text text-[11px] font-mono font-medium tracking-wide shadow-xs"
         >
-          {/* Headline Wrapper */}
-          <div className="relative z-10 w-full max-w-full">
-            {/* Base H1 */}
-            <h1 
-              className="font-display text-5xl sm:text-6xl lg:text-[5.75rem] font-black tracking-[-0.035em] text-pm-text leading-[0.98] transition-colors duration-300 min-h-[2.1em] text-center relative z-10"
-            >
-              The visual website feedback tool
-              <br />
-              built for{" "}
-              <span className="font-serif italic font-semibold text-pm-accent inline-block">
-                product teams.
-              </span>
-            </h1>
-          </div>
+          <span className="w-1.5 h-1.5 rounded-full bg-pm-accent animate-pulse" />
+          <span>Visual website feedback</span>
+        </motion.div>
 
-          {/* Supporting Copy */}
-          <p 
-            className="text-sm md:text-base text-pm-muted leading-relaxed max-w-2xl font-sans min-h-[3.2em] text-center"
-          >
-            {descText || "Instantly share secure, interactive review links to collect visual feedback, annotations, and QA bug reports directly on live web pages. The fastest way to sign off website changes."}
+        {/* Section 8.2 Exact Headline */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="space-y-5 max-w-4xl"
+        >
+          <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-black tracking-[-0.035em] text-pm-text leading-[1.04]">
+            Get client feedback on the live page,{' '}
+            <span className="text-pm-accent underline decoration-pm-accent/25 underline-offset-8">
+              not in screenshots.
+            </span>
+          </h1>
+
+          {/* Section 8.2 Exact Sub-line */}
+          <p className="text-base sm:text-lg text-pm-muted leading-relaxed max-w-2xl mx-auto font-sans">
+            Send one review link. Your client clicks where something is wrong and writes what they mean. You see the exact element and a screenshot. Nothing to install.
           </p>
+        </motion.div>
 
-          {/* CTAs, Input, and Explainer Wrapper */}
-          <div
-            className="flex flex-col items-center space-y-7 w-full"
+        {/* High-Conversion URL Entry Bar & Direct Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="w-full max-w-xl space-y-3"
+        >
+          <form
+            onSubmit={handleQuickStart}
+            className="flex flex-col sm:flex-row items-center gap-2 p-1.5 rounded-2xl bg-pm-surface border border-pm-border shadow-xl shadow-pm-accent/5 focus-within:border-pm-accent transition-all"
           >
-            {/* CTAs & Trust Cue */}
-            <div className="flex flex-col items-center gap-3 w-full">
-              <div className="flex flex-wrap gap-4 justify-center items-center">
-                <Link
-                  href="/register"
-                  className="btn-primary-3d px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 flex items-center gap-2 cursor-pointer shadow-md"
-                >
-                  Start Free Project
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-                <button
-                  onClick={() => {
-                    setDemoState('mockDemo');
-                    setIsInteractive(false);
-                    setCinematicStep(0);
-                    
-                    const sandboxEl = document.getElementById('hero-sandbox-demo');
-                    if (sandboxEl) {
-                      sandboxEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                  }}
-                  className="btn-secondary-3d px-8 py-4 bg-pm-surface hover:bg-pm-surface-2 text-pm-accent border border-pm-border rounded-full text-[12.5px] font-mono font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer"
-                >
-                  Watch Sandbox Demo
-                </button>
-              </div>
-              
-              <p className="text-[10px] font-mono text-pm-text-faint/90 uppercase tracking-widest mt-1">
-                NO EXTENSION REQUIRED · FREE UNLIMITED CLIENT SESSIONS
-              </p>
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 w-full flex-1">
+              <Globe className="w-4 h-4 text-pm-muted flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Enter your website URL (e.g. acme-studio.com)"
+                value={siteUrl}
+                onChange={(e) => setSiteUrl(e.target.value)}
+                className="w-full bg-transparent text-sm text-pm-text placeholder:text-pm-muted/60 outline-none"
+              />
             </div>
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-pm-accent hover:bg-pm-accent-bright text-white font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
+            >
+              <span>Create a review link</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </form>
+
+          {/* Line Under Buttons & Secondary Action (Section 8.2) */}
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-pm-muted pt-1">
+            <span className="font-mono text-pm-text/80 font-semibold">
+              Free for one project. No card needed.
+            </span>
+            <span className="text-pm-border">•</span>
+            <a
+              href="#how-it-works"
+              className="inline-flex items-center gap-1 font-medium hover:text-pm-accent transition-colors"
+            >
+              <span>See how it works</span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        </motion.div>
+
+        {/* ── THE LIVE PIN SANDBOX PREVIEW (Top 1% Interactive UI) ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="w-full max-w-5xl pt-4"
+        >
+          <div className="rounded-3xl border border-pm-border bg-pm-surface shadow-2xl shadow-pm-accent/5 overflow-hidden text-left transition-all">
             
-            {/* Trust Logos Row */}
-            <div className="flex flex-col items-center gap-4 pt-6 w-full max-w-lg border-t border-pm-border/30 min-h-[68px]">
-              <span className="text-[9px] font-mono text-pm-text-muted/80 uppercase tracking-widest">
-                Trusted by designers & developers using
-              </span>
-              <span className="sr-only">
-                Trusted by designers and developers at Acme, Bolt, Linear, Vercel, Stripe, and Figma.
-              </span>
-              <div 
-                className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 opacity-50 grayscale contrast-125"
-                aria-hidden="true"
+            {/* Browser Window Header Strip */}
+            <div className="px-4 py-3 bg-pm-surface-2 border-b border-pm-border flex flex-wrap items-center justify-between gap-3">
+              
+              {/* Traffic Lights + Address Pill */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-rose-500/80 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
+                </div>
+
+                <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-pm-surface border border-pm-border text-xs font-mono text-pm-muted shadow-2xs">
+                  <Lock className="w-3 h-3 text-emerald-500" />
+                  <span>https://acme-studio.com/preview</span>
+                </div>
+              </div>
+
+              {/* Viewport & Mode Controls */}
+              <div className="flex items-center gap-2">
+                
+                {/* Desktop / Mobile Switch */}
+                <div className="flex items-center p-0.5 rounded-lg bg-pm-surface border border-pm-border">
+                  <button
+                    type="button"
+                    onClick={() => setDeviceView('desktop')}
+                    className={`px-2 py-1 rounded-md text-[11px] font-mono flex items-center gap-1 transition-colors ${
+                      deviceView === 'desktop'
+                        ? 'bg-pm-accent text-white font-bold'
+                        : 'text-pm-muted hover:text-pm-text'
+                    }`}
+                  >
+                    <Monitor className="w-3 h-3" />
+                    <span className="hidden sm:inline">Desktop</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeviceView('mobile')}
+                    className={`px-2 py-1 rounded-md text-[11px] font-mono flex items-center gap-1 transition-colors ${
+                      deviceView === 'mobile'
+                        ? 'bg-pm-accent text-white font-bold'
+                        : 'text-pm-muted hover:text-pm-text'
+                    }`}
+                  >
+                    <Smartphone className="w-3 h-3" />
+                    <span className="hidden sm:inline">Mobile</span>
+                  </button>
+                </div>
+
+                {/* Browse vs Comment Mode Switch (Section 9) */}
+                <div className="flex items-center p-0.5 rounded-lg bg-pm-surface border border-pm-border">
+                  <button
+                    type="button"
+                    onClick={() => setSandboxMode('browse')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors ${
+                      sandboxMode === 'browse'
+                        ? 'bg-pm-surface-2 text-pm-text font-bold'
+                        : 'text-pm-muted hover:text-pm-text'
+                    }`}
+                  >
+                    Browse
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSandboxMode('comment')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-mono flex items-center gap-1.5 transition-colors ${
+                      sandboxMode === 'comment'
+                        ? 'bg-pm-accent text-white font-bold'
+                        : 'text-pm-muted hover:text-pm-text'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    Comment
+                  </button>
+                </div>
+
+                {/* Comment Counter (Section 9) */}
+                <div className="px-2.5 py-1 rounded-lg bg-pm-surface border border-pm-border text-[11px] font-mono font-bold text-pm-text">
+                  Comments ({pins.length})
+                </div>
+              </div>
+            </div>
+
+            {/* Browser Viewport Area */}
+            <div className="p-4 sm:p-8 bg-pm-bg/60 min-h-[460px] flex items-center justify-center overflow-x-auto relative">
+              
+              {/* Device Container Wrapper */}
+              <div
+                onClick={handleCanvasClick}
+                className={`relative bg-pm-surface border border-pm-border rounded-2xl shadow-sm transition-all duration-300 overflow-hidden cursor-crosshair select-none ${
+                  deviceView === 'mobile'
+                    ? 'w-[360px] min-h-[420px] p-5'
+                    : 'w-full max-w-4xl min-h-[380px] p-8'
+                }`}
               >
-                {/* Acme Logo */}
-                <div className="flex items-center gap-1 font-display text-[9.5px] font-black tracking-tight text-pm-text w-[50px] h-[16px] justify-center">
-                  <div className="w-3.5 h-3.5 rounded-sm bg-[#1D264F] flex items-center justify-center text-white text-[7.5px]">A</div>
-                  <span>ACME</span>
+                {/* Mock Website Navbar */}
+                <div className="flex items-center justify-between border-b border-pm-border pb-4 mb-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-pm-accent text-white flex items-center justify-center font-bold text-xs">
+                      A
+                    </div>
+                    <span className="font-display font-bold text-sm text-pm-text">Acme Studio</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-pm-muted">
+                    <span className="hover:text-pm-text transition-colors">Work</span>
+                    <span className="hover:text-pm-text transition-colors">About</span>
+                    <span className="px-2.5 py-1 rounded-lg bg-pm-surface-2 border border-pm-border text-pm-text font-medium">
+                      Contact
+                    </span>
+                  </div>
                 </div>
-                {/* Bolt */}
-                <div className="flex items-center gap-0.5 font-display text-[9.5px] font-bold tracking-tight text-pm-text w-[50px] h-[16px] justify-center">
-                  <span className="text-yellow-600 font-extrabold text-[10px]">⚡</span>
-                  <span>BOLT</span>
+
+                {/* Mock Website Hero Content */}
+                <div className="space-y-4 max-w-lg">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-pm-accent font-bold">
+                    Client Design Preview · v2.4
+                  </span>
+                  <h3 className="font-display text-2xl sm:text-3xl font-black text-pm-text tracking-tight leading-snug">
+                    We engineer digital brands that command attention.
+                  </h3>
+                  <p className="text-xs sm:text-sm text-pm-muted leading-relaxed">
+                    Designed for founders and forward-thinking teams. Every interface is tested on real staging URLs with zero friction.
+                  </p>
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      className="cta-primary px-4 py-2.5 rounded-xl bg-pm-accent text-white font-mono text-xs font-bold shadow-sm"
+                    >
+                      View Portfolio
+                    </button>
+                    <button
+                      type="button"
+                      className="cta-secondary px-4 py-2.5 rounded-xl bg-pm-surface-2 border border-pm-border text-pm-text font-mono text-xs font-medium"
+                    >
+                      Our Philosophy
+                    </button>
+                  </div>
                 </div>
-                {/* Linear Style */}
-                <div className="flex items-center gap-1 font-display text-[9.5px] font-semibold tracking-wide text-pm-text w-[60px] h-[16px] justify-center">
-                  <div className="w-3 h-3 rounded-full border border-pm-text flex items-center justify-center text-[5.5px] font-black">L</div>
-                  <span>LINEAR</span>
+
+                {/* Click-to-comment hint banner */}
+                <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-pm-surface-2/90 border border-pm-border text-[10px] font-mono text-pm-muted backdrop-blur-xs flex items-center gap-1.5 pointer-events-none">
+                  <MessageSquare className="w-3 h-3 text-pm-accent" />
+                  <span>Click anywhere to pin a comment</span>
                 </div>
-                {/* Vercel Style */}
-                <div className="flex items-center gap-1 font-display text-[9px] font-bold tracking-widest text-pm-text w-[65px] h-[16px] justify-center">
-                  <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 75 65" width="10" height="10"><polygon points="37.5,0 75,65 0,65"/></svg>
-                  <span>VERCEL</span>
-                </div>
-                {/* Stripe Style */}
-                <div className="flex items-center font-display text-[9.5px] font-extrabold tracking-tight text-pm-text w-[50px] h-[16px] justify-center">
-                  <span>STRIPE</span>
-                </div>
-                {/* Figma Style */}
-                <div className="flex items-center gap-1 font-display text-[9.5px] font-semibold tracking-tight text-pm-text w-[55px] h-[16px] justify-center">
-                  <svg className="w-2.5 h-3 fill-current" viewBox="0 0 24 36" width="10" height="12"><path d="M12 0c-3.3 0-6 2.7-6 6v6c0 3.3 2.7 6 6 6s6-2.7 6-6V6c0-3.3-2.7-6-6-6zm0 18c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6zm-6-6c0-3.3 2.7-6 6-6s6 2.7 6 6v6H6v-6z"/></svg>
-                  <span>FIGMA</span>
-                </div>
+
+                {/* ── RENDER PINNED COMMENTS ── */}
+                {pins.map((pin) => {
+                  const isSelected = pin.id === activePinId;
+                  const isFixed = pin.status === 'fixed';
+
+                  return (
+                    <div
+                      key={pin.id}
+                      style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 z-20 group"
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActivePinId(isSelected ? null : pin.id);
+                          setDraftPin(null);
+                        }}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono font-bold transition-all shadow-md cursor-pointer ${
+                          isFixed
+                            ? 'bg-slate-500 text-white'
+                            : isSelected
+                            ? 'bg-pm-accent text-white ring-4 ring-pm-accent/25 scale-110'
+                            : 'bg-pm-accent text-white hover:scale-105'
+                        }`}
+                      >
+                        {pin.id}
+                      </button>
+
+                      {/* Active Pin Popover Card */}
+                      <AnimatePresence>
+                        {isSelected && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.94, y: 6 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.94, y: 6 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute top-9 left-1/2 -translate-x-1/2 w-64 p-3.5 rounded-2xl bg-pm-surface border border-pm-border shadow-xl text-left z-30 space-y-2.5"
+                          >
+                            <div className="flex items-center justify-between text-[10px] font-mono">
+                              <span className="font-bold text-pm-text">Pin #{pin.id}</span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                                  isFixed
+                                    ? 'bg-emerald-500/10 text-emerald-600'
+                                    : 'bg-pm-accent/10 text-pm-accent'
+                                }`}
+                              >
+                                {isFixed ? 'Fixed' : 'Open'}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-pm-text leading-relaxed">
+                              {pin.comment}
+                            </p>
+
+                            <div className="text-[10px] font-mono text-pm-muted/70 truncate bg-pm-surface-2 p-1 rounded border border-pm-border/50">
+                              target: {pin.selector}
+                            </div>
+
+                            {/* Mark as Fixed / Reopen Toggle (Section 9) */}
+                            <div className="pt-1 flex items-center justify-between border-t border-pm-border">
+                              <button
+                                type="button"
+                                onClick={() => togglePinStatus(pin.id)}
+                                className={`text-[10px] font-mono font-bold px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                                  isFixed
+                                    ? 'text-pm-muted hover:text-pm-text'
+                                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                }`}
+                              >
+                                <Check className="w-3 h-3" />
+                                <span>{isFixed ? 'Reopen' : 'Mark as Fixed'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setActivePinId(null)}
+                                className="text-[10px] text-pm-muted hover:text-pm-text font-mono"
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+
+                {/* ── DRAFT PIN COMPOSER POPOVER ── */}
+                <AnimatePresence>
+                  {draftPin && (
+                    <div
+                      style={{ left: `${draftPin.x}%`, top: `${draftPin.y}%` }}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 z-30"
+                    >
+                      <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-mono font-bold shadow-lg ring-4 ring-emerald-500/25">
+                        {pins.length + 1}
+                      </div>
+
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.94, y: 6 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.94, y: 6 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute top-9 left-1/2 -translate-x-1/2 w-72 p-3.5 rounded-2xl bg-pm-surface border border-pm-border shadow-2xl text-left space-y-3"
+                      >
+                        <div className="flex items-center justify-between text-[10px] font-mono text-pm-muted">
+                          <span>New Pin #{pins.length + 1}</span>
+                          <span className="truncate max-w-[120px]">{draftPin.selector}</span>
+                        </div>
+
+                        <form onSubmit={handlePostDraft} className="space-y-2.5">
+                          {/* Section 9 exact placeholder */}
+                          <textarea
+                            autoFocus
+                            rows={2}
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            placeholder="What should change here?"
+                            className="w-full p-2.5 rounded-xl bg-pm-surface-2 border border-pm-border text-xs text-pm-text placeholder:text-pm-muted/60 outline-none focus:border-pm-accent resize-none font-sans"
+                          />
+
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-1.5 text-[11px] font-mono text-pm-muted cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isBugDraft}
+                                onChange={(e) => setIsBugDraft(e.target.checked)}
+                                className="rounded text-pm-accent focus:ring-0"
+                              />
+                              <span>This is a bug</span>
+                            </label>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setDraftPin(null)}
+                                className="px-2.5 py-1 text-[11px] font-mono text-pm-muted hover:text-pm-text"
+                              >
+                                Cancel
+                              </button>
+                              {/* Section 9 exact button */}
+                              <button
+                                type="submit"
+                                disabled={!commentText.trim()}
+                                className="px-3 py-1.5 rounded-lg bg-pm-accent hover:bg-pm-accent-bright disabled:opacity-50 text-white font-mono text-xs font-bold transition-all cursor-pointer"
+                              >
+                                Post comment
+                              </button>
+                            </div>
+                          </div>
+                        </form>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+
+                {/* Toast confirmation after posting (Section 9) */}
+                <AnimatePresence>
+                  {hasJustPosted && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-mono font-medium shadow-lg z-40 flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Comment posted. Your team will see it on this exact spot.</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
-        </div>
-
-
-        {/* Sandbox Mockup Section with Dramatic Spacing and Spotlight framing */}
-        <div
-          id="hero-sandbox-demo"
-          className="w-full max-w-5xl mx-auto mt-16 flex flex-col items-center space-y-6 relative z-10"
-        >
-          {/* Cinematic Theatrical Spotlight glow */}
-          <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_top,var(--pm-accent-glow)_0%,transparent_70%)] rounded-[48px] pointer-events-none z-0 opacity-50" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-pm-bg opacity-0 rounded-[32px] pointer-events-none z-0 shadow-[0_48px_96px_-24px_var(--pm-accent-glow)]" />
-          
-          {/* Performance-friendly radial gradients instead of expensive CSS blurs */}
-          <div className="absolute -top-20 -left-20 w-96 h-96 bg-[radial-gradient(circle,rgba(252,226,225,0.3)_0%,transparent_60%)] pointer-events-none z-0 animate-pulse duration-[7000ms]" />
-          <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-[radial-gradient(circle,rgba(199,180,214,0.3)_0%,transparent_60%)] pointer-events-none z-0 animate-pulse duration-[9000ms]" />
-          
-          <StorySandbox />
-        </div>
-
-        {/* Horizontal Walkthrough Workflow Strip */}
-        <div
-          className="mkt-hero-walkthrough-strip py-8 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-left mt-6"
-        >
-          {onboardingSteps.map((step) => (
-            <div key={step.num} className="flex gap-3.5 items-start p-1">
-              <span className="mkt-hero-walkthrough-num w-6 h-6 rounded-full flex items-center justify-center font-mono text-[10px] font-bold flex-shrink-0">
-                {step.num}
-              </span>
-              <div className="space-y-0.5">
-                <h4
-                  className="mkt-hero-walkthrough-title font-display font-bold uppercase tracking-wider text-[10px]"
-                  style={{ letterSpacing: '0.1em' }}
-                >
-                  {step.title}
-                </h4>
-                <p className="mkt-hero-walkthrough-desc text-[9px] text-pm-muted leading-relaxed" style={{ lineHeight: 1.6 }}>{step.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Lower Layout: 5 Capability Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
-          {systems.map((sys) => {
-            const isActive = activeMode === sys.id;
-            return (
-              <motion.div
-                key={sys.id}
-                onMouseEnter={() => { if (!isLoading) setActiveMode(sys.id); }}
-                whileHover={{ y: -4, scale: 1.01 }}
-                transition={{ type: 'spring', stiffness: 340, damping: 22 }}
-                onClick={() => { if (!isLoading) setActiveMode(sys.id); }}
-                data-active={isActive}
-                data-accent={sys.id}
-                className={`mkt-hero-capability-card relative p-5 rounded-2xl text-left cursor-pointer overflow-hidden group border border-pm-border bg-pm-surface/30 transition-all duration-300 ${sys.border} ${isActive ? `${sys.glow} border-pm-accent/50 bg-pm-surface-2/40` : ''}`}
-              >
-                {/* Hover glow background */}
-                <div className="mkt-hero-card-glow absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl" />
-
-                {/* Active left border accent */}
-                {isActive && (
-                  <div className="mkt-hero-card-left-border absolute left-0 top-3 bottom-3 w-[2px] rounded-full" />
-                )}
-
-                <div className="flex items-center justify-between mb-4 relative z-10">
-                  <div className={`mkt-hero-card-icon-wrapper w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 bg-pm-surface-2 border border-pm-border text-pm-accent`}>
-                    <sys.icon className="w-4 h-4" />
-                  </div>
-                  {isActive && (
-                    <motion.span
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ duration: 1.8, repeat: Infinity }}
-                      className="mkt-hero-card-dot w-1.5 h-1.5 rounded-full"
-                    />
-                  )}
-                </div>
-
-                <div className="relative z-10 space-y-1.5">
-                  <h4 className="mkt-hero-card-title font-display font-bold uppercase tracking-widest transition-colors duration-300 text-[9.5px]">
-                    {sys.name}
-                  </h4>
-                  <p className="mkt-hero-card-desc text-[9px] text-pm-muted leading-relaxed font-sans" style={{ lineHeight: 1.65 }}>
-                    {sys.description}
-                  </p>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
+        </motion.div>
       </div>
     </section>
   );
