@@ -4,78 +4,20 @@ import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
-import { SplineBackground } from '@/components/SplineBackground';
+import AmbientBackground from '@/components/marketing/AmbientBackground';
 
 const ProblemSection = dynamic(() => import('@/components/marketing/ProblemSection'), { ssr: true });
 const HowItWorksSection = dynamic(() => import('@/components/marketing/HowItWorksSection'), { ssr: true });
 const FeaturesSection = dynamic(() => import('@/components/marketing/FeaturesSection'), { ssr: true });
 const UseCasesSection = dynamic(() => import('@/components/marketing/UseCasesSection'), { ssr: true });
+const FAQSection = dynamic(() => import('@/components/marketing/FAQSection'), { ssr: true });
 const ClosingCTASection = dynamic(() => import('@/components/marketing/ClosingCTASection'), { ssr: true });
 const MarketingFooter = dynamic(() => import('@/components/marketing/MarketingFooter'), { ssr: true });
 
 export type ModeType = 'dom' | 'threejs' | 'webgl' | 'spa' | 'shadow-dom';
 
-const modeColors = {
-  dom: {
-    accent: '#7c3aed',
-    bright: '#8b5cf6',
-    vivid: '#a78bfa',
-    glow: 'rgba(124, 58, 237, 0.35)',
-    subtle: 'rgba(124, 58, 237, 0.08)',
-    mid: 'rgba(124, 58, 237, 0.16)',
-    gradientEnd: '#06b6d4',
-    borderBright: 'rgba(140, 120, 255, 0.22)',
-    bgGlow: 'radial-gradient(circle, rgba(124,58,237,0.06) 0%, rgba(124,58,237,0) 70%)',
-  },
-  threejs: {
-    accent: '#06b6d4',
-    bright: '#0891b2',
-    vivid: '#22d3ee',
-    glow: 'rgba(6, 182, 212, 0.35)',
-    subtle: 'rgba(6, 182, 212, 0.08)',
-    mid: 'rgba(6, 182, 212, 0.16)',
-    gradientEnd: '#3b82f6',
-    borderBright: 'rgba(6, 182, 212, 0.22)',
-    bgGlow: 'radial-gradient(circle, rgba(6,182,212,0.06) 0%, rgba(6,182,212,0) 70%)',
-  },
-  webgl: {
-    accent: '#d97706',
-    bright: '#f59e0b',
-    vivid: '#fbbf24',
-    glow: 'rgba(245, 158, 11, 0.35)',
-    subtle: 'rgba(245, 158, 11, 0.08)',
-    mid: 'rgba(245, 158, 11, 0.16)',
-    gradientEnd: '#06b6d4',
-    borderBright: 'rgba(245, 158, 11, 0.22)',
-    bgGlow: 'radial-gradient(circle, rgba(245,158,11,0.06) 0%, rgba(245,158,11,0) 70%)',
-  },
-  spa: {
-    accent: '#059669',
-    bright: '#10b981',
-    vivid: '#34d399',
-    glow: 'rgba(16, 185, 129, 0.35)',
-    subtle: 'rgba(16, 185, 129, 0.08)',
-    mid: 'rgba(16, 185, 129, 0.16)',
-    gradientEnd: '#14b8a6',
-    borderBright: 'rgba(16, 185, 129, 0.22)',
-    bgGlow: 'radial-gradient(circle, rgba(16,185,129,0.06) 0%, rgba(16,185,129,0) 70%)',
-  },
-  'shadow-dom': {
-    accent: '#c026d3',
-    bright: '#d946ef',
-    vivid: '#e879f9',
-    glow: 'rgba(217, 70, 239, 0.35)',
-    subtle: 'rgba(217, 70, 239, 0.08)',
-    mid: 'rgba(217, 70, 239, 0.16)',
-    gradientEnd: '#6366f1',
-    borderBright: 'rgba(217, 70, 239, 0.22)',
-    bgGlow: 'radial-gradient(circle, rgba(217,70,239,0.06) 0%, rgba(217,70,239,0) 70%)',
-  },
-};
-
 export default function HomeClient() {
   const [activeMode, setActiveMode] = useState<ModeType>('dom');
-  const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -90,10 +32,9 @@ export default function HomeClient() {
 
   return (
     <div
-      className="homepage-root relative min-h-screen bg-[var(--pm-bg)] text-pm-text selection:bg-[#253B80]/30 selection:text-[#1D264F] font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
-      style={{ zoom: 0.9 }}
+      className="homepage-root relative min-h-screen bg-[var(--pm-bg)] text-pm-text selection:bg-[#2B4CFF]/20 selection:text-[#16141A] font-sans overflow-x-hidden scroll-smooth transition-colors duration-500"
     >
-      <SplineBackground hoveredPosition={hoveredPosition} isHeroTextComplete={true} />
+      <AmbientBackground />
       
       {/* Main Container */}
       <div className="relative z-10 flex flex-col min-h-screen">
@@ -102,7 +43,6 @@ export default function HomeClient() {
           <HeroSection 
             activeMode={activeMode} 
             setActiveMode={setActiveMode} 
-            onHoverChange={setHoveredPosition} 
             isHeroTextComplete={true}
           />
           <div className="[content-visibility:auto] [contain-intrinsic-size:1px_600px]">
@@ -115,7 +55,10 @@ export default function HomeClient() {
             <FeaturesSection />
           </div>
           <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
-            <UseCasesSection onHoverChange={setHoveredPosition} />
+            <UseCasesSection />
+          </div>
+          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
+            <FAQSection />
           </div>
           <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
             <ClosingCTASection />

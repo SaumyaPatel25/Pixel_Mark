@@ -3,11 +3,26 @@
 import { useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Plus, Minus, HelpCircle, Mail } from 'lucide-react';
-import { faqs } from '@/lib/faqData';
+import { faqs, FAQItem } from '@/lib/faqData';
+
+type CategoryFilter = 'all' | 'about' | 'how-it-works' | 'comparisons' | 'access-privacy';
+
+const categories: { id: CategoryFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'about', label: 'About STAGE' },
+  { id: 'how-it-works', label: 'How it works' },
+  { id: 'comparisons', label: 'Comparisons' },
+  { id: 'access-privacy', label: 'Access & Privacy' }
+];
 
 export default function FAQSection() {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
   const shouldReduceMotion = useReducedMotion();
+
+  const filteredFaqs = activeCategory === 'all'
+    ? faqs
+    : faqs.filter(faq => faq.category === activeCategory);
 
   const toggleExpand = (index: number) => {
     setExpandedIndex(expandedIndex === index ? null : index);
@@ -27,121 +42,126 @@ export default function FAQSection() {
   };
 
   return (
-    <section id="faq" className="relative py-36 bg-transparent overflow-hidden border-t border-pm-border/30">
-      {/* Soft branding glows */}
-      <div className="absolute top-0 right-1/4 w-[400px] h-[400px] bg-[#FCE2E1]/8 rounded-full blur-[100px] pointer-events-none z-0" />
-      <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-[#C7B4D6]/8 rounded-full blur-[100px] pointer-events-none z-0" />
-
+    <section id="faq" className="relative py-28 md:py-36 bg-[var(--pm-bg)] border-t border-pm-border/40 text-pm-text transition-colors">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-100px' }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-7xl mx-auto px-6 md:px-12 relative z-10"
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+      <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
           
-          {/* Left Column: Title & CTA (Sticky) */}
-          <div className="lg:col-span-5 lg:sticky lg:top-28 space-y-6 text-left">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80] bg-[#253B80]/5 px-3 py-1 rounded-full">
-              SUPPORT & TRUST
+          {/* Left Column: Heading & Contact */}
+          <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6 text-left">
+            <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#2B4CFF] bg-[#2B4CFF]/10 px-3 py-1 rounded-full inline-block">
+              Support
             </span>
             
-            <h2 className="mkt-section-h2 font-display font-extrabold text-[#1D264F]"
-              style={{ fontSize: 'clamp(2.25rem, 4vw, 3.5rem)', lineHeight: 1.04, letterSpacing: '-0.03em' }}
-            >
-              Frequently Asked<br />
-              <span className="mkt-section-h2-sub">Questions.</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#16141A] dark:text-white leading-[1.1]">
+              Frequently Asked Questions
             </h2>
             
             <p className="text-sm text-pm-muted leading-relaxed font-sans max-w-sm">
-              Everything you need to know about STAGE sessions, client roles, and custom workspace setups.
+              Answers to questions about review links, client access, and project settings.
             </p>
 
-            <div className="pt-4">
+            <div className="pt-2">
               <a
                 href="mailto:saumyavishwam@gmail.com"
-                className="faq-contact-btn btn-secondary-3d inline-flex items-center gap-2.5 px-6 py-3 border border-pm-border hover:border-[#253B80]/30 bg-slate-50 hover:bg-[#253B80]/5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-pm-text hover:text-[#253B80]"
+                className="inline-flex items-center gap-2.5 px-5 py-2.5 border border-pm-border bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 rounded-xl text-xs font-mono font-medium text-pm-text hover:text-[#2B4CFF] transition-colors"
               >
-                <Mail className="w-4 h-4" />
-                Contact Engineering
+                <Mail className="w-4 h-4 text-pm-muted" />
+                <span>Contact support</span>
               </a>
             </div>
           </div>
 
-          {/* Right Column: Accordion list */}
-          <div className="lg:col-span-7 space-y-4">
-            {faqs.map((faq, index) => {
-              const isExpanded = expandedIndex === index;
-              return (
-              <div
-                key={index}
-                className={`faq-accordion-card rounded-2xl border transition-all duration-300 overflow-hidden ${
-                  isExpanded
-                    ? 'border-pm-accent-bright/15 bg-pm-surface-2 shadow-sm'
-                    : 'border-pm-border bg-pm-surface hover:border-pm-border-hover'
-                }`}
-              >
-                  <button
-                    id={`faq-btn-${index}`}
-                    onClick={() => toggleExpand(index)}
-                    aria-expanded={isExpanded ? "true" : "false"}
-                    aria-controls={`faq-panel-${index}`}
-                    className="w-full flex items-center justify-between p-6 text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#253B80]/40 rounded-2xl"
-                  >
-                    <div className="flex gap-4 items-center pr-4">
-                      <HelpCircle className={`w-4.5 h-4.5 flex-shrink-0 transition-colors ${isExpanded ? 'text-pm-accent' : 'text-pm-text-faint'}`} />
-                      <span className={`font-sans text-sm font-bold transition-colors ${isExpanded ? 'text-pm-accent' : 'text-pm-text hover:text-pm-accent'}`}>
-                        {faq.question}
-                      </span>
-                    </div>
-                    <div
-                      className={`faq-toggle-btn p-1.5 rounded-full transition-all duration-300 flex-shrink-0 ${
-                        isExpanded ? 'bg-[#253B80] text-white' : 'bg-slate-100 text-pm-text-faint'
-                      }`}
-                    >
-                      {isExpanded ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                    </div>
-                  </button>
+          {/* Right Column: Category Tabs & Accordion list */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* Filter pills */}
+            <div className="flex flex-wrap gap-2 pb-2">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setActiveCategory(cat.id);
+                    setExpandedIndex(null);
+                  }}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    activeCategory === cat.id
+                      ? 'bg-[#16141A] text-white dark:bg-white dark:text-[#16141A] shadow-sm'
+                      : 'bg-pm-surface hover:bg-pm-surface-2 text-pm-muted border border-pm-border'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
 
-                  <motion.div
-                    id={`faq-panel-${index}`}
-                    role="region"
-                    aria-labelledby={`faq-btn-${index}`}
-                    initial="collapsed"
-                    animate={isExpanded ? "open" : "collapsed"}
-                    variants={{
-                      open: {
-                        height: "auto",
-                        opacity: 1,
-                        display: "block",
-                        transition: shouldReduceMotion ? { duration: 0 } : { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
-                      },
-                      collapsed: {
-                        height: 0,
-                        opacity: 0,
-                        transitionEnd: { display: "none" },
-                        transition: shouldReduceMotion ? { duration: 0 } : { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
-                      }
-                    }}
-                    className="overflow-hidden"
+            {/* Accordion items */}
+            <div className="space-y-3">
+              {filteredFaqs.map((faq, index) => {
+                const isExpanded = expandedIndex === index;
+                return (
+                  <div
+                    key={`${faq.question}-${index}`}
+                    className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                      isExpanded
+                        ? 'border-[#2B4CFF]/30 bg-white dark:bg-white/[0.04] shadow-sm'
+                        : 'border-pm-border/60 bg-white/70 dark:bg-white/[0.02] hover:border-pm-border'
+                    }`}
                   >
-                    <div className="px-6 pb-6 pt-1 text-xs md:text-sm text-pm-muted leading-relaxed font-sans border-t border-pm-border/30">
-                      {faq.answer}
-                    </div>
-                  </motion.div>
-                </div>
-              );
-            })}
+                    <button
+                      id={`faq-btn-${index}`}
+                      onClick={() => toggleExpand(index)}
+                      aria-expanded={isExpanded}
+                      aria-controls={`faq-panel-${index}`}
+                      className="w-full flex items-center justify-between p-5 md:p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2B4CFF] rounded-2xl"
+                    >
+                      <div className="flex items-center gap-3.5 pr-4">
+                        <span className={`text-base md:text-lg font-semibold transition-colors ${
+                          isExpanded ? 'text-[#2B4CFF] dark:text-[#6d84ff]' : 'text-[#16141A] dark:text-white'
+                        }`}>
+                          {faq.question}
+                        </span>
+                      </div>
+                      <div
+                        className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                          isExpanded
+                            ? 'bg-[#2B4CFF] text-white'
+                            : 'bg-slate-100 dark:bg-white/10 text-pm-muted'
+                        }`}
+                      >
+                        {isExpanded ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                      </div>
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {isExpanded && (
+                        <motion.div
+                          id={`faq-panel-${index}`}
+                          role="region"
+                          aria-labelledby={`faq-btn-${index}`}
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <div className="px-5 md:px-6 pb-6 pt-1 text-sm md:text-[15px] text-[#5F5A66] dark:text-slate-300 leading-relaxed font-sans border-t border-pm-border/40">
+                            {faq.answer}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }

@@ -1,13 +1,13 @@
-'use client'
+'use client';
 
-import React, { useEffect, useState } from 'react'
-import { Check, Sparkles, Zap, Shield, ArrowRight, Mail } from 'lucide-react'
-import { useBillingStore } from '@/store/useBillingStore'
-import MarketingNav from '@/components/marketing/MarketingNav'
-import MarketingFooter from '@/components/marketing/MarketingFooter'
-import Link from 'next/link'
+import React, { useEffect, useState } from 'react';
+import { Check, ArrowRight, Mail, Sparkles, ShieldCheck } from 'lucide-react';
+import { useBillingStore } from '@/store/useBillingStore';
+import MarketingNav from '@/components/marketing/MarketingNav';
+import MarketingFooter from '@/components/marketing/MarketingFooter';
+import Link from 'next/link';
 
-const ENTERPRISE_CONTACT_EMAIL = process.env.NEXT_PUBLIC_ENTERPRISE_CONTACT_EMAIL || "saumya@entrext.com"
+const ENTERPRISE_CONTACT_EMAIL = process.env.NEXT_PUBLIC_ENTERPRISE_CONTACT_EMAIL || "saumya@entrext.com";
 
 export default function PricingClient() {
   const {
@@ -18,308 +18,373 @@ export default function PricingClient() {
     fetchEarlyBirdStatus,
     fetchBillingStatus,
     initiateCheckout
-  } = useBillingStore()
+  } = useBillingStore();
 
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchEarlyBirdStatus()
-    fetchBillingStatus()
-  }, [fetchEarlyBirdStatus, fetchBillingStatus])
+    fetchEarlyBirdStatus();
+    fetchBillingStatus();
+  }, [fetchEarlyBirdStatus, fetchBillingStatus]);
 
   const handleCheckout = async (planType: string) => {
-    setLoadingPlan(planType)
-    setErrorMsg(null)
+    setLoadingPlan(planType);
+    setErrorMsg(null);
     try {
-      const checkoutUrl = await initiateCheckout(planType)
+      const checkoutUrl = await initiateCheckout(planType);
       if (checkoutUrl) {
-        window.location.href = checkoutUrl
+        window.location.href = checkoutUrl;
       } else {
-        setErrorMsg('Failed to initialize checkout session. Please try again.')
+        setErrorMsg('Failed to initialize checkout session. Please try again.');
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error redirecting to checkout.')
+      setErrorMsg(err.message || 'Error redirecting to checkout.');
     } finally {
-      setLoadingPlan(null)
+      setLoadingPlan(null);
     }
-  }
+  };
 
-  const isEarlyBirdActive = earlyBirdSlotsRemaining > 0
-  const isDevTeamActive = isPaid && (currentPlan === 'dev_team' || currentPlan === 'dev_team_early_bird')
-  const isStageTeamActive = currentPlan === 'stage_team'
-  const isFreeActive = !isPaid && (!currentPlan || currentPlan === 'free' || currentPlan === 'none')
+  const isEarlyBirdActive = earlyBirdSlotsRemaining > 0;
+  const isDevTeamActive = isPaid && (currentPlan === 'dev_team' || currentPlan === 'dev_team_early_bird');
+  const isStudioActive = isPaid && currentPlan === 'stage_team';
+  const isFreeActive = !isPaid && (!currentPlan || currentPlan === 'free' || currentPlan === 'none');
 
   return (
-    <div className="min-h-screen bg-pm-bg text-pm-text font-sans transition-colors duration-500 selection:bg-pm-accent/20">
+    <div className="min-h-screen bg-[var(--pm-bg)] text-pm-text font-sans transition-colors duration-500 selection:bg-[#2B4CFF]/20">
       <MarketingNav />
 
       {/* Main Container */}
-      <div className="pt-28 pb-20 max-w-7xl mx-auto px-6">
+      <div className="pt-32 pb-24 max-w-7xl mx-auto px-6">
         
-        {/* Header Banner */}
-        <div className="text-center space-y-4 max-w-3xl mx-auto pb-10">
-          {/* Internal STAGE Team Banner */}
-          {isStageTeamActive && (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-xs font-mono font-extrabold uppercase tracking-wider shadow-lg">
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>Current Active Plan: STAGE Team (Internal Entitlement Tier)</span>
-            </div>
-          )}
+        {/* Header (Section 8.9) */}
+        <div className="text-center space-y-4 max-w-3xl mx-auto pb-14">
+          <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#2B4CFF] bg-[#2B4CFF]/10 px-3 py-1 rounded-full inline-block">
+            Transparent Pricing
+          </span>
 
-          {/* Test Mode Badge */}
-          {isTestMode && !isStageTeamActive && (
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-xs font-mono font-extrabold uppercase tracking-wider animate-pulse">
-              <Zap className="w-3.5 h-3.5" />
-              <span>STAGE Dodo Test Mode (Sandbox Environment)</span>
-            </div>
-          )}
-
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-pm-text">
-            Simple, Transparent Pricing for <span className="bg-gradient-to-r from-purple-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">STAGE</span>
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-[#16141A] dark:text-white leading-[1.05]">
+            Pricing.{' '}
+            <span className="font-serif italic font-normal text-[#2B4CFF] dark:text-[#7C97FF]">
+              Reviewers are free.
+            </span>
           </h1>
-          <p className="text-base text-pm-muted">
+
+          <p className="text-base sm:text-lg text-pm-muted max-w-xl mx-auto font-sans">
             Pay for projects and team members. Reviewers are free.
           </p>
 
           {errorMsg && (
-            <div className="max-w-md mx-auto p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs font-bold">
+            <div className="max-w-md mx-auto p-3 rounded-xl bg-[#FCE7E4] border border-[#FCE7E4] text-[#9E2A2B] text-xs font-mono font-semibold">
               {errorMsg}
             </div>
           )}
         </div>
 
-        {/* Pricing Cards Grid (3 Columns) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
+        {/* 4 Pricing Tiers Grid (Section 8.9 & Decision D8) with Double-Bezel */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch max-w-7xl mx-auto">
           
-          {/* CARD 1: FREE PLAN */}
-          <div className="bg-pm-surface border border-pm-border rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 hover:border-pm-accent/30 shadow-xl relative">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-pm-muted">Free Plan</span>
-                {isFreeActive && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-pm-accent-subtle border border-pm-border text-pm-accent text-[10px] font-bold">Current Plan</span>
+          {/* TIER 1: FREE */}
+          <div className="p-1.5 rounded-[2.25rem] bg-slate-900/[0.03] dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 shadow-xs flex flex-col">
+            <div className="p-7 rounded-[1.875rem] bg-white dark:bg-[#16141A] flex-1 flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-pm-muted bg-slate-100 dark:bg-white/5 px-2.5 py-0.5 rounded-full">
+                    Free
+                  </span>
+                  {isFreeActive && (
+                    <span className="px-2 py-0.5 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] text-[10px] font-mono font-bold">
+                      Current Plan
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-extrabold text-[#16141A] dark:text-white">$0</span>
+                    <span className="text-xs text-pm-muted font-sans">/ month forever</span>
+                  </div>
+                  <p className="text-xs text-pm-muted mt-2 font-sans leading-relaxed">
+                    Try STAGE on one project. Comment on pages.
+                  </p>
+                </div>
+
+                <hr className="border-slate-100 dark:border-white/5" />
+
+                <ul className="space-y-2.5 text-xs text-pm-muted font-sans">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#137333] shrink-0" />
+                    <span><strong>1 team member</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#137333] shrink-0" />
+                    <span><strong>1 project</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#137333] shrink-0" />
+                    <span>Unlimited review links &amp; comments</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#137333] shrink-0" />
+                    <span>Reviewers never need an account</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-4">
+                {isFreeActive ? (
+                  <button
+                    disabled
+                    className="w-full py-3 rounded-full bg-slate-100 dark:bg-white/5 text-pm-muted font-mono text-xs font-semibold cursor-not-allowed opacity-70 flex items-center justify-center gap-2"
+                  >
+                    <span>Current Plan</span>
+                  </button>
+                ) : (
+                  <Link
+                    href="/dashboard"
+                    className="w-full py-3 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-[#16141A] dark:text-white font-mono text-xs font-semibold transition-all flex items-center justify-center gap-2"
+                  >
+                    <span>Go to Dashboard</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 )}
               </div>
-
-              <div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-pm-text">$0</span>
-                  <span className="text-xs font-medium text-pm-muted">/ month forever</span>
-                </div>
-                <p className="text-xs text-pm-muted mt-1">Start visual collaboration with your developers instantly.</p>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-pm-surface-2 border border-pm-border text-pm-text text-xs font-medium flex items-center gap-2">
-                <Shield className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                <span>Try the sandbox elements feedback</span>
-              </div>
-
-              <hr className="border-pm-border" />
-
-              <ul className="space-y-2.5 text-xs text-pm-muted">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span><strong>1 Developer Seat</strong></span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span><strong>1 Project Allowed</strong></span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span>Only canvas sessions available</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span>Join existing developer organizations</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="pt-6">
-              {isFreeActive ? (
-                <button
-                  disabled
-                  className="w-full py-3 rounded-2xl bg-pm-surface-2 border border-pm-border text-pm-muted font-extrabold text-xs cursor-not-allowed opacity-60 flex items-center justify-center gap-2 text-center"
-                >
-                  <span>Current Plan</span>
-                </button>
-              ) : (
-                <Link
-                  href="/dashboard"
-                  className="w-full py-3 rounded-2xl bg-pm-surface-2 border border-pm-border hover:bg-pm-surface-3 text-pm-text font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
-                >
-                  <span>Go to Dashboard</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              )}
             </div>
           </div>
 
-          {/* CARD 2: DEV TEAM (WITH EARLY BIRD BADGE OVERLAY) */}
-          <div className="bg-pm-surface border-2 border-pm-accent rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 shadow-2xl relative bg-gradient-to-b from-pm-accent/5 to-pm-surface">
-            {/* Early Bird Scarcity Badge */}
+          {/* TIER 2: TEAM (HIGHLIGHTED / POPULAR) */}
+          <div className="p-1.5 rounded-[2.25rem] bg-slate-900/[0.05] dark:bg-white/[0.08] border-2 border-[#2B4CFF] shadow-lg flex flex-col relative">
             {isEarlyBirdActive && !isDevTeamActive && (
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-gradient-to-r from-purple-600 to-cyan-500 text-white text-[11px] font-extrabold shadow-lg flex items-center gap-1.5 whitespace-nowrap">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>25% OFF EARLY BIRD — {earlyBirdSlotsRemaining} OF 50 SPOTS LEFT</span>
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[#2B4CFF] text-white text-[10px] font-mono font-bold tracking-wider uppercase shadow-xs flex items-center gap-1.5 whitespace-nowrap">
+                <Sparkles className="w-3 h-3" />
+                <span>25% Early Bird · {earlyBirdSlotsRemaining} Left</span>
               </div>
             )}
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-pm-accent">
-                  {currentPlan === 'dev_team_early_bird' ? 'Dev Team Early Bird' : 'Dev Team'}
-                </span>
-                {isDevTeamActive && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-pm-accent/20 text-pm-accent text-[10px] font-bold">Current Plan</span>
-                )}
-              </div>
-
-              <div>
-                {isEarlyBirdActive && !isDevTeamActive ? (
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-extrabold text-pm-text">$21.75</span>
-                      <span className="text-sm line-through text-pm-muted">$29</span>
-                      <span className="text-xs font-medium text-pm-muted">/ month flat</span>
-                    </div>
-                    <p className="text-[11px] text-pm-accent font-bold mt-1">
-                      Includes 25% Early Bird Discount ({50 - earlyBirdSlotsRemaining}/50 claimed)
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-extrabold text-pm-text">$29</span>
-                      <span className="text-xs font-medium text-pm-muted">/ month flat</span>
-                    </div>
-                    <p className="text-xs text-pm-muted mt-1">Flat fee for up to 5 developers (not per-seat).</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Feature Highlight Badge */}
-              <div className="p-2.5 rounded-xl bg-pm-accent-subtle border border-pm-border text-pm-accent text-xs font-bold flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                <span>Includes Blueprint Canvas DOM Edit Mode</span>
-              </div>
-
-              <hr className="border-pm-border" />
-
-              <ul className="space-y-2.5 text-xs text-pm-muted">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span><strong>Up to 5 Developer Seats</strong></span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span><strong>10 Projects Total</strong></span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span>Full Blueprint Canvas & Multi-user Presence</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span>AI Change Summaries & Version Control</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span>Unified Notifications & Email Delivery</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="pt-6">
-              {isDevTeamActive ? (
-                <button
-                  disabled
-                  className="w-full py-3 rounded-2xl bg-pm-accent/20 border border-pm-accent/40 text-pm-accent font-extrabold text-xs cursor-not-allowed opacity-80 flex items-center justify-center gap-2"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Current Active Plan</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleCheckout('dev_team')}
-                  disabled={loadingPlan === 'dev_team'}
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-pm-accent to-purple-600 hover:from-pm-accent-bright hover:to-purple-500 text-white font-extrabold text-xs transition-all shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {loadingPlan === 'dev_team' ? (
-                    <span>Redirecting to Dodo Checkout...</span>
-                  ) : (
-                    <>
-                      <span>{isEarlyBirdActive ? 'Claim Early Bird (25% Off)' : 'Subscribe to Dev Team'}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </>
+            <div className="p-7 rounded-[1.875rem] bg-white dark:bg-[#16141A] flex-1 flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#1A73E8] bg-[#EBF1FE] border border-[#D2E3FC] px-2.5 py-0.5 rounded-full">
+                    Team
+                  </span>
+                  {isDevTeamActive && (
+                    <span className="px-2 py-0.5 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] text-[10px] font-mono font-bold">
+                      Current Plan
+                    </span>
                   )}
-                </button>
-              )}
+                </div>
+
+                <div>
+                  <div className="flex items-baseline gap-1.5">
+                    {isEarlyBirdActive && !isDevTeamActive ? (
+                      <>
+                        <span className="text-4xl font-extrabold text-[#16141A] dark:text-white">$21.75</span>
+                        <span className="text-sm line-through text-slate-400 font-sans">$29</span>
+                        <span className="text-xs text-pm-muted font-sans">/ month flat</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-extrabold text-[#16141A] dark:text-white">$29</span>
+                        <span className="text-xs text-pm-muted font-sans">/ month flat</span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-xs text-pm-muted mt-2 font-sans leading-relaxed">
+                    For small teams with several sites. Includes on-page editing.
+                  </p>
+                </div>
+
+                <hr className="border-slate-100 dark:border-white/5" />
+
+                <ul className="space-y-2.5 text-xs text-pm-muted font-sans">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#2B4CFF] shrink-0" />
+                    <span><strong>5 team members</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#2B4CFF] shrink-0" />
+                    <span><strong>10 projects</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#2B4CFF] shrink-0" />
+                    <span>Edit on the page (live CSS)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#2B4CFF] shrink-0" />
+                    <span>Send comments to GitHub as issues</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-4">
+                {isDevTeamActive ? (
+                  <button
+                    disabled
+                    className="w-full py-3 rounded-full bg-[#E6F4EA] text-[#137333] font-mono text-xs font-semibold cursor-not-allowed opacity-90 flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Current Active Plan</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleCheckout('dev_team')}
+                    disabled={loadingPlan === 'dev_team'}
+                    className="group w-full py-3.5 px-4 rounded-full bg-[#2B4CFF] hover:bg-[#203ecc] text-white font-mono text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+                  >
+                    {loadingPlan === 'dev_team' ? (
+                      <span>Redirecting to checkout...</span>
+                    ) : (
+                      <>
+                        <span>{isEarlyBirdActive ? 'Claim Early Bird' : 'Subscribe to Team'}</span>
+                        <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* CARD 3: ENTERPRISE ("LET'S TALK") */}
-          <div className="bg-pm-surface border border-pm-border rounded-3xl p-6 flex flex-col justify-between hover:border-pm-accent/30 transition-all duration-200 shadow-xl relative">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-pm-accent">Enterprise</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-500 text-[10px] font-bold">Custom</span>
+          {/* TIER 3: STUDIO */}
+          <div className="p-1.5 rounded-[2.25rem] bg-slate-900/[0.03] dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 shadow-xs flex flex-col">
+            <div className="p-7 rounded-[1.875rem] bg-white dark:bg-[#16141A] flex-1 flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#4A154B] dark:text-[#E8D9F7] bg-[#ECE6F6] dark:bg-[#4A154B]/30 px-2.5 py-0.5 rounded-full">
+                    Studio
+                  </span>
+                  {isStudioActive && (
+                    <span className="px-2 py-0.5 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] text-[10px] font-mono font-bold">
+                      Current Plan
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-extrabold text-[#16141A] dark:text-white">$79</span>
+                    <span className="text-xs text-pm-muted font-sans">/ month flat</span>
+                  </div>
+                  <p className="text-xs text-pm-muted mt-2 font-sans leading-relaxed">
+                    For agencies with many client reviews. Priority support.
+                  </p>
+                </div>
+
+                <hr className="border-slate-100 dark:border-white/5" />
+
+                <ul className="space-y-2.5 text-xs text-pm-muted font-sans">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#7C4DFF] shrink-0" />
+                    <span><strong>Unlimited team members</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#7C4DFF] shrink-0" />
+                    <span><strong>Unlimited projects</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#7C4DFF] shrink-0" />
+                    <span>Password-protected review links</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-[#7C4DFF] shrink-0" />
+                    <span>Priority engineering support</span>
+                  </li>
+                </ul>
               </div>
 
-              <div>
-                <span className="text-3xl font-extrabold text-pm-text">Custom SLA</span>
-                <p className="text-xs text-pm-muted mt-1">Tailored for large teams and enterprise organizations.</p>
+              <div className="pt-4">
+                {isStudioActive ? (
+                  <button
+                    disabled
+                    className="w-full py-3 rounded-full bg-[#E6F4EA] text-[#137333] font-mono text-xs font-semibold cursor-not-allowed opacity-90 flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Current Active Plan</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleCheckout('stage_team')}
+                    disabled={loadingPlan === 'stage_team'}
+                    className="w-full py-3 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-[#16141A] dark:text-white font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+                  >
+                    {loadingPlan === 'stage_team' ? (
+                      <span>Redirecting...</span>
+                    ) : (
+                      <>
+                        <span>Subscribe to Studio</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
-
-              <hr className="border-pm-border" />
-
-              <ul className="space-y-2.5 text-xs text-pm-muted">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span><strong>Unlimited Developer Seats</strong></span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span><strong>Unlimited Projects</strong></span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span>Dedicated Support & SLA Guarantee</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span>Custom On-Premise / Hybrid Deployment</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-pm-accent flex-shrink-0" />
-                  <span>Custom Security & Compliance Audits</span>
-                </li>
-              </ul>
             </div>
+          </div>
 
-            <div className="pt-6">
-              <a
-                href={`mailto:${ENTERPRISE_CONTACT_EMAIL}?subject=STAGE%20Enterprise%20Plan%20Inquiry`}
-                className="w-full py-3 rounded-2xl bg-pm-surface-2 hover:bg-pm-surface-3 text-pm-text border border-pm-border hover:border-pm-accent/20 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Mail className="w-3.5 h-3.5 text-pm-accent" />
-                <span>Let's talk</span>
-              </a>
+          {/* TIER 4: ENTERPRISE */}
+          <div className="p-1.5 rounded-[2.25rem] bg-slate-900/[0.03] dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 shadow-xs flex flex-col">
+            <div className="p-7 rounded-[1.875rem] bg-white dark:bg-[#16141A] flex-1 flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#B06000] bg-[#FEF3E2] px-2.5 py-0.5 rounded-full">
+                    Enterprise
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-pm-muted text-[10px] font-mono font-bold">
+                    Custom
+                  </span>
+                </div>
+
+                <div>
+                  <div className="text-3xl font-extrabold text-[#16141A] dark:text-white">Custom SLA</div>
+                  <p className="text-xs text-pm-muted mt-2 font-sans leading-relaxed">
+                    Custom limits, support terms and security.
+                  </p>
+                </div>
+
+                <hr className="border-slate-100 dark:border-white/5" />
+
+                <ul className="space-y-2.5 text-xs text-pm-muted font-sans">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>Custom limits and seats</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>Dedicated SLA terms</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>Custom security review</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>Invoice billing &amp; procurement</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-4">
+                <a
+                  href={`mailto:${ENTERPRISE_CONTACT_EMAIL}?subject=STAGE%20Enterprise%20Plan%20Inquiry`}
+                  className="w-full py-3 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-[#16141A] dark:text-white font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Mail className="w-3.5 h-3.5 text-pm-muted" />
+                  <span>Talk to us</span>
+                </a>
+              </div>
             </div>
           </div>
 
         </div>
 
-        {/* Footer info */}
-        <div className="max-w-4xl mx-auto pt-16 text-center text-xs text-pm-muted space-y-2">
-          <p>All subscriptions are powered safely by Dodo Payments in Sandbox Test Mode.</p>
-          <p>Need custom procurement or invoice billing? Contact {ENTERPRISE_CONTACT_EMAIL}</p>
+        {/* Reassurance footnote */}
+        <div className="max-w-2xl mx-auto pt-16 text-center text-xs text-pm-muted space-y-1 font-sans">
+          <p>Pay for projects and team members. Reviewers are free.</p>
+          <p>Questions about procurement? Contact {ENTERPRISE_CONTACT_EMAIL}</p>
         </div>
       </div>
 
       <MarketingFooter />
     </div>
-  )
+  );
 }

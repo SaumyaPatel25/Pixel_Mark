@@ -1342,8 +1342,39 @@ html[data-theme="dark"] .dark-hero-orb-pulse-2 {
   .duol-radar-ring-slow,
   .duol-float,
   .duol-float-slow,
-  .duol-shimmer-btn::after {
+  .duol-shimmer-btn::after,
+  .animate-ambient-drift-1,
+  .animate-ambient-drift-2,
+  .animate-ambient-drift-3 {
     animation: none !important;
   }
 }
+
+@keyframes ambient-drift-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(40px, -30px, 0) scale(1.08); }
+}
+
+@keyframes ambient-drift-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-35px, 25px, 0) scale(1.06); }
+}
+
+@keyframes ambient-drift-3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(25px, 35px, 0) scale(1.05); }
+}
+
+.animate-ambient-drift-1 {
+  animation: ambient-drift-1 24s ease-in-out infinite alternate;
+}
+
+.animate-ambient-drift-2 {
+  animation: ambient-drift-2 28s ease-in-out infinite alternate;
+}
+
+.animate-ambient-drift-3 {
+  animation: ambient-drift-3 22s ease-in-out infinite alternate;
+}
+
 

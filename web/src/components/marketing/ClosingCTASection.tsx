@@ -1,71 +1,54 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { trackCtaClick } from '@/lib/analytics';
 
 export default function ClosingCTASection() {
   return (
-    <section className="relative py-40 overflow-hidden border-t border-pm-border/30 bg-[var(--pm-bg)] text-pm-text transition-colors duration-500">
-      {/* Decorative gradients */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(99,102,241,0.12)_0%,transparent_70%)] pointer-events-none z-0" />
-
+    <section className="relative py-28 md:py-36 overflow-hidden border-t border-pm-border/40 bg-[var(--pm-bg)] text-pm-text transition-colors">
       <div className="max-w-4xl mx-auto px-6 text-center relative z-10 space-y-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/5 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-[10px] font-mono font-bold uppercase tracking-wider mx-auto transition-colors"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          Get started today
-        </motion.div>
-
         <motion.h2
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="font-display font-black text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-tight italic uppercase flex flex-col items-center justify-center gap-1 sm:gap-2"
+          transition={{ duration: 0.5 }}
+          className="text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#16141A] dark:text-white"
         >
-          <span className="block pr-2">Ready to experience</span>
-          <span className="block text-[#1D264F] dark:text-transparent dark:bg-gradient-to-r dark:from-indigo-400 dark:via-violet-400 dark:to-emerald-400 dark:bg-clip-text pr-2 text-center text-wrap sm:whitespace-nowrap">
-            pixel-perfect reviews?
-          </span>
+          Send your first review link.
         </motion.h2>
 
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-[#1D264F]/80 dark:text-white/60 text-sm sm:text-base max-w-xl mx-auto leading-relaxed transition-colors"
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="text-base md:text-lg text-pm-muted max-w-xl mx-auto font-sans"
         >
-          Anchor QA annotations on live DOM nodes, XPath selectors, and viewport states. Zero Chrome extensions required.
+          Free for one project. Clients and teammates click to comment with nothing to install.
         </motion.p>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2"
         >
           <Link
             href="/register"
             onClick={() => trackCtaClick('closing_cta_signup', 'general')}
-            className="duol-shimmer-btn w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 min-h-[48px]"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 bg-[#2B4CFF] hover:bg-[#203ecc] text-white rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2B4CFF]/50 min-h-[48px]"
           >
-            Get Started Free
+            Create a review link
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
             href="/login"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-pm-surface hover:bg-pm-surface-2 dark:bg-white/5 dark:hover:bg-white/10 text-pm-text dark:text-white/80 dark:hover:text-white border border-pm-border dark:border-white/10 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-pm-surface hover:bg-pm-surface-2 text-pm-text border border-pm-border rounded-xl text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2B4CFF]/40 min-h-[48px]"
           >
-            Sign In
+            Sign in
           </Link>
         </motion.div>
       </div>

@@ -1,35 +1,68 @@
 export interface FAQItem {
   question: string;
   answer: string;
+  category?: 'about' | 'how-it-works' | 'comparisons' | 'access-privacy';
 }
 
 export const faqs: FAQItem[] = [
   {
-    question: "What is STAGE and how does it optimize visual website feedback?",
-    answer: "STAGE is an AI-ready visual website feedback and QA bug reporting software developed by Entrext Labs. It enables product managers, designers, and clients to click any DOM element, 3D WebGL mesh, or canvas coordinate on a live website and pin contextual feedback directly on the page, reducing website revision cycles by over 65% without screenshots or browser extensions."
+    category: 'about',
+    question: "What is STAGE?",
+    answer: "STAGE is a tool for getting feedback on a live website. You share a review link. Clients and teammates click the page to comment. Your developer sees the exact element and a screenshot."
   },
   {
-    question: "How does STAGE enable zero-extension visual feedback on live websites?",
-    answer: "STAGE uses dynamic viewport hydration and a secure proxy architecture that overlays an interactive annotation canvas directly over your live web pages, staging servers, or local environments. Reviewers do not need to install Chrome extensions, download desktop apps, or register accounts to leave feedback."
+    category: 'about',
+    question: "Do my clients need an account?",
+    answer: "No. Clients open the link, enter their name and comment. They install nothing."
   },
   {
-    question: "How does STAGE capture 3D WebGL and Three.js canvas coordinates?",
-    answer: "STAGE features native 3D raycasting and drawing buffer capture. When a reviewer clicks on a 3D scene, STAGE calculates the exact raycast intersection vector, mesh identifier, face index, and viewport coordinates, enabling spatial 3D bug reporting that standard 2D screenshot tools cannot perform."
+    category: 'about',
+    question: "Does it work on staging sites?",
+    answer: "Yes, on any staging or live page at a public address. It does not work on localhost or private networks. Password-protected staging is not supported yet."
   },
   {
-    question: "Can non-technical clients and external stakeholders use STAGE without coding?",
-    answer: "Yes. Clients open the review link, enter their name and leave a comment directly on the page. They install nothing."
+    category: 'about',
+    question: "Can I change the website address of a project?",
+    answer: "No. Create a new project to review a different site."
   },
   {
-    question: "How do developers export feedback into engineering tasks and GitHub checklists?",
-    answer: "Developers can filter all feedback by status, page URL, or urgency in the project dashboard and export comments directly into GitHub-compatible Markdown checklists, Linear issues, Jira tasks, or structured CSV spreadsheets with a single click."
+    category: 'how-it-works',
+    question: "Will my site work inside STAGE?",
+    answer: "Most public sites do. If a page cannot open, STAGE tells you. Pages that are not built for phones may look cut off in phone view."
   },
   {
-    question: "How does STAGE protect client privacy and staging environment security?",
-    answer: "All review sessions are protected by tokenized URLs, secure TLS encryption, and scoped session identifiers. Sensitive authentication tokens, cookies, and private staging secrets are never exposed to public reviewers."
+    category: 'how-it-works',
+    question: "Does it work with 3D sites?",
+    answer: "Yes. You can place comments on 3D pages as well as on standard pages."
   },
   {
-    question: "How can I contact Entrext Labs engineering for custom integrations?",
-    answer: "You can contact Saumya Patel and the Entrext Labs core team directly at saumya@entrext.com or connect via our LinkedIn company page (linkedin.com/company/entrext) and X (@Stage0fficial) for custom workspace setups, developer APIs, and enterprise support."
+    category: 'how-it-works',
+    question: "Can I send comments to GitHub?",
+    answer: "Yes. Turn a comment into a GitHub issue."
+  },
+  {
+    category: 'comparisons',
+    question: "Is it a project management tool?",
+    answer: "No. STAGE is for reviewing websites. Keep using your task tool for tasks."
+  },
+  {
+    category: 'comparisons',
+    question: "Does it replace Figma?",
+    answer: "No. Use Figma to design. Use STAGE after the page is built, to review the real website."
+  },
+  {
+    category: 'access-privacy',
+    question: "Who can see my site and comments?",
+    answer: "Only people with your review link. You can add a password to any link."
+  },
+  {
+    category: 'access-privacy',
+    question: "How long do you keep my projects?",
+    answer: "Projects with no activity for 10 days are deleted after a warning."
+  },
+  {
+    category: 'about',
+    question: "How much does it cost?",
+    answer: "Free for one project. See Pricing for paid plans."
   }
 ];
