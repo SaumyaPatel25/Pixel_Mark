@@ -27,6 +27,137 @@ interface SandboxPin {
   status: 'open' | 'fixed';
 }
 
+/**
+ * Kinetic Slashed Headline Term (Top 1% Editorial Motion Design)
+ * Multi-layer choreographed sequence:
+ * - 0.58s: Primary assertive diagonal stroke (Stroke 1) accelerates across
+ * - 0.62s: Text recoils physically (scale/y/rotation flinch) and dims to 0.38
+ * - 0.70s: Secondary fast scratch (Stroke 2) reinforces the cancellation
+ * - 0.82s: Ink lift-off specks pop at stroke terminus
+ * - 0.88s: Editorial "never again" micro-pill springs into position with tactile rotation
+ * - Fully interactive: Click to replay sequence
+ */
+function KineticSlashedTerm() {
+  const [replayKey, setReplayKey] = useState(0);
+
+  return (
+    <span
+      key={replayKey}
+      onClick={() => setReplayKey((k) => k + 1)}
+      className="relative block sm:inline-block whitespace-nowrap mt-1 sm:mt-0 cursor-pointer select-none group/slash align-baseline"
+      title="Click to replay slash animation"
+    >
+      {/* Editorial Floating Micro-Badge */}
+      <motion.span
+        initial={{ scale: 0, opacity: 0, y: 10, rotate: -12 }}
+        animate={{ scale: 1, opacity: 1, y: 0, rotate: -3 }}
+        whileHover={{ scale: 1.08, rotate: -1, y: -2 }}
+        transition={{
+          type: 'spring',
+          stiffness: 450,
+          damping: 16,
+          delay: 0.88,
+        }}
+        className="absolute -top-6 sm:-top-7.5 right-1 sm:right-3 pointer-events-none z-20"
+      >
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E8615A] dark:bg-[#FFA49C] text-white dark:text-[#5B1311] text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm ring-2 ring-white dark:ring-[#16141A]">
+          <span className="w-1 h-1 rounded-full bg-white dark:bg-[#5B1311]" />
+          <span>never again</span>
+        </span>
+      </motion.span>
+
+      {/* Slashed Headline Text with Physics Recoil & Permanent Dimming */}
+      <motion.span
+        initial={{ opacity: 1 }}
+        animate={{
+          opacity: 0.38,
+          y: [0, -1, 2.5, -0.6, 0],
+          rotate: [0, 0.5, -1.3, 0.3, 0],
+        }}
+        transition={{
+          opacity: { duration: 0.35, delay: 0.68 },
+          y: { duration: 0.38, delay: 0.62, times: [0, 0.25, 0.55, 0.8, 1] },
+          rotate: { duration: 0.38, delay: 0.62, times: [0, 0.25, 0.55, 0.8, 1] },
+        }}
+        className="font-serif italic font-normal text-[#E8615A] dark:text-[#FFA49C] relative z-0 inline-block transition-colors"
+      >
+        not in screenshots.
+      </motion.span>
+
+      {/* Hand-Crafted Dual Ink Slash with Particle Specks */}
+      <svg
+        className="absolute -left-[4%] -top-[10%] w-[108%] h-[120%] pointer-events-none z-10 overflow-visible"
+        viewBox="0 0 300 50"
+        fill="none"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="editorial-slash-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#FF6B6B" />
+            <stop offset="50%" stopColor="#E8615A" />
+            <stop offset="100%" stopColor="#D9383A" />
+          </linearGradient>
+        </defs>
+
+        {/* Primary Assertive Diagonal Slash (Stroke 1) */}
+        <motion.path
+          d="M 4 42 C 65 34, 165 20, 296 9"
+          stroke="url(#editorial-slash-grad)"
+          className="dark:stroke-[#FFA49C]"
+          strokeWidth="3.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: 1 }}
+          transition={{
+            pathLength: { duration: 0.36, delay: 0.58, ease: [0.16, 1, 0.3, 1] },
+            opacity: { duration: 0.08, delay: 0.58 },
+          }}
+        />
+
+        {/* Secondary Rapid Counter-Scratch (Stroke 2) */}
+        <motion.path
+          d="M 16 28 C 95 29, 190 26, 284 27"
+          stroke="url(#editorial-slash-grad)"
+          className="dark:stroke-[#FFA49C]"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeOpacity="0.8"
+          vectorEffect="non-scaling-stroke"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: 0.8 }}
+          transition={{
+            pathLength: { duration: 0.3, delay: 0.7, ease: [0.22, 1, 0.36, 1] },
+            opacity: { duration: 0.08, delay: 0.7 },
+          }}
+        />
+
+        {/* Ink Lift-off Specks */}
+        <motion.circle
+          cx="299"
+          cy="8"
+          r="2.2"
+          className="fill-[#E8615A] dark:fill-[#FFA49C]"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 0.9 }}
+          transition={{ duration: 0.15, delay: 0.82 }}
+        />
+        <motion.circle
+          cx="305"
+          cy="14"
+          r="1.4"
+          className="fill-[#E8615A] dark:fill-[#FFA49C]"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 0.7 }}
+          transition={{ duration: 0.15, delay: 0.86 }}
+        />
+      </svg>
+    </span>
+  );
+}
+
 export default function HeroSection({
   isHeroTextComplete = false,
 }: HeroSectionProps) {
@@ -187,32 +318,7 @@ export default function HeroSection({
         >
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.035em] text-[#16141A] dark:text-white leading-[1.05]">
             Get client feedback on the live page,{' '}
-            <span className="relative block sm:inline-block whitespace-nowrap mt-1 sm:mt-0">
-              <span className="font-serif italic font-normal text-[#E8615A] dark:text-[#FFA49C] relative z-0">
-                not in screenshots.
-              </span>
-              <svg
-                className="absolute -left-[4%] top-1/2 -translate-y-[45%] w-[108%] h-6 sm:h-8 md:h-10 pointer-events-none z-10 overflow-visible"
-                viewBox="0 0 120 20"
-                fill="none"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <motion.path
-                  d="M 2 15 C 38 12, 80 8, 118 5"
-                  className="stroke-[#E8615A] dark:stroke-[#FFA49C]"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  vectorEffect="non-scaling-stroke"
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{
-                    pathLength: { duration: 0.65, delay: 0.6, ease: [0.16, 1, 0.3, 1] },
-                    opacity: { duration: 0.15, delay: 0.6 },
-                  }}
-                />
-              </svg>
-            </span>
+            <KineticSlashedTerm />
           </h1>
 
           {/* Section 8.2 Exact Sub-line */}
@@ -313,30 +419,44 @@ export default function HeroSection({
                   </div>
                 </div>
 
-                {/* Center Switcher: Video Teaser vs Interactive Sandbox */}
+                {/* Center Switcher: Video Teaser vs Interactive Sandbox with Gliding Pill Motion */}
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center p-0.5 rounded-full bg-slate-200/70 dark:bg-white/10 border border-slate-200 dark:border-white/10">
+                  <div className="flex items-center p-0.5 rounded-full bg-slate-200/70 dark:bg-white/10 border border-slate-200 dark:border-white/10 relative">
                     <button
                       type="button"
                       onClick={() => setPreviewTab('video')}
-                      className={`px-3 py-1 rounded-full text-[11px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                      className={`relative px-3 py-1 rounded-full text-[11px] font-mono flex items-center gap-1.5 transition-colors cursor-pointer z-10 ${
                         previewTab === 'video'
-                          ? 'bg-[#16141A] text-white dark:bg-white dark:text-[#16141A] font-bold shadow-xs'
-                          : 'text-pm-muted hover:text-[#16141A]'
+                          ? 'text-white dark:text-[#16141A] font-bold'
+                          : 'text-pm-muted hover:text-[#16141A] dark:hover:text-white'
                       }`}
                     >
+                      {previewTab === 'video' && (
+                        <motion.div
+                          layoutId="hero-preview-tab-pill"
+                          className="absolute inset-0 bg-[#16141A] dark:bg-white rounded-full -z-10 shadow-xs"
+                          transition={{ type: 'spring', stiffness: 480, damping: 32 }}
+                        />
+                      )}
                       <Play className="w-3 h-3 fill-current" />
                       <span>Product Teaser</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setPreviewTab('sandbox')}
-                      className={`px-3 py-1 rounded-full text-[11px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                      className={`relative px-3 py-1 rounded-full text-[11px] font-mono flex items-center gap-1.5 transition-colors cursor-pointer z-10 ${
                         previewTab === 'sandbox'
-                          ? 'bg-[#2B4CFF] text-white font-bold shadow-xs'
-                          : 'text-pm-muted hover:text-[#16141A]'
+                          ? 'text-white font-bold'
+                          : 'text-pm-muted hover:text-[#16141A] dark:hover:text-white'
                       }`}
                     >
+                      {previewTab === 'sandbox' && (
+                        <motion.div
+                          layoutId="hero-preview-tab-pill"
+                          className="absolute inset-0 bg-[#2B4CFF] rounded-full -z-10 shadow-xs"
+                          transition={{ type: 'spring', stiffness: 480, damping: 32 }}
+                        />
+                      )}
                       <MousePointerClick className="w-3 h-3" />
                       <span>Interactive Sandbox</span>
                     </button>
