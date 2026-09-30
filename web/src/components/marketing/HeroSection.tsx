@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, Globe, Check, 
   Smartphone, Monitor, MessageSquare, CheckCircle2, 
-  ChevronDown, Lock
+  ChevronDown, Lock, Play, Pause, Volume2, VolumeX, RotateCcw, MousePointerClick
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ModeType } from './HomeClient';
@@ -37,6 +37,12 @@ export default function HeroSection({
   const [siteUrl, setSiteUrl] = useState('');
   const [deviceView, setDeviceView] = useState<'desktop' | 'mobile'>('desktop');
   const [sandboxMode, setSandboxMode] = useState<'comment' | 'browse'>('comment');
+  
+  // Teaser Video vs Sandbox Switcher
+  const [previewTab, setPreviewTab] = useState<'video' | 'sandbox'>('video');
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Interactive Live Demo Pins State
   const [pins, setPins] = useState<SandboxPin[]>([
@@ -56,6 +62,30 @@ export default function HeroSection({
   const [commentText, setCommentText] = useState('');
   const [isBugDraft, setIsBugDraft] = useState(false);
   const [hasJustPosted, setHasJustPosted] = useState(false);
+
+  const toggleVideoPlay = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+      setIsPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  const toggleVideoMute = () => {
+    if (!videoRef.current) return;
+    videoRef.current.muted = !videoRef.current.muted;
+    setIsMuted(videoRef.current.muted);
+  };
+
+  const restartVideo = () => {
+    if (!videoRef.current) return;
+    videoRef.current.currentTime = 0;
+    videoRef.current.play();
+    setIsPlaying(true);
+  };
 
   // Handle Quick Start URL submission
   const handleQuickStart = (e: React.FormEvent) => {
@@ -202,11 +232,23 @@ export default function HeroSection({
             </button>
           </form>
 
-          {/* Under-bar reassurance (Section 8.2) */}
-          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-pm-muted pt-1">
+          {/* Under-bar reassurance & Teaser trigger */}
+          <div className="flex flex-wrap items-center justify-center gap-3.5 text-xs text-pm-muted pt-1">
             <span className="font-mono text-pm-text/90 font-medium">
               Free for one project. No card needed.
             </span>
+            <span className="text-slate-300 dark:text-white/20">•</span>
+            <button
+              type="button"
+              onClick={() => {
+                setPreviewTab('video');
+                restartVideo();
+              }}
+              className="inline-flex items-center gap-1.5 font-medium text-[#2B4CFF] hover:underline cursor-pointer"
+            >
+              <Play className="w-3 h-3 fill-current" />
+              <span>Watch 6-second teaser</span>
+            </button>
             <span className="text-slate-300 dark:text-white/20">•</span>
             <a
               href="#how-it-works"
@@ -218,7 +260,7 @@ export default function HeroSection({
           </div>
         </motion.div>
 
-        {/* ── DOUBLE-BEZEL INTERACTIVE LIVE PIN SANDBOX (Top 1% UI/UX) ── */}
+        {/* ── DOUBLE-BEZEL SHOWCASE CONTAINER (TEASER VIDEO + INTERACTIVE SANDBOX) ── */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
@@ -231,7 +273,7 @@ export default function HeroSection({
             {/* Inner Core (The Screen) */}
             <div className="rounded-[1.625rem] bg-white dark:bg-[#131217] border border-slate-200/70 dark:border-white/10 overflow-hidden text-left shadow-inner">
               
-              {/* Browser Window Header Strip */}
+              {/* Browser Window Header Strip with Video / Sandbox Switcher */}
               <div className="px-5 py-3.5 bg-slate-50/90 dark:bg-[#18171E] border-b border-slate-200/70 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
                 
                 {/* Traffic Lights + Address Pill */}
@@ -244,311 +286,423 @@ export default function HeroSection({
 
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-mono text-pm-muted shadow-2xs">
                     <Lock className="w-3 h-3 text-[#137333] dark:text-[#68D391]" />
-                    <span className="text-[11px]">https://acme-studio.com/preview</span>
+                    <span className="text-[11px]">https://stage.app/live-preview</span>
                   </div>
                 </div>
 
-                {/* Viewport & Mode Controls */}
-                <div className="flex items-center gap-2.5">
-                  
-                  {/* Desktop / Mobile Switch */}
-                  <div className="flex items-center p-0.5 rounded-lg bg-slate-200/60 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                {/* Center Switcher: Video Teaser vs Interactive Sandbox */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center p-0.5 rounded-full bg-slate-200/70 dark:bg-white/10 border border-slate-200 dark:border-white/10">
                     <button
                       type="button"
-                      onClick={() => setDeviceView('desktop')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-mono flex items-center gap-1.5 transition-all ${
-                        deviceView === 'desktop'
-                          ? 'bg-white dark:bg-white/15 text-[#16141A] dark:text-white font-bold shadow-xs'
+                      onClick={() => setPreviewTab('video')}
+                      className={`px-3 py-1 rounded-full text-[11px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                        previewTab === 'video'
+                          ? 'bg-[#16141A] text-white dark:bg-white dark:text-[#16141A] font-bold shadow-xs'
                           : 'text-pm-muted hover:text-[#16141A]'
                       }`}
                     >
-                      <Monitor className="w-3 h-3" />
-                      <span className="hidden sm:inline">Desktop</span>
+                      <Play className="w-3 h-3 fill-current" />
+                      <span>Product Teaser</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDeviceView('mobile')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-mono flex items-center gap-1.5 transition-all ${
-                        deviceView === 'mobile'
-                          ? 'bg-white dark:bg-white/15 text-[#16141A] dark:text-white font-bold shadow-xs'
-                          : 'text-pm-muted hover:text-[#16141A]'
-                      }`}
-                    >
-                      <Smartphone className="w-3 h-3" />
-                      <span className="hidden sm:inline">Mobile</span>
-                    </button>
-                  </div>
-
-                  {/* Browse vs Comment Mode Switch (Section 9) */}
-                  <div className="flex items-center p-0.5 rounded-lg bg-slate-200/60 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                    <button
-                      type="button"
-                      onClick={() => setSandboxMode('browse')}
-                      className={`px-3 py-1 rounded-md text-[11px] font-mono transition-all ${
-                        sandboxMode === 'browse'
-                          ? 'bg-white dark:bg-white/15 text-[#16141A] dark:text-white font-bold shadow-xs'
-                          : 'text-pm-muted hover:text-[#16141A]'
-                      }`}
-                    >
-                      Browse
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSandboxMode('comment')}
-                      className={`px-3 py-1 rounded-md text-[11px] font-mono flex items-center gap-1.5 transition-all ${
-                        sandboxMode === 'comment'
+                      onClick={() => setPreviewTab('sandbox')}
+                      className={`px-3 py-1 rounded-full text-[11px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                        previewTab === 'sandbox'
                           ? 'bg-[#2B4CFF] text-white font-bold shadow-xs'
                           : 'text-pm-muted hover:text-[#16141A]'
                       }`}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                      Comment
+                      <MousePointerClick className="w-3 h-3" />
+                      <span>Interactive Sandbox</span>
                     </button>
                   </div>
-
-                  {/* Comment Counter (Section 9) */}
-                  <div className="px-2.5 py-1 rounded-lg bg-[#ECE6F6] dark:bg-[#4A154B]/30 border border-[#ECE6F6] dark:border-[#4A154B]/50 text-[11px] font-mono font-bold text-[#4A154B] dark:text-[#E8D9F7]">
-                    Comments ({pins.length})
-                  </div>
                 </div>
+
+                {/* Right controls: Context specific */}
+                {previewTab === 'sandbox' ? (
+                  <div className="flex items-center gap-2">
+                    {/* Desktop / Mobile Switch */}
+                    <div className="flex items-center p-0.5 rounded-lg bg-slate-200/60 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setDeviceView('desktop')}
+                        className={`px-2 py-1 rounded-md text-[11px] font-mono flex items-center gap-1 transition-all ${
+                          deviceView === 'desktop'
+                            ? 'bg-white dark:bg-white/15 text-[#16141A] dark:text-white font-bold shadow-xs'
+                            : 'text-pm-muted hover:text-[#16141A]'
+                        }`}
+                      >
+                        <Monitor className="w-3 h-3" />
+                        <span className="hidden sm:inline">Desktop</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeviceView('mobile')}
+                        className={`px-2 py-1 rounded-md text-[11px] font-mono flex items-center gap-1 transition-all ${
+                          deviceView === 'mobile'
+                            ? 'bg-white dark:bg-white/15 text-[#16141A] dark:text-white font-bold shadow-xs'
+                            : 'text-pm-muted hover:text-[#16141A]'
+                        }`}
+                      >
+                        <Smartphone className="w-3 h-3" />
+                        <span className="hidden sm:inline">Mobile</span>
+                      </button>
+                    </div>
+
+                    {/* Mode Switch (Section 9) */}
+                    <div className="flex items-center p-0.5 rounded-lg bg-slate-200/60 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setSandboxMode('browse')}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-mono transition-all ${
+                          sandboxMode === 'browse'
+                            ? 'bg-white dark:bg-white/15 text-[#16141A] dark:text-white font-bold shadow-xs'
+                            : 'text-pm-muted hover:text-[#16141A]'
+                        }`}
+                      >
+                        Browse
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSandboxMode('comment')}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-mono flex items-center gap-1.5 transition-all ${
+                          sandboxMode === 'comment'
+                            ? 'bg-[#2B4CFF] text-white font-bold shadow-xs'
+                            : 'text-pm-muted hover:text-[#16141A]'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        Comment
+                      </button>
+                    </div>
+
+                    <div className="px-2.5 py-1 rounded-lg bg-[#ECE6F6] dark:bg-[#4A154B]/30 border border-[#ECE6F6] dark:border-[#4A154B]/50 text-[11px] font-mono font-bold text-[#4A154B] dark:text-[#E8D9F7]">
+                      Comments ({pins.length})
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={toggleVideoPlay}
+                      className="p-1.5 rounded-lg bg-slate-200/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-pm-muted hover:text-[#16141A] dark:hover:text-white transition-colors"
+                      title={isPlaying ? 'Pause' : 'Play'}
+                    >
+                      {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={restartVideo}
+                      className="p-1.5 rounded-lg bg-slate-200/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-pm-muted hover:text-[#16141A] dark:hover:text-white transition-colors"
+                      title="Replay from start"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleVideoMute}
+                      className="p-1.5 rounded-lg bg-slate-200/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-pm-muted hover:text-[#16141A] dark:hover:text-white transition-colors"
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Browser Viewport Area */}
-              <div className="p-4 sm:p-8 bg-[#FAF8F5]/80 dark:bg-[#0D0C0F]/60 min-h-[460px] flex items-center justify-center overflow-x-auto relative">
+              {/* Viewport Display (Video Player or Interactive Sandbox) */}
+              <div className="relative bg-[#FAF8F5]/80 dark:bg-[#0D0C0F]/60 overflow-hidden flex items-center justify-center">
                 
-                {/* Device Container Wrapper */}
-                <div
-                  onClick={handleCanvasClick}
-                  className={`relative bg-white dark:bg-[#16141A] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-sm transition-all duration-300 overflow-hidden cursor-crosshair select-none ${
-                    deviceView === 'mobile'
-                      ? 'w-[360px] min-h-[420px] p-5'
-                      : 'w-full max-w-4xl min-h-[380px] p-8'
-                  }`}
-                >
-                  {/* Mock Website Navbar */}
-                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4 mb-6">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-[#16141A] dark:bg-white text-white dark:text-[#16141A] flex items-center justify-center font-bold text-xs">
-                        A
+                {/* ── TAB 1: PRODUCT TEASER VIDEO ── */}
+                {previewTab === 'video' && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="w-full relative group cursor-pointer"
+                    onClick={toggleVideoPlay}
+                  >
+                    <video
+                      ref={videoRef}
+                      src="/stage_teaser.mp4"
+                      autoPlay
+                      loop
+                      muted={isMuted}
+                      playsInline
+                      className="w-full h-auto max-h-[560px] object-cover block mx-auto select-none"
+                    />
+
+                    {/* Floating Overlay Hint on Hover */}
+                    <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                      <div className="px-4 py-2 rounded-full bg-white/90 dark:bg-[#16141A]/90 backdrop-blur-md border border-slate-200 dark:border-white/10 text-xs font-mono text-[#16141A] dark:text-white shadow-lg flex items-center gap-2">
+                        {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                        <span>{isPlaying ? 'Click to pause' : 'Click to play'}</span>
                       </div>
-                      <span className="font-semibold text-sm text-[#16141A] dark:text-white">Acme Studio</span>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-pm-muted font-medium">
-                      <span className="hover:text-[#16141A] transition-colors">Work</span>
-                      <span className="hover:text-[#16141A] transition-colors">About</span>
-                      <span className="px-2.5 py-1 rounded-full bg-[#EBF1FE] text-[#1A73E8] border border-[#D2E3FC] text-[11px] font-mono font-semibold">
-                        Contact
-                      </span>
-                    </div>
-                  </div>
 
-                  {/* Mock Website Hero Content */}
-                  <div className="space-y-4 max-w-lg">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#2B4CFF] font-semibold bg-[#2B4CFF]/10 px-2.5 py-0.5 rounded-full inline-block">
-                      Client Review Preview · v2.4
-                    </span>
-                    <h3 className="text-2xl sm:text-3xl font-extrabold text-[#16141A] dark:text-white tracking-tight leading-snug">
-                      We engineer digital brands that command attention.
-                    </h3>
-                    <p className="text-xs sm:text-sm text-pm-muted leading-relaxed font-sans">
-                      Designed for founders and forward-thinking teams. Every interface is tested on real staging URLs with zero friction.
-                    </p>
-                    <div className="flex items-center gap-3 pt-2">
+                    {/* Bottom floating CTA to try the interactive sandbox */}
+                    <div className="absolute bottom-4 right-4 z-20">
                       <button
                         type="button"
-                        className="cta-primary px-4 py-2.5 rounded-xl bg-[#2B4CFF] text-white font-mono text-xs font-semibold shadow-sm hover:bg-[#203ECC] transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewTab('sandbox');
+                        }}
+                        className="px-4 py-2 rounded-full bg-[#16141A] hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#16141A] text-xs font-mono font-semibold flex items-center gap-2 shadow-lg transition-all active:scale-[0.98] cursor-pointer"
                       >
-                        View Portfolio
-                      </button>
-                      <button
-                        type="button"
-                        className="cta-secondary px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[#16141A] dark:text-white font-mono text-xs font-medium"
-                      >
-                        Our Philosophy
+                        <MousePointerClick className="w-3.5 h-3.5" />
+                        <span>Try Interactive Demo</span>
                       </button>
                     </div>
-                  </div>
+                  </motion.div>
+                )}
 
-                  {/* Click-to-comment hint banner */}
-                  <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-white/90 dark:bg-[#18171E]/90 border border-slate-200 dark:border-white/10 text-[10px] font-mono text-pm-muted shadow-xs flex items-center gap-1.5 pointer-events-none">
-                    <MessageSquare className="w-3 h-3 text-[#2B4CFF]" />
-                    <span>Click anywhere to pin a comment</span>
-                  </div>
+                {/* ── TAB 2: INTERACTIVE LIVE PIN SANDBOX ── */}
+                {previewTab === 'sandbox' && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="p-4 sm:p-8 w-full min-h-[460px] flex items-center justify-center overflow-x-auto"
+                  >
+                    {/* Device Container Wrapper */}
+                    <div
+                      onClick={handleCanvasClick}
+                      className={`relative bg-white dark:bg-[#16141A] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-sm transition-all duration-300 overflow-hidden cursor-crosshair select-none ${
+                        deviceView === 'mobile'
+                          ? 'w-[360px] min-h-[420px] p-5'
+                          : 'w-full max-w-4xl min-h-[380px] p-8'
+                      }`}
+                    >
+                      {/* Mock Website Navbar */}
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4 mb-6">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-[#16141A] dark:bg-white text-white dark:text-[#16141A] flex items-center justify-center font-bold text-xs">
+                            A
+                          </div>
+                          <span className="font-semibold text-sm text-[#16141A] dark:text-white">Acme Studio</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-pm-muted font-medium">
+                          <span className="hover:text-[#16141A] transition-colors">Work</span>
+                          <span className="hover:text-[#16141A] transition-colors">About</span>
+                          <span className="px-2.5 py-1 rounded-full bg-[#EBF1FE] text-[#1A73E8] border border-[#D2E3FC] text-[11px] font-mono font-semibold">
+                            Contact
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* ── RENDER PINNED COMMENTS ── */}
-                  {pins.map((pin) => {
-                    const isSelected = pin.id === activePinId;
-                    const isFixed = pin.status === 'fixed';
+                      {/* Mock Website Hero Content */}
+                      <div className="space-y-4 max-w-lg">
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-[#2B4CFF] font-semibold bg-[#2B4CFF]/10 px-2.5 py-0.5 rounded-full inline-block">
+                          Client Review Preview · v2.4
+                        </span>
+                        <h3 className="text-2xl sm:text-3xl font-extrabold text-[#16141A] dark:text-white tracking-tight leading-snug">
+                          We engineer digital brands that command attention.
+                        </h3>
+                        <p className="text-xs sm:text-sm text-pm-muted leading-relaxed font-sans">
+                          Designed for founders and forward-thinking teams. Every interface is tested on real staging URLs with zero friction.
+                        </p>
+                        <div className="flex items-center gap-3 pt-2">
+                          <button
+                            type="button"
+                            className="cta-primary px-4 py-2.5 rounded-xl bg-[#2B4CFF] text-white font-mono text-xs font-semibold shadow-sm hover:bg-[#203ECC] transition-colors"
+                          >
+                            Publish Changes
+                          </button>
+                          <button
+                            type="button"
+                            className="cta-secondary px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[#16141A] dark:text-white font-mono text-xs font-medium"
+                          >
+                            Our Philosophy
+                          </button>
+                        </div>
+                      </div>
 
-                    return (
-                      <div
-                        key={pin.id}
-                        style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
-                        className="absolute -translate-x-1/2 -translate-y-1/2 z-20 group"
-                      >
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActivePinId(isSelected ? null : pin.id);
-                            setDraftPin(null);
-                          }}
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono font-bold transition-all shadow-md cursor-pointer ${
-                            isFixed
-                              ? 'bg-slate-400 text-white'
-                              : isSelected
-                              ? 'bg-[#2B4CFF] text-white ring-4 ring-[#2B4CFF]/30 scale-110'
-                              : 'bg-[#2B4CFF] text-white hover:scale-105'
-                          }`}
-                        >
-                          {pin.id}
-                        </button>
+                      {/* Click-to-comment hint banner */}
+                      <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-white/90 dark:bg-[#18171E]/90 border border-slate-200 dark:border-white/10 text-[10px] font-mono text-pm-muted shadow-xs flex items-center gap-1.5 pointer-events-none">
+                        <MessageSquare className="w-3 h-3 text-[#2B4CFF]" />
+                        <span>Click anywhere to pin a comment</span>
+                      </div>
 
-                        {/* Active Pin Popover Card */}
-                        <AnimatePresence>
-                          {isSelected && (
+                      {/* ── RENDER PINNED COMMENTS ── */}
+                      {pins.map((pin) => {
+                        const isSelected = pin.id === activePinId;
+                        const isFixed = pin.status === 'fixed';
+
+                        return (
+                          <div
+                            key={pin.id}
+                            style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+                            className="absolute -translate-x-1/2 -translate-y-1/2 z-20 group"
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActivePinId(isSelected ? null : pin.id);
+                                setDraftPin(null);
+                              }}
+                              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono font-bold transition-all shadow-md cursor-pointer ${
+                                isFixed
+                                  ? 'bg-[#137333] text-white'
+                                  : isSelected
+                                  ? 'bg-[#2B4CFF] text-white ring-4 ring-[#2B4CFF]/30 scale-110'
+                                  : 'bg-[#2B4CFF] text-white hover:scale-105'
+                              }`}
+                            >
+                              {pin.id}
+                            </button>
+
+                            {/* Active Pin Popover Card */}
+                            <AnimatePresence>
+                              {isSelected && (
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.94, y: 6 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.94, y: 6 }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="absolute top-9 left-1/2 -translate-x-1/2 w-64 p-3.5 rounded-2xl bg-white dark:bg-[#18171E] border border-slate-200/80 dark:border-white/10 shadow-xl text-left z-30 space-y-2.5"
+                                >
+                                  <div className="flex items-center justify-between text-[10px] font-mono">
+                                    <span className="font-bold text-[#16141A] dark:text-white">Pin #{pin.id}</span>
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                        isFixed
+                                          ? 'bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]'
+                                          : 'bg-[#FCE7E4] text-[#9E2A2B] border border-[#FCE7E4]'
+                                      }`}
+                                    >
+                                      {isFixed ? 'Fixed' : 'Open'}
+                                    </span>
+                                  </div>
+
+                                  <p className="text-xs text-[#16141A] dark:text-slate-200 leading-relaxed font-sans">
+                                    {pin.comment}
+                                  </p>
+
+                                  <div className="text-[10px] font-mono text-pm-muted truncate bg-slate-50 dark:bg-white/5 p-1.5 rounded-lg border border-slate-200/60 dark:border-white/5">
+                                    target: {pin.selector}
+                                  </div>
+
+                                  {/* Mark as Fixed / Reopen Toggle (Section 9) */}
+                                  <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-white/5">
+                                    <button
+                                      type="button"
+                                      onClick={() => togglePinStatus(pin.id)}
+                                      className={`text-[10px] font-mono font-semibold px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                                        isFixed
+                                          ? 'text-pm-muted hover:text-[#16141A]'
+                                          : 'bg-[#137333] text-white hover:bg-[#0f5c29]'
+                                      }`}
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      <span>{isFixed ? 'Reopen' : 'Mark as Fixed'}</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setActivePinId(null)}
+                                      className="text-[10px] text-pm-muted hover:text-[#16141A] font-mono"
+                                    >
+                                      Close
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })}
+
+                      {/* ── DRAFT PIN COMPOSER POPOVER ── */}
+                      <AnimatePresence>
+                        {draftPin && (
+                          <div
+                            style={{ left: `${draftPin.x}%`, top: `${draftPin.y}%` }}
+                            className="absolute -translate-x-1/2 -translate-y-1/2 z-30"
+                          >
+                            <div className="w-7 h-7 rounded-full bg-[#2B4CFF] text-white flex items-center justify-center text-xs font-mono font-bold shadow-lg ring-4 ring-[#2B4CFF]/25">
+                              {pins.length + 1}
+                            </div>
+
                             <motion.div
                               initial={{ opacity: 0, scale: 0.94, y: 6 }}
                               animate={{ opacity: 1, scale: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.94, y: 6 }}
                               onClick={(e) => e.stopPropagation()}
-                              className="absolute top-9 left-1/2 -translate-x-1/2 w-64 p-3.5 rounded-2xl bg-white dark:bg-[#18171E] border border-slate-200/80 dark:border-white/10 shadow-xl text-left z-30 space-y-2.5"
+                              className="absolute top-9 left-1/2 -translate-x-1/2 w-72 p-3.5 rounded-2xl bg-white dark:bg-[#18171E] border border-slate-200 dark:border-white/10 shadow-2xl text-left space-y-3"
                             >
-                              <div className="flex items-center justify-between text-[10px] font-mono">
-                                <span className="font-bold text-[#16141A] dark:text-white">Pin #{pin.id}</span>
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                                    isFixed
-                                      ? 'bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]'
-                                      : 'bg-[#FCE7E4] text-[#9E2A2B] border border-[#FCE7E4]'
-                                  }`}
-                                >
-                                  {isFixed ? 'Fixed' : 'Open'}
-                                </span>
+                              <div className="flex items-center justify-between text-[10px] font-mono text-pm-muted">
+                                <span className="font-semibold text-[#16141A] dark:text-white">New Pin #{pins.length + 1}</span>
+                                <span className="truncate max-w-[120px] bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded">{draftPin.selector}</span>
                               </div>
 
-                              <p className="text-xs text-[#16141A] dark:text-slate-200 leading-relaxed font-sans">
-                                {pin.comment}
-                              </p>
-
-                              <div className="text-[10px] font-mono text-pm-muted truncate bg-slate-50 dark:bg-white/5 p-1.5 rounded-lg border border-slate-200/60 dark:border-white/5">
-                                target: {pin.selector}
-                              </div>
-
-                              {/* Mark as Fixed / Reopen Toggle (Section 9) */}
-                              <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-white/5">
-                                <button
-                                  type="button"
-                                  onClick={() => togglePinStatus(pin.id)}
-                                  className={`text-[10px] font-mono font-semibold px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
-                                    isFixed
-                                      ? 'text-pm-muted hover:text-[#16141A]'
-                                      : 'bg-[#137333] text-white hover:bg-[#0f5c29]'
-                                  }`}
-                                >
-                                  <Check className="w-3 h-3" />
-                                  <span>{isFixed ? 'Reopen' : 'Mark as Fixed'}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => setActivePinId(null)}
-                                  className="text-[10px] text-pm-muted hover:text-[#16141A] font-mono"
-                                >
-                                  Close
-                                </button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })}
-
-                  {/* ── DRAFT PIN COMPOSER POPOVER ── */}
-                  <AnimatePresence>
-                    {draftPin && (
-                      <div
-                        style={{ left: `${draftPin.x}%`, top: `${draftPin.y}%` }}
-                        className="absolute -translate-x-1/2 -translate-y-1/2 z-30"
-                      >
-                        <div className="w-7 h-7 rounded-full bg-[#2B4CFF] text-white flex items-center justify-center text-xs font-mono font-bold shadow-lg ring-4 ring-[#2B4CFF]/25">
-                          {pins.length + 1}
-                        </div>
-
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.94, y: 6 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.94, y: 6 }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute top-9 left-1/2 -translate-x-1/2 w-72 p-3.5 rounded-2xl bg-white dark:bg-[#18171E] border border-slate-200 dark:border-white/10 shadow-2xl text-left space-y-3"
-                        >
-                          <div className="flex items-center justify-between text-[10px] font-mono text-pm-muted">
-                            <span className="font-semibold text-[#16141A] dark:text-white">New Pin #{pins.length + 1}</span>
-                            <span className="truncate max-w-[120px] bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded">{draftPin.selector}</span>
-                          </div>
-
-                          <form onSubmit={handlePostDraft} className="space-y-2.5">
-                            {/* Section 9 exact placeholder */}
-                            <textarea
-                              autoFocus
-                              rows={2}
-                              value={commentText}
-                              onChange={(e) => setCommentText(e.target.value)}
-                              placeholder="What should change here?"
-                              className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-[#16141A] dark:text-white placeholder:text-slate-400 outline-none focus:border-[#2B4CFF] resize-none font-sans"
-                            />
-
-                            <div className="flex items-center justify-between pt-1">
-                              <label className="flex items-center gap-1.5 text-[11px] font-mono text-pm-muted cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={isBugDraft}
-                                  onChange={(e) => setIsBugDraft(e.target.checked)}
-                                  className="rounded text-[#2B4CFF] focus:ring-0"
+                              <form onSubmit={handlePostDraft} className="space-y-2.5">
+                                <textarea
+                                  autoFocus
+                                  rows={2}
+                                  value={commentText}
+                                  onChange={(e) => setCommentText(e.target.value)}
+                                  placeholder="What should change here?"
+                                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-[#16141A] dark:text-white placeholder:text-slate-400 outline-none focus:border-[#2B4CFF] resize-none font-sans"
                                 />
-                                <span>This is a bug</span>
-                              </label>
 
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setDraftPin(null)}
-                                  className="px-2 py-1 text-[11px] font-mono text-pm-muted hover:text-[#16141A]"
-                                >
-                                  Cancel
-                                </button>
-                                {/* Section 9 exact button */}
-                                <button
-                                  type="submit"
-                                  disabled={!commentText.trim()}
-                                  className="px-3.5 py-1.5 rounded-lg bg-[#2B4CFF] hover:bg-[#203ecc] disabled:opacity-50 text-white font-mono text-xs font-semibold transition-all cursor-pointer shadow-xs"
-                                >
-                                  Post comment
-                                </button>
-                              </div>
-                            </div>
-                          </form>
-                        </motion.div>
-                      </div>
-                    )}
-                  </AnimatePresence>
+                                <div className="flex items-center justify-between pt-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-mono text-pm-muted cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={isBugDraft}
+                                      onChange={(e) => setIsBugDraft(e.target.checked)}
+                                      className="rounded text-[#2B4CFF] focus:ring-0"
+                                    />
+                                    <span>This is a bug</span>
+                                  </label>
 
-                  {/* Toast confirmation after posting (Section 9) */}
-                  <AnimatePresence>
-                    {hasJustPosted && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] text-xs font-mono font-medium shadow-md z-40 flex items-center gap-2"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Comment posted. Your team will see it on this exact spot.</span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setDraftPin(null)}
+                                      className="px-2 py-1 text-[11px] font-mono text-pm-muted hover:text-[#16141A]"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="submit"
+                                      disabled={!commentText.trim()}
+                                      className="px-3.5 py-1.5 rounded-lg bg-[#2B4CFF] hover:bg-[#203ecc] disabled:opacity-50 text-white font-mono text-xs font-semibold transition-all cursor-pointer shadow-xs"
+                                    >
+                                      Post comment
+                                    </button>
+                                  </div>
+                                </div>
+                              </form>
+                            </motion.div>
+                          </div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Toast confirmation after posting (Section 9) */}
+                      <AnimatePresence>
+                        {hasJustPosted && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] text-xs font-mono font-medium shadow-md z-40 flex items-center gap-2"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Comment posted. Your team will see it on this exact spot.</span>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </motion.div>
+                )}
+
               </div>
             </div>
           </div>
