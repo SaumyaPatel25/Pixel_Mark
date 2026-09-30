@@ -187,8 +187,31 @@ export default function HeroSection({
         >
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.035em] text-[#16141A] dark:text-white leading-[1.05]">
             Get client feedback on the live page,{' '}
-            <span className="font-serif italic font-normal text-[#2B4CFF] dark:text-[#7C97FF] block sm:inline">
-              not in screenshots.
+            <span className="relative block sm:inline-block whitespace-nowrap mt-1 sm:mt-0">
+              <span className="font-serif italic font-normal text-[#E8615A] dark:text-[#FFA49C] relative z-0">
+                not in screenshots.
+              </span>
+              <svg
+                className="absolute -left-[4%] top-1/2 -translate-y-[45%] w-[108%] h-6 sm:h-8 md:h-10 pointer-events-none z-10 overflow-visible"
+                viewBox="0 0 120 20"
+                fill="none"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <motion.path
+                  d="M 2 15 C 38 12, 80 8, 118 5"
+                  className="stroke-[#E8615A] dark:stroke-[#FFA49C]"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{
+                    pathLength: { duration: 0.65, delay: 0.6, ease: [0.16, 1, 0.3, 1] },
+                    opacity: { duration: 0.15, delay: 0.6 },
+                  }}
+                />
+              </svg>
             </span>
           </h1>
 

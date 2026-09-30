@@ -63,8 +63,8 @@ export default function ReviewerNameGate({ sessionId, onIdentityReady }: Reviewe
           
           {/* Icon + Title (Section 9 exact copy) */}
           <div className="text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#EBF1FE] border border-[#D2E3FC] flex items-center justify-center mx-auto shadow-2xs">
-              <UserRound className="w-6 h-6 text-[#1A73E8]" />
+            <div className="w-12 h-12 rounded-2xl bg-[#EBF1FE] dark:bg-[#1A73E8]/15 border border-[#D2E3FC] dark:border-[#1A73E8]/30 flex items-center justify-center mx-auto shadow-2xs">
+              <UserRound className="w-6 h-6 text-[#1A73E8] dark:text-[#8AB4F8]" />
             </div>
             <div>
               <h2 className="text-xl font-extrabold tracking-tight text-[#16141A] dark:text-white">

@@ -35,9 +35,9 @@ export default function HowItWorksSection() {
       description:
         'Paste your website address and create a review link. Send it to your client or team. The address cannot be changed later. To review another site, create a new project.',
       pastel: {
-        badge: 'bg-[#EBF1FE]',
-        text: 'text-[#1A73E8]',
-        border: 'border-[#D2E3FC]',
+        badge: 'bg-[#EBF1FE] dark:bg-[#1A73E8]/15',
+        text: 'text-[#1A73E8] dark:text-[#8AB4F8]',
+        border: 'border-[#D2E3FC] dark:border-[#1A73E8]/30',
         stepBg: 'bg-[#1A73E8]',
       },
     },
@@ -48,9 +48,9 @@ export default function HowItWorksSection() {
       description:
         'Reviewers open the link and click anywhere on the page to leave a comment. Nothing to install.',
       pastel: {
-        badge: 'bg-[#ECE6F6]',
-        text: 'text-[#4A154B] dark:text-[#E8D9F7]',
-        border: 'border-[#ECE6F6]',
+        badge: 'bg-[#ECE6F6] dark:bg-[#7C4DFF]/15',
+        text: 'text-[#4A154B] dark:text-[#D1C4E9]',
+        border: 'border-[#ECE6F6] dark:border-[#7C4DFF]/30',
         stepBg: 'bg-[#7C4DFF]',
       },
     },
@@ -61,9 +61,9 @@ export default function HowItWorksSection() {
       description:
         'Your team sees each comment on the exact element, with a screenshot. Mark it Fixed, or send it to GitHub as an issue.',
       pastel: {
-        badge: 'bg-[#E6F4EA]',
-        text: 'text-[#137333]',
-        border: 'border-[#CEEAD6]',
+        badge: 'bg-[#E6F4EA] dark:bg-[#137333]/15',
+        text: 'text-[#137333] dark:text-[#A7F3D0]',
+        border: 'border-[#CEEAD6] dark:border-[#137333]/30',
         stepBg: 'bg-[#137333]',
       },
     },
@@ -159,7 +159,7 @@ export default function HowItWorksSection() {
                   className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center"
                 >
                   <div className="lg:col-span-6 space-y-4 text-left">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EBF1FE] text-[#1A73E8] border border-[#D2E3FC] text-[11px] font-mono font-semibold">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EBF1FE] dark:bg-[#1A73E8]/15 text-[#1A73E8] dark:text-[#8AB4F8] border border-[#D2E3FC] dark:border-[#1A73E8]/30 text-[11px] font-mono font-semibold">
                       <Share2 className="w-3.5 h-3.5" />
                       <span>Step 1 · Share</span>
                     </div>
@@ -185,7 +185,7 @@ export default function HowItWorksSection() {
                   <div className="lg:col-span-6 p-6 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-4">
                     <div className="text-xs font-mono font-semibold text-[#16141A] dark:text-white uppercase tracking-wider flex items-center justify-between">
                       <span>Generated Review Link</span>
-                      <span className="text-[10px] text-[#137333] bg-[#E6F4EA] border border-[#CEEAD6] px-2 py-0.5 rounded-full font-bold">
+                      <span className="text-[10px] text-[#137333] dark:text-[#A7F3D0] bg-[#E6F4EA] dark:bg-[#137333]/20 border border-[#CEEAD6] dark:border-[#137333]/30 px-2 py-0.5 rounded-full font-bold">
                         Ready to share
                       </span>
                     </div>
@@ -214,7 +214,7 @@ export default function HowItWorksSection() {
                       </button>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-[#FEF3E2] border border-[#FEF3E2] text-[11px] font-mono text-[#B06000]">
+                    <div className="p-3 rounded-xl bg-[#FEF3E2] dark:bg-[#B06000]/15 border border-[#FEF3E2] dark:border-[#B06000]/30 text-[11px] font-mono text-[#B06000] dark:text-[#FDE68A]">
                       💡 The website address cannot be changed after you create the project. To review a different site, create a new project.
                     </div>
                   </div>
@@ -232,7 +232,7 @@ export default function HowItWorksSection() {
                   className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center"
                 >
                   <div className="lg:col-span-6 space-y-4 text-left">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ECE6F6] text-[#4A154B] dark:text-[#E8D9F7] text-[11px] font-mono font-semibold">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ECE6F6] dark:bg-[#7C4DFF]/15 text-[#4A154B] dark:text-[#D1C4E9] border border-[#ECE6F6] dark:border-[#7C4DFF]/30 text-[11px] font-mono font-semibold">
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>Step 2 · Review</span>
                     </div>
@@ -259,7 +259,7 @@ export default function HowItWorksSection() {
                     <div className="p-4 rounded-xl bg-white dark:bg-[#131217] border border-slate-200 dark:border-white/10 space-y-3 relative">
                       <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
                         <span className="text-[10px] font-mono font-semibold text-pm-muted">Target Site Preview</span>
-                        <span className="text-[9px] font-mono bg-[#EBF1FE] text-[#1A73E8] px-2 py-0.5 rounded-full font-bold">
+                        <span className="text-[9px] font-mono bg-[#EBF1FE] dark:bg-[#1A73E8]/20 text-[#1A73E8] dark:text-[#8AB4F8] px-2 py-0.5 rounded-full font-bold">
                           Comment Mode Active
                         </span>
                       </div>
@@ -282,7 +282,7 @@ export default function HowItWorksSection() {
                       <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-left space-y-1.5 font-sans">
                         <div className="flex items-center justify-between text-[10px] font-mono text-pm-muted">
                           <span className="font-semibold text-[#16141A] dark:text-white">Client Comment</span>
-                          <span className="text-[9px] bg-[#FEF3E2] text-[#B06000] px-1.5 py-0.5 rounded font-bold">
+                          <span className="text-[9px] bg-[#FEF3E2] dark:bg-[#B06000]/20 text-[#B06000] dark:text-[#FDE68A] px-1.5 py-0.5 rounded font-bold">
                             Bug Flagged
                           </span>
                         </div>
@@ -309,7 +309,7 @@ export default function HowItWorksSection() {
                   className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center"
                 >
                   <div className="lg:col-span-6 space-y-4 text-left">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6] text-[11px] font-mono font-semibold">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E6F4EA] dark:bg-[#137333]/15 text-[#137333] dark:text-[#A7F3D0] border border-[#CEEAD6] dark:border-[#137333]/30 text-[11px] font-mono font-semibold">
                       <Code2 className="w-3.5 h-3.5" />
                       <span>Step 3 · Fix</span>
                     </div>
@@ -341,8 +341,8 @@ export default function HowItWorksSection() {
                         <span
                           className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
                             fixedState
-                              ? 'bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]'
-                              : 'bg-[#FCE7E4] text-[#9E2A2B] border border-[#FCE7E4]'
+                              ? 'bg-[#E6F4EA] dark:bg-[#137333]/20 text-[#137333] dark:text-[#A7F3D0] border border-[#CEEAD6] dark:border-[#137333]/30'
+                              : 'bg-[#FCE7E4] dark:bg-[#E8615A]/20 text-[#9E2A2B] dark:text-[#FFA49C] border border-[#FCE7E4] dark:border-[#E8615A]/30'
                           }`}
                         >
                           {fixedState ? 'Status: Fixed' : 'Status: Open'}

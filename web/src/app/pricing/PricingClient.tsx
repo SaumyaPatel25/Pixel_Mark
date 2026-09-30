@@ -164,11 +164,11 @@ export default function PricingClient() {
             <div className="p-7 rounded-[1.875rem] bg-white dark:bg-[#16141A] flex-1 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#1A73E8] bg-[#EBF1FE] border border-[#D2E3FC] px-2.5 py-0.5 rounded-full">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#1A73E8] dark:text-[#8AB4F8] bg-[#EBF1FE] dark:bg-[#1A73E8]/15 border border-[#D2E3FC] dark:border-[#1A73E8]/30 px-2.5 py-0.5 rounded-full">
                     Team
                   </span>
                   {isDevTeamActive && (
-                    <span className="px-2 py-0.5 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] text-[10px] font-mono font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-[#E6F4EA] dark:bg-[#137333]/20 border border-[#CEEAD6] dark:border-[#137333]/30 text-[#137333] dark:text-[#A7F3D0] text-[10px] font-mono font-bold">
                       Current Plan
                     </span>
                   )}
@@ -250,11 +250,11 @@ export default function PricingClient() {
             <div className="p-7 rounded-[1.875rem] bg-white dark:bg-[#16141A] flex-1 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#4A154B] dark:text-[#E8D9F7] bg-[#ECE6F6] dark:bg-[#4A154B]/30 px-2.5 py-0.5 rounded-full">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#4A154B] dark:text-[#D1C4E9] bg-[#ECE6F6] dark:bg-[#7C4DFF]/15 border border-[#ECE6F6] dark:border-[#7C4DFF]/30 px-2.5 py-0.5 rounded-full">
                     Studio
                   </span>
                   {isStudioActive && (
-                    <span className="px-2 py-0.5 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] text-[10px] font-mono font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-[#E6F4EA] dark:bg-[#137333]/20 border border-[#CEEAD6] dark:border-[#137333]/30 text-[#137333] dark:text-[#A7F3D0] text-[10px] font-mono font-bold">
                       Current Plan
                     </span>
                   )}
@@ -296,7 +296,7 @@ export default function PricingClient() {
                 {isStudioActive ? (
                   <button
                     disabled
-                    className="w-full py-3 rounded-full bg-[#E6F4EA] text-[#137333] font-mono text-xs font-semibold cursor-not-allowed opacity-90 flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-full bg-[#E6F4EA] dark:bg-[#137333]/20 text-[#137333] dark:text-[#A7F3D0] font-mono text-xs font-semibold cursor-not-allowed opacity-90 flex items-center justify-center gap-2"
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Current Active Plan</span>
@@ -326,7 +326,7 @@ export default function PricingClient() {
             <div className="p-7 rounded-[1.875rem] bg-white dark:bg-[#16141A] flex-1 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#B06000] bg-[#FEF3E2] px-2.5 py-0.5 rounded-full">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#B06000] dark:text-[#FDE68A] bg-[#FEF3E2] dark:bg-[#B06000]/15 border border-[#FEF3E2] dark:border-[#B06000]/30 px-2.5 py-0.5 rounded-full">
                     Enterprise
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-pm-muted text-[10px] font-mono font-bold">

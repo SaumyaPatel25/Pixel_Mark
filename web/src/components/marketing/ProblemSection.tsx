@@ -8,7 +8,7 @@ export default function ProblemSection() {
   const painPoints = [
     {
       icon: ImageOff,
-      pastelBg: 'bg-[#FCE7E4] border-[#FCE7E4] text-[#E8615A]',
+      pastelBg: 'bg-[#FCE7E4] dark:bg-[#E8615A]/15 border-[#FCE7E4] dark:border-[#E8615A]/30 text-[#E8615A] dark:text-[#FFA49C]',
       title: 'Screenshots do not say which page or device.',
       description:
         'A screenshot in chat does not show the URL, screen resolution, browser version, or computed CSS. Developers have to guess what viewport was used.',
@@ -17,7 +17,7 @@ export default function ProblemSection() {
     },
     {
       icon: MessageSquareX,
-      pastelBg: 'bg-[#FEF3E2] border-[#FEF3E2] text-[#B06000]',
+      pastelBg: 'bg-[#FEF3E2] dark:bg-[#B06000]/15 border-[#FEF3E2] dark:border-[#B06000]/30 text-[#B06000] dark:text-[#FDE68A]',
       title: 'Chat threads bury the decision.',
       description:
         'Feedback scattered across Slack, WhatsApp, and email threads gets lost. Important client decisions get overwritten or forgotten between meetings.',
@@ -26,7 +26,7 @@ export default function ProblemSection() {
     },
     {
       icon: RotateCcw,
-      pastelBg: 'bg-[#ECE6F6] border-[#ECE6F6] text-[#4A154B]',
+      pastelBg: 'bg-[#ECE6F6] dark:bg-[#7C4DFF]/15 border-[#ECE6F6] dark:border-[#7C4DFF]/30 text-[#4A154B] dark:text-[#D1C4E9]',
       title: 'Vague notes cause extra rounds of changes.',
       description:
         'Messages like "make it cleaner" or "shift this a bit" result in 3 to 5 extra revision loops because no one knows which exact element was meant.',
@@ -41,7 +41,7 @@ export default function ProblemSection() {
         
         {/* Section Header (Section 8.3) */}
         <div className="max-w-3xl mx-auto text-center space-y-4">
-          <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#E8615A] bg-[#FCE7E4] px-3 py-1 rounded-full inline-block">
+          <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#E8615A] dark:text-[#FFA49C] bg-[#FCE7E4] dark:bg-[#E8615A]/20 px-3 py-1 rounded-full inline-block">
             The Problem
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-[#16141A] dark:text-white tracking-tight leading-[1.1]">
@@ -83,11 +83,11 @@ export default function ProblemSection() {
 
                   {/* Before vs After Micro-Visual */}
                   <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-white/5 font-sans">
-                    <div className="p-2.5 rounded-xl bg-[#FCE7E4]/50 dark:bg-[#9E2A2B]/20 border border-[#FCE7E4] dark:border-[#9E2A2B]/40 text-[11px] font-mono text-[#9E2A2B] dark:text-[#FCE7E4] flex items-start gap-2">
+                    <div className="p-2.5 rounded-xl bg-[#FCE7E4]/50 dark:bg-[#9E2A2B]/20 border border-[#FCE7E4] dark:border-[#9E2A2B]/40 text-[11px] font-mono text-[#9E2A2B] dark:text-[#FFA49C] flex items-start gap-2">
                       <span className="font-bold shrink-0">✕</span>
                       <span className="truncate">{item.badExample}</span>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-[#E6F4EA]/60 dark:bg-[#137333]/20 border border-[#CEEAD6] dark:border-[#137333]/40 text-[11px] font-mono text-[#137333] dark:text-[#E6F4EA] flex items-start gap-2">
+                    <div className="p-2.5 rounded-xl bg-[#E6F4EA]/60 dark:bg-[#137333]/20 border border-[#CEEAD6] dark:border-[#137333]/40 text-[11px] font-mono text-[#137333] dark:text-[#A7F3D0] flex items-start gap-2">
                       <CheckCircle2 className="w-3.5 h-3.5 text-[#137333] dark:text-[#68D391] shrink-0 mt-0.5" />
                       <span className="leading-snug">{item.goodSolution}</span>
                     </div>

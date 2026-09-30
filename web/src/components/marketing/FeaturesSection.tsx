@@ -41,7 +41,7 @@ export default function FeaturesSection() {
           >
             <div className="p-8 rounded-[1.625rem] bg-white dark:bg-[#16141A] h-full flex flex-col justify-between space-y-6">
               <div className="space-y-3">
-                <div className="w-11 h-11 rounded-2xl bg-[#EBF1FE] text-[#1A73E8] border border-[#D2E3FC] flex items-center justify-center shadow-2xs">
+                <div className="w-11 h-11 rounded-2xl bg-[#EBF1FE] dark:bg-[#1A73E8]/15 text-[#1A73E8] dark:text-[#8AB4F8] border border-[#D2E3FC] dark:border-[#1A73E8]/30 flex items-center justify-center shadow-2xs">
                   <Link2 className="w-5 h-5" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-[#16141A] dark:text-white">
@@ -58,7 +58,7 @@ export default function FeaturesSection() {
                   <Lock className="w-3.5 h-3.5 text-[#137333] shrink-0" />
                   <span className="truncate">https://stage.entrext.com/review/acme-release</span>
                 </div>
-                <span className="text-[10px] text-[#1A73E8] bg-[#EBF1FE] border border-[#D2E3FC] px-2 py-0.5 rounded-full font-bold uppercase shrink-0">
+                <span className="text-[10px] text-[#1A73E8] dark:text-[#8AB4F8] bg-[#EBF1FE] dark:bg-[#1A73E8]/20 border border-[#D2E3FC] dark:border-[#1A73E8]/30 px-2 py-0.5 rounded-full font-bold uppercase shrink-0">
                   Password protected
                 </span>
               </div>
@@ -75,7 +75,7 @@ export default function FeaturesSection() {
           >
             <div className="p-8 rounded-[1.625rem] bg-white dark:bg-[#16141A] h-full flex flex-col justify-between space-y-6">
               <div className="space-y-3">
-                <div className="w-11 h-11 rounded-2xl bg-[#FCE7E4] text-[#E8615A] border border-[#FCE7E4] flex items-center justify-center shadow-2xs">
+                <div className="w-11 h-11 rounded-2xl bg-[#FCE7E4] dark:bg-[#E8615A]/15 text-[#E8615A] dark:text-[#FFA49C] border border-[#FCE7E4] dark:border-[#E8615A]/30 flex items-center justify-center shadow-2xs">
                   <Pin className="w-5 h-5" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-[#16141A] dark:text-white">
@@ -109,8 +109,8 @@ export default function FeaturesSection() {
           >
             <div className="p-8 rounded-[1.625rem] bg-white dark:bg-[#16141A] h-full flex flex-col justify-between space-y-6">
               <div className="space-y-3">
-                <div className="w-11 h-11 rounded-2xl bg-[#ECE6F6] text-[#4A154B] dark:text-[#E8D9F7] border border-[#ECE6F6] flex items-center justify-center shadow-2xs">
-                  <GitPullRequest className="w-5 h-5" />
+                <div className="w-11 h-11 rounded-2xl bg-[#ECE6F6] dark:bg-[#7C4DFF]/15 text-[#4A154B] dark:text-[#D1C4E9] border border-[#ECE6F6] dark:border-[#7C4DFF]/30 flex items-center justify-center shadow-2xs">
+                  <GitPullRequest className="w-5 h-5 text-[#4A154B] dark:text-[#D1C4E9]" />
                 </div>
                 <h3 className="text-xl font-bold text-[#16141A] dark:text-white">
                   Send to GitHub
@@ -122,7 +122,7 @@ export default function FeaturesSection() {
 
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 flex items-center justify-between text-xs font-mono">
                 <span className="text-[#16141A] dark:text-white font-semibold">Issue #14</span>
-                <span className="text-[#137333] bg-[#E6F4EA] border border-[#CEEAD6] px-2 py-0.5 rounded-full text-[10px] font-bold">
+                <span className="text-[#137333] dark:text-[#A7F3D0] bg-[#E6F4EA] dark:bg-[#137333]/20 border border-[#CEEAD6] dark:border-[#137333]/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
                   Synced
                 </span>
               </div>
@@ -139,8 +139,8 @@ export default function FeaturesSection() {
           >
             <div className="p-8 rounded-[1.625rem] bg-white dark:bg-[#16141A] h-full flex flex-col justify-between space-y-6">
               <div className="space-y-3">
-                <div className="w-11 h-11 rounded-2xl bg-[#E2F3F5] text-[#007A87] border border-[#E2F3F5] flex items-center justify-center shadow-2xs">
-                  <Box className="w-5 h-5" />
+                <div className="w-11 h-11 rounded-2xl bg-[#E2F3F5] dark:bg-[#007A87]/15 text-[#007A87] dark:text-[#80DEEA] border border-[#E2F3F5] dark:border-[#007A87]/30 flex items-center justify-center shadow-2xs">
+                  <Box className="w-5 h-5 text-[#007A87] dark:text-[#80DEEA]" />
                 </div>
                 <h3 className="text-xl font-bold text-[#16141A] dark:text-white">
                   3D pages
@@ -151,7 +151,7 @@ export default function FeaturesSection() {
               </div>
 
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-[11px] font-mono text-pm-muted flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#007A87]" />
+                <span className="w-2 h-2 rounded-full bg-[#007A87] dark:bg-[#80DEEA]" />
                 <span>WebGL &amp; Three.js raycast support</span>
               </div>
             </div>
@@ -167,8 +167,8 @@ export default function FeaturesSection() {
           >
             <div className="p-8 rounded-[1.625rem] bg-white dark:bg-[#16141A] h-full flex flex-col justify-between space-y-6">
               <div className="space-y-3">
-                <div className="w-11 h-11 rounded-2xl bg-[#FEF3E2] text-[#B06000] border border-[#FEF3E2] flex items-center justify-center shadow-2xs">
-                  <Smartphone className="w-5 h-5" />
+                <div className="w-11 h-11 rounded-2xl bg-[#FEF3E2] dark:bg-[#B06000]/15 text-[#B06000] dark:text-[#FDE68A] border border-[#FEF3E2] dark:border-[#B06000]/30 flex items-center justify-center shadow-2xs">
+                  <Smartphone className="w-5 h-5 text-[#B06000] dark:text-[#FDE68A]" />
                 </div>
                 <h3 className="text-xl font-bold text-[#16141A] dark:text-white">
                   Phone and desktop
@@ -180,7 +180,7 @@ export default function FeaturesSection() {
 
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 flex items-center justify-between text-xs font-mono">
                 <span className="text-pm-muted">Desktop (1440px)</span>
-                <span className="text-[#B06000] bg-[#FEF3E2] px-2 py-0.5 rounded-full font-bold">Mobile (390px)</span>
+                <span className="text-[#B06000] dark:text-[#FDE68A] bg-[#FEF3E2] dark:bg-[#B06000]/20 px-2 py-0.5 rounded-full font-bold">Mobile (390px)</span>
               </div>
             </div>
           </motion.div>
@@ -195,8 +195,8 @@ export default function FeaturesSection() {
           >
             <div className="p-8 rounded-[1.625rem] bg-white dark:bg-[#16141A] h-full flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="space-y-3 max-w-xl">
-                <div className="w-11 h-11 rounded-2xl bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6] flex items-center justify-center shadow-2xs">
-                  <Edit3 className="w-5 h-5" />
+                <div className="w-11 h-11 rounded-2xl bg-[#E6F4EA] dark:bg-[#137333]/15 text-[#137333] dark:text-[#A7F3D0] border border-[#CEEAD6] dark:border-[#137333]/30 flex items-center justify-center shadow-2xs">
+                  <Edit3 className="w-5 h-5 text-[#137333] dark:text-[#A7F3D0]" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-[#16141A] dark:text-white">
                   Edit on the page
@@ -209,7 +209,7 @@ export default function FeaturesSection() {
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-2 text-xs font-mono max-w-xs w-full">
                 <div className="flex items-center justify-between text-pm-muted text-[10px]">
                   <span>LIVE CSS INSPECTOR</span>
-                  <span className="text-[#137333] bg-[#E6F4EA] border border-[#CEEAD6] px-2 py-0.5 rounded-full font-bold">TEAM PLAN</span>
+                  <span className="text-[#137333] dark:text-[#A7F3D0] bg-[#E6F4EA] dark:bg-[#137333]/20 border border-[#CEEAD6] dark:border-[#137333]/30 px-2 py-0.5 rounded-full font-bold">TEAM PLAN</span>
                 </div>
                 <div className="p-2 rounded-lg bg-white dark:bg-[#131217] border border-slate-200 dark:border-white/10 text-[11px] text-[#16141A] dark:text-white">
                   font-weight: 600; padding: 12px 24px;
