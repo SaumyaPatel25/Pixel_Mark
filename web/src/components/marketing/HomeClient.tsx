@@ -6,7 +6,7 @@ import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
 import { SplineBackground } from '@/components/SplineBackground';
 
-const StoryProcessSection = dynamic(() => import('@/components/marketing/StoryProcessSection'), { ssr: true });
+const ProblemSection = dynamic(() => import('@/components/marketing/ProblemSection'), { ssr: true });
 const HowItWorksSection = dynamic(() => import('@/components/marketing/HowItWorksSection'), { ssr: true });
 const UseCasesSection = dynamic(() => import('@/components/marketing/UseCasesSection'), { ssr: true });
 const OutcomeSection = dynamic(() => import('@/components/marketing/OutcomeSection'), { ssr: true });
@@ -106,6 +106,9 @@ export default function HomeClient() {
             onHoverChange={setHoveredPosition} 
             isHeroTextComplete={true}
           />
+          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_600px]">
+            <ProblemSection />
+          </div>
           <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
             <HowItWorksSection />
           </div>

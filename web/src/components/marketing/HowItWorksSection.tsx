@@ -1,549 +1,358 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useInView, useReducedMotion } from 'framer-motion';
-import { Share2, MousePointerClick, Camera, Code, Lock, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Share2, MessageSquare, Check, ArrowRight, 
+  ExternalLink, Copy, CheckCircle2, Lock, GitPullRequest, Code2
+} from 'lucide-react';
 
-const steps = [
-  {
-    number: '01',
-    icon: Share2,
-    badge: 'SETUP',
-    label: 'Import',
-    title: 'Import your website instantly',
-    description:
-      'Enter your live website URL or preview link. Our secure proxy spins up a sandboxed review session in seconds—no dev config or NPM packages required.',
-    accent: 'rgba(99,130,255,1)',
-    accentGlow: 'rgba(99,130,255,0.18)',
-    accentSubtle: 'rgba(99,130,255,0.07)',
-  },
-  {
-    number: '02',
-    icon: MousePointerClick,
-    badge: 'FEEDBACK',
-    label: 'Annotate',
-    title: 'Point, click, and drop comment pins',
-    description:
-      'Click directly on any element, button, text, or Three.js canvas. Drop precise annotation pins exactly where the issue is, and attach metadata in one click.',
-    accent: 'rgba(52,211,153,1)',
-    accentGlow: 'rgba(52,211,153,0.18)',
-    accentSubtle: 'rgba(52,211,153,0.07)',
-  },
-  {
-    number: '03',
-    icon: Camera,
-    badge: 'COLLABORATION',
-    label: 'Share',
-    title: 'Share secure client review links',
-    description:
-      'Send stakeholders or clients a secure review link. They can drop feedback on the live page without installing extensions or creating accounts.',
-    accent: 'rgba(251,146,60,1)',
-    accentGlow: 'rgba(251,146,60,0.18)',
-    accentSubtle: 'rgba(251,146,60,0.07)',
-  },
-  {
-    number: '04',
-    icon: Code,
-    badge: 'SHIP',
-    label: 'Export',
-    title: 'Export CSS patches and sync with GitHub',
-    description:
-      'Every pin carries absolute CSS selectors, XPath routes, and layout state. Export generated CSS overrides and push sign-off commits directly.',
-    accent: 'rgba(232,121,249,1)',
-    accentGlow: 'rgba(232,121,249,0.18)',
-    accentSubtle: 'rgba(232,121,249,0.07)',
-  },
-];
-
-/* ─── Step Visualisers ──────────────────────────────────────────────────── */
-interface VisualProps {
-  accent: string;
-  shouldReduceMotion: boolean;
+interface HowItWorksStep {
+  stepNumber: string;
+  name: string;
+  headline: string;
+  description: string;
 }
 
-function Step1Visual({ accent, shouldReduceMotion }: VisualProps) {
-  return (
-    <div className="w-full max-w-[320px] space-y-3">
-      <div className="mkt-how-inner-card rounded-2xl border p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <span
-            className="font-mono text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md"
-            style={{ background: `${accent}14`, color: accent }}
-          >
-            Target Proxy
-          </span>
-          <Lock className="w-3 h-3 opacity-30" style={{ color: accent }} />
-        </div>
-        <div className="mkt-how-nested-card rounded-xl border flex items-center gap-2 px-3 py-2">
-          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: accent }} />
-          <span className="font-mono text-[10px] opacity-70">https://yourproject.vercel.app</span>
-        </div>
-        <div className="h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-          <motion.div
-            className="h-full rounded-full w-full origin-left"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={shouldReduceMotion ? { duration: 0 } : { duration: 2.4, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0.8 }}
-            style={{ background: accent }}
-          />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <motion.span
-            animate={shouldReduceMotion ? { opacity: 1 } : { opacity: [0.3, 1, 0.3] }}
-            transition={shouldReduceMotion ? { duration: 0 } : { duration: 1.8, repeat: Infinity }}
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: '#4ade80' }}
-          />
-          <span className="font-mono text-[9px] opacity-40">Sandboxed session ready</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Step2Visual({ accent, shouldReduceMotion }: VisualProps) {
-  return (
-    <div className="w-full max-w-[340px]">
-      <div className="mkt-how-inner-card rounded-2xl border p-4 space-y-3 relative overflow-hidden">
-        {/* Fake webpage skeleton */}
-        <div className="space-y-2">
-          <div className="h-2.5 rounded-full w-3/4 opacity-20" style={{ background: accent }} />
-          <div className="h-1.5 rounded-full w-full opacity-10 bg-slate-400 dark:bg-white" />
-          <div className="h-1.5 rounded-full w-5/6 opacity-10 bg-slate-400 dark:bg-white" />
-        </div>
-        <div className="mkt-how-nested-card rounded-xl p-3 space-y-2 border">
-          <div className="flex gap-2 items-start">
-            <span
-              className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0"
-              style={{ background: `${accent}20`, color: accent }}
-            >
-              PM
-            </span>
-            <div>
-              <p className="text-[10px] font-bold opacity-80">Hero Section — h1</p>
-              <p className="font-mono text-[8px] opacity-40">div.hero › h1.title</p>
-            </div>
-          </div>
-        </div>
-        {/* Animated pin */}
-        <motion.div
-          animate={shouldReduceMotion ? { y: 0 } : { y: [0, -5, 0] }}
-          transition={shouldReduceMotion ? { duration: 0 } : { duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute top-[38%] left-[35%] flex flex-col items-center"
-        >
-          <span
-            className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-mono font-bold border-2 shadow-lg"
-            style={{
-              background: accent,
-              borderColor: 'rgba(255,255,255,0.25)',
-              color: '#000',
-              boxShadow: `0 0 12px ${accent}60`,
-            }}
-          >
-            2
-          </span>
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-function Step3Visual({ accent, shouldReduceMotion }: VisualProps) {
-  const members = [
-    { name: 'Sarah — Product', status: 'ONLINE', online: true },
-    { name: 'Michael — Client', status: 'VIEWING', online: true },
-    { name: 'Jamil — Dev', status: 'IDLE', online: false },
-  ];
-  return (
-    <div className="w-full max-w-[300px]">
-      <div className="mkt-how-inner-card rounded-2xl border p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <motion.span
-            animate={shouldReduceMotion ? { opacity: 1, scale: 1 } : { opacity: [0.4, 1, 0.4], scale: [1, 1.15, 1] }}
-            transition={shouldReduceMotion ? { duration: 0 } : { duration: 2, repeat: Infinity }}
-            className="w-2 h-2 rounded-full"
-            style={{ background: accent }}
-          />
-          <span className="font-mono text-[9px] font-bold uppercase tracking-widest" style={{ color: accent }}>
-            Collaborative Session
-          </span>
-        </div>
-        <div className="space-y-1.5">
-          {members.map((m) => (
-            <div
-              key={m.name}
-              className="mkt-how-nested-card flex items-center justify-between px-3 py-2 rounded-xl border"
-            >
-              <span className="text-[10px] font-medium opacity-70">{m.name}</span>
-              <span
-                className="font-mono text-[8px] font-bold px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: m.online ? `${accent}18` : 'rgba(255,255,255,0.05)',
-                  color: m.online ? accent : 'rgba(255,255,255,0.3)',
-                }}
-              >
-                {m.status}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Step4Visual({ accent, shouldReduceMotion }: VisualProps) {
-  return (
-    <div className="w-full max-w-[340px]">
-      <div className="mkt-how-inner-card rounded-2xl border p-4 space-y-3 font-mono">
-        <div className="flex items-center justify-between">
-          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: accent }}>
-            Generated CSS Patch
-          </span>
-          <span className="text-[8px] opacity-30">Ready to merge</span>
-        </div>
-        <div
-          className="rounded-xl p-3 space-y-0.5 text-[9px] leading-relaxed border"
-          style={{ background: 'rgba(0,0,0,0.3)', borderColor: 'rgba(255,255,255,0.06)' }}
-        >
-          <div style={{ color: accent }}>{'/* STAGE Override */'}</div>
-          <div><span className="text-pink-400">h1</span><span className="opacity-60">.hero-title</span> <span className="opacity-40">{'{'}</span></div>
-          <div className="pl-3"><span className="text-blue-300">font-size</span><span className="opacity-40">:</span> <span className="text-amber-300">3.5rem</span><span className="opacity-40">;</span></div>
-          <div className="pl-3"><span className="text-blue-300">margin-bottom</span><span className="opacity-40">:</span> <span className="text-amber-300">2rem</span><span className="opacity-40">;</span></div>
-          <div className="opacity-40">{'}'}</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-3 h-3 opacity-40" style={{ color: accent }} />
-          <span className="text-[8px] opacity-30">3 changes ready · 1 conflict resolved</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const visuals = [Step1Visual, Step2Visual, Step3Visual, Step4Visual];
-
-/* ─── Section ───────────────────────────────────────────────────────────── */
 export default function HowItWorksSection() {
-  const [activeStep, setActiveStep] = useState(0);
-  const [isHovering, setIsHovering] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(sectionRef, { once: true, margin: '-20% 0px' });
-  const isTimerActive = useInView(sectionRef, { once: false });
-  const rawReduceMotion = useReducedMotion();
-  const [mounted, setMounted] = useState(false);
-  const shouldReduceMotion = mounted ? !!rawReduceMotion : false;
-  const [isDark, setIsDark] = useState(false);
+  const [activeStep, setActiveStep] = useState<number>(1);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [fixedState, setFixedState] = useState(false);
+  const [githubExported, setGithubExported] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Section 8.4 Exact Text
+  const steps: HowItWorksStep[] = [
+    {
+      stepNumber: '1',
+      name: 'Share',
+      headline: 'Create and send a review link.',
+      description:
+        'Paste your website address and create a review link. Send it to your client or team. The address cannot be changed later. To review another site, create a new project.',
+    },
+    {
+      stepNumber: '2',
+      name: 'Review',
+      headline: 'Clients click directly on the live page.',
+      description:
+        'Reviewers open the link and click anywhere on the page to leave a comment. Nothing to install.',
+    },
+    {
+      stepNumber: '3',
+      name: 'Fix',
+      headline: 'See exact elements and resolve fixes.',
+      description:
+        'Your team sees each comment on the exact element, with a screenshot. Mark it Fixed, or send it to GitHub as an issue.',
+    },
+  ];
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const checkTheme = () => {
-      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
-    };
-    checkTheme();
-
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
-
-  /* Auto-advance steps */
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      return;
-    }
-    if (isHovering || !isTimerActive || shouldReduceMotion) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-    timerRef.current = setInterval(() => setActiveStep((p) => (p + 1) % steps.length), 5500);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isHovering, isTimerActive, shouldReduceMotion]);
-
-  const step = steps[activeStep];
-  const Visual = visuals[activeStep];
+  const handleCopyLink = () => {
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
 
   return (
-    <section
-      id="how-it-works"
-      ref={sectionRef}
-      className="relative py-32 overflow-hidden border-t border-pm-border/30"
-      style={{ background: 'transparent' }}
-    >
-      {/* Background glow atmosphere (only visible when dark mode is enabled) */}
-      <div className="absolute inset-0 pointer-events-none opacity-0 dark:opacity-100 transition-opacity duration-700">
-        <motion.div
-          key={activeStep}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1.2 }}
-          className="absolute inset-0"
-          style={{
-            background: `radial-gradient(ellipse 60% 50% at 50% 0%, ${step.accentGlow} 0%, transparent 80%)`,
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)',
-            backgroundSize: '64px 64px',
-          }}
-        />
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 28 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 28 }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-3xl mb-16 space-y-4 text-left"
-        >
-          <h2 className="mkt-section-h2 font-display text-4xl md:text-5xl lg:text-[4rem] font-extrabold tracking-[-0.035em] text-[#1D264F] leading-[1.01]">
-            No extension walls.
+    <section id="how-it-works" className="py-24 md:py-32 border-t border-pm-border/40 bg-pm-bg relative overflow-hidden">
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 relative z-10 space-y-16">
+        
+        {/* Section Header (Section 8.4) */}
+        <div className="max-w-3xl mx-auto text-center space-y-4">
+          <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-pm-accent">
+            How It Works
+          </span>
+          <h2 className="font-display text-4xl sm:text-6xl font-black text-pm-text tracking-tight">
+            Share. Review. Fix.
           </h2>
-          <div className="space-y-1.5">
-            <p className="mkt-how-subtitle text-sm md:text-base font-semibold text-[#253B80] leading-relaxed">
-              A visual QA pipeline designed by product designers, for product developers.
-            </p>
-            <p className="mkt-how-desc text-xs md:text-sm text-pm-muted leading-relaxed">
-              Discover how STAGE accelerates visual reviews.
-            </p>
-          </div>
-        </motion.div>
+          <p className="text-base sm:text-lg text-pm-muted leading-relaxed font-sans max-w-xl mx-auto">
+            Three simple steps between client feedback and verified developer fixes.
+          </p>
+        </div>
 
-        {/* Two-Column Grid: Visual display on LEFT, Steps on RIGHT */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-          
-          {/* LEFT COLUMN: Visual mockups */}
-          <motion.div
-            className="lg:col-span-7"
-            initial={{ opacity: 0, y: 24 }}
-            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-            transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="mkt-how-outer-frame relative rounded-[32px] overflow-hidden">
-              {/* Chrome bar */}
-              <div className="mkt-how-chrome-bar flex items-center justify-between px-5 py-3.5 border-b">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/50" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400/50" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-400/50" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <AnimatePresence mode="wait">
-                    <motion.span
-                      key={activeStep}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.25 }}
-                      className="font-mono text-[9px] font-bold uppercase tracking-widest"
-                      style={{ color: step.accent }}
-                    >
-                      STEP {step.number} VISUALIZER
-                    </motion.span>
-                  </AnimatePresence>
-                  <motion.span
-                    animate={{ opacity: [0.4, 1, 0.4] }}
-                    transition={{ duration: 1.6, repeat: Infinity }}
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: step.accent }}
-                  />
-                </div>
-                {/* Step indicators */}
-                <div className="flex gap-1.5">
-                  {steps.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setActiveStep(i)}
-                      className="transition-all duration-300 rounded-full"
-                      style={{
-                        width: activeStep === i ? 20 : 6,
-                        height: 6,
-                        background: activeStep === i ? step.accent : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(37, 59, 128, 0.15)'),
-                      }}
-                      aria-label={`Go to step ${i + 1}`}
-                    />
-                  ))}
-                </div>
-              </div>
+        {/* 3 Interactive Horizontal Steps Navigation */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {steps.map((s, idx) => {
+            const stepIndex = idx + 1;
+            const isActive = activeStep === stepIndex;
 
-              <div
-                className="relative flex items-center justify-center p-10 h-[360px] bg-slate-50/50 dark:bg-transparent"
-                style={{
-                  background: isDark
-                    ? `radial-gradient(ellipse 70% 60% at 50% 50%, ${step.accentGlow} 0%, transparent 70%)`
-                    : 'rgba(37, 59, 128, 0.015)',
-                }}
+            return (
+              <button
+                key={stepIndex}
+                type="button"
+                onClick={() => setActiveStep(stepIndex)}
+                className={`p-6 rounded-3xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4 ${
+                  isActive
+                    ? 'bg-pm-surface border-pm-accent shadow-xl shadow-pm-accent/5 ring-2 ring-pm-accent/20'
+                    : 'bg-pm-surface/50 border-pm-border hover:bg-pm-surface hover:border-pm-border-bright'
+                }`}
               >
-                {/* Corner accents */}
-                <span className="absolute top-4 left-4 w-5 h-5 border-t border-l rounded-tl-md opacity-20" style={{ borderColor: step.accent }} />
-                <span className="absolute top-4 right-4 w-5 h-5 border-t border-r rounded-tr-md opacity-20" style={{ borderColor: step.accent }} />
-                <span className="absolute bottom-4 left-4 w-5 h-5 border-b border-l rounded-bl-md opacity-20" style={{ borderColor: step.accent }} />
-                <span className="absolute bottom-4 right-4 w-5 h-5 border-b border-r rounded-br-md opacity-20" style={{ borderColor: step.accent }} />
-
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeStep}
-                    initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.93, y: 12 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -8 }}
-                    transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                    className="flex justify-center w-full"
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`w-8 h-8 rounded-xl font-mono text-xs font-bold flex items-center justify-center transition-colors ${
+                      isActive
+                        ? 'bg-pm-accent text-white'
+                        : 'bg-pm-surface-2 text-pm-muted border border-pm-border'
+                    }`}
                   >
-                    <Visual accent={step.accent} shouldReduceMotion={!!shouldReduceMotion} />
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              {/* Caption/Control bar */}
-              <div className="mkt-how-caption-bar px-6 py-4 border-t flex items-center justify-between">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeStep}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 8 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <p className="mkt-how-caption-title font-display font-semibold text-sm tracking-[-0.01em]">
-                      {step.title}
-                    </p>
-                    <p className="mkt-how-caption-sub font-mono text-[9px] uppercase tracking-wider mt-0.5">
-                      {step.label} · {step.badge}
-                    </p>
-                  </motion.div>
-                </AnimatePresence>
-
-                {/* Chevron navigator */}
-                <div className="flex gap-2 relative z-25">
-                  <button
-                    onClick={() => setActiveStep((p) => (p - 1 + steps.length) % steps.length)}
-                    className="mkt-how-nav-btn w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                    aria-label="Previous step"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path d="M6.5 2L3.5 5L6.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setActiveStep((p) => (p + 1) % steps.length)}
-                    className="mkt-how-nav-btn w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                    aria-label="Next step"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path d="M3.5 2L6.5 5L3.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
+                    {s.stepNumber}
+                  </span>
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-pm-muted">
+                    Step 0{stepIndex}
+                  </span>
                 </div>
-              </div>
-            </div>
 
-            {/* Accent reflection beneath card */}
-            {isDark && (
-              <div
-                className="absolute -bottom-8 left-[10%] right-[10%] h-16 rounded-full blur-2xl opacity-20 pointer-events-none"
-                style={{ background: step.accent }}
-              />
-            )}
-          </motion.div>
+                <div className="space-y-1.5">
+                  <h3 className="font-display text-lg font-bold text-pm-text">
+                    {s.name}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-pm-muted leading-relaxed">
+                    {s.description}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
 
-          {/* RIGHT COLUMN: Steps stack */}
-          <motion.div
-            layout={!shouldReduceMotion}
-            className="lg:col-span-5 space-y-3"
-            onMouseEnter={() => setIsHovering(true)}
-            onMouseLeave={() => setIsHovering(false)}
-          >
-            {steps.map((s, i) => {
-              const isActive = activeStep === i;
-              const Icon = s.icon;
-              return (
-                <motion.div
-                  key={i}
-                  layout={!shouldReduceMotion}
-                  initial={{ opacity: 0, x: 16 }}
-                  animate={inView ? { opacity: 1, x: 0 } : { opacity: 0, x: 16 }}
-                  transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                  onMouseEnter={() => setActiveStep(i)}
-                  onClick={() => setActiveStep(i)}
-                  data-active={isActive}
-                  data-index={i}
-                  className="mkt-how-step-card relative rounded-2xl cursor-pointer group overflow-hidden transition-all duration-400 border border-transparent"
-                  style={{
-                    padding: isActive ? '20px 24px' : '16px 24px',
-                  }}
-                >
-                  {/* Active left bar */}
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeBar"
-                      className="absolute left-0 top-4 bottom-4 w-[3px] rounded-full"
-                      style={{ background: s.accent }}
-                    />
-                  )}
+        {/* ── INTERACTIVE STEP DETAIL DEMONSTRATION ── */}
+        <div className="rounded-3xl border border-pm-border bg-pm-surface p-6 sm:p-10 shadow-xl relative overflow-hidden">
+          
+          <AnimatePresence mode="wait">
+            
+            {/* STEP 1: SHARE DEMO */}
+            {activeStep === 1 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.3 }}
+                className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center"
+              >
+                <div className="lg:col-span-6 space-y-4 text-left">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pm-accent/10 text-pm-accent text-[11px] font-mono font-bold">
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Step 1 · Share</span>
+                  </div>
+                  <h3 className="font-display text-2xl sm:text-3xl font-black text-pm-text tracking-tight">
+                    Instant link generation with zero login walls for your client.
+                  </h3>
+                  <p className="text-xs sm:text-sm text-pm-muted leading-relaxed">
+                    Paste your live or staging URL. STAGE creates an encrypted review link that works across all modern browsers. You can optionally add a review password.
+                  </p>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveStep(2)}
+                      className="px-5 py-2.5 rounded-xl bg-pm-accent text-white font-mono text-xs font-bold flex items-center gap-2 hover:bg-pm-accent-bright transition-all cursor-pointer"
+                    >
+                      <span>Proceed to Step 2</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
 
-                  <div className="flex items-start gap-4">
-                    {/* Icon Container */}
-                    <div className="mkt-how-icon-wrapper w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300">
-                      <Icon className="w-5 h-5" style={{ width: 18, height: 18 }} />
-                    </div>
-
-                    {/* Text block */}
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="mkt-how-step-badge font-mono text-[9px] font-bold uppercase tracking-[0.15em] transition-colors duration-300 text-slate-400">
-                          {s.badge}
-                        </span>
-                        <span className="mkt-how-step-num font-mono text-[10px] font-bold tabular-nums text-slate-300">
-                          {s.number}
-                        </span>
-                      </div>
-                      <h3 className="mkt-how-step-title font-display font-bold leading-tight transition-colors duration-300 text-[0.9375rem] text-[#1D264F]">
-                        {s.title}
-                      </h3>
-                      <AnimatePresence initial={false}>
-                        {isActive && (
-                          <motion.p
-                            key="desc"
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="mkt-how-step-desc overflow-hidden text-[0.8125rem] leading-relaxed text-pm-muted font-normal"
-                          >
-                            {s.description}
-                          </motion.p>
-                        )}
-                      </AnimatePresence>
-                    </div>
+                {/* Step 1 Visual Card */}
+                <div className="lg:col-span-6 p-6 rounded-2xl bg-pm-surface-2 border border-pm-border space-y-4">
+                  <div className="text-xs font-mono font-bold text-pm-text uppercase tracking-wider flex items-center justify-between">
+                    <span>Generated Review Link</span>
+                    <span className="text-[10px] text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                      Ready to share
+                    </span>
                   </div>
 
-                  {/* Tiny active progress bar */}
-                  {isActive && !isHovering && (
-                    <motion.div
-                      className="absolute bottom-0 left-0 h-[2px] rounded-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: '100%' }}
-                      transition={shouldReduceMotion ? { duration: 0 } : { duration: 5.5, ease: 'linear' }}
-                      style={{ background: `linear-gradient(90deg, ${s.accent}60, ${s.accent})` }}
-                    />
-                  )}
-                </motion.div>
-              );
-            })}
-          </motion.div>
+                  <div className="flex items-center gap-2 p-2 rounded-xl bg-pm-surface border border-pm-border">
+                    <Lock className="w-4 h-4 text-pm-muted ml-2 flex-shrink-0" />
+                    <span className="text-xs font-mono text-pm-text truncate flex-1 select-all">
+                      https://stage.entrext.com/review/acme-staging-88fa
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="px-3 py-1.5 rounded-lg bg-pm-accent hover:bg-pm-accent-bright text-white font-mono text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+                    >
+                      {copiedLink ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-[11px] font-mono text-amber-700 dark:text-amber-300">
+                    💡 The website address cannot be changed after you create the project. To review a different site, create a new project.
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 2: REVIEW DEMO */}
+            {activeStep === 2 && (
+              <motion.div
+                key="step-2"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.3 }}
+                className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center"
+              >
+                <div className="lg:col-span-6 space-y-4 text-left">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pm-accent/10 text-pm-accent text-[11px] font-mono font-bold">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Step 2 · Review</span>
+                  </div>
+                  <h3 className="font-display text-2xl sm:text-3xl font-black text-pm-text tracking-tight">
+                    Point, click, and explain. Your client installs nothing.
+                  </h3>
+                  <p className="text-xs sm:text-sm text-pm-muted leading-relaxed">
+                    Reviewers enter their name once and can immediately drop comments anywhere on the page. Every pin stays anchored to the exact CSS selector even when the window resizes.
+                  </p>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveStep(3)}
+                      className="px-5 py-2.5 rounded-xl bg-pm-accent text-white font-mono text-xs font-bold flex items-center gap-2 hover:bg-pm-accent-bright transition-all cursor-pointer"
+                    >
+                      <span>Proceed to Step 3</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Step 2 Visual Card */}
+                <div className="lg:col-span-6 p-6 rounded-2xl bg-pm-surface-2 border border-pm-border relative overflow-hidden">
+                  <div className="p-4 rounded-xl bg-pm-surface border border-pm-border space-y-3 relative">
+                    <div className="flex items-center justify-between border-b border-pm-border pb-2">
+                      <span className="text-[10px] font-mono font-bold text-pm-muted">Target Site Preview</span>
+                      <span className="text-[9px] font-mono bg-pm-accent/10 text-pm-accent px-2 py-0.5 rounded font-bold">
+                        Comment Mode Active
+                      </span>
+                    </div>
+
+                    <div className="p-4 rounded-lg bg-pm-surface-2 border border-dashed border-pm-accent/50 relative">
+                      <div className="space-y-2">
+                        <div className="w-24 h-2.5 rounded bg-pm-text/20" />
+                        <div className="w-48 h-4 rounded bg-pm-text/80 font-bold" />
+                      </div>
+
+                      {/* Click Pin #1 */}
+                      <div className="absolute top-2 right-4 flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-pm-accent text-white flex items-center justify-center font-mono text-xs font-bold shadow-md ring-4 ring-pm-accent/25">
+                          1
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Popover */}
+                    <div className="p-3 rounded-xl bg-pm-surface border border-pm-border shadow-lg space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="font-bold text-pm-text">Pin #1 · Anika (Client)</span>
+                        <span className="text-pm-muted">Just now</span>
+                      </div>
+                      <p className="text-xs text-pm-text font-sans">
+                        &ldquo;This card padding should match the hero spacing.&rdquo;
+                      </p>
+                      <div className="text-[9px] font-mono text-pm-muted bg-pm-surface-2 p-1 rounded">
+                        target: div.feature-card &gt; h3
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 3: FIX DEMO */}
+            {activeStep === 3 && (
+              <motion.div
+                key="step-3"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.3 }}
+                className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center"
+              >
+                <div className="lg:col-span-6 space-y-4 text-left">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pm-accent/10 text-pm-accent text-[11px] font-mono font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Step 3 · Fix</span>
+                  </div>
+                  <h3 className="font-display text-2xl sm:text-3xl font-black text-pm-text tracking-tight">
+                    Every comment includes a screenshot and exact DOM selector.
+                  </h3>
+                  <p className="text-xs sm:text-sm text-pm-muted leading-relaxed">
+                    Developers see the exact element, screenshot, browser viewport, and device info. Mark comments Fixed when resolved, or export directly to a GitHub issue in one click.
+                  </p>
+                  <div className="pt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setActiveStep(1)}
+                      className="px-5 py-2.5 rounded-xl bg-pm-surface-2 border border-pm-border hover:bg-pm-surface text-pm-text font-mono text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Start from Step 1
+                    </button>
+                  </div>
+                </div>
+
+                {/* Step 3 Visual Card */}
+                <div className="lg:col-span-6 p-6 rounded-2xl bg-pm-surface-2 border border-pm-border space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold text-pm-text uppercase">Developer Review Inspector</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${fixedState ? 'bg-emerald-500/10 text-emerald-600' : 'bg-pm-accent/10 text-pm-accent'}`}>
+                      Status: {fixedState ? 'Fixed' : 'Open'}
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-pm-surface border border-pm-border space-y-3">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="font-bold text-pm-text">Issue Pin #1</span>
+                      <span className="text-pm-muted">Desktop (1440x900)</span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-pm-surface-2 border border-pm-border text-[11px] font-mono text-pm-muted flex items-center gap-2">
+                      <Code2 className="w-3.5 h-3.5 text-cyan-500 flex-shrink-0" />
+                      <span className="truncate">main &gt; section#features &gt; div.card</span>
+                    </div>
+
+                    {/* Developer Resolution Actions */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-pm-border">
+                      <button
+                        type="button"
+                        onClick={() => setFixedState(!fixedState)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          fixedState
+                            ? 'bg-pm-surface-2 border border-pm-border text-pm-text'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                        }`}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{fixedState ? 'Reopen' : 'Mark as Fixed'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGithubExported(true);
+                          setTimeout(() => setGithubExported(false), 3000);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-pm-surface-2 border border-pm-border hover:bg-pm-surface text-pm-text font-mono text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <GitPullRequest className="w-3.5 h-3.5 text-pm-accent" />
+                        <span>{githubExported ? 'Sent to GitHub #42!' : 'Send to GitHub'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
 
         </div>
+
       </div>
     </section>
   );
