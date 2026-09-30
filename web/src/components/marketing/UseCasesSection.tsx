@@ -1,487 +1,208 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { User, Briefcase, CheckCircle2, ArrowUpRight } from 'lucide-react';
-import Link from 'next/link';
-import { useAuthStore } from '@/store/authStore';
+import React from 'react';
+import { motion } from 'framer-motion';
+import { 
+  Briefcase, Users, MousePointer2, ShieldCheck, CheckCircle2, 
+  HelpCircle, Lock, Layers, ArrowRight
+} from 'lucide-react';
 
 interface UseCasesSectionProps {
-  onHoverChange: (pos: { x: number; y: number } | null) => void;
+  onHoverChange?: (pos: { x: number; y: number } | null) => void;
 }
 
-// 1. Freelancer Animated Loop Component
-const FreelancerVisual = () => {
-  const [step, setStep] = useState(0);
-  const [typedText, setTypedText] = useState('');
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStep((s) => (s + 1) % 4);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (step === 2) {
-      const fullText = "Change CTA text to 'Launch Sandbox'";
-      let cur = 0;
-      const typeTimer = setInterval(() => {
-        cur++;
-        setTypedText(fullText.slice(0, cur));
-        if (cur >= fullText.length) {
-          clearInterval(typeTimer);
-        }
-      }, 40);
-      return () => clearInterval(typeTimer);
-    } else if (step === 0 || step === 1) {
-      setTypedText('');
-    }
-  }, [step]);
-
-  return (
-    <div className="mockup-visual relative h-44 rounded-2xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[9px] select-none flex flex-col justify-between">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
-        <span className="text-white/60 font-bold uppercase tracking-wider">Freelancer Workspace</span>
-        <span className="text-purple-400 font-bold text-[8px] animate-pulse">FAST SIGN-OFF</span>
-      </div>
-
-      {/* Center Simulated Webpage Mockup */}
-      <div className="flex-1 flex flex-col items-center justify-center relative my-1">
-        {/* Mock Element to hover/pin */}
-        <div className="relative px-6 py-2 bg-purple-500/10 border border-purple-500/20 rounded-md text-[9px] text-purple-300 font-sans">
-          CTA BUTTON
-          
-          {/* Bounding Box on Hover/Pin */}
-          {step >= 1 && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="absolute -inset-1 border border-purple-500 rounded pointer-events-none shadow-[0_0_10px_rgba(147,51,234,0.35)]"
-            />
-          )}
-        </div>
-
-        {/* Pin dropping */}
-        {step >= 1 && (
-          <motion.div
-            initial={{ scale: 0, y: -20, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
-          >
-            <div className="w-4 h-4 rounded-full border border-white bg-purple-500 flex items-center justify-center text-[7px] text-white font-bold shadow-lg">
-              1
-            </div>
-          </motion.div>
-        )}
-
-        {/* Comment Drawer (slides up) */}
-        <AnimatePresence>
-          {step >= 2 && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute bottom-1 left-2 right-2 p-2 rounded bg-slate-900 border border-purple-500/20 shadow-xl space-y-1 z-20 text-left"
-            >
-              <div className="flex justify-between items-center text-[7px] text-slate-400 border-b border-white/5 pb-1">
-                <span>COMMENT FROM CLIENT</span>
-                <span className={step === 3 ? "text-emerald-400 font-bold" : "text-amber-400 animate-pulse"}>
-                  {step === 3 ? "RESOLVED" : "DRAFT"}
-                </span>
-              </div>
-              <div className="text-white text-[8px] h-4 leading-normal truncate">
-                {typedText}
-                {step === 2 && <span className="animate-pulse">|</span>}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Footer bar */}
-      <div className="flex justify-between items-center text-[7px] text-slate-400">
-        <span>STATUS: {step === 3 ? "READY FOR DEV" : "COLLECTING"}</span>
-        <span className={step === 3 ? "text-emerald-400 font-bold" : "text-amber-400"}>
-          {step === 3 ? "APPROVED" : "AWAITING RESOLUTION"}
-        </span>
-      </div>
-    </div>
-  );
-};
-
-// 2. Product & QA Animated Loop Component
-const QAVisual = () => {
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStep((s) => (s + 1) % 4);
-    }, 5500);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="mockup-visual relative h-44 rounded-2xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] select-none flex flex-col justify-between">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
-        <span className="text-white/60 font-bold uppercase tracking-wider">QA Inspector Lens</span>
-        <span className="text-cyan-400 font-bold text-[8px] animate-pulse">DIAGNOSTICS</span>
-      </div>
-
-      {/* Center Grid containing webpage and sidebar */}
-      <div className="flex-1 grid grid-cols-12 gap-2 my-1 items-center overflow-hidden">
-        {/* Simulated Webpage (Col-Span 7) */}
-        <div className="col-span-7 h-full border border-white/5 rounded bg-[#0b0b0f]/60 p-2 flex flex-col items-center justify-center relative">
-          <div className="w-12 h-4 border border-cyan-500/20 rounded bg-cyan-500/5 relative flex items-center justify-center text-[7px] text-cyan-300">
-            LOGO_DIV
-            {step >= 0 && (
-              <motion.div 
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                className="absolute -inset-0.5 border border-cyan-400 rounded"
-              />
-            )}
-          </div>
-          {/* Target Reticle */}
-          {step >= 0 && (
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 pointer-events-none flex items-center justify-center">
-              <span className="absolute w-full h-[0.5px] bg-cyan-500/30" />
-              <span className="absolute h-full w-[0.5px] bg-cyan-500/30" />
-              <div className="w-1.5 h-1.5 rounded-full border border-cyan-500" />
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar Diagnostics Panel (Col-Span 5) */}
-        <div className="col-span-5 h-full border border-white/5 rounded bg-slate-900 p-1.5 flex flex-col justify-between text-left">
-          <div className="space-y-1">
-            <span className="text-[7px] text-cyan-400 font-bold uppercase tracking-wider border-b border-white/5 block pb-0.5 font-mono">METADATA</span>
-            
-            {step >= 1 && (
-              <motion.div 
-                initial={{ opacity: 0, x: 5 }} 
-                animate={{ opacity: 1, x: 0 }} 
-                className="text-white font-bold font-sans text-[7.5px]"
-              >
-                DIV#header-logo
-              </motion.div>
-            )}
-
-            {step >= 2 && (
-              <motion.div 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                className="space-y-0.5 text-[6.5px] text-slate-400 leading-tight font-mono"
-              >
-                <div>Display: flex</div>
-                <div>Width: 96px</div>
-                <div className="truncate">XPath: /body/header/div</div>
-              </motion.div>
-            )}
-          </div>
-
-          {step >= 3 && (
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
-              className="p-0.5 rounded bg-red-950/20 border border-red-500/30 text-red-400 text-[6px] font-bold text-center animate-pulse"
-            >
-              CORS BLOCKED (403)
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="flex justify-between items-center text-[7px] text-slate-400">
-        <span>COLLECTED ASSETS: {step >= 2 ? "3/3 SUCCESS" : "PENDING"}</span>
-        <span className="text-cyan-400 font-bold">LENS READY</span>
-      </div>
-    </div>
-  );
-};
-
-// 3. Agencies Animated Loop Component
-const AgencyVisual = () => {
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStep((s) => (s + 1) % 4);
-    }, 7000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="mockup-visual relative h-44 rounded-2xl bg-black/40 border border-white/5 overflow-hidden p-3.5 font-mono text-[8.5px] select-none flex flex-col justify-between">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
-        <span className="text-white/60 font-bold uppercase tracking-wider">Multi-Client Portal</span>
-        <span className="text-pink-400 font-bold text-[8px] animate-pulse">COLLABORATIVE</span>
-      </div>
-
-      {/* Center collaborative workspace */}
-      <div className="flex-1 relative my-1 overflow-hidden bg-[#0b0b0f]/60 border border-white/5 rounded p-2 flex flex-col justify-start gap-1 text-left">
-        
-        {/* WebSocket cursors overlay */}
-        {step === 0 && (
-          <>
-            <motion.div 
-              animate={{ x: [10, 80, 40], y: [10, 30, 20] }} 
-              transition={{ duration: 3.5, ease: "easeInOut" }}
-              className="absolute z-20 flex items-center gap-1 text-[6.5px] pointer-events-none"
-            >
-              <svg className="w-2.5 h-2.5 text-pink-500 fill-pink-500" viewBox="0 0 24 24"><path d="M4.5 3v15.25l3.96-3.96 2.37 5.71 2.37-.98-2.37-5.71h5.67L4.5 3z"/></svg>
-              <span className="bg-pink-500 text-white px-1 rounded shadow font-sans">Sarah (Client)</span>
-            </motion.div>
-            <motion.div 
-              animate={{ x: [100, 20, 75], y: [45, 15, 35] }} 
-              transition={{ duration: 4, ease: "easeInOut" }}
-              className="absolute z-20 flex items-center gap-1 text-[6.5px] pointer-events-none"
-            >
-              <svg className="w-2.5 h-2.5 text-blue-500 fill-blue-500" viewBox="0 0 24 24"><path d="M4.5 3v15.25l3.96-3.96 2.37 5.71 2.37-.98-2.37-5.71h5.67L4.5 3z"/></svg>
-              <span className="bg-blue-500 text-white px-1 rounded shadow font-sans">Alex (Dev)</span>
-            </motion.div>
-          </>
-        )}
-
-        {/* Thread 1 (Always open) */}
-        <div className="p-1 rounded bg-slate-900 border border-white/5 flex justify-between items-center">
-          <div className="space-y-0.5">
-            <span className="text-[6px] text-slate-400 font-bold block">THREAD #12</span>
-            <span className="text-white text-[7.5px]">"Logo alignment is off on Safari."</span>
-          </div>
-          <span className="text-[6px] px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold">OPEN</span>
-        </div>
-
-        {/* Thread 2 (Resolves in steps) */}
-        {step >= 1 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`p-1 rounded border transition-colors duration-500 ${step === 3 ? "bg-emerald-950/10 border-emerald-500/20" : "bg-slate-900 border-white/5"}`}
-          >
-            <div className="flex justify-between items-start">
-              <div className="space-y-0.5">
-                <span className="text-[6px] text-slate-400 font-bold block">THREAD #13 • Sarah</span>
-                <span className="text-white text-[7.5px]">"Increase hero heading font size."</span>
-              </div>
-              <span className={`text-[6px] px-1.5 py-0.2 rounded font-bold transition-all duration-300 ${step === 3 ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-pink-500/10 border border-pink-500/20 text-pink-400"}`}>
-                {step === 3 ? "RESOLVED" : "PENDING"}
-              </span>
-            </div>
-
-            {/* Replies nested */}
-            {step >= 2 && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-1 pt-1 border-t border-white/5 flex items-start gap-1 text-[7px] leading-tight"
-              >
-                <span className="text-blue-400 font-bold">Alex:</span>
-                <span className="text-slate-400">"Updated heading styles. Approved."</span>
-              </motion.div>
-            )}
-          </motion.div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="flex justify-between items-center text-[7px] text-slate-400">
-        <span>CLIENT PORTALS: 4 WORKSPACES ACT.</span>
-        <span className="text-pink-400 font-bold">12 COLLABORATORS</span>
-      </div>
-    </div>
-  );
-};
-
 export default function UseCasesSection({ onHoverChange }: UseCasesSectionProps) {
-  const [hoveredCard, setHoveredCard] = useState<'freelancers' | 'qa' | 'agencies' | null>(null);
-  const [mounted, setMounted] = useState(false);
-  const user = useAuthStore(state => state.user);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isUserLoggedIn = mounted && !!user;
-
-  const handleCardMouseEnter = (card: 'freelancers' | 'qa' | 'agencies', e: React.MouseEvent<HTMLDivElement>) => {
-    setHoveredCard(card);
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-    const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-    onHoverChange({ x, y });
-  };
-
-  const handleCardMouseLeave = () => {
-    setHoveredCard(null);
-    onHoverChange(null);
-  };
-
-  const cardsData = [
+  // Section 8.6 Personas
+  const personas = [
     {
-      id: 'freelancers' as const,
-      icon: User,
-      subtitle: 'Freelancers & Developers',
-      title: 'Get client sign-off in minutes, not weeks.',
-      description: 'Stop decoding vague screenshot comments and emails. Share a secure session link so clients drop pins directly on live elements.',
-      bullets: [
-        '0 Client Onboarding Walls: Stakeholders click & pin',
-        'Automatic Layout Specs: Pin logs viewport properties',
-        'Frictionless Sign-Offs: Sync edits in real-time'
-      ],
-      cta: 'Accelerate Hand-offs',
-      visual: <FreelancerVisual />,
-      glowColor: 'rgba(124, 58, 237, 0.25)',
-      accentClass: 'text-purple-600 dark:text-[#C7B4D6] bg-purple-500/10 border-purple-500/20'
-    },
-    {
-      id: 'qa' as const,
-      icon: CheckCircle2,
-      subtitle: 'Product Managers & QA Leads',
-      title: 'Zero-loss bug reports straight to developers.',
-      description: 'Collect QA feedback without missing console traces. Testers drop pins to compile layout selectors, viewport coordinates, and console errors.',
-      bullets: [
-        'Automatic Console Logging: Logs JavaScript runtime errors',
-        'CSS Layout Spectrograph: Logs z-index, width, display',
-        'Actionable Export: Streamline to Markdown tasks'
-      ],
-      cta: 'Supercharge QA Cycles',
-      visual: <QAVisual />,
-      glowColor: 'rgba(6, 182, 212, 0.25)',
-      accentClass: 'text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
-    },
-    {
-      id: 'agencies' as const,
+      title: 'Agencies and freelancers',
       icon: Briefcase,
-      subtitle: 'Creative Agencies & Studios',
-      title: 'Polished review portals for high-value clients.',
-      description: 'Present website changes in collaborative portals. Coordinate feedback by target routes, resolve threads, and view presence cursors.',
-      bullets: [
-        'High-End Client Portals: Elevate layout review sessions',
-        'Live Presence Synchronization: Track viewer mouse movements',
-        'Thread Resolution Workspace: Close open items sequentially'
-      ],
-      cta: 'Upgrade Client Hand-offs',
-      visual: <AgencyVisual />,
-      glowColor: 'rgba(37, 59, 128, 0.25)',
-      accentClass: 'text-pink-600 dark:text-[#FCE2E1] bg-pink-500/10 border-pink-500/20'
-    }
+      text: 'Give clients one link to review a site, instead of chasing feedback across email and chat.',
+      tag: 'CLIENT REVIEWS',
+    },
+    {
+      title: 'Product and developer teams',
+      icon: Users,
+      text: 'Collect feedback on landing pages and releases from teammates and stakeholders, and send it to GitHub.',
+      tag: 'INTERNAL QA',
+    },
+    {
+      title: 'Clients and reviewers',
+      icon: MousePointer2,
+      text: 'Click, type, done. Nothing to install.',
+      tag: 'ZERO ONBOARDING',
+    },
+  ];
+
+  // Section 8.7 Use Cases
+  const useCases = [
+    'A client reviews a new website before launch.',
+    'A startup team collects feedback on a landing page.',
+    'A designer checks a built page against the design.',
+    'A developer gets comments tied to the exact element instead of screenshots.',
   ];
 
   return (
-    <section id="use-cases" className="relative py-36 overflow-hidden border-t border-pm-border/30 bg-[var(--pm-bg)] text-pm-text transition-colors duration-500">
-      {/* Dynamic atmospheric color washes */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#C7B4D6]/5 rounded-full blur-[120px] pointer-events-none z-0" />
-      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-[#253B80]/10 rounded-full blur-[120px] pointer-events-none z-0" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-100px' }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-7xl mx-auto px-6 md:px-12 relative z-10"
-      >
+    <section id="who-it-is-for" className="py-24 md:py-32 border-t border-pm-border/40 bg-pm-bg relative overflow-hidden">
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 relative z-10 space-y-20">
         
-        {/* Section Header */}
-        <div className="max-w-4xl mb-20 space-y-4 text-left">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-accent-bright dark:text-[#C7B4D6] bg-pm-accent-subtle dark:bg-white/5 border border-pm-border dark:border-white/10 px-3 py-1 rounded-full">
-            WORKFLOW ORCHESTRATION
-          </span>
-          <h2 className="font-display text-4xl md:text-5xl lg:text-[4rem] font-extrabold tracking-[-0.03em] text-pm-text dark:text-white leading-[1.02]">
-            Tailored to your development workflow. <br />
-            Built for <span className="text-pm-accent dark:text-[#C7B4D6] underline decoration-3 decoration-pm-accent/40 dark:decoration-[#C7B4D6]/40 underline-offset-6">every review role</span>.
-          </h2>
-        </div>
+        {/* ── SECTION 8.6: WHO IT IS FOR ── */}
+        <div className="space-y-12">
+          <div className="max-w-3xl mx-auto text-center space-y-4">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-pm-accent">
+              Audiences
+            </span>
+            <h2 className="font-display text-4xl sm:text-5xl font-black text-pm-text tracking-tight">
+              Built for everyone in the review loop.
+            </h2>
+            <p className="text-base sm:text-lg text-pm-muted leading-relaxed font-sans max-w-xl mx-auto">
+              Eliminate miscommunication whether you are building the website or signing off on it.
+            </p>
+          </div>
 
-        {/* Three Columns Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {cardsData.map((card) => {
-            const isHovered = hoveredCard === card.id;
-            const isAnyHovered = hoveredCard !== null;
-            const cardOpacity = !isAnyHovered ? 1 : isHovered ? 1 : 0.45;
-
-            return (
-              <motion.div
-                key={card.id}
-                onMouseEnter={(e) => handleCardMouseEnter(card.id, e)}
-                onMouseLeave={handleCardMouseLeave}
-                animate={{
-                  opacity: cardOpacity,
-                  scale: isHovered ? 1.015 : 0.99,
-                }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                  '--glow-color': card.glowColor
-                } as React.CSSProperties}
-                className="relative flex flex-col justify-between p-7 rounded-3xl border border-pm-border dark:border-white/10 bg-pm-surface dark:bg-white/[0.03] backdrop-blur-xl group hover:shadow-[0_0_40px_var(--glow-color)] transition-shadow duration-500 overflow-hidden min-h-[500px]"
-              >
-                {/* Accent glow on hover */}
-                <div 
-                  className="absolute inset-0 pointer-events-none transition-opacity duration-500"
-                  style={{
-                    background: `radial-gradient(circle at 50% -10%, ${card.glowColor}, transparent 55%)`,
-                    opacity: isHovered ? 1 : 0.25
-                  }}
-                />
-
-                <div className="space-y-6 relative z-10">
-                  {/* Icon & Subtitle */}
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.accentClass}`}>
-                      <card.icon className="w-4 h-4" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {personas.map((p, idx) => {
+              const Icon = p.icon;
+              return (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: idx * 0.1 }}
+                  className="rounded-3xl border border-pm-border bg-pm-surface p-8 shadow-xs flex flex-col justify-between space-y-6 hover:border-pm-accent/30 transition-all"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 rounded-2xl bg-pm-accent/10 text-pm-accent flex items-center justify-center">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-pm-muted">
+                        {p.tag}
+                      </span>
                     </div>
-                    <span className="text-[9px] font-mono uppercase font-bold tracking-wider text-pm-text/60 dark:text-slate-400">
-                      {card.subtitle}
-                    </span>
-                  </div>
 
-                  {/* Title & Description */}
-                  <div className="space-y-2 text-left">
-                    <h3 className="font-display text-xl font-bold tracking-tight text-pm-text dark:text-white group-hover:text-pm-text dark:group-hover:text-white transition-colors leading-snug">
-                      {card.title}
+                    <h3 className="font-display text-xl font-bold text-pm-text">
+                      {p.title}
                     </h3>
-                    <p className="text-[11.5px] text-pm-text/80 dark:text-slate-300 leading-relaxed font-sans min-h-[48px]">
-                      {card.description}
+
+                    {/* Section 8.6 exact text */}
+                    <p className="text-xs sm:text-sm text-pm-muted leading-relaxed">
+                      {p.text}
                     </p>
                   </div>
 
-                  {/* Visual Loop Widget */}
-                  <div className="w-full">
-                    {card.visual}
+                  <div className="pt-2 border-t border-pm-border/60 flex items-center gap-1.5 text-[11px] font-mono font-bold text-pm-accent">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Verified workflow</span>
                   </div>
-
-                  {/* Bullet specs */}
-                  <div className="space-y-2 pt-2">
-                    {card.bullets.map((bullet, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-left">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                        <span className="text-[10.5px] text-pm-text/80 dark:text-slate-200 leading-tight font-sans font-medium">{bullet}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Card CTA redirect */}
-                <div className="pt-6 relative z-10">
-                  <Link
-                    href={isUserLoggedIn ? "/dashboard" : "/register"}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-3 bg-pm-accent/5 dark:bg-white/[0.04] hover:bg-pm-accent dark:hover:bg-[#253B80] border border-pm-border dark:border-white/10 hover:border-pm-accent-bright dark:hover:border-white/20 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider text-pm-text hover:text-white dark:text-white transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
-                  >
-                    <span>{isUserLoggedIn ? "Open Dashboard" : card.cta}</span>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-pm-text/50 dark:text-slate-400 group-hover:text-white" />
-                  </Link>
-                </div>
-              </motion.div>
-            );
-          })}
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
 
-      </motion.div>
+        {/* ── SECTION 8.7: USE CASES & WHAT STAGE IS NOT ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-6">
+          
+          {/* Left Column: 4 Real Use Cases (Cols 6) */}
+          <div className="lg:col-span-6 rounded-3xl border border-pm-border bg-pm-surface p-8 space-y-6 flex flex-col justify-between">
+            <div className="space-y-4">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-pm-accent">
+                Common Scenarios
+              </span>
+              <h3 className="font-display text-2xl sm:text-3xl font-black text-pm-text tracking-tight">
+                When teams reach for STAGE
+              </h3>
+            </div>
+
+            <div className="space-y-3">
+              {useCases.map((uc, i) => (
+                <div key={i} className="p-3.5 rounded-2xl bg-pm-surface-2 border border-pm-border flex items-center gap-3 text-xs sm:text-sm text-pm-text">
+                  <div className="w-6 h-6 rounded-full bg-pm-accent/10 text-pm-accent flex items-center justify-center font-mono text-[10px] font-bold flex-shrink-0">
+                    {i + 1}
+                  </div>
+                  <span>{uc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Column: "What STAGE is not" Honest Boundary Card (Cols 6) */}
+          <div className="lg:col-span-6 rounded-3xl border border-pm-border bg-pm-surface p-8 space-y-6 flex flex-col justify-between">
+            <div className="space-y-4">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-rose-500">
+                Honest Positioning
+              </span>
+              <h3 className="font-display text-2xl sm:text-3xl font-black text-pm-text tracking-tight">
+                What STAGE is not
+              </h3>
+              
+              {/* Section 8.7 exact text */}
+              <p className="text-xs sm:text-sm text-pm-muted leading-relaxed font-sans">
+                STAGE is for reviewing websites and passing fixes to your developer. It is not a project management tool or a design tool. Keep using your task tool for tasks and Figma for design. STAGE starts when the page is built.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-pm-surface-2 border border-pm-border flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <span className="text-pm-text font-bold">Design in Figma</span>
+                <span className="text-pm-muted">→</span>
+                <span className="text-pm-text font-bold">Build Site</span>
+                <span className="text-pm-muted">→</span>
+                <span className="text-pm-accent font-bold">Review in STAGE</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── SECTION 8.8: ACCESS AND PRIVACY ── */}
+        <div className="rounded-3xl border border-pm-border bg-pm-surface-2/40 p-8 sm:p-10 space-y-6">
+          <div className="space-y-2">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-pm-accent">
+              Access &amp; Privacy
+            </span>
+            <h3 className="font-display text-2xl sm:text-3xl font-black text-pm-text tracking-tight">
+              Who can see your review
+            </h3>
+          </div>
+
+          {/* Section 8.8 exact text */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs sm:text-sm text-pm-muted">
+            <div className="p-4 rounded-2xl bg-pm-surface border border-pm-border space-y-2">
+              <div className="font-bold text-pm-text flex items-center gap-2">
+                <Lock className="w-4 h-4 text-emerald-500" />
+                <span>Link Access</span>
+              </div>
+              <p className="leading-relaxed">
+                Only people with your review link can open it. You can add a password to any link.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-pm-surface border border-pm-border space-y-2">
+              <div className="font-bold text-pm-text flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-pm-accent" />
+                <span>Network Scope</span>
+              </div>
+              <p className="leading-relaxed">
+                STAGE opens web addresses that anyone can reach. It cannot open private networks or localhost.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-pm-surface border border-pm-border space-y-2">
+              <div className="font-bold text-pm-text flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span>Data Control</span>
+              </div>
+              <p className="leading-relaxed">
+                You can delete a project and all of its comments at any time.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </section>
   );
 }

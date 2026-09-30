@@ -1,259 +1,217 @@
 'use client';
 
+import React from 'react';
 import { motion } from 'framer-motion';
-import { GlassTiltCard } from '@/components/marketing/GlassTiltCard';
-import { Camera, Terminal, Shield, Sparkles, Share2, Users, Layers, ExternalLink, HelpCircle, Code2, Cpu } from 'lucide-react';
+import { 
+  Link2, Pin, GitPullRequest, Box, Smartphone, Edit3, 
+  Lock, Check, ArrowRight, Code2, Layers
+} from 'lucide-react';
 
-interface FeaturesSectionProps {
-  onHoverChange: (pos: { x: number; y: number } | null) => void;
-}
-
-export default function FeaturesSection({ onHoverChange }: FeaturesSectionProps) {
-  const containerVariants = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.6,
-        ease: [0.16, 1, 0.3, 1] as [number, number, number, number]
-      }
-    }
-  };
-
+export default function FeaturesSection() {
   return (
-    <section 
-      id="features" 
-      className="relative py-36 bg-transparent overflow-hidden border-t border-pm-border/30"
-      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 1000px' }}
-    >
-      {/* Bloom gradients */}
-      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-[#C7B4D6]/10 rounded-full blur-[100px] pointer-events-none z-0" />
-      <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] bg-[#E2F3F5]/30 rounded-full blur-[100px] pointer-events-none z-0" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-100px' }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-7xl mx-auto px-6 md:px-12 relative z-10"
-      >
+    <section id="features" className="py-24 md:py-32 border-t border-pm-border/40 bg-pm-surface-2/30 relative overflow-hidden">
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 relative z-10 space-y-16">
         
-        {/* Section Header */}
-        <div className="max-w-3xl mb-20 space-y-4">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#253B80] bg-[#E2F3F5] px-3 py-1 rounded-full border border-[#E2F3F5]">
-            PRODUCT CAPABILITIES
+        {/* Section Header (Section 8.5) */}
+        <div className="max-w-3xl mx-auto text-center space-y-4">
+          <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-pm-accent">
+            Core Features
           </span>
-          <h2 className="mkt-section-h2 font-display font-extrabold text-[#1D264F]"
-            style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', lineHeight: 1.04, letterSpacing: '-0.03em' }}
-          >
-            Everything developers need.<br />
-            <span className="mkt-section-h2-sub">Nothing clients have to learn.</span>
+          <h2 className="font-display text-4xl sm:text-5xl font-black text-pm-text tracking-tight">
+            Built for precision reviews. Nothing more.
           </h2>
-          <p className="text-sm md:text-base text-pm-muted leading-relaxed max-w-xl font-sans pt-2">
-            A visual bug reporting tool and collaboration dashboard built directly on top of raw browser engines.
+          <p className="text-base sm:text-lg text-pm-muted leading-relaxed font-sans max-w-xl mx-auto">
+            Everything your team needs to review a live website, anchor feedback, and hand off fixes.
           </p>
         </div>
 
-        {/* Asymmetrical Bento Grid */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6"
-        >
-          {/* Card 1: Interactive Pin Engine (Double Width) */}
-          <GlassTiltCard
-            className="md:col-span-2 border-pm-border bg-pm-surface hover:border-pm-accent/40 hover:shadow-[0_24px_50px_-16px_var(--pm-accent-glow)] transition-all duration-300 min-h-[320px]"
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-              onHoverChange({ x, y });
-            }}
-            onMouseLeave={() => onHoverChange(null)}
+        {/* ── 6-ITEM ASYMMETRIC BENTO GRID (Section 8.5) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+          
+          {/* Card 1: Review links (Col Span 7) */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+            className="md:col-span-7 rounded-3xl border border-pm-border bg-pm-surface p-8 shadow-xs flex flex-col justify-between space-y-6 hover:border-pm-accent/30 transition-all"
           >
-            <div className="flex flex-col md:flex-row justify-between gap-8 h-full items-stretch">
-              <div className="space-y-4 max-w-sm flex flex-col justify-between h-full">
-                <div className="space-y-4">
-                  <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
-                    <Layers className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-display text-2xl font-bold tracking-tight text-pm-text">
-                    Interactive DOM-Level Pin Engine
-                  </h3>
-                  <p className="text-xs text-pm-muted leading-relaxed font-sans">
-                    Click any live website element to anchor your QA feedback. Our engine captures the exact CSS selector path, browser engine version, and viewport size dynamically.
-                  </p>
-                </div>
-                <div className="flex gap-2 pt-4">
-                  <span className="text-[10px] font-mono font-bold bg-pm-accent-subtle text-pm-accent px-2.5 py-1 rounded">
-                    CSS PATHS
-                  </span>
-                  <span className="text-[10px] font-mono font-bold bg-pm-surface-2 border border-pm-border text-pm-accent px-2.5 py-1 rounded">
-                    XPATH MAPS
-                  </span>
-                </div>
+            <div className="space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-pm-accent/10 text-pm-accent flex items-center justify-center">
+                <Link2 className="w-5 h-5" />
               </div>
+              <h3 className="font-display text-xl sm:text-2xl font-bold text-pm-text">
+                Review links
+              </h3>
+              {/* Section 8.5 exact text */}
+              <p className="text-sm text-pm-muted leading-relaxed max-w-md">
+                One link opens your live page with commenting on. Add a password if you want. Works on live and staging pages at a public address.
+              </p>
+            </div>
 
-              {/* Bento Visual Side */}
-              <div className="flex-1 min-h-[160px] bg-pm-surface-2 rounded-2xl border border-pm-border p-4 flex flex-col justify-between relative overflow-hidden">
-                <div className="flex justify-between items-center text-[9px] font-mono text-pm-text-faint">
-                  <span>ELEMENT SELECTOR</span>
-                  <span className="text-emerald-500 font-bold">READY</span>
-                </div>
-                <div className="py-4 space-y-2">
-                  <div className="p-2.5 bg-pm-surface border border-pm-border rounded-xl shadow-sm flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-pm-accent animate-pulse" />
-                    <span className="font-mono text-[10px] text-pm-text font-bold">button.btn-signup-hero</span>
-                  </div>
-                  <div className="p-2.5 bg-pm-surface border border-pm-border rounded-xl shadow-sm flex items-center gap-2 opacity-50">
-                    <span className="w-1.5 h-1.5 rounded-full bg-pm-text-faint" />
-                    <span className="font-mono text-[10px] text-pm-text">div.nav-wrapper &gt; a.logo</span>
-                  </div>
-                </div>
-                <div className="text-[9px] font-mono text-pm-text-faint">
-                  [Node matched on 100% of viewports]
-                </div>
+            {/* Micro visual */}
+            <div className="p-3 rounded-2xl bg-pm-surface-2 border border-pm-border flex items-center justify-between text-xs font-mono text-pm-text">
+              <div className="flex items-center gap-2 truncate">
+                <Lock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                <span className="truncate">https://stage.entrext.com/review/acme-release</span>
+              </div>
+              <span className="text-[10px] text-pm-accent bg-pm-accent/10 px-2 py-0.5 rounded font-bold uppercase flex-shrink-0">
+                Password protected
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Card 2: Pin comments (Col Span 5) */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="md:col-span-5 rounded-3xl border border-pm-border bg-pm-surface p-8 shadow-xs flex flex-col justify-between space-y-6 hover:border-pm-accent/30 transition-all"
+          >
+            <div className="space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-pm-accent/10 text-pm-accent flex items-center justify-center">
+                <Pin className="w-5 h-5" />
+              </div>
+              <h3 className="font-display text-xl sm:text-2xl font-bold text-pm-text">
+                Pin comments
+              </h3>
+              {/* Section 8.5 exact text */}
+              <p className="text-sm text-pm-muted leading-relaxed">
+                Click an element to comment on it. The comment stays on that element and includes a screenshot.
+              </p>
+            </div>
+
+            {/* Micro visual */}
+            <div className="p-3 rounded-2xl bg-pm-surface-2 border border-pm-border flex items-center gap-3">
+              <div className="w-7 h-7 rounded-full bg-pm-accent text-white flex items-center justify-center font-mono text-xs font-bold flex-shrink-0">
+                1
+              </div>
+              <div className="space-y-0.5 text-xs truncate">
+                <div className="font-bold text-pm-text truncate">Heading padding too tight</div>
+                <div className="text-[10px] font-mono text-pm-muted truncate">target: h2.hero-title + screenshot</div>
               </div>
             </div>
-          </GlassTiltCard>
+          </motion.div>
 
-          {/* Card 2: Zero Extension Install (Single Width) */}
-          <GlassTiltCard
-            className="border-pm-border bg-pm-surface hover:border-pm-accent/40 hover:shadow-[0_24px_50px_-16px_var(--pm-accent-glow)] transition-all duration-300"
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-              onHoverChange({ x, y });
-            }}
-            onMouseLeave={() => onHoverChange(null)}
+          {/* Card 3: Send to GitHub (Col Span 4) */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.15 }}
+            className="md:col-span-4 rounded-3xl border border-pm-border bg-pm-surface p-8 shadow-xs flex flex-col justify-between space-y-6 hover:border-pm-accent/30 transition-all"
           >
-            <div className="space-y-5 flex flex-col justify-between h-full">
-              <div className="space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
-                  <Share2 className="w-5 h-5" />
-                </div>
-                <h3 className="font-display text-2xl font-bold tracking-tight text-pm-text">
-                  Zero Plugin Install
-                </h3>
-                <p className="text-xs text-pm-muted leading-relaxed font-sans">
-                  Generate secure, lightweight review links that load directly inside any standard desktop or mobile web browser. No plugins required.
-                </p>
+            <div className="space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-pm-accent/10 text-pm-accent flex items-center justify-center">
+                <GitPullRequest className="w-5 h-5" />
               </div>
+              <h3 className="font-display text-xl font-bold text-pm-text">
+                Send to GitHub
+              </h3>
+              {/* Section 8.5 exact text */}
+              <p className="text-sm text-pm-muted leading-relaxed">
+                Turn a comment into a GitHub issue for your developer.
+              </p>
+            </div>
 
-              <div className="p-3.5 bg-pm-surface-2 border border-pm-border rounded-xl flex items-center justify-between text-[10px] font-mono">
-                <span className="text-pm-accent font-semibold">stage.co/t/294f</span>
-                <span className="text-pm-text-faint">Copy</span>
+            <div className="p-3 rounded-2xl bg-pm-surface-2 border border-pm-border flex items-center justify-between text-xs font-mono">
+              <span className="text-pm-text font-bold">Issue #14</span>
+              <span className="text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded text-[10px] font-bold">
+                Synced
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Card 4: 3D pages (Col Span 4) */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="md:col-span-4 rounded-3xl border border-pm-border bg-pm-surface p-8 shadow-xs flex flex-col justify-between space-y-6 hover:border-pm-accent/30 transition-all"
+          >
+            <div className="space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-pm-accent/10 text-pm-accent flex items-center justify-center">
+                <Box className="w-5 h-5" />
+              </div>
+              <h3 className="font-display text-xl font-bold text-pm-text">
+                3D pages
+              </h3>
+              {/* Section 8.5 exact text */}
+              <p className="text-sm text-pm-muted leading-relaxed">
+                Comment on 3D pages as well as standard pages.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-pm-surface-2 border border-pm-border text-[11px] font-mono text-pm-muted flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              <span>WebGL &amp; Three.js raycast support</span>
+            </div>
+          </motion.div>
+
+          {/* Card 5: Phone and desktop (Col Span 4) */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.25 }}
+            className="md:col-span-4 rounded-3xl border border-pm-border bg-pm-surface p-8 shadow-xs flex flex-col justify-between space-y-6 hover:border-pm-accent/30 transition-all"
+          >
+            <div className="space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-pm-accent/10 text-pm-accent flex items-center justify-center">
+                <Smartphone className="w-5 h-5" />
+              </div>
+              <h3 className="font-display text-xl font-bold text-pm-text">
+                Phone and desktop
+              </h3>
+              {/* Section 8.5 exact text */}
+              <p className="text-sm text-pm-muted leading-relaxed">
+                Switch between phone and desktop size while you review. Comments keep their place.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-pm-surface-2 border border-pm-border flex items-center justify-between text-xs font-mono">
+              <span className="text-pm-muted">Desktop (1440px)</span>
+              <span className="text-pm-accent font-bold">Mobile (390px)</span>
+            </div>
+          </motion.div>
+
+          {/* Card 6: Edit on the page (Col Span 12) */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+            className="md:col-span-12 rounded-3xl border border-pm-border bg-pm-surface p-8 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:border-pm-accent/30 transition-all"
+          >
+            <div className="space-y-3 max-w-xl">
+              <div className="w-10 h-10 rounded-2xl bg-pm-accent/10 text-pm-accent flex items-center justify-center">
+                <Edit3 className="w-5 h-5" />
+              </div>
+              <h3 className="font-display text-xl sm:text-2xl font-bold text-pm-text">
+                Edit on the page
+              </h3>
+              {/* Section 8.5 exact text */}
+              <p className="text-sm text-pm-muted leading-relaxed">
+                Try a text or style change on the page preview and pass it to your developer. On the Team plan and above.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-pm-surface-2 border border-pm-border space-y-2 text-xs font-mono max-w-xs w-full">
+              <div className="flex items-center justify-between text-pm-muted text-[10px]">
+                <span>LIVE CSS INSPECTOR</span>
+                <span className="text-pm-accent font-bold">TEAM PLAN</span>
+              </div>
+              <div className="p-2 rounded-lg bg-pm-bg border border-pm-border text-[11px] text-pm-text">
+                font-weight: 600; padding: 12px 24px;
               </div>
             </div>
-          </GlassTiltCard>
+          </motion.div>
 
-          {/* Card 3: Specifications Inspector (Single Width) */}
-          <GlassTiltCard
-            className="border-pm-border bg-pm-surface hover:border-pm-accent/40 hover:shadow-[0_24px_50px_-16px_var(--pm-accent-glow)] transition-all duration-300"
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-              onHoverChange({ x, y });
-            }}
-            onMouseLeave={() => onHoverChange(null)}
-          >
-            <div className="space-y-5 flex flex-col justify-between h-full">
-              <div className="space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
-                  <Terminal className="w-5 h-5" />
-                </div>
-                <h3 className="font-display text-2xl font-bold tracking-tight text-pm-text">
-                  Layout Inspector
-                </h3>
-                <p className="text-xs text-pm-muted leading-relaxed font-sans">
-                  Every submitted pin includes complete layout specs, browser client metadata, display resolutions, and viewport dimensions.
-                </p>
-              </div>
+        </div>
 
-              <div className="bg-pm-bg border border-pm-border rounded-xl p-3 font-mono text-[9px] text-pm-accent space-y-1">
-                <div>browser: Chrome v126</div>
-                <div>viewport: 1920x1080</div>
-                <div>os: Windows 11</div>
-              </div>
-            </div>
-          </GlassTiltCard>
-
-          {/* Card 4: WebSocket Collaboration Sync (Double Width) */}
-          <GlassTiltCard
-            className="md:col-span-2 border-pm-border bg-pm-surface hover:border-pm-accent/40 hover:shadow-[0_24px_50px_-16px_var(--pm-accent-glow)] transition-all duration-300 min-h-[320px]"
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = (rect.left + rect.width / 2) / window.innerWidth - 0.5;
-              const y = (rect.top + rect.height / 2) / window.innerHeight - 0.5;
-              onHoverChange({ x, y });
-            }}
-            onMouseLeave={() => onHoverChange(null)}
-          >
-            <div className="flex flex-col md:flex-row justify-between gap-8 h-full items-stretch">
-              <div className="space-y-4 max-w-sm flex flex-col justify-between h-full">
-                <div className="space-y-4">
-                  <div className="w-10 h-10 rounded-xl bg-pm-accent-subtle flex items-center justify-center text-pm-accent">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-display text-2xl font-bold tracking-tight text-pm-text">
-                    Real-time Presence Sync
-                  </h3>
-                  <p className="text-xs text-pm-muted leading-relaxed font-sans">
-                    Collaborate live over standard WebSocket connections. View active developers and reviewers, track cursor placements, and see feedback updates sync in real-time.
-                  </p>
-                </div>
-                <div className="text-[10px] font-mono text-pm-text-faint/80">
-                  POWERED BY REDIS PUB/SUB SYNC LAYER
-                </div>
-              </div>
-
-              {/* Bento Visual Side */}
-              <div className="flex-1 min-h-[160px] bg-pm-surface-2 rounded-2xl border border-pm-border p-5 flex flex-col justify-between relative overflow-hidden">
-                <div className="flex justify-between items-center text-[9px] font-mono text-pm-text-faint">
-                  <span>ACTIVE TEAM SESSIONS</span>
-                  <span className="text-pm-accent font-bold">2 PARTICIPANTS</span>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2.5 bg-pm-surface border border-pm-border rounded-xl shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-pm-accent-subtle flex items-center justify-center text-pm-accent text-[9px] font-bold">S</div>
-                      <span className="text-[11px] font-semibold text-pm-text">Sarah (Product Lead)</span>
-                    </div>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  </div>
-                  <div className="flex items-center justify-between p-2.5 bg-pm-surface border border-pm-border rounded-xl shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-pm-surface-2 border border-pm-border flex items-center justify-center text-pm-accent text-[9px] font-bold">M</div>
-                      <span className="text-[11px] font-semibold text-pm-text">Michael (Client Reviewer)</span>
-                    </div>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  </div>
-                </div>
-
-                <div className="text-[9px] font-mono text-pm-text-faint">
-                  [Socket synced: latency &lt; 15ms]
-                </div>
-              </div>
-            </div>
-          </GlassTiltCard>
-        </motion.div>
-
-      </motion.div>
+      </div>
     </section>
   );
 }

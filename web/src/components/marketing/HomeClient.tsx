@@ -8,10 +8,9 @@ import { SplineBackground } from '@/components/SplineBackground';
 
 const ProblemSection = dynamic(() => import('@/components/marketing/ProblemSection'), { ssr: true });
 const HowItWorksSection = dynamic(() => import('@/components/marketing/HowItWorksSection'), { ssr: true });
+const FeaturesSection = dynamic(() => import('@/components/marketing/FeaturesSection'), { ssr: true });
 const UseCasesSection = dynamic(() => import('@/components/marketing/UseCasesSection'), { ssr: true });
-const OutcomeSection = dynamic(() => import('@/components/marketing/OutcomeSection'), { ssr: true });
 const ClosingCTASection = dynamic(() => import('@/components/marketing/ClosingCTASection'), { ssr: true });
-const EntrextSection = dynamic(() => import('@/components/marketing/EntrextSection'), { ssr: true });
 const MarketingFooter = dynamic(() => import('@/components/marketing/MarketingFooter'), { ssr: true });
 
 export type ModeType = 'dom' | 'threejs' | 'webgl' | 'spa' | 'shadow-dom';
@@ -113,16 +112,13 @@ export default function HomeClient() {
             <HowItWorksSection />
           </div>
           <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
+            <FeaturesSection />
+          </div>
+          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
             <UseCasesSection onHoverChange={setHoveredPosition} />
           </div>
           <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
-            <OutcomeSection />
-          </div>
-          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
             <ClosingCTASection />
-          </div>
-          <div className="[content-visibility:auto] [contain-intrinsic-size:1px_800px]">
-            <EntrextSection />
           </div>
         </main>
         <div className="[content-visibility:auto] [contain-intrinsic-size:1px_400px]">
