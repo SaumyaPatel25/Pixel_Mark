@@ -28,11 +28,15 @@ interface SandboxPin {
 }
 
 /**
- * Kinetic Slashed Headline Term
- * - Dense acrylic paint brush stroke spanning 100% of 'not in screenshots.'
- * - preserveAspectRatio='none' guarantees full word coverage across all viewports
- * - 'never again' micro-badge completely removed
- * - Text in #7C97FF periwinkle indigo with hot pink paint brush strike
+ * Kinetic Slashed Headline Term (Completely Remade Editorial Acrylic Motion Design)
+ * - Dense, authentic acrylic paint brush stroke with multi-layered bristle textures
+ * - Spans 100% of the entire phrase from before 'not' all the way past the period of 'screenshots.'
+ * - Painterly dry-brush flick and micro-splatters at the release point
+ * - SVG fractal turbulence displacement filter for organic physical brush hair edges
+ * - Dynamic -2.5° angle of attack matching an artist's hand-painted swipe
+ * - High-craft GPU clip-path sweep reveal (0.42s ease [0.16, 1, 0.3, 1])
+ * - Adaptive dual-mode contrast: mix-blend-mode lighten in dark mode, multiply in light mode
+ * - Text rendered in #7C97FF periwinkle indigo with tactile recoil impulse
  */
 function KineticSlashedTerm() {
   const [replayKey, setReplayKey] = useState(0);
@@ -44,98 +48,127 @@ function KineticSlashedTerm() {
       className="relative block sm:inline-block whitespace-nowrap mt-2 sm:mt-0 cursor-pointer select-none group/slash align-baseline"
       title="Click to replay slash animation"
     >
-      {/* Slashed Headline Text with #7C97FF Color */}
+      {/* Slashed Headline Text with #7C97FF Color & Kinetic Recoil */}
       <motion.span
         initial={{ opacity: 1 }}
         animate={{
-          opacity: 0.9,
-          y: [0, -1, 2, -0.5, 0],
-          rotate: [0, 0.4, -1, 0.3, 0],
+          opacity: 0.94,
+          y: [0, -1, 1.5, -0.5, 0],
+          rotate: [0, 0.3, -0.5, 0.2, 0],
         }}
         transition={{
-          opacity: { duration: 0.35, delay: 0.65 },
+          opacity: { duration: 0.3, delay: 0.65 },
           y: { duration: 0.35, delay: 0.6, times: [0, 0.25, 0.55, 0.8, 1] },
           rotate: { duration: 0.35, delay: 0.6, times: [0, 0.25, 0.55, 0.8, 1] },
         }}
-        className="font-serif italic font-normal text-[#2B4CFF] dark:text-[#7C97FF] relative z-0 inline-block tracking-tight"
+        className="font-serif italic font-normal text-[#385BFF] dark:text-[#7C97FF] relative z-0 inline-block tracking-tight"
       >
         not in screenshots.
       </motion.span>
 
-      {/* Dense Paint Brush Slash (Spans 100% from before 'not' to past the end of 'screenshots.') */}
-      <svg
-        className="absolute -left-[2%] top-1/2 -translate-y-1/2 w-[104%] h-10 sm:h-12 pointer-events-none z-10 overflow-visible"
-        viewBox="0 0 100 20"
-        preserveAspectRatio="none"
-        fill="none"
-        aria-hidden="true"
+      {/* GPU Clip-Path Sweep Container for Authentic Brush Swipe Motion */}
+      <motion.div
+        initial={{ clipPath: 'inset(-10% 105% -10% -5%)' }}
+        animate={{ clipPath: 'inset(-10% -12% -10% -5%)' }}
+        transition={{
+          duration: 0.42,
+          delay: 0.5,
+          ease: [0.16, 1, 0.3, 1],
+        }}
+        className="absolute -left-[4%] top-1/2 w-[108%] h-12 sm:h-14 lg:h-16 pointer-events-none z-10 overflow-visible mix-blend-multiply dark:mix-blend-lighten"
+        style={{ transform: 'translateY(-48%) rotate(-2.5deg)' }}
       >
-        <defs>
-          <linearGradient id="paintbrush-pink-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#FF7597" />
-            <stop offset="35%" stopColor="#FF527B" />
-            <stop offset="70%" stopColor="#E8615A" />
-            <stop offset="100%" stopColor="#FF3366" />
-          </linearGradient>
+        <svg
+          className="w-full h-full overflow-visible"
+          viewBox="0 0 1000 60"
+          preserveAspectRatio="none"
+          fill="none"
+          aria-hidden="true"
+        >
+          <defs>
+            {/* Vivid Hot Pink Acrylic Paint Gradient */}
+            <linearGradient id="brush-pink-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#FF6B95" />
+              <stop offset="25%" stopColor="#FF2E63" />
+              <stop offset="65%" stopColor="#FF004D" />
+              <stop offset="90%" stopColor="#FF1A53" />
+              <stop offset="100%" stopColor="#D60036" />
+            </linearGradient>
 
-          {/* Paint Brush Edge Softness & Depth */}
-          <filter id="paintbrush-glow" x="-10%" y="-30%" width="120%" height="160%">
-            <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#FF527B" floodOpacity="0.45" />
-          </filter>
-        </defs>
+            {/* Organic Paint Brush Bristle Edge Texture */}
+            <filter id="brush-edge-filter" x="-10%" y="-30%" width="120%" height="160%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035 0.5" numOctaves="3" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G" />
+              <feDropShadow dx="0" dy="2.5" stdDeviation="4" floodColor="#FF004D" floodOpacity="0.45" />
+            </filter>
+          </defs>
 
-        {/* 1. Base Dense Acrylic Paint Body (Thick 15px core spanning full 0% to 100% width) */}
-        <motion.path
-          d="M -1 11 C 30 10.8, 70 9.8, 102 9.5"
-          stroke="url(#paintbrush-pink-grad)"
-          className="stroke-[#FF527B] dark:stroke-[#FF7597]"
-          strokeWidth="15"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          filter="url(#paintbrush-glow)"
-          vectorEffect="non-scaling-stroke"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 0.95 }}
-          transition={{
-            pathLength: { duration: 0.38, delay: 0.55, ease: [0.16, 1, 0.3, 1] },
-            opacity: { duration: 0.08, delay: 0.55 },
-          }}
-        />
+          {/* Textured Brush Group with True Acrylic Density */}
+          <g filter="url(#brush-edge-filter)">
+            {/* 1. Heavy Acrylic Paint Ribbon (Variable 24-34px height covering the full words) */}
+            <path
+              d="M -12, 30
+                 C 140, 22, 320, 18, 500, 19
+                 C 680, 20, 840, 23, 960, 26
+                 C 990, 27, 1015, 29, 1032, 31
+                 C 1015, 34, 975, 36, 940, 38
+                 C 980, 41, 1015, 45, 1030, 48
+                 C 990, 49, 930, 48, 880, 47
+                 C 700, 45, 500, 43, 300, 42
+                 C 150, 41, 20, 38, -14, 34 Z"
+              fill="url(#brush-pink-grad)"
+              opacity="0.9"
+            />
 
-        {/* 2. Core Saturated Paint Fill (Reinforces dense pigment) */}
-        <motion.path
-          d="M 0 10.5 C 32 10.5, 68 9.5, 101 9.5"
-          stroke="url(#paintbrush-pink-grad)"
-          className="stroke-[#FF527B] dark:stroke-[#FF7597]"
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 1 }}
-          transition={{
-            pathLength: { duration: 0.35, delay: 0.57, ease: [0.16, 1, 0.3, 1] },
-            opacity: { duration: 0.08, delay: 0.57 },
-          }}
-        />
+            {/* 2. Dense Core Pigment Ridge (Solidifies coverage across center) */}
+            <path
+              d="M -8, 32 C 250, 26, 550, 27, 850, 30 C 940, 31, 1000, 34, 1028, 37"
+              stroke="#FF004D"
+              strokeWidth="16"
+              strokeLinecap="round"
+              opacity="0.9"
+            />
 
-        {/* 3. Painterly Bottom Bristle Edge */}
-        <motion.path
-          d="M 2 12.5 C 35 12, 72 11, 100 10.5"
-          stroke="url(#paintbrush-pink-grad)"
-          className="stroke-[#FF527B] dark:stroke-[#FF7597]"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeOpacity="0.8"
-          vectorEffect="non-scaling-stroke"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 0.8 }}
-          transition={{
-            pathLength: { duration: 0.3, delay: 0.65, ease: [0.22, 1, 0.36, 1] },
-            opacity: { duration: 0.08, delay: 0.65 },
-          }}
-        />
-      </svg>
+            {/* 3. Top Bristle Highlight Strand */}
+            <path
+              d="M 5, 21 C 220, 17, 500, 18, 780, 21 C 880, 22, 960, 25, 1020, 29"
+              stroke="#FFA8BC"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              opacity="0.8"
+            />
+
+            {/* 4. Bottom Wet Edge Strand */}
+            <path
+              d="M 8, 41 C 230, 41, 520, 41, 810, 40 C 910, 39, 980, 38, 1022, 37"
+              stroke="#FF2E63"
+              strokeWidth="3"
+              strokeLinecap="round"
+              opacity="0.8"
+            />
+
+            {/* 5. Painterly Dry-Brush Flicks Extending Past 'screenshots.' */}
+            <path
+              d="M 920, 23 C 960, 25, 1000, 28, 1042, 31"
+              stroke="#FFA8BC"
+              strokeWidth="2"
+              strokeLinecap="round"
+              opacity="0.95"
+            />
+            <path
+              d="M 910, 34 C 955, 36, 1000, 39, 1048, 41"
+              stroke="#FF004D"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              opacity="0.95"
+            />
+
+            {/* 6. Authentic Micro Paint Splatters at the Release Point */}
+            <circle cx="1052" cy="31" r="2.4" fill="#FF2E63" opacity="0.9" />
+            <circle cx="1060" cy="38" r="1.8" fill="#FF004D" opacity="0.85" />
+          </g>
+        </svg>
+      </motion.div>
     </span>
   );
 }
