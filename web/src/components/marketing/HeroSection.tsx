@@ -82,51 +82,51 @@ function KineticSlashedTerm() {
         not in screenshots.
       </motion.span>
 
-      {/* Dense Paint Brush Slash (Spans Complete Words with Layered Acrylic Bristle Texture) */}
+      {/* Dense Paint Brush Slash (Completely Covers All Words Especially 'screenshots.') */}
       <svg
-        className="absolute -left-[2%] -top-[15%] w-[104%] h-[130%] pointer-events-none z-10 overflow-visible"
-        viewBox="0 0 300 50"
+        className="absolute -left-[4%] top-1/2 -translate-y-1/2 w-[110%] h-[150%] pointer-events-none z-10 overflow-visible"
+        viewBox="0 0 360 40"
         fill="none"
         aria-hidden="true"
       >
         <defs>
           <linearGradient id="paintbrush-pink-grad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#FF7597" />
-            <stop offset="45%" stopColor="#FF527B" />
-            <stop offset="85%" stopColor="#E8615A" />
-            <stop offset="100%" stopColor="#D9383A" />
+            <stop offset="40%" stopColor="#FF527B" />
+            <stop offset="75%" stopColor="#E8615A" />
+            <stop offset="100%" stopColor="#FF3366" />
           </linearGradient>
 
           {/* Paint Brush Edge Softness & Depth */}
-          <filter id="paintbrush-glow" x="-10%" y="-10%" width="120%" height="120%">
-            <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#FF527B" floodOpacity="0.35" />
+          <filter id="paintbrush-glow" x="-10%" y="-20%" width="120%" height="140%">
+            <feDropShadow dx="0" dy="1.5" stdDeviation="2" floodColor="#FF527B" floodOpacity="0.4" />
           </filter>
         </defs>
 
-        {/* 1. Base Dense Paint Body (Thick acrylic core, spans x: 0 to 300 across complete phrase) */}
+        {/* 1. Base Dense Acrylic Paint Body (Thick 14px core covering full x-height from 'not' through 'screenshots.') */}
         <motion.path
-          d="M 2 38 C 70 30, 180 18, 298 7"
+          d="M 4 25 C 100 23, 240 20, 356 18"
           stroke="url(#paintbrush-pink-grad)"
           className="stroke-[#FF527B] dark:stroke-[#FF7597]"
-          strokeWidth="8.5"
+          strokeWidth="14"
           strokeLinecap="round"
           strokeLinejoin="round"
           filter="url(#paintbrush-glow)"
           vectorEffect="non-scaling-stroke"
           initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 0.92 }}
+          animate={{ pathLength: 1, opacity: 0.95 }}
           transition={{
             pathLength: { duration: 0.38, delay: 0.55, ease: [0.16, 1, 0.3, 1] },
             opacity: { duration: 0.08, delay: 0.55 },
           }}
         />
 
-        {/* 2. Core Saturated Paint Fill (Slightly narrower for rich paint density) */}
+        {/* 2. Core Saturated Paint Fill (Reinforces dense pigment across the full width) */}
         <motion.path
-          d="M 6 36 C 72 29, 178 17, 294 8"
+          d="M 8 22 C 110 22, 250 21, 352 21"
           stroke="url(#paintbrush-pink-grad)"
           className="stroke-[#FF527B] dark:stroke-[#FF7597]"
-          strokeWidth="5.0"
+          strokeWidth="8"
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
@@ -138,11 +138,11 @@ function KineticSlashedTerm() {
           }}
         />
 
-        {/* 3. Top Dry-Brush Bristle Streak (Adds authentic bristle texture) */}
+        {/* 3. Top Dry-Brush Bristle Streak (Authentic painterly texture across all letters) */}
         <motion.path
-          d="M 14 31 C 82 24, 186 14, 290 5"
+          d="M 12 17 C 115 17, 245 15, 348 14"
           stroke="#FFFFFF"
-          strokeWidth="1.8"
+          strokeWidth="2.4"
           strokeLinecap="round"
           strokeOpacity="0.45"
           vectorEffect="non-scaling-stroke"
@@ -154,17 +154,17 @@ function KineticSlashedTerm() {
           }}
         />
 
-        {/* 4. Bottom Secondary Scratch (Parallel painterly flick across midline) */}
+        {/* 4. Bottom Wet Paint Bristle Edge (Ensures bottom of 'screenshots' is solidly covered) */}
         <motion.path
-          d="M 18 28 C 95 26, 195 21, 286 19"
+          d="M 10 28 C 120 26, 260 24, 350 23"
           stroke="url(#paintbrush-pink-grad)"
           className="stroke-[#FF527B] dark:stroke-[#FF7597]"
-          strokeWidth="3.2"
+          strokeWidth="4.5"
           strokeLinecap="round"
-          strokeOpacity="0.75"
+          strokeOpacity="0.8"
           vectorEffect="non-scaling-stroke"
           initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 0.75 }}
+          animate={{ pathLength: 1, opacity: 0.8 }}
           transition={{
             pathLength: { duration: 0.3, delay: 0.66, ease: [0.22, 1, 0.36, 1] },
             opacity: { duration: 0.08, delay: 0.66 },
