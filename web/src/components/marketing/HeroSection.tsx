@@ -28,12 +28,11 @@ interface SandboxPin {
 }
 
 /**
- * Kinetic Slashed Headline Term (Top 1% Editorial Motion Design)
- * Multi-layer Choreography:
- * - Floating badge positioned cleanly ABOVE the text with zero letterform overlap
- * - High-contrast crisp typography in dark & light themes (opacity: 0.85)
- * - Calibrated SVG slash bounds with zero stray overhangs
- * - Interactive: Click to replay sequence anytime
+ * Kinetic Slashed Headline Term
+ * - Dense acrylic paint brush stroke spanning 100% of 'not in screenshots.'
+ * - preserveAspectRatio='none' guarantees full word coverage across all viewports
+ * - 'never again' micro-badge completely removed
+ * - Text in #7C97FF periwinkle indigo with hot pink paint brush strike
  */
 function KineticSlashedTerm() {
   const [replayKey, setReplayKey] = useState(0);
@@ -45,26 +44,7 @@ function KineticSlashedTerm() {
       className="relative block sm:inline-block whitespace-nowrap mt-2 sm:mt-0 cursor-pointer select-none group/slash align-baseline"
       title="Click to replay slash animation"
     >
-      {/* Floating Micro-Badge - Positioned safely ABOVE the text without overlapping letterforms */}
-      <motion.span
-        initial={{ scale: 0, opacity: 0, y: 8, rotate: -10 }}
-        animate={{ scale: 1, opacity: 1, y: 0, rotate: -3 }}
-        whileHover={{ scale: 1.08, rotate: -1, y: -2 }}
-        transition={{
-          type: 'spring',
-          stiffness: 450,
-          damping: 16,
-          delay: 0.85,
-        }}
-        className="absolute -top-7 sm:-top-8.5 right-0 pointer-events-none z-20 select-none"
-      >
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF527B] text-white text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm border border-white/20 dark:border-white/10">
-          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-          <span>never again</span>
-        </span>
-      </motion.span>
-
-      {/* Slashed Headline Text with #7C97FF Color & Subtle Physical Recoil */}
+      {/* Slashed Headline Text with #7C97FF Color */}
       <motion.span
         initial={{ opacity: 1 }}
         animate={{
@@ -82,33 +62,34 @@ function KineticSlashedTerm() {
         not in screenshots.
       </motion.span>
 
-      {/* Dense Paint Brush Slash (Completely Covers All Words Especially 'screenshots.') */}
+      {/* Dense Paint Brush Slash (Spans 100% from before 'not' to past the end of 'screenshots.') */}
       <svg
-        className="absolute -left-[4%] top-1/2 -translate-y-1/2 w-[110%] h-[150%] pointer-events-none z-10 overflow-visible"
-        viewBox="0 0 360 40"
+        className="absolute -left-[2%] top-1/2 -translate-y-1/2 w-[104%] h-10 sm:h-12 pointer-events-none z-10 overflow-visible"
+        viewBox="0 0 100 20"
+        preserveAspectRatio="none"
         fill="none"
         aria-hidden="true"
       >
         <defs>
           <linearGradient id="paintbrush-pink-grad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#FF7597" />
-            <stop offset="40%" stopColor="#FF527B" />
-            <stop offset="75%" stopColor="#E8615A" />
+            <stop offset="35%" stopColor="#FF527B" />
+            <stop offset="70%" stopColor="#E8615A" />
             <stop offset="100%" stopColor="#FF3366" />
           </linearGradient>
 
           {/* Paint Brush Edge Softness & Depth */}
-          <filter id="paintbrush-glow" x="-10%" y="-20%" width="120%" height="140%">
-            <feDropShadow dx="0" dy="1.5" stdDeviation="2" floodColor="#FF527B" floodOpacity="0.4" />
+          <filter id="paintbrush-glow" x="-10%" y="-30%" width="120%" height="160%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#FF527B" floodOpacity="0.45" />
           </filter>
         </defs>
 
-        {/* 1. Base Dense Acrylic Paint Body (Thick 14px core covering full x-height from 'not' through 'screenshots.') */}
+        {/* 1. Base Dense Acrylic Paint Body (Thick 15px core spanning full 0% to 100% width) */}
         <motion.path
-          d="M 4 25 C 100 23, 240 20, 356 18"
+          d="M -1 11 C 30 10.8, 70 9.8, 102 9.5"
           stroke="url(#paintbrush-pink-grad)"
           className="stroke-[#FF527B] dark:stroke-[#FF7597]"
-          strokeWidth="14"
+          strokeWidth="15"
           strokeLinecap="round"
           strokeLinejoin="round"
           filter="url(#paintbrush-glow)"
@@ -121,53 +102,37 @@ function KineticSlashedTerm() {
           }}
         />
 
-        {/* 2. Core Saturated Paint Fill (Reinforces dense pigment across the full width) */}
+        {/* 2. Core Saturated Paint Fill (Reinforces dense pigment) */}
         <motion.path
-          d="M 8 22 C 110 22, 250 21, 352 21"
+          d="M 0 10.5 C 32 10.5, 68 9.5, 101 9.5"
           stroke="url(#paintbrush-pink-grad)"
           className="stroke-[#FF527B] dark:stroke-[#FF7597]"
-          strokeWidth="8"
+          strokeWidth="9"
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
           initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 0.98 }}
+          animate={{ pathLength: 1, opacity: 1 }}
           transition={{
             pathLength: { duration: 0.35, delay: 0.57, ease: [0.16, 1, 0.3, 1] },
             opacity: { duration: 0.08, delay: 0.57 },
           }}
         />
 
-        {/* 3. Top Dry-Brush Bristle Streak (Authentic painterly texture across all letters) */}
+        {/* 3. Painterly Bottom Bristle Edge */}
         <motion.path
-          d="M 12 17 C 115 17, 245 15, 348 14"
-          stroke="#FFFFFF"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeOpacity="0.45"
-          vectorEffect="non-scaling-stroke"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 0.45 }}
-          transition={{
-            pathLength: { duration: 0.32, delay: 0.62, ease: [0.22, 1, 0.36, 1] },
-            opacity: { duration: 0.08, delay: 0.62 },
-          }}
-        />
-
-        {/* 4. Bottom Wet Paint Bristle Edge (Ensures bottom of 'screenshots' is solidly covered) */}
-        <motion.path
-          d="M 10 28 C 120 26, 260 24, 350 23"
+          d="M 2 12.5 C 35 12, 72 11, 100 10.5"
           stroke="url(#paintbrush-pink-grad)"
           className="stroke-[#FF527B] dark:stroke-[#FF7597]"
-          strokeWidth="4.5"
+          strokeWidth="5"
           strokeLinecap="round"
           strokeOpacity="0.8"
           vectorEffect="non-scaling-stroke"
           initial={{ pathLength: 0, opacity: 0 }}
           animate={{ pathLength: 1, opacity: 0.8 }}
           transition={{
-            pathLength: { duration: 0.3, delay: 0.66, ease: [0.22, 1, 0.36, 1] },
-            opacity: { duration: 0.08, delay: 0.66 },
+            pathLength: { duration: 0.3, delay: 0.65, ease: [0.22, 1, 0.36, 1] },
+            opacity: { duration: 0.08, delay: 0.65 },
           }}
         />
       </svg>
