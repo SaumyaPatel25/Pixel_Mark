@@ -58,17 +58,17 @@ function KineticSlashedTerm() {
         }}
         className="absolute -top-7 sm:-top-8.5 right-0 pointer-events-none z-20 select-none"
       >
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#E8615A] dark:bg-[#E8615A] text-white text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm border border-white/20 dark:border-white/10">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF527B] text-white text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm border border-white/20 dark:border-white/10">
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
           <span>never again</span>
         </span>
       </motion.span>
 
-      {/* Slashed Headline Text with High-Contrast Typography & Subtle Physical Recoil */}
+      {/* Slashed Headline Text with #7C97FF Color & Subtle Physical Recoil */}
       <motion.span
         initial={{ opacity: 1 }}
         animate={{
-          opacity: 0.85,
+          opacity: 0.9,
           y: [0, -1, 2, -0.5, 0],
           rotate: [0, 0.4, -1, 0.3, 0],
         }}
@@ -77,12 +77,12 @@ function KineticSlashedTerm() {
           y: { duration: 0.35, delay: 0.6, times: [0, 0.25, 0.55, 0.8, 1] },
           rotate: { duration: 0.35, delay: 0.6, times: [0, 0.25, 0.55, 0.8, 1] },
         }}
-        className="font-serif italic font-normal text-[#E8615A] dark:text-[#FFA49C] relative z-0 inline-block tracking-tight"
+        className="font-serif italic font-normal text-[#2B4CFF] dark:text-[#7C97FF] relative z-0 inline-block tracking-tight"
       >
         not in screenshots.
       </motion.span>
 
-      {/* Perfectly Calibrated Dual Ink Slash (No Overhanging Stray Paths) */}
+      {/* Perfectly Calibrated Dual Pink Slash (No Overhanging Stray Paths) */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible"
         viewBox="0 0 280 40"
@@ -90,19 +90,19 @@ function KineticSlashedTerm() {
         aria-hidden="true"
       >
         <defs>
-          <linearGradient id="editorial-slash-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#FF6B6B" />
-            <stop offset="60%" stopColor="#E8615A" />
-            <stop offset="100%" stopColor="#D9383A" />
+          <linearGradient id="editorial-slash-pink-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#FF7597" />
+            <stop offset="50%" stopColor="#FF527B" />
+            <stop offset="100%" stopColor="#E8615A" />
           </linearGradient>
         </defs>
 
-        {/* Primary Assertive Diagonal Slash (Stroke 1) */}
+        {/* Primary Assertive Diagonal Pink Slash (Stroke 1) */}
         <motion.path
           d="M 6 32 C 60 26, 160 16, 274 8"
-          stroke="url(#editorial-slash-grad)"
-          className="dark:stroke-[#FFA49C]"
-          strokeWidth="3.2"
+          stroke="url(#editorial-slash-pink-grad)"
+          className="stroke-[#FF527B] dark:stroke-[#FF7597]"
+          strokeWidth="3.4"
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
@@ -117,9 +117,9 @@ function KineticSlashedTerm() {
         {/* Secondary Parallel Accent (Stroke 2) */}
         <motion.path
           d="M 18 24 C 90 22, 180 19, 266 18"
-          stroke="url(#editorial-slash-grad)"
-          className="dark:stroke-[#FFA49C]"
-          strokeWidth="2.0"
+          stroke="url(#editorial-slash-pink-grad)"
+          className="stroke-[#FF527B] dark:stroke-[#FF7597]"
+          strokeWidth="2.2"
           strokeLinecap="round"
           strokeOpacity="0.75"
           vectorEffect="non-scaling-stroke"
