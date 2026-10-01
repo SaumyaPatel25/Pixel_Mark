@@ -29,13 +29,11 @@ interface SandboxPin {
 
 /**
  * Kinetic Slashed Headline Term (Top 1% Editorial Motion Design)
- * Multi-layer choreographed sequence:
- * - 0.58s: Primary assertive diagonal stroke (Stroke 1) accelerates across
- * - 0.62s: Text recoils physically (scale/y/rotation flinch) and dims to 0.38
- * - 0.70s: Secondary fast scratch (Stroke 2) reinforces the cancellation
- * - 0.82s: Ink lift-off specks pop at stroke terminus
- * - 0.88s: Editorial "never again" micro-pill springs into position with tactile rotation
- * - Fully interactive: Click to replay sequence
+ * Multi-layer Choreography:
+ * - Floating badge positioned cleanly ABOVE the text with zero letterform overlap
+ * - High-contrast crisp typography in dark & light themes (opacity: 0.85)
+ * - Calibrated SVG slash bounds with zero stray overhangs
+ * - Interactive: Click to replay sequence anytime
  */
 function KineticSlashedTerm() {
   const [replayKey, setReplayKey] = useState(0);
@@ -44,114 +42,93 @@ function KineticSlashedTerm() {
     <span
       key={replayKey}
       onClick={() => setReplayKey((k) => k + 1)}
-      className="relative block sm:inline-block whitespace-nowrap mt-1 sm:mt-0 cursor-pointer select-none group/slash align-baseline"
+      className="relative block sm:inline-block whitespace-nowrap mt-2 sm:mt-0 cursor-pointer select-none group/slash align-baseline"
       title="Click to replay slash animation"
     >
-      {/* Editorial Floating Micro-Badge */}
+      {/* Floating Micro-Badge - Positioned safely ABOVE the text without overlapping letterforms */}
       <motion.span
-        initial={{ scale: 0, opacity: 0, y: 10, rotate: -12 }}
+        initial={{ scale: 0, opacity: 0, y: 8, rotate: -10 }}
         animate={{ scale: 1, opacity: 1, y: 0, rotate: -3 }}
         whileHover={{ scale: 1.08, rotate: -1, y: -2 }}
         transition={{
           type: 'spring',
           stiffness: 450,
           damping: 16,
-          delay: 0.88,
+          delay: 0.85,
         }}
-        className="absolute -top-6 sm:-top-7.5 right-1 sm:right-3 pointer-events-none z-20"
+        className="absolute -top-7 sm:-top-8.5 right-0 pointer-events-none z-20 select-none"
       >
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E8615A] dark:bg-[#FFA49C] text-white dark:text-[#5B1311] text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm ring-2 ring-white dark:ring-[#16141A]">
-          <span className="w-1 h-1 rounded-full bg-white dark:bg-[#5B1311]" />
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#E8615A] dark:bg-[#E8615A] text-white text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm border border-white/20 dark:border-white/10">
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
           <span>never again</span>
         </span>
       </motion.span>
 
-      {/* Slashed Headline Text with Physics Recoil & Permanent Dimming */}
+      {/* Slashed Headline Text with High-Contrast Typography & Subtle Physical Recoil */}
       <motion.span
         initial={{ opacity: 1 }}
         animate={{
-          opacity: 0.38,
-          y: [0, -1, 2.5, -0.6, 0],
-          rotate: [0, 0.5, -1.3, 0.3, 0],
+          opacity: 0.85,
+          y: [0, -1, 2, -0.5, 0],
+          rotate: [0, 0.4, -1, 0.3, 0],
         }}
         transition={{
-          opacity: { duration: 0.35, delay: 0.68 },
-          y: { duration: 0.38, delay: 0.62, times: [0, 0.25, 0.55, 0.8, 1] },
-          rotate: { duration: 0.38, delay: 0.62, times: [0, 0.25, 0.55, 0.8, 1] },
+          opacity: { duration: 0.35, delay: 0.65 },
+          y: { duration: 0.35, delay: 0.6, times: [0, 0.25, 0.55, 0.8, 1] },
+          rotate: { duration: 0.35, delay: 0.6, times: [0, 0.25, 0.55, 0.8, 1] },
         }}
-        className="font-serif italic font-normal text-[#E8615A] dark:text-[#FFA49C] relative z-0 inline-block transition-colors"
+        className="font-serif italic font-normal text-[#E8615A] dark:text-[#FFA49C] relative z-0 inline-block tracking-tight"
       >
         not in screenshots.
       </motion.span>
 
-      {/* Hand-Crafted Dual Ink Slash with Particle Specks */}
+      {/* Perfectly Calibrated Dual Ink Slash (No Overhanging Stray Paths) */}
       <svg
-        className="absolute -left-[4%] -top-[10%] w-[108%] h-[120%] pointer-events-none z-10 overflow-visible"
-        viewBox="0 0 300 50"
+        className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible"
+        viewBox="0 0 280 40"
         fill="none"
-        preserveAspectRatio="none"
         aria-hidden="true"
       >
         <defs>
           <linearGradient id="editorial-slash-grad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#FF6B6B" />
-            <stop offset="50%" stopColor="#E8615A" />
+            <stop offset="60%" stopColor="#E8615A" />
             <stop offset="100%" stopColor="#D9383A" />
           </linearGradient>
         </defs>
 
         {/* Primary Assertive Diagonal Slash (Stroke 1) */}
         <motion.path
-          d="M 4 42 C 65 34, 165 20, 296 9"
+          d="M 6 32 C 60 26, 160 16, 274 8"
           stroke="url(#editorial-slash-grad)"
           className="dark:stroke-[#FFA49C]"
-          strokeWidth="3.8"
+          strokeWidth="3.2"
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
           initial={{ pathLength: 0, opacity: 0 }}
           animate={{ pathLength: 1, opacity: 1 }}
           transition={{
-            pathLength: { duration: 0.36, delay: 0.58, ease: [0.16, 1, 0.3, 1] },
-            opacity: { duration: 0.08, delay: 0.58 },
+            pathLength: { duration: 0.35, delay: 0.55, ease: [0.16, 1, 0.3, 1] },
+            opacity: { duration: 0.08, delay: 0.55 },
           }}
         />
 
-        {/* Secondary Rapid Counter-Scratch (Stroke 2) */}
+        {/* Secondary Parallel Accent (Stroke 2) */}
         <motion.path
-          d="M 16 28 C 95 29, 190 26, 284 27"
+          d="M 18 24 C 90 22, 180 19, 266 18"
           stroke="url(#editorial-slash-grad)"
           className="dark:stroke-[#FFA49C]"
-          strokeWidth="2.4"
+          strokeWidth="2.0"
           strokeLinecap="round"
-          strokeOpacity="0.8"
+          strokeOpacity="0.75"
           vectorEffect="non-scaling-stroke"
           initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 0.8 }}
+          animate={{ pathLength: 1, opacity: 0.75 }}
           transition={{
-            pathLength: { duration: 0.3, delay: 0.7, ease: [0.22, 1, 0.36, 1] },
-            opacity: { duration: 0.08, delay: 0.7 },
+            pathLength: { duration: 0.3, delay: 0.65, ease: [0.22, 1, 0.36, 1] },
+            opacity: { duration: 0.08, delay: 0.65 },
           }}
-        />
-
-        {/* Ink Lift-off Specks */}
-        <motion.circle
-          cx="299"
-          cy="8"
-          r="2.2"
-          className="fill-[#E8615A] dark:fill-[#FFA49C]"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 0.9 }}
-          transition={{ duration: 0.15, delay: 0.82 }}
-        />
-        <motion.circle
-          cx="305"
-          cy="14"
-          r="1.4"
-          className="fill-[#E8615A] dark:fill-[#FFA49C]"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 0.7 }}
-          transition={{ duration: 0.15, delay: 0.86 }}
         />
       </svg>
     </span>
