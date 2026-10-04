@@ -731,12 +731,42 @@
     } catch (e) { return null; }
   }
 
+  // ─── Effective Scroll Helper (Body/HTML/Window/Container Scroll Support) ────
+  function getEffectiveScroll() {
+    try {
+      const doc = document;
+      const docElem = doc?.documentElement;
+      const body = doc?.body;
+      const scrollingElem = doc?.scrollingElement;
+
+      const x = Math.max(
+        window.scrollX || window.pageXOffset || 0,
+        docElem ? docElem.scrollLeft || 0 : 0,
+        body ? body.scrollLeft || 0 : 0,
+        scrollingElem ? scrollingElem.scrollLeft || 0 : 0
+      );
+
+      const y = Math.max(
+        window.scrollY || window.pageYOffset || 0,
+        docElem ? docElem.scrollTop || 0 : 0,
+        body ? body.scrollTop || 0 : 0,
+        scrollingElem ? scrollingElem.scrollTop || 0 : 0
+      );
+
+      return { x, y };
+    } catch (_) {
+      return { x: window.scrollX || 0, y: window.scrollY || 0 };
+    }
+  }
+  window.getEffectiveScroll = getEffectiveScroll;
+
   // ─── Viewport context ─────────────────────────────────────────────────────
   function getViewportContext() {
+    const eff = getEffectiveScroll();
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
       device_pixel_ratio: window.devicePixelRatio,
-      scroll_position: { x: window.scrollX, y: window.scrollY },
+      scroll_position: { x: eff.x, y: eff.y },
       color_scheme: window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
       touch_support: navigator.maxTouchPoints > 0,
     };
@@ -818,8 +848,9 @@
       overlay.style.zIndex = '2147483647';
       overlay.style.boxSizing = 'border-box';
       overlay.style.border = '2px solid #7c3aed';
-      overlay.style.left = (rect.left + window.scrollX) + 'px';
-      overlay.style.top = (rect.top + window.scrollY) + 'px';
+      const effScroll = getEffectiveScroll();
+      overlay.style.left = (rect.left + effScroll.x) + 'px';
+      overlay.style.top = (rect.top + effScroll.y) + 'px';
       overlay.style.width = rect.width + 'px';
       overlay.style.height = rect.height + 'px';
       document.body.appendChild(overlay);
@@ -1725,7 +1756,8 @@
     const touch = (event.touches && event.touches[0]) || (event.changedTouches && event.changedTouches[0]);
     const clickX = event.clientX !== undefined ? event.clientX : (touch ? touch.clientX : 0);
     const clickY = event.clientY !== undefined ? event.clientY : (touch ? touch.clientY : 0);
-    const pageX = Math.round(clickX + window.scrollX), pageY = Math.round(clickY + window.scrollY);
+    const effScroll = getEffectiveScroll();
+    const pageX = Math.round(clickX + effScroll.x), pageY = Math.round(clickY + effScroll.y);
     const viewport = { width: window.innerWidth, height: window.innerHeight };
     const rendererType = window.__STAGE__.rendererType;
     const domCtx = getDOMContext(target);
@@ -1755,8 +1787,8 @@
       page_y: pageY,
       viewport_width: viewport.width,
       viewport_height: viewport.height,
-      scroll_x: window.scrollX,
-      scroll_y: window.scrollY,
+      scroll_x: effScroll.x,
+      scroll_y: effScroll.y,
       css_selector: domCtx.css_selector || null,
       xpath: domCtx.xpath || null,
       element_tag: domCtx.tag_name || null,
@@ -1864,8 +1896,9 @@
       const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       const clickX = e.clientX !== undefined ? e.clientX : (touch ? touch.clientX : 0);
       const clickY = e.clientY !== undefined ? e.clientY : (touch ? touch.clientY : 0);
-      const pageX = Math.round(clickX + window.scrollX);
-      const pageY = Math.round(clickY + window.scrollY);
+      const effScroll = getEffectiveScroll();
+      const pageX = Math.round(clickX + effScroll.x);
+      const pageY = Math.round(clickY + effScroll.y);
       const rendererType = window.__STAGE__.rendererType;
       const isCanvas = target.tagName === "CANVAS";
       const domCtx = getDOMContext(target);
@@ -2171,18 +2204,20 @@
           pageY = pin.click.page_y;
         }
         
-        clientX = pageX - window.scrollX;
-        clientY = pageY - window.scrollY;
+        const effScroll = getEffectiveScroll();
+        clientX = pageX - effScroll.x;
+        clientY = pageY - effScroll.y;
         resolved = true;
         source = "pagexy";
       }
 
+      const effScroll = getEffectiveScroll();
       return {
         id: pin.id,
         clientX: Math.round(clientX),
         clientY: Math.round(clientY),
-        pageX: Math.round(clientX + window.scrollX),
-        pageY: Math.round(clientY + window.scrollY),
+        pageX: Math.round(clientX + effScroll.x),
+        pageY: Math.round(clientY + effScroll.y),
         source: source,
         degraded: degraded
       };
@@ -2342,14 +2377,18 @@
 
   function attachListeners() {
     // Dispatch scroll events to parent so pins can stay anchored to the page
-    window.addEventListener('scroll', () => {
+    const handleScroll = () => {
+      const eff = getEffectiveScroll();
       window.parent.postMessage({
         type: 'STAGE_SCROLL',
-        scrollX: window.scrollX,
-        scrollY: window.scrollY
+        scrollX: eff.x,
+        scrollY: eff.y
       }, '*');
       throttleResolvePins();
-    }, { passive: true, capture: true });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+    document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
 
     let _resizeDebounceTimer = null;
     window.addEventListener('resize', () => {
@@ -2654,6 +2693,7 @@
           screenshotDataUrl = await captureScreenshot(target);
         }
         
+        const effScroll = getEffectiveScroll();
         const payload = {
           id: crypto.randomUUID(),
           session_id: window.__STAGE__.sessionId,
@@ -2661,11 +2701,11 @@
           page_url: getAbsoluteTargetUrl(),
           page_title: document.title,
           created_via: "fallback",
-          click: { page_x: Math.round(window.innerWidth / 2 + window.scrollX), page_y: Math.round(window.innerHeight / 2 + window.scrollY), viewport_x: 0.5, viewport_y: 0.5, client_x: Math.round(window.innerWidth / 2), client_y: Math.round(window.innerHeight / 2) },
+          click: { page_x: Math.round(window.innerWidth / 2 + effScroll.x), page_y: Math.round(window.innerHeight / 2 + effScroll.y), viewport_x: 0.5, viewport_y: 0.5, client_x: Math.round(window.innerWidth / 2), client_y: Math.round(window.innerHeight / 2) },
           displayX: Math.round(window.innerWidth / 2),
             displayY: Math.round(window.innerHeight / 2),
-            pageX: Math.round(window.innerWidth / 2 + window.scrollX),
-            pageY: Math.round(window.innerHeight / 2 + window.scrollY),
+            pageX: Math.round(window.innerWidth / 2 + effScroll.x),
+            pageY: Math.round(window.innerHeight / 2 + effScroll.y),
           viewport_x: Math.round(window.innerWidth / 2),
           viewport_y: Math.round(window.innerHeight / 2),
           canvas_context: canvasCtx,
@@ -2692,8 +2732,8 @@
           pagetitle: document.title,
           displayX: Math.round(window.innerWidth / 2),
             displayY: Math.round(window.innerHeight / 2),
-            pageX: Math.round(window.innerWidth / 2 + window.scrollX),
-            pageY: Math.round(window.innerHeight / 2 + window.scrollY),
+            pageX: Math.round(window.innerWidth / 2 + effScroll.x),
+            pageY: Math.round(window.innerHeight / 2 + effScroll.y),
           viewport_x: Math.round(window.innerWidth / 2),
           viewport_y: Math.round(window.innerHeight / 2),
           element_selector: "visual-canvas-context",
@@ -2924,6 +2964,7 @@
     discoverThreeScene();
     setupNavigationInterceptor();
 
+    const effScroll = getEffectiveScroll();
     console.log("[STAGE PAGELOAD] logicalTargetUrl=" + getAbsoluteTargetUrl());
     window.parent.postMessage({
       type: "STAGE_PAGE_LOAD",
@@ -2931,8 +2972,8 @@
       pageurl: getAbsoluteTargetUrl(),
       title: document.title,
       rendererType: window.__STAGE__.rendererType,
-      scrollX: window.scrollX,
-      scrollY: window.scrollY,
+      scrollX: effScroll.x,
+      scrollY: effScroll.y,
     }, "*");
 
     const currentRenderer = window.__STAGE__.rendererType;

@@ -40,21 +40,53 @@ export function toOverlayPosition(input: { pageLeft: number; pageTop: number }, 
   }
 }
 
+/**
+ * Accurately extracts current scroll coordinates regardless of whether
+ * scrolling is happening on window, html, body, or document.scrollingElement.
+ */
+export function getEffectiveScroll(
+  iframeWindow: Window | null,
+  iframeDocument: Document | null,
+  fallbackScroll?: { x: number; y: number }
+): { x: number; y: number } {
+  let x = fallbackScroll?.x ?? 0
+  let y = fallbackScroll?.y ?? 0
+
+  try {
+    if (iframeWindow) {
+      x = iframeWindow.scrollX || iframeWindow.pageXOffset || x
+      y = iframeWindow.scrollY || iframeWindow.pageYOffset || y
+    }
+  } catch (_) {}
+
+  try {
+    if (iframeDocument) {
+      const docElem = iframeDocument.documentElement
+      const body = iframeDocument.body
+      const scrollingElem = iframeDocument.scrollingElement
+
+      const docElemX = docElem ? (docElem.scrollLeft || 0) : 0
+      const docElemY = docElem ? (docElem.scrollTop || 0) : 0
+      const bodyX = body ? (body.scrollLeft || 0) : 0
+      const bodyY = body ? (body.scrollTop || 0) : 0
+      const scrollingElemX = scrollingElem ? (scrollingElem.scrollLeft || 0) : 0
+      const scrollingElemY = scrollingElem ? (scrollingElem.scrollTop || 0) : 0
+
+      x = Math.max(x, docElemX, bodyX, scrollingElemX)
+      y = Math.max(y, docElemY, bodyY, scrollingElemY)
+    }
+  } catch (_) {}
+
+  return { x, y }
+}
+
 export function resolveMarkerRenderPosition(
   marker: CanonicalMarkerAnchor,
   iframeWindow: Window | null,
   iframeDocument: Document | null
 ): ResolvedMarkerPosition | null {
-  // Safe scroll reading
-  let scrollPos = { x: 0, y: 0 }
-  try {
-    if (iframeWindow) {
-      scrollPos.x = iframeWindow.scrollX ?? 0
-      scrollPos.y = iframeWindow.scrollY ?? 0
-    }
-  } catch (_) {
-    // Cross-origin safe fallback
-  }
+  // Safe effective scroll reading across window, documentElement, body, and scrollingElement
+  const scrollPos = getEffectiveScroll(iframeWindow, iframeDocument)
   
   // Fallback parameters DTO normalization
   const selector = marker.elementSelector || (marker as any).target_selector
@@ -255,15 +287,8 @@ export function computePinScreenPosition(
   const pageLeft = resolved.left
   const pageTop = resolved.top
 
-  // Read current scroll position from iframeWindow if accessible, else fallback to currentScroll
-  let scrollX = currentScroll?.x ?? 0
-  let scrollY = currentScroll?.y ?? 0
-  try {
-    if (iframeWindow) {
-      scrollX = iframeWindow.scrollX ?? scrollX
-      scrollY = iframeWindow.scrollY ?? scrollY
-    }
-  } catch (_) {}
+  // Read current effective scroll position across window, html, body, or fallback
+  const { x: scrollX, y: scrollY } = getEffectiveScroll(iframeWindow, iframeDocument, currentScroll)
 
   let screenX = 0
   let screenY = 0

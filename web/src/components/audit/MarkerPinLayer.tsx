@@ -105,12 +105,15 @@ export function MarkerPinLayer({
 
     // Window & iframe scroll/resize
     window.addEventListener('resize', handleUpdate, { passive: true })
-    window.addEventListener('scroll', handleUpdate, { passive: true })
+    window.addEventListener('scroll', handleUpdate, { passive: true, capture: true })
 
     try {
       if (iframeWin) {
-        iframeWin.addEventListener('scroll', handleUpdate, { passive: true })
+        iframeWin.addEventListener('scroll', handleUpdate, { passive: true, capture: true })
         iframeWin.addEventListener('resize', handleUpdate, { passive: true })
+      }
+      if (iframeDoc) {
+        iframeDoc.addEventListener('scroll', handleUpdate, { passive: true, capture: true })
       }
     } catch (_) {}
 
@@ -199,11 +202,14 @@ export function MarkerPinLayer({
       cancelStabilization()
       if (debouncedTimer) clearTimeout(debouncedTimer)
       window.removeEventListener('resize', handleUpdate)
-      window.removeEventListener('scroll', handleUpdate)
+      window.removeEventListener('scroll', handleUpdate, true as any)
       try {
         if (iframeWin) {
-          iframeWin.removeEventListener('scroll', handleUpdate)
+          iframeWin.removeEventListener('scroll', handleUpdate, true as any)
           iframeWin.removeEventListener('resize', handleUpdate)
+        }
+        if (iframeDoc) {
+          iframeDoc.removeEventListener('scroll', handleUpdate, true as any)
         }
       } catch (_) {}
       iframeNode.removeEventListener('load', handleLoad)

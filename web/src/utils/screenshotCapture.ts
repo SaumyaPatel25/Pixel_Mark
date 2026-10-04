@@ -1,4 +1,5 @@
 import html2canvas from 'html2canvas';
+import { getEffectiveScroll } from '@/lib/markerPlacement';
 
 export interface CropRect {
   x: number;
@@ -378,8 +379,9 @@ export async function captureScreenshotForTarget(
   const doc = target.ownerDocument || document;
   const win = doc.defaultView || window;
 
-  const scrollX = win.scrollX || win.pageXOffset || 0;
-  const scrollY = win.scrollY || win.pageYOffset || 0;
+  const effScroll = getEffectiveScroll(win, doc);
+  const scrollX = effScroll.x;
+  const scrollY = effScroll.y;
   const pageX = rect.left + scrollX;
   const pageY = rect.top + scrollY;
 

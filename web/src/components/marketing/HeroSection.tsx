@@ -86,24 +86,24 @@ function KineticSlashedTerm() {
           aria-hidden="true"
         >
           <defs>
-            {/* Vivid Hot Pink Acrylic Paint Gradient */}
+            {/* User Requested #FFA49C Acrylic Paint Gradient */}
             <linearGradient id="brush-pink-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#FF6B95" />
-              <stop offset="25%" stopColor="#FF2E63" />
-              <stop offset="65%" stopColor="#FF004D" />
-              <stop offset="90%" stopColor="#FF1A53" />
-              <stop offset="100%" stopColor="#D60036" />
+              <stop offset="0%" stopColor="#FFB8B1" />
+              <stop offset="25%" stopColor="#FFA49C" />
+              <stop offset="65%" stopColor="#FF9186" />
+              <stop offset="85%" stopColor="#FFA49C" />
+              <stop offset="100%" stopColor="#FF8477" />
             </linearGradient>
 
-            {/* Organic Paint Brush Bristle Edge Texture */}
+            {/* Organic Paint Brush Bristle Edge Texture with #FFA49C Tone */}
             <filter id="brush-edge-filter" x="-10%" y="-30%" width="120%" height="160%">
               <feTurbulence type="fractalNoise" baseFrequency="0.035 0.5" numOctaves="3" result="noise" />
               <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G" />
-              <feDropShadow dx="0" dy="2.5" stdDeviation="4" floodColor="#FF004D" floodOpacity="0.45" />
+              <feDropShadow dx="0" dy="2.5" stdDeviation="4" floodColor="#FFA49C" floodOpacity="0.45" />
             </filter>
           </defs>
 
-          {/* Textured Brush Group with True Acrylic Density */}
+          {/* Textured Brush Group with True Acrylic Density in #FFA49C */}
           <g filter="url(#brush-edge-filter)">
             {/* 1. Heavy Acrylic Paint Ribbon (Variable 24-34px height covering the full words) */}
             <path
@@ -117,13 +117,13 @@ function KineticSlashedTerm() {
                  C 700, 45, 500, 43, 300, 42
                  C 150, 41, 20, 38, -14, 34 Z"
               fill="url(#brush-pink-grad)"
-              opacity="0.9"
+              opacity="0.92"
             />
 
-            {/* 2. Dense Core Pigment Ridge (Solidifies coverage across center) */}
+            {/* 2. Dense Core Pigment Ridge in #FFA49C */}
             <path
               d="M -8, 32 C 250, 26, 550, 27, 850, 30 C 940, 31, 1000, 34, 1028, 37"
-              stroke="#FF004D"
+              stroke="#FFA49C"
               strokeWidth="16"
               strokeLinecap="round"
               opacity="0.9"
@@ -132,40 +132,40 @@ function KineticSlashedTerm() {
             {/* 3. Top Bristle Highlight Strand */}
             <path
               d="M 5, 21 C 220, 17, 500, 18, 780, 21 C 880, 22, 960, 25, 1020, 29"
-              stroke="#FFA8BC"
+              stroke="#FFE0DC"
               strokeWidth="2.5"
               strokeLinecap="round"
-              opacity="0.8"
+              opacity="0.85"
             />
 
             {/* 4. Bottom Wet Edge Strand */}
             <path
               d="M 8, 41 C 230, 41, 520, 41, 810, 40 C 910, 39, 980, 38, 1022, 37"
-              stroke="#FF2E63"
+              stroke="#FF8E84"
               strokeWidth="3"
               strokeLinecap="round"
-              opacity="0.8"
+              opacity="0.85"
             />
 
             {/* 5. Painterly Dry-Brush Flicks Extending Past 'screenshots.' */}
             <path
               d="M 920, 23 C 960, 25, 1000, 28, 1042, 31"
-              stroke="#FFA8BC"
+              stroke="#FFE0DC"
               strokeWidth="2"
               strokeLinecap="round"
               opacity="0.95"
             />
             <path
               d="M 910, 34 C 955, 36, 1000, 39, 1048, 41"
-              stroke="#FF004D"
+              stroke="#FFA49C"
               strokeWidth="2.5"
               strokeLinecap="round"
               opacity="0.95"
             />
 
             {/* 6. Authentic Micro Paint Splatters at the Release Point */}
-            <circle cx="1052" cy="31" r="2.4" fill="#FF2E63" opacity="0.9" />
-            <circle cx="1060" cy="38" r="1.8" fill="#FF004D" opacity="0.85" />
+            <circle cx="1052" cy="31" r="2.4" fill="#FFA49C" opacity="0.9" />
+            <circle cx="1060" cy="38" r="1.8" fill="#FF8E84" opacity="0.85" />
           </g>
         </svg>
       </motion.div>
