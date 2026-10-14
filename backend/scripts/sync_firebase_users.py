@@ -179,92 +179,42 @@ async def sync_all():
             last_login_at = parse_date(item["last_login_str"])
             uid = item["uid"]
 
-            # Check if user already exists
-            user_res = await db.execute(select(User).where(func.lower(User.email) == email))
-            user = user_res.scalar_one_or_none()
-
-            display_name = email.split("@")[0].replace(".", " ").capitalize()
-
-            if not user:
-                user = User(
-                    id=str(uuid.uuid4()),
-                    email=email,
-                    name=display_name,
-                    hashed_password="firebase_auth_managed",
-                    is_verified=True,
-                    created_at=created_at,
-                    last_login_at=last_login_at
-                )
-                db.add(user)
-                await db.flush()
-
-                # Create personal workspace organization
-                org = Organization(
-                    id=str(uuid.uuid4()),
-                    name=f"{display_name}'s Workspace",
-                    slug=f"org-{str(uuid.uuid4())[:8]}",
-                    is_internal=("entrext.com" in email)
-                )
-                db.add(org)
-                await db.flush()
-
-                # Add membership
-                mem = OrgMember(
-                    id=str(uuid.uuid4()),
-                    org_id=org.id,
-                    user_id=user.id,
-                    role=RoleEnum.owner
-                )
-                db.add(mem)
-
-                # Default free subscription
-                sub = SubscriptionModel(
-                    id=str(uuid.uuid4()),
-                    org_id=org.id,
-                    plan_type="stage_team" if ("entrext.com" in email or "saumya" in email) else "none",
-                    status="active",
-                    plan_source="auto_synced",
-                    seats_allowed=10 if ("entrext.com" in email or "saumya" in email) else 1,
-                    projects_allowed=10 if ("entrext.com" in email or "saumya" in email) else 1
-                )
-                db.add(sub)
-
-                # Identity record
-                ident = UserIdentity(
-                    id=str(uuid.uuid4()),
-                    user_id=user.id,
-                    provider="firebase",
-                    provider_user_id=uid,
-                    provider_email=email,
-                    email_verified=True
-                )
-                db.add(ident)
-                synced_count += 1
-            else:
-                # Update existing user timestamps if from Firebase
-                user.created_at = created_at
-                user.last_login_at = last_login_at
-                user.is_verified = True
-                if not user.name:
-                    user.name = display_name
-                db.add(user)
-
-                # Ensure identity exists
-                ident_res = await db.execute(select(UserIdentity).where(UserIdentity.user_id == user.id))
-                if not ident_res.scalars().first():
-                    ident = UserIdentity(
-                        id=str(uuid.uuid4()),
-                        user_id=user.id,
-                        provider="firebase",
-                        provider_user_id=uid,
-                        provider_email=email,
-                        email_verified=True
+            try:
+                # 1. Check if identity already exists by firebase uid
+                ident_res = await db.execute(
+                    select(UserIdentity).where(
+                        UserIdentity.provider == "firebase",
+                        UserIdentity.provider_user_id == uid
                     )
-                    db.add(ident)
+                )
+                existing_ident = ident_res.scalars().first()
 
-                # Ensure org exists
-                mem_res = await db.execute(select(OrgMember).where(OrgMember.user_id == user.id))
-                if not mem_res.scalar_one_or_none():
+                user = None
+                if existing_ident:
+                    user_res = await db.execute(select(User).where(User.id == existing_ident.user_id))
+                    user = user_res.scalar_one_or_none()
+
+                # 2. Check if user already exists by email if not found by identity
+                if not user:
+                    user_res = await db.execute(select(User).where(func.lower(User.email) == email))
+                    user = user_res.scalar_one_or_none()
+
+                display_name = email.split("@")[0].replace(".", " ").capitalize()
+
+                if not user:
+                    user = User(
+                        id=str(uuid.uuid4()),
+                        email=email,
+                        name=display_name,
+                        hashed_password="firebase_auth_managed",
+                        is_verified=True,
+                        created_at=created_at,
+                        last_login_at=last_login_at
+                    )
+                    db.add(user)
+                    await db.flush()
+
+                    # Create personal workspace organization
                     org = Organization(
                         id=str(uuid.uuid4()),
                         name=f"{display_name}'s Workspace",
@@ -273,6 +223,8 @@ async def sync_all():
                     )
                     db.add(org)
                     await db.flush()
+
+                    # Add membership
                     mem = OrgMember(
                         id=str(uuid.uuid4()),
                         org_id=org.id,
@@ -281,9 +233,83 @@ async def sync_all():
                     )
                     db.add(mem)
 
-                updated_count += 1
+                    # Default free subscription
+                    sub = SubscriptionModel(
+                        id=str(uuid.uuid4()),
+                        org_id=org.id,
+                        plan_type="stage_team" if ("entrext.com" in email or "saumya" in email) else "none",
+                        status="active",
+                        plan_source="auto_synced",
+                        seats_allowed=10 if ("entrext.com" in email or "saumya" in email) else 1,
+                        projects_allowed=10 if ("entrext.com" in email or "saumya" in email) else 1
+                    )
+                    db.add(sub)
 
-        await db.commit()
+                    if not existing_ident:
+                        ident = UserIdentity(
+                            id=str(uuid.uuid4()),
+                            user_id=user.id,
+                            provider="firebase",
+                            provider_user_id=uid,
+                            provider_email=email,
+                            email_verified=True
+                        )
+                        db.add(ident)
+                    synced_count += 1
+                else:
+                    # Update existing user timestamps if from Firebase
+                    user.created_at = created_at
+                    user.last_login_at = last_login_at
+                    user.is_verified = True
+                    if not user.name:
+                        user.name = display_name
+                    db.add(user)
+
+                    # Ensure identity exists
+                    if not existing_ident:
+                        ident_check = await db.execute(
+                            select(UserIdentity).where(
+                                UserIdentity.provider == "firebase",
+                                UserIdentity.provider_user_id == uid
+                            )
+                        )
+                        if not ident_check.scalars().first():
+                            ident = UserIdentity(
+                                id=str(uuid.uuid4()),
+                                user_id=user.id,
+                                provider="firebase",
+                                provider_user_id=uid,
+                                provider_email=email,
+                                email_verified=True
+                            )
+                            db.add(ident)
+
+                    # Ensure org exists
+                    mem_res = await db.execute(select(OrgMember).where(OrgMember.user_id == user.id))
+                    if not mem_res.scalar_one_or_none():
+                        org = Organization(
+                            id=str(uuid.uuid4()),
+                            name=f"{display_name}'s Workspace",
+                            slug=f"org-{str(uuid.uuid4())[:8]}",
+                            is_internal=("entrext.com" in email)
+                        )
+                        db.add(org)
+                        await db.flush()
+                        mem = OrgMember(
+                            id=str(uuid.uuid4()),
+                            org_id=org.id,
+                            user_id=user.id,
+                            role=RoleEnum.owner
+                        )
+                        db.add(mem)
+
+                    updated_count += 1
+
+                await db.commit()
+            except Exception as e:
+                await db.rollback()
+                print(f"Skipping or error on {email}: {e}")
+
         print(f"Successfully synced! Added: {synced_count} new users, Updated: {updated_count} existing users.")
 
         # Print total users now in DB
