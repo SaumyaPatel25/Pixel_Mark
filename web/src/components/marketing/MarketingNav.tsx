@@ -52,6 +52,7 @@ export default function MarketingNav() {
       badge: 'Free Tier',
       badgePastel: 'bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]'
     },
+    { name: 'Compare', href: '/compare' },
     { name: 'FAQ', href: '/#faq' },
   ];
 

@@ -58,6 +58,11 @@ export default function MarketingFooter() {
                   </Link>
                 </li>
                 <li>
+                  <Link href="/compare" className="hover:text-[#2B4CFF] transition-colors">
+                    Compare & Alternatives
+                  </Link>
+                </li>
+                <li>
                   <Link href="/#faq" className="hover:text-[#2B4CFF] transition-colors">
                     FAQ
                   </Link>

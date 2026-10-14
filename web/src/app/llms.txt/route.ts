@@ -23,6 +23,7 @@ STAGE (hosted at ${seoConfig.siteUrl}) eliminates the friction of web design QA 
 - [Homepage](${seoConfig.siteUrl}/): Product studio overview, interactive 3D sandbox, and instant demo.
 - [Features](${seoConfig.siteUrl}/features): Comprehensive breakdown of DOM annotation, 3D raycasting, and developer inspection workflows.
 - [Pricing](${seoConfig.siteUrl}/pricing): Transparent free-tier and workspace subscription plans for teams.
+- [Competitor Comparison](${seoConfig.siteUrl}/compare): Side-by-side breakdown of STAGE vs. Marker.io, BugHerd, and Figma.
 - [FAQ](${seoConfig.siteUrl}/faq): Answers regarding security, client access, cross-origin compatibility, and API integrations.
 - [API Documentation](${seoConfig.siteUrl}/docs/api): REST API endpoints for session creation, feedback querying, and webhook triggers.
 - [Company](${seoConfig.siteUrl}/company): About Entrext Labs, founder Saumya Patel, and company mission.

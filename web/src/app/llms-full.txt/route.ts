@@ -23,6 +23,7 @@ STAGE (${seoConfig.siteUrl}) is a visual website feedback, design review, and QA
 - Product Overview: ${seoConfig.siteUrl}/product
 - Features & Capabilities: ${seoConfig.siteUrl}/features
 - Transparent Pricing & Plans: ${seoConfig.siteUrl}/pricing
+- Competitor Comparison & Alternatives: ${seoConfig.siteUrl}/compare
 - Developer REST API & Webhooks: ${seoConfig.siteUrl}/docs/api
 - Chrome Browser Extension: ${seoConfig.siteUrl}/chrome-extension
 - Diagnostic System Health: ${seoConfig.siteUrl}/support/diagnostics
