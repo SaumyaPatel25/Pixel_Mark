@@ -83,7 +83,6 @@ export const metadata: Metadata = {
 };
 
 import { Suspense } from "react";
-import { CustomCursor } from "@/components/CustomCursor";
 import { AuthInitializer } from "@/components/AuthInitializer";
 import { ThemeInitializer } from "@/components/ThemeInitializer";
 import { ToastContainer } from "@/components/ui/ToastContainer";
@@ -191,7 +190,6 @@ export default function RootLayout({
         <GoogleAnalytics />
         <AuthInitializer />
         <ThemeInitializer />
-        <CustomCursor />
         <ToastContainer />
         <QueueIndicator />
         <Suspense fallback={null}>

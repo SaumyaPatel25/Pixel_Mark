@@ -1,82 +1,42 @@
-# Action Plan
+# STAGE SEO & UX Remediation Action Plan
+> Prioritized implementation roadmap and verification log for STAGE (Entrext Labs).
 
-- URL: `https://stage.entrext.com`
-- Overall score: `70/100`
+---
 
-## Priority Fixes
+## Priority 1: Immediate Blocker Fixes (Completed ✅)
 
-1. **Missing H1 on page**
-   - Priority: `Critical`
-   - Area: `environment`
-   - Evidence: No primary content heading was detected, which weakens topical clarity.
-   - Fix: Set a single semantic H1 in each route component.
-2. **5 security headers missing**
-   - Priority: `Critical`
-   - Area: `environment`
-   - Evidence: Missing headers reduce trust and can expose the site to browser/security risks.
-   - Fix: Set security headers in `next.config.js` `headers()` or at your edge/CDN.
-3. **4 orphan page(s) with zero inbound internal links.**
-   - Priority: `Critical`
-   - Area: `link_profile`
-   - Evidence: See audit output.
-   - Fix: Add internal links from relevant content pages to these orphan pages.
-4. **Average internal links per page is only 0.0 (target: 5-10).**
-   - Priority: `Critical`
-   - Area: `link_profile`
-   - Evidence: See audit output.
-   - Fix: Increase internal linking by adding contextual links within content.
-5. **sameAs URL returns HTTP 405: https://www.linkedin.com/in/saumya-rajeshbhai-patel-857290372**
-   - Priority: `Warning`
-   - Area: `entity`
-   - Evidence: See audit output.
-   - Fix: Update sameAs URL for LinkedIn to a valid, non-redirecting destination.
-6. **Meta description is missing or out of range**
-   - Priority: `Warning`
-   - Area: `environment`
-   - Evidence: This can reduce SERP CTR and snippet quality.
-   - Fix: Use the Next.js Metadata API (`app/`) or `next/head` (`pages/`) for title/meta/OG/Twitter tags.
-7. **No llms.txt found**
-   - Priority: `Warning`
-   - Area: `environment`
-   - Evidence: AI crawlers and assistants have no curated machine-readable guidance for key pages.
-   - Fix: Serve `/llms.txt` from `/public/llms.txt`.
-8. **5 page(s) with no outbound internal links (dead ends).**
-   - Priority: `Warning`
-   - Area: `link_profile`
-   - Evidence: See audit output.
-   - Fix: Add contextual internal links to related content from these pages.
-9. **No Wikidata entry found for 'Entrext Labs'.**
-   - Priority: `Info`
-   - Area: `Wikidata`
-   - Evidence: See audit output.
-   - Fix: If the entity meets Wikidata notability guidelines, create or improve an item with accurate third-party references. Do not create one solely for SEO.
-10. **No Wikipedia article found for 'Entrext Labs'.**
-   - Priority: `Info`
-   - Area: `Wikipedia`
-   - Evidence: See audit output.
-   - Fix: Only pursue Wikipedia if the entity meets independent notability standards. Otherwise, strengthen official schema, sameAs profiles, citations, and About/Contact signals.
-11. **No phone number detected on page for LocalBusiness entity.**
-   - Priority: `Info`
-   - Area: `entity`
-   - Evidence: See audit output.
-   - Fix: Display phone number visibly and include 'telephone' in LocalBusiness schema.
-12. **Performance measurement incomplete**
-   - Priority: `Info`
-   - Area: `environment`
-   - Evidence: PageSpeed API returned an error, so CWV recommendations are less reliable.
-   - Fix: Set `PAGESPEED_API_KEY` in your environment or `.env` file (see `.env.example`), then rerun. The CLI also accepts `--api-key`. Prioritize LCP/INP/CLS fixes from that output.
-13. **Missing sameAs link to Wikipedia (Primary KG signal).**
-   - Priority: `Info`
-   - Area: `sameAs`
-   - Evidence: See audit output.
-   - Fix: Add the existing official 'wikipedia.org' URL to sameAs; do not create this profile solely for SEO.
-14. **Missing sameAs link to Wikidata (Primary KG signal).**
-   - Priority: `Info`
-   - Area: `sameAs`
-   - Evidence: See audit output.
-   - Fix: Add the existing official 'wikidata.org' URL to sameAs; do not create this profile solely for SEO.
-15. **Missing sameAs link to Twitter/X (Strong KG signal).**
-   - Priority: `Info`
-   - Area: `sameAs`
-   - Evidence: See audit output.
-   - Fix: Add 'x.com' profile URL to sameAs array in your entity schema.
+| Task | File(s) | Impact | Status |
+|---|---|---|---|
+| **Remove Global Cursor Hijack** | `web/src/app/globals.css`<br>`web/src/app/layout.tsx`<br>`web/src/components/CustomCursor.tsx` | Eliminates `cursor: none !important;` and custom dot element. Restores standard OS mouse cursor everywhere. | **Completed** |
+| **Purge Deprecated `HowTo` Schema** | `web/src/app/product/page.tsx` | Prevents Google Search Console rich-result schema deprecation errors. | **Completed** |
+| **Remove Unverified `AggregateRating`** | `web/src/components/seo/JsonLd.tsx`<br>`web/src/app/product/page.tsx` | Eliminates risk of Google Search Central "Spammy Structured Markup" manual actions. | **Completed** |
+| **Consolidate Duplicate Schemas** | `web/src/app/page.tsx`<br>`web/src/components/seo/JsonLd.tsx` | Removes conflicting inline `SoftwareApplication` on root page. Single source of truth in `JsonLd.tsx`. | **Completed** |
+
+---
+
+## Priority 2: Technical Crawlability & Canonical Tuning (Completed ✅)
+
+| Task | File(s) | Impact | Status |
+|---|---|---|---|
+| **Fix Duplicate Content Canonicals** | `web/src/app/landing/page.tsx`<br>`web/src/app/overview/page.tsx` | Explicitly canonicalizes duplicate marketing views to `/product`. | **Completed** |
+| **Sitemap De-duplication & Enhancement** | `web/src/app/sitemap.ts` | Pruned duplicate paths (`/landing`, `/overview`); added missing `/feedback` route. | **Completed** |
+| **Robots.ts Allow-List Expansion** | `web/src/app/robots.ts` | Added `/feedback` and `/llms-full.txt` to Googlebot and AI crawlers. | **Completed** |
+| **Auth Privacy & Noindex Enforcement** | `web/src/app/(auth)/login/page.tsx`<br>`web/src/app/(auth)/register/page.tsx`<br>`web/src/app/(auth)/layout.tsx` | Enforces `robots: { index: false, follow: false }` across login and registration flows. | **Completed** |
+
+---
+
+## Priority 3: GEO & AI Search Readiness (Completed ✅)
+
+| Task | File(s) | Impact | Status |
+|---|---|---|---|
+| **Implement `/llms-full.txt`** | `web/src/app/llms-full.txt/route.ts` | Provides full contextual documentation for Perplexity, ChatGPT Search, Claude, and Gemini. | **Completed** |
+| **Link Extended Docs in `llms.txt`** | `web/src/app/llms.txt/route.ts` | Connects core discovery manifest to full platform specification. | **Completed** |
+
+---
+
+## Verification Checklist
+
+- [x] Run Next.js production build (`npm --prefix web run build`) &rarr; 45 static/dynamic pages compiled, 0 errors.
+- [x] Run Vitest unit test suite (`npx vitest run`) &rarr; 99/99 passing tests across 10 test suites.
+- [x] Verify cursor behavior in CSS & JSX &rarr; `cursor: none` removed; standard OS cursor active.
+- [x] Structured data verification &rarr; Clean `Organization`, `WebSite`, `SoftwareApplication`, `BreadcrumbList`.

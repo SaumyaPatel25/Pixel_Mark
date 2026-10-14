@@ -1064,10 +1064,6 @@ html[data-theme="dark"] .mkt-hero-capability-card[data-accent="shadow-dom"] .mkt
   background: radial-gradient(ellipse 80% 80% at 20% 20%, rgba(232,121,249,0.08) 0%, transparent 70%) !important;
 }
 
-* {
-  cursor: none !important;
-}
-
 /* ─────────────────────────────────────────────────────────────────────────────
    3D BUTTON UTILITY CLASSES
    Premium tactile button interactions — lift, depth shadow, press feedback.

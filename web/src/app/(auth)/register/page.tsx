@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: `${seoConfig.siteUrl}/register`,
   },
+  robots: {
+    index: false,
+    follow: false,
+  },
   openGraph: {
     title: 'Sign Up | STAGE Dashboard',
     description: 'Create your secure STAGE workspace to start visual website feedback, drop pins, and invite reviewers with zero friction.',

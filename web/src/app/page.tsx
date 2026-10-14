@@ -3,15 +3,17 @@ import HomeClient from '@/components/marketing/HomeClient';
 import { seoConfig } from '@/lib/seoConfig';
 
 export const metadata: Metadata = {
-  title: seoConfig.title,
+  title: {
+    absolute: seoConfig.title,
+  },
   description: seoConfig.description,
   alternates: {
-    canonical: `${seoConfig.siteUrl}/`,
+    canonical: `${seoConfig.siteUrl}`,
   },
   openGraph: {
     title: seoConfig.title,
     description: seoConfig.description,
-    url: `${seoConfig.siteUrl}/`,
+    url: `${seoConfig.siteUrl}`,
     siteName: 'STAGE',
     images: [
       {
@@ -35,44 +37,5 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "STAGE",
-    "operatingSystem": "Web, Windows, macOS, Linux",
-    "applicationCategory": "DeveloperApplication",
-    "applicationSubCategory": "Visual Website Feedback Software",
-    "description": "Visual website feedback with one review link. Clients and teammates pin comments and bug reports on your live site, including 3D pages. No install.",
-    "url": seoConfig.siteUrl,
-    "author": {
-      "@type": "Organization",
-      "name": seoConfig.company,
-      "url": seoConfig.siteUrl
-    },
-    "featureList": [
-      "Pin comments on live web pages",
-      "Instant client review links without logins",
-      "Automated screenshot and element telemetry",
-      "Works on live and public staging websites",
-      "Send comments directly to GitHub issues",
-      "Phone and desktop viewport review modes"
-    ],
-    "offers": {
-      "@type": "AggregateOffer",
-      "priceCurrency": "USD",
-      "lowPrice": "0",
-      "highPrice": "29",
-      "offerCount": "3"
-    }
-  };
-
-  return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <HomeClient />
-    </>
-  );
+  return <HomeClient />;
 }

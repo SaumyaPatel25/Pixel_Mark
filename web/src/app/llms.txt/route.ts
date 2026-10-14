@@ -19,6 +19,7 @@ STAGE (hosted at ${seoConfig.siteUrl}) eliminates the friction of web design QA 
 - **Engineering Task Export**: One-click export to GitHub-ready Markdown checklists, Linear issues, and structured CSV reports.
 
 ## Primary Documentation & Entry Points
+- [Full Documentation Context](${seoConfig.siteUrl}/llms-full.txt): Complete technical specification and full platform reference.
 - [Homepage](${seoConfig.siteUrl}/): Product studio overview, interactive 3D sandbox, and instant demo.
 - [Features](${seoConfig.siteUrl}/features): Comprehensive breakdown of DOM annotation, 3D raycasting, and developer inspection workflows.
 - [Pricing](${seoConfig.siteUrl}/pricing): Transparent free-tier and workspace subscription plans for teams.

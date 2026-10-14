@@ -19,7 +19,9 @@ export default function robots(): MetadataRoute.Robots {
           '/faq',
           '/company',
           '/getting-started',
+          '/feedback',
           '/llms.txt',
+          '/llms-full.txt',
           '/site.webmanifest'
         ],
         disallow: [
@@ -64,7 +66,9 @@ export default function robots(): MetadataRoute.Robots {
           '/faq',
           '/company',
           '/getting-started',
+          '/feedback',
           '/llms.txt',
+          '/llms-full.txt',
           '/site.webmanifest'
         ],
         disallow: [
@@ -89,7 +93,8 @@ export default function robots(): MetadataRoute.Robots {
           '/docs/api',
           '/faq',
           '/company',
-          '/llms.txt'
+          '/llms.txt',
+          '/llms-full.txt'
         ],
         disallow: [
           '/dashboard',

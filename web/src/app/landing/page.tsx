@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Visual QA Platform for Clients & Developers',
   description: 'Zero extensions. Real-time visual QA on live websites. Save 10+ hours per week with automated DOM telemetry and instant client review links.',
   alternates: {
-    canonical: `${seoConfig.siteUrl}/landing`,
+    canonical: `${seoConfig.siteUrl}/product`,
   },
   openGraph: {
     title: 'STAGE — Visual QA Platform for Clients & Developers',

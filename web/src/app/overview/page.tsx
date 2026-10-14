@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Platform Overview',
   description: 'Learn how STAGE cuts client-developer turnaround by 80% with zero-install live proxies and automated bug telemetry.',
   alternates: {
-    canonical: `${seoConfig.siteUrl}/overview`,
+    canonical: `${seoConfig.siteUrl}/product`,
   },
   openGraph: {
     title: 'STAGE Platform Overview',

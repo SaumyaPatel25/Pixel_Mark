@@ -2,7 +2,7 @@ import React from 'react';
 import { seoConfig } from '@/lib/seoConfig';
 
 interface JsonLdProps {
-  type?: 'all' | 'organization' | 'product' | 'localBusiness' | 'website';
+  type?: 'all' | 'organization' | 'software' | 'website';
 }
 
 export const CANONICAL_PRODUCTION_URL = "https://stage.entrext.com";
@@ -41,22 +41,23 @@ export function JsonLd({ type = 'all' }: JsonLdProps) {
     }
   };
 
-  // 2. Product / SoftwareApplication Schema
-  const productSchema = {
+  // 2. SoftwareApplication Schema
+  const softwareSchema = {
     "@context": "https://schema.org",
-    "@type": ["Product", "SoftwareApplication"],
-    "@id": `${CANONICAL_PRODUCTION_URL}/#product`,
+    "@type": "SoftwareApplication",
+    "@id": `${CANONICAL_PRODUCTION_URL}/#software`,
     "name": "STAGE",
     "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "Any (Web-based, Cross-platform)",
-    "description": "Visual website feedback and QA bug reporting software for high-velocity engineering teams. Pin annotations directly on live DOM, WebGL, and Three.js scenes without browser extensions.",
+    "applicationSubCategory": "Visual Website Feedback & QA Platform",
+    "operatingSystem": "Web, Windows, macOS, Linux, iOS, Android",
+    "description": "Visual website feedback and QA bug reporting software. Clients and engineering teams pin comments directly onto live DOM, WebGL, and Three.js elements without browser extensions.",
     "url": CANONICAL_PRODUCTION_URL,
     "image": `${CANONICAL_PRODUCTION_URL}/og-image.png`,
-    "brand": {
-      "@type": "Brand",
-      "name": "Entrext Labs"
+    "author": {
+      "@type": "Organization",
+      "@id": `${CANONICAL_PRODUCTION_URL}/#organization`
     },
-    "manufacturer": {
+    "publisher": {
       "@type": "Organization",
       "@id": `${CANONICAL_PRODUCTION_URL}/#organization`
     },
@@ -64,7 +65,6 @@ export function JsonLd({ type = 'all' }: JsonLdProps) {
       "@type": "Offer",
       "price": "0",
       "priceCurrency": "USD",
-      "priceValidUntil": "2028-12-31",
       "availability": "https://schema.org/InStock",
       "url": `${CANONICAL_PRODUCTION_URL}/pricing`
     },
@@ -75,67 +75,21 @@ export function JsonLd({ type = 'all' }: JsonLdProps) {
       "WebGL shader and drawing buffer snapshot reviews",
       "Real-time multi-reviewer collaborative session sync",
       "One-click developer bug checklist and CSV export"
-    ],
-    "aggregateRating": {
-      "@type": "AggregateRating",
-      "ratingValue": "4.9",
-      "reviewCount": "128",
-      "bestRating": "5",
-      "worstRating": "1"
-    }
+    ]
   };
 
-  // 3. LocalBusiness Schema (with exact geographic coordinates)
-  const localBusinessSchema = {
-    "@context": "https://schema.org",
-    "@type": "LocalBusiness",
-    "@id": `${CANONICAL_PRODUCTION_URL}/#localbusiness`,
-    "name": "Entrext Labs",
-    "image": `${CANONICAL_PRODUCTION_URL}/logo.png`,
-    "url": CANONICAL_PRODUCTION_URL,
-    "email": "saumya@entrext.com",
-    "priceRange": "$0 - $99",
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": "Ahmedabad",
-      "addressRegion": "Gujarat",
-      "addressCountry": "IN"
-    },
-    "geo": {
-      "@type": "GeoCoordinates",
-      "latitude": 23.0225,
-      "longitude": 72.5714
-    },
-    "openingHoursSpecification": {
-      "@type": "OpeningHoursSpecification",
-      "dayOfWeek": [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday"
-      ],
-      "opens": "09:00",
-      "closes": "18:00"
-    }
-  };
-
-  // 4. WebSite Schema (with SearchAction)
+  // 3. WebSite Schema
   const webSiteSchema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "@id": `${CANONICAL_PRODUCTION_URL}/#website`,
     "name": "STAGE",
+    "alternateName": "STAGE Visual Feedback",
     "url": CANONICAL_PRODUCTION_URL,
     "description": seoConfig.description,
     "publisher": {
       "@type": "Organization",
       "@id": `${CANONICAL_PRODUCTION_URL}/#organization`
-    },
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": `${CANONICAL_PRODUCTION_URL}/?q={search_term_string}`,
-      "query-input": "required name=search_term_string"
     }
   };
 
@@ -147,16 +101,10 @@ export function JsonLd({ type = 'all' }: JsonLdProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
         />
       )}
-      {(type === 'all' || type === 'product') && (
+      {(type === 'all' || type === 'software') && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
-        />
-      )}
-      {(type === 'all' || type === 'localBusiness') && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
         />
       )}
       {(type === 'all' || type === 'website') && (
@@ -168,3 +116,4 @@ export function JsonLd({ type = 'all' }: JsonLdProps) {
     </>
   );
 }
+
