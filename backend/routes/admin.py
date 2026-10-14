@@ -8,8 +8,9 @@ from database import AsyncSessionLocal
 from dependencies import get_db, get_current_user
 from models import (
     User, Organization, OrgMember, SubscriptionModel,
-    EntitlementAuditLogModel, RedemptionCodeModel, RedemptionCodeUseModel, Project
+    EntitlementAuditLogModel, RedemptionCodeModel, RedemptionCodeUseModel, Project, Session
 )
+from markers.models import Marker
 from config import settings
 from services.identity_resolver import _get_founder_emails, is_entrext_domain
 from services.plan_capabilities import invalidate_org_plan_cache, resolve_org_entitlements
@@ -102,6 +103,8 @@ async def list_admin_users(
     users = users_res.scalars().all()
 
     user_list = []
+    now = datetime.now(timezone.utc)
+
     for u in users:
         # Resolve org
         org_id = None
@@ -120,9 +123,13 @@ async def list_admin_users(
                 org_name = org.name
                 is_internal = org.is_internal
 
-        # Resolve subscription
+        # Resolve subscription, projects, markers, and sessions
         sub_info = None
+        projects_list = []
         projects_count = 0
+        total_markers_count = 0
+        total_sessions_count = 0
+
         if org_id:
             sub_res = await db.execute(select(SubscriptionModel).where(SubscriptionModel.org_id == org_id))
             sub = sub_res.scalar_one_or_none()
@@ -141,13 +148,82 @@ async def list_admin_users(
                     "admin_notes": getattr(sub, "admin_notes", None)
                 }
 
-            proj_count_res = await db.execute(select(func.count(Project.id)).where(Project.org_id == org_id))
-            projects_count = proj_count_res.scalar() or 0
+            # Fetch projects with details
+            proj_res = await db.execute(
+                select(Project.id, Project.name, Project.url, Project.status, Project.created_at)
+                .where(Project.org_id == org_id)
+                .order_by(desc(Project.created_at))
+            )
+            for p in proj_res.all():
+                projects_list.append({
+                    "id": p.id,
+                    "name": p.name,
+                    "url": p.url,
+                    "status": p.status,
+                    "created_at": p.created_at.isoformat() if p.created_at else None
+                })
+            projects_count = len(projects_list)
+
+            # Fetch markers count across org's projects
+            markers_res = await db.execute(
+                select(func.count(Marker.id))
+                .select_from(Marker)
+                .join(Project, Marker.project_id == Project.id)
+                .where(Project.org_id == org_id, Marker.is_deleted == False)
+            )
+            total_markers_count = markers_res.scalar() or 0
+
+            # Fetch sessions count across org's projects
+            sessions_res = await db.execute(
+                select(func.count(Session.id))
+                .select_from(Session)
+                .join(Project, Session.project_id == Project.id)
+                .where(Project.org_id == org_id)
+            )
+            total_sessions_count = sessions_res.scalar() or 0
 
         # Identity providers list
         providers = [id_obj.provider for id_obj in (u.identities or [])]
         if not providers:
             providers = ["email_password"]
+
+        # Calculate retention and return activity
+        created_dt = u.created_at
+        if created_dt and created_dt.tzinfo is None:
+            created_dt = created_dt.replace(tzinfo=timezone.utc)
+
+        login_dt = u.last_login_at
+        if login_dt and login_dt.tzinfo is None:
+            login_dt = login_dt.replace(tzinfo=timezone.utc)
+
+        is_returning = False
+        hours_since_last_seen = None
+        days_since_last_seen = None
+        activity_status = "new_single_visit"
+
+        if login_dt and created_dt:
+            delta_seconds = (login_dt - created_dt).total_seconds()
+            hours_since_last_seen = max(0, int((now - login_dt).total_seconds() // 3600))
+            days_since_last_seen = max(0, int((now - login_dt).total_seconds() // 86400))
+
+            # A user has returned if they logged in > 5m after signup, on another day, or created active projects/markers
+            if delta_seconds > 300 or login_dt.date() > created_dt.date() or projects_count > 0 or total_markers_count > 0:
+                is_returning = True
+
+            if hours_since_last_seen < 24:
+                activity_status = "active_today"
+            elif days_since_last_seen <= 7:
+                activity_status = "active_this_week"
+            elif days_since_last_seen <= 30:
+                activity_status = "returning_dormant"
+            else:
+                activity_status = "churned"
+        elif created_dt:
+            days_since_created = max(0, int((now - created_dt).total_seconds() // 86400))
+            if days_since_created <= 1:
+                activity_status = "new_today"
+            else:
+                activity_status = "never_returned"
 
         user_list.append({
             "user_id": u.id,
@@ -164,10 +240,37 @@ async def list_admin_users(
             "is_internal": is_internal,
             "subscription": sub_info,
             "projects_count": projects_count,
+            "projects": projects_list,
+            "total_markers_count": total_markers_count,
+            "total_sessions_count": total_sessions_count,
+            "is_returning": is_returning,
+            "activity_status": activity_status,
+            "hours_since_last_seen": hours_since_last_seen,
+            "days_since_last_seen": days_since_last_seen,
             "is_entrext_domain": is_entrext_domain(u.email)
         })
 
-    return {"users": user_list, "total_count": len(user_list)}
+    total_users_count = len(user_list)
+    returning_count = sum(1 for u in user_list if u.get("is_returning"))
+    active_24h_count = sum(1 for u in user_list if u.get("activity_status") == "active_today")
+    active_7d_count = sum(1 for u in user_list if u.get("activity_status") in ("active_today", "active_this_week"))
+    total_projects_sum = sum(u.get("projects_count", 0) for u in user_list)
+    total_markers_sum = sum(u.get("total_markers_count", 0) for u in user_list)
+    retention_rate = round((returning_count / total_users_count * 100), 1) if total_users_count > 0 else 0.0
+
+    return {
+        "users": user_list,
+        "total_count": total_users_count,
+        "metrics": {
+            "total_users": total_users_count,
+            "returning_users": returning_count,
+            "retention_rate": retention_rate,
+            "active_24h": active_24h_count,
+            "active_7d": active_7d_count,
+            "total_projects": total_projects_sum,
+            "total_markers": total_markers_sum
+        }
+    }
 
 
 @router.post("/override-plan")
