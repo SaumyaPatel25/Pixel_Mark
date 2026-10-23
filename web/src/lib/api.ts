@@ -307,6 +307,12 @@ export const api = {
         body: JSON.stringify({ id_token: idToken, name }),
       }))
     },
+    async captureIntent(email: string, name?: string, source?: string) {
+      return request('/auth/capture-intent', {
+        method: 'POST',
+        body: JSON.stringify({ email, name, source }),
+      })
+    },
     async me() {
       return apiQueue.enqueueRead('Loading user...', () => request('/auth/me'))
     },

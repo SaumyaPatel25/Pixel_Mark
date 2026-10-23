@@ -182,6 +182,14 @@ export default function AdminPage() {
   const entrextDomainCount = users.filter(u => u.is_entrext_domain).length
 
   const renderActivityBadge = (u: any) => {
+    if (u.is_verified === false) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+          <span>Magic Link Sent (Pending)</span>
+        </span>
+      )
+    }
     const status = u.activity_status
     if (status === 'active_today') {
       return (
@@ -452,6 +460,11 @@ export default function AdminPage() {
                                     {p}
                                   </span>
                                 ))}
+                                {u.is_verified === false && (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/30 font-bold">
+                                    Pending Link
+                                  </span>
+                                )}
                                 {u.is_entrext_domain && (
                                   <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 font-bold">
                                     @entrext.com

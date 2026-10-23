@@ -260,7 +260,8 @@ def compile_digest_email(
     # 1. Resolve distinct actors
     actors = []
     for it in items:
-        name = it.actor_name or "A collaborator"
+        payload = getattr(it, "payload", {}) or {}
+        name = getattr(it, "actor_name", None) or payload.get("actor_name") or payload.get("author_name") or "A collaborator"
         if name not in actors:
             actors.append(name)
 

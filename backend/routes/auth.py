@@ -456,6 +456,112 @@ async def update_onboarding_state(
     )
     return result.scalar_one()
 
+class CaptureIntentRequest(BaseModel):
+    email: str
+    name: Optional[str] = None
+    source: Optional[str] = "register_page"
+
+class CaptureIntentResponse(BaseModel):
+    status: str
+    email: str
+    is_verified: bool
+    message: str
+
+@router.post("/capture-intent", response_model=CaptureIntentResponse)
+async def capture_signup_intent(data: CaptureIntentRequest, db: AsyncSession = Depends(get_db)):
+    if not data.email or "@" not in data.email:
+        raise HTTPException(status_code=400, detail="A valid email address is required.")
+
+    clean_email = data.email.strip().lower()
+    clean_name = data.name.strip() if data.name else None
+
+    # Check if user already exists
+    from sqlalchemy import func
+    from models.core import SubscriptionModel
+    user_res = await db.execute(select(User).where(func.lower(User.email) == clean_email))
+    existing_user = user_res.scalar_one_or_none()
+
+    now = datetime.now(timezone.utc)
+
+    if existing_user:
+        # If user exists and a real name was provided, update it if empty or currently using email-prefix fallback
+        email_prefix_fallback = clean_email.split("@")[0].replace(".", " ").capitalize()
+        if clean_name and (not existing_user.name or existing_user.name == email_prefix_fallback):
+            existing_user.name = clean_name
+            db.add(existing_user)
+            await db.commit()
+        return CaptureIntentResponse(
+            status="existing",
+            email=clean_email,
+            is_verified=existing_user.is_verified,
+            message="User intent already recorded."
+        )
+
+    # Create new unverified lead user immediately so they are visible in admin analytics
+    display_name = clean_name or clean_email.split("@")[0].replace(".", " ").capitalize()
+    new_user = User(
+        id=str(uuid.uuid4()),
+        email=clean_email,
+        name=display_name,
+        hashed_password="magic_link_pending",
+        is_verified=False,
+        created_at=now,
+        last_login_at=None
+    )
+    db.add(new_user)
+    await db.flush()
+
+    # Create personal workspace organization
+    org = Organization(
+        id=str(uuid.uuid4()),
+        name=f"{display_name}'s Workspace",
+        slug=f"org-{str(uuid.uuid4())[:8]}",
+        is_internal=("entrext.com" in clean_email)
+    )
+    db.add(org)
+    await db.flush()
+
+    # Add owner membership
+    mem = OrgMember(
+        id=str(uuid.uuid4()),
+        org_id=org.id,
+        user_id=new_user.id,
+        role=RoleEnum.owner
+    )
+    db.add(mem)
+
+    # Subscription record
+    sub = SubscriptionModel(
+        id=str(uuid.uuid4()),
+        org_id=org.id,
+        plan_type="stage_team" if ("entrext.com" in clean_email or "saumya" in clean_email) else "none",
+        status="active",
+        plan_source="pending_intent",
+        seats_allowed=10 if ("entrext.com" in clean_email or "saumya" in clean_email) else 1,
+        projects_allowed=10 if ("entrext.com" in clean_email or "saumya" in clean_email) else 1
+    )
+    db.add(sub)
+
+    # Identity record with provider email_link and verified=False
+    ident = UserIdentity(
+        id=str(uuid.uuid4()),
+        user_id=new_user.id,
+        provider="email_link",
+        provider_user_id=f"pending:{new_user.id}",
+        provider_email=clean_email,
+        email_verified=False
+    )
+    db.add(ident)
+
+    await db.commit()
+
+    return CaptureIntentResponse(
+        status="captured",
+        email=clean_email,
+        is_verified=False,
+        message="Signup intent captured successfully."
+    )
+
 class FirebaseSyncRequest(BaseModel):
     id_token: str
     name: Optional[str] = None

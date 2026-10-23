@@ -11,7 +11,7 @@ import { useMascotFormState } from '@/hooks/useMascotFormState';
 import { event as trackEvent } from '@/lib/analytics';
 import { signInWithPopup, sendSignInLinkToEmail } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '@/lib/firebase';
-import { getApiBaseUrl } from '@/lib/api';
+import { api, getApiBaseUrl } from '@/lib/api';
 
 type ScenePhase = 'projecting' | 'submitting' | 'success' | 'error';
 
@@ -71,6 +71,14 @@ export default function RegisterClient() {
     setError(null);
     setPhase('submitting');
     try {
+      // 1. Immediately capture lead & intent in STAGE database so they are never lost even if they drop off
+      try {
+        await api.auth.captureIntent(email, name, 'register_form');
+      } catch (captureErr) {
+        console.warn('[Register] Background intent capture warning:', captureErr);
+      }
+
+      // 2. Dispatch Firebase passwordless magic link email
       const actionCodeSettings = {
         url: window.location.origin + '/auth/email-callback',
         handleCodeInApp: true,
