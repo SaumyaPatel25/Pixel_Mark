@@ -36,6 +36,7 @@ import { ActorContext, canCurrentActorMutateMarker } from '@/lib/permissions'
 import { Marker, ReviewerIdentity, MarkerRendererType, MarkerStatus, MarkerPriority } from '@/types/markers'
 import { DrawingCanvas } from './DrawingCanvas'
 import { inferIssueType, type IssueType } from '@/utils/issueClassifier'
+import { CanvasCopilotBar } from '@/components/copilot/CanvasCopilotBar'
 
 // ─── Collapsible list helper component (Phase 3.5 Upgrade) ────────────────────
 const CollapsibleList = ({ title, count, items, renderItem }: { title: string; count: number; items: any[]; renderItem: (item: any, idx: number) => React.ReactNode }) => {
@@ -4042,6 +4043,17 @@ export function AuditSurface({
           <Maximize2 className="w-4 h-4" />
         </button>
       )}
+
+      {/* ── AI Canvas Copilot Floating Bar ── */}
+      <CanvasCopilotBar
+        iframeRef={iframeRef}
+        sessionId={sessionId}
+        projectId={projectId}
+        reviewerId={reviewerIdentity?.id}
+        onPinCreated={(marker) => {
+          onMarkerCreated?.(marker)
+        }}
+      />
 
       <OnboardingTour />
       <OnboardingChecklist />
