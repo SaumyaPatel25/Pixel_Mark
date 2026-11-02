@@ -2437,6 +2437,101 @@
     attachPointerListeners();
   }
 
+  // ─── STAGE Copilot Helpers (Micro-DOM & Local Canvas Crop) ─────────────────
+  function isSTAGENode(node) {
+    if (!node) return true;
+    if (node.id === "stage-edit-overlay-container" || node.id === "stage-pin-root" || node.id === "stage-inspector-root" || node.id === "stage-hud-badge" || node.id === "stage-ephemeral-staging") return true;
+    if (node.closest && (node.closest("#stage-edit-overlay-container") || node.closest("#stage-pin-root") || node.closest("#stage-inspector-root") || node.closest("#stage-hud-badge") || node.closest("#stage-ephemeral-staging"))) return true;
+    if (typeof isSTAGEOwnedNode === "function" && isSTAGEOwnedNode(node)) return true;
+    return false;
+  }
+
+  function extractMicroDomSnippet(maxElements = 40) {
+    if (!document || !document.body) return [];
+    const visibleElements = [];
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_ELEMENT,
+      {
+        acceptNode(node) {
+          if (isSTAGENode(node)) return NodeFilter.FILTER_REJECT;
+          const rect = typeof node.getBoundingClientRect === "function"
+            ? node.getBoundingClientRect()
+            : { width: 1, height: 1, top: 0, bottom: 100 };
+          const isVisible = rect.width > 0 && rect.height > 0 &&
+                            rect.top < window.innerHeight && rect.bottom > 0;
+          return isVisible ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
+      }
+    );
+
+    let current = walker.nextNode();
+    while (current && visibleElements.length < maxElements) {
+      const tag = current.tagName.toLowerCase();
+      // Prioritize interactive & text containers
+      if (["h1","h2","h3","h4","p","button","a","span","input","textarea","div"].includes(tag)) {
+        const text = (current.innerText || current.textContent || "").trim().slice(0, 80);
+        if (text.length > 0 || ["button", "a", "input"].includes(tag)) {
+          const bRect = typeof current.getBoundingClientRect === "function"
+            ? current.getBoundingClientRect()
+            : { top: 0, left: 0, width: 0, height: 0 };
+          visibleElements.push({
+            selector: getCSSSelector(current),
+            tag: tag,
+            className: (current.className && typeof current.className === "string") ? current.className.slice(0, 100) : "",
+            text: text,
+            rect: {
+              top: Math.round(bRect.top),
+              left: Math.round(bRect.left),
+              width: Math.round(bRect.width),
+              height: Math.round(bRect.height)
+            }
+          });
+        }
+      }
+      current = walker.nextNode();
+    }
+    return visibleElements;
+  }
+
+  function captureElementCrop(selector, callback) {
+    try {
+      const el = document.querySelector(selector);
+      if (!el) return callback(null, null);
+      const rect = typeof el.getBoundingClientRect === "function" ? el.getBoundingClientRect() : { width: 0, height: 0, top: 0, left: 0 };
+      if (rect.width <= 0 || rect.height <= 0) return callback(null, rect);
+
+      // Use local canvas capture with padding
+      const padding = 12;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.min(800, rect.width + padding * 2);
+      canvas.height = Math.min(600, rect.height + padding * 2);
+      const ctx = canvas.getContext("2d");
+
+      // Fallback simple draw or html2canvas if available
+      if (window.html2canvas) {
+        window.html2canvas(el, {
+          logging: false,
+          useCORS: true,
+          backgroundColor: null
+        }).then(renderedCanvas => {
+          callback(renderedCanvas.toDataURL("image/png"), rect);
+        }).catch(() => {
+          callback(null, rect);
+        });
+      } else {
+        // Ephemeral crop payload representation
+        callback(null, rect);
+      }
+    } catch (e) {
+      console.warn("[STAGE] captureElementCrop error:", e);
+      callback(null, null);
+    }
+  }
+
+  window.__STAGE__.extractMicroDomSnippet = extractMicroDomSnippet;
+  window.__STAGE__.captureElementCrop = captureElementCrop;
+
   function handleParentMessage(event) {
     const data = event.data;
     if (!data || typeof data !== "object") return;
@@ -2647,6 +2742,85 @@
       if (data.pageUrl) {
         window.__STAGE__.pageUrl = data.pageUrl;
         window.STAGE.pageUrl = data.pageUrl;
+      }
+    }
+
+    if (data.type === "STAGE_REQUEST_MICRO_DOM") {
+      const candidates = extractMicroDomSnippet(data.maxElements || 40);
+      window.parent?.postMessage({
+        type: "STAGE_MICRO_DOM_RESULT",
+        query: data.query || "",
+        candidates: candidates
+      }, "*");
+    }
+
+    if (data.type === "STAGE_CAPTURE_ELEMENT_CROP") {
+      captureElementCrop(data.selector, function(base64, rect) {
+        const el = document.querySelector(data.selector);
+        const domRect = rect || (el && typeof el.getBoundingClientRect === "function" ? el.getBoundingClientRect() : null);
+        window.parent?.postMessage({
+          type: "STAGE_ELEMENT_CROP_RESULT",
+          selector: data.selector,
+          imageBase64: base64,
+          rect: domRect ? {
+            top: Math.round(domRect.top),
+            left: Math.round(domRect.left),
+            width: Math.round(domRect.width),
+            height: Math.round(domRect.height)
+          } : null
+        }, "*");
+      });
+    }
+
+    if (data.type === "STAGE_APPLY_EPHEMERAL_MUTATION") {
+      let styleEl = document.getElementById("stage-ephemeral-staging");
+      if (!styleEl) {
+        styleEl = document.createElement("style");
+        styleEl.id = "stage-ephemeral-staging";
+        document.head.appendChild(styleEl);
+      }
+      if (data.cssRules) {
+        styleEl.textContent = data.cssRules;
+      }
+      if (data.selector && data.textMutation) {
+        const el = document.querySelector(data.selector);
+        if (el) {
+          if (el.dataset.stageOriginalText === undefined) {
+            el.dataset.stageOriginalText = (el.innerText !== undefined ? el.innerText : el.textContent) || "";
+          }
+          if (el.innerText !== undefined) {
+            el.innerText = data.textMutation;
+          } else {
+            el.textContent = data.textMutation;
+          }
+        }
+      }
+    }
+
+    if (data.type === "STAGE_REVERT_EPHEMERAL_MUTATION") {
+      const styleEl = document.getElementById("stage-ephemeral-staging");
+      if (styleEl) styleEl.remove();
+      if (data.selector) {
+        const el = document.querySelector(data.selector);
+        if (el && el.dataset.stageOriginalText !== undefined) {
+          if (el.innerText !== undefined) {
+            el.innerText = el.dataset.stageOriginalText;
+          } else {
+            el.textContent = el.dataset.stageOriginalText;
+          }
+          delete el.dataset.stageOriginalText;
+        }
+      } else {
+        const mutatedEls = document.querySelectorAll("[data-stage-original-text]");
+        for (let i = 0; i < mutatedEls.length; i++) {
+          const mEl = mutatedEls[i];
+          if (mEl.innerText !== undefined) {
+            mEl.innerText = mEl.dataset.stageOriginalText;
+          } else {
+            mEl.textContent = mEl.dataset.stageOriginalText;
+          }
+          delete mEl.dataset.stageOriginalText;
+        }
       }
     }
 
