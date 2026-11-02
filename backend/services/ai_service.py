@@ -18,6 +18,19 @@ async def run_provider_json_completion(
     base_url = provider_config.get("base_url")
     model_name = provider_config.get("model_name", "gpt-4o-mini")
     supports_compat = provider_config.get("supports_openai_compat", False)
+
+    # Free Omni-Route & OpenAI-compatible provider defaults
+    if provider == "groq":
+        base_url = base_url or "https://api.groq.com/openai/v1"
+        model_name = model_name or "llama-3.3-70b-versatile"
+        supports_compat = True
+    elif provider in ("gemini", "google"):
+        base_url = base_url or "https://generativelanguage.googleapis.com/v1beta/openai/"
+        model_name = model_name or "gemini-1.5-flash"
+        supports_compat = True
+    elif provider == "openai":
+        model_name = model_name or "gpt-4o-mini"
+        supports_compat = True
     
     if supports_compat or provider == "ollama":
         if not api_key and provider != "ollama":
@@ -162,3 +175,9 @@ overall_health rules:
         user_prompt=user_prompt,
         max_tokens=2000
     )
+
+
+async def resolve_ai_provider(db=None, user=None):
+    """Lazy delegation to hierarchical Omni-Route resolver in copilot_service."""
+    from services.copilot_service import resolve_ai_provider as _resolver
+    return await _resolver(db=db, user=user)
