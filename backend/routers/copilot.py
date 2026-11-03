@@ -240,7 +240,7 @@ async def confirm_copilot_pin_endpoint(
         project_id=sess.project_id,
         session_id=payload.session_id,
         creator_id=actor["id"],
-        creator_name=actor.get("name") or "STAGE Copilot",
+        creator_name="STAGE Copilot",
         creator_role=actor.get("role") or "reviewer",
         color_token="ai_copilot",
         anchor_kind="dom",
