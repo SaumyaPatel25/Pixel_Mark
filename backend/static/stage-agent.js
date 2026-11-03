@@ -2496,7 +2496,13 @@
 
   function captureElementCrop(selector, callback) {
     try {
-      const el = document.querySelector(selector);
+      let el = null;
+      try {
+        el = document.querySelector(selector);
+      } catch (e) {
+        console.warn("[STAGE] captureElementCrop invalid selector:", selector, e);
+        return callback(null, null);
+      }
       if (!el) return callback(null, null);
       const rect = typeof el.getBoundingClientRect === "function" ? el.getBoundingClientRect() : { width: 0, height: 0, top: 0, left: 0 };
       if (rect.width <= 0 || rect.height <= 0) return callback(null, rect);
@@ -2529,8 +2535,254 @@
     }
   }
 
+  // ─── Scope CSS Rules Helper for Sandboxed Copilot ──────────────────────────
+  function scopeCssRules(css, scopeClass) {
+    if (!css || typeof css !== "string" || !scopeClass) return css || "";
+    if (css.includes(scopeClass)) return css;
+
+    const parts = css.split("}");
+    const scopedParts = [];
+
+    for (let i = 0; i < parts.length; i++) {
+      const trimmed = parts[i].trim();
+      if (!trimmed) continue;
+      const braceIdx = trimmed.indexOf("{");
+      if (braceIdx === -1) {
+        scopedParts.push(trimmed);
+        continue;
+      }
+      const selectorPart = trimmed.slice(0, braceIdx).trim();
+      const declarationPart = trimmed.slice(braceIdx + 1).trim();
+
+      if (selectorPart.startsWith("@")) {
+        scopedParts.push(selectorPart + " { " + declarationPart + " }");
+        continue;
+      }
+
+      const scopedSelectors = selectorPart.split(",").map(sel => {
+        const s = sel.trim();
+        if (!s) return "";
+        if (s.includes(scopeClass)) return s;
+        return "." + scopeClass + " " + s;
+      }).filter(Boolean).join(", ");
+
+      scopedParts.push(scopedSelectors + " { " + declarationPart + " }");
+    }
+
+    return scopedParts.join("\n");
+  }
+
+  // ─── STAGE Site Fingerprint Extraction ─────────────────────────────────────
+  function extractSiteFingerprint() {
+    try {
+      // 1. Page Title
+      let title = "";
+      if (document.title && typeof document.title === "string") {
+        title = document.title.trim();
+      }
+      if (!title) {
+        let ogTitle = null;
+        try {
+          ogTitle = document.querySelector('meta[property="og:title"], meta[name="og:title"], meta[name="twitter:title"]');
+        } catch (_) {}
+        if (ogTitle && ogTitle.getAttribute("content")) {
+          title = ogTitle.getAttribute("content").trim();
+        }
+      }
+      if (!title) {
+        let firstH1 = null;
+        try {
+          firstH1 = document.querySelector("h1");
+        } catch (_) {}
+        if (firstH1) {
+          title = (firstH1.innerText || firstH1.textContent || "").trim();
+        }
+      }
+      title = title.slice(0, 120);
+
+      // 2. Meta / OpenGraph Description
+      let description = "";
+      let descMeta = null;
+      try {
+        descMeta = document.querySelector(
+          'meta[name="description"], meta[property="og:description"], meta[name="og:description"], meta[name="twitter:description"]'
+        );
+      } catch (_) {}
+      if (descMeta && descMeta.getAttribute("content")) {
+        description = descMeta.getAttribute("content").trim();
+      }
+      description = description.slice(0, 200);
+
+      // 3. Top 5 Headings (h1, h2, h3)
+      const headings = [];
+      let headingEls = [];
+      try {
+        headingEls = document.querySelectorAll("h1, h2, h3");
+      } catch (_) {}
+      for (let i = 0; i < headingEls.length && headings.length < 5; i++) {
+        const hEl = headingEls[i];
+        if (isSTAGENode(hEl)) continue;
+        const text = (hEl.innerText || hEl.textContent || "").trim().replace(/\s+/g, " ");
+        if (!text) continue;
+        headings.push({
+          tag: hEl.tagName.toLowerCase(),
+          text: text.slice(0, 80),
+          selector: getCSSSelector(hEl)
+        });
+      }
+
+      // Helper: normalize color to Uppercase Hex (#RRGGBB) if possible
+      function normalizeToHex(colorStr) {
+        if (!colorStr || typeof colorStr !== "string") return null;
+        const c = colorStr.trim();
+        if (c === "transparent" || c === "inherit" || c === "initial" || c === "rgba(0, 0, 0, 0)") return null;
+        if (/^#[0-9a-fA-F]{6}$/i.test(c)) return c.toUpperCase();
+        if (/^#[0-9a-fA-F]{3}$/i.test(c)) {
+          return ("#" + c[1] + c[1] + c[2] + c[2] + c[3] + c[3]).toUpperCase();
+        }
+        const match = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/i);
+        if (match) {
+          const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
+          if (alpha <= 0.05) return null;
+          const r = Math.min(255, parseInt(match[1], 10)).toString(16).padStart(2, "0");
+          const g = Math.min(255, parseInt(match[2], 10)).toString(16).padStart(2, "0");
+          const b = Math.min(255, parseInt(match[3], 10)).toString(16).padStart(2, "0");
+          return "#" + (r + g + b).toUpperCase();
+        }
+        return c;
+      }
+
+      // 4. Dominant computed colors (background-color and color from body, header, buttons)
+      const colorSet = new Set();
+      const elementsToSample = [];
+      if (document.body) elementsToSample.push(document.body);
+      try {
+        const headerEl = document.querySelector("header");
+        if (headerEl) elementsToSample.push(headerEl);
+        const navEl = document.querySelector("nav");
+        if (navEl) elementsToSample.push(navEl);
+        const mainEl = document.querySelector("main");
+        if (mainEl) elementsToSample.push(mainEl);
+        const btnEls = Array.from(document.querySelectorAll("button, a.btn, a.button, [role='button']")).slice(0, 5);
+        elementsToSample.push(...btnEls);
+      } catch (_) {}
+
+      for (const el of elementsToSample) {
+        if (!el || isSTAGENode(el)) continue;
+        try {
+          const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+          if (style) {
+            const bg = normalizeToHex(style.backgroundColor);
+            if (bg) colorSet.add(bg);
+            const fg = normalizeToHex(style.color);
+            if (fg) colorSet.add(fg);
+          }
+        } catch (_) {}
+      }
+
+      const dominant_colors = Array.from(colorSet).slice(0, 6);
+
+      // 5. Up to 3 Primary Interactive Buttons/Links (cta_buttons)
+      const cta_buttons = [];
+      let candidateElements = [];
+      try {
+        candidateElements = Array.from(document.querySelectorAll(
+          "button, a.btn, a.button, [role='button'], a[class*='cta'], a[class*='primary'], a[class*='btn'], a"
+        ));
+      } catch (_) {}
+
+      for (const el of candidateElements) {
+        if (!el || isSTAGENode(el)) continue;
+        if (window.getComputedStyle) {
+          try {
+            const st = window.getComputedStyle(el);
+            if (st.display === "none" || st.visibility === "hidden" || st.opacity === "0") continue;
+          } catch (_) {}
+        }
+        const text = (el.innerText || el.textContent || el.value || "").trim().replace(/\s+/g, " ");
+        if (!text || text.length < 2) continue;
+
+        const tag = el.tagName ? el.tagName.toLowerCase() : "";
+        let computed = {};
+        try {
+          computed = window.getComputedStyle ? window.getComputedStyle(el) : (el.style || {});
+        } catch (_) {}
+
+        const bgColor = computed.backgroundColor || "";
+        const textColor = computed.color || "";
+        const borderRadius = computed.borderRadius || "";
+        const padding = computed.padding || "";
+
+        cta_buttons.push({
+          text: text.slice(0, 50),
+          selector: getCSSSelector(el),
+          tag: tag,
+          backgroundColor: bgColor,
+          color: textColor,
+          borderRadius: borderRadius,
+          padding: padding,
+          styles: {
+            backgroundColor: bgColor,
+            color: textColor,
+            borderRadius: borderRadius,
+            padding: padding
+          }
+        });
+
+        if (cta_buttons.length >= 3) break;
+      }
+
+      const payload = {
+        title: title,
+        description: description,
+        headings: headings,
+        dominant_colors: dominant_colors,
+        cta_buttons: cta_buttons
+      };
+
+      Object.defineProperty(payload, "colors", {
+        get() { return this.dominant_colors; },
+        enumerable: false,
+        configurable: true
+      });
+
+      Object.defineProperty(payload, "ctas", {
+        get() { return this.cta_buttons; },
+        enumerable: false,
+        configurable: true
+      });
+
+      // 6. Strictly bounds payload size to < 2KB (< 2048 bytes)
+      let json = JSON.stringify(payload);
+      if (json.length > 2000) {
+        payload.headings = payload.headings.slice(0, 5).map(h => ({
+          tag: h.tag,
+          text: (h.text || "").slice(0, 40),
+          selector: h.selector
+        }));
+        payload.description = payload.description.slice(0, 100);
+        json = JSON.stringify(payload);
+      }
+
+      return payload;
+    } catch (e) {
+      console.warn("[STAGE Agent] extractSiteFingerprint error:", e);
+      return {
+        title: document.title || "",
+        description: "",
+        headings: [],
+        dominant_colors: [],
+        colors: [],
+        cta_buttons: [],
+        ctas: []
+      };
+    }
+  }
+
   window.__STAGE__.extractMicroDomSnippet = extractMicroDomSnippet;
   window.__STAGE__.captureElementCrop = captureElementCrop;
+  window.__STAGE__.extractSiteFingerprint = extractSiteFingerprint;
+  if (window.STAGE) window.STAGE.extractSiteFingerprint = extractSiteFingerprint;
 
   function handleParentMessage(event) {
     const data = event.data;
@@ -2602,7 +2854,7 @@
         var mutations = data.mutations || [];
 
         // Put everything back to its original layout position first
-        restoreMovedElements();
+        if (typeof restoreMovedElements === "function") { restoreMovedElements(); }
 
         // Remove previously inserted elements
         var inserted = document.querySelectorAll('[data-blueprint-inserted="true"]');
@@ -2615,7 +2867,8 @@
           var mut = mutations[j];
 
           if (mut.actionType === 'move') {
-            var sourceEl = document.querySelector(mut.targetSelector);
+            var sourceEl = null;
+            try { sourceEl = document.querySelector(mut.targetSelector); } catch (e) { sourceEl = null; }
             if (sourceEl) {
               // Record original parent and next sibling so we can restore it later
               moveHistory.push({
@@ -2626,10 +2879,12 @@
               
               try {
                 var payload = JSON.parse(mut.htmlPayload);
-                var targetParent = document.querySelector(payload.targetParentSelector);
+                var targetParent = null;
+                try { targetParent = document.querySelector(payload.targetParentSelector); } catch (e) { targetParent = null; }
                 if (targetParent) {
                   if (payload.action === 'before' || payload.action === 'after') {
-                    var siblingEl = document.querySelector(payload.siblingSelector);
+                    var siblingEl = null;
+                    try { siblingEl = document.querySelector(payload.siblingSelector); } catch (e) { siblingEl = null; }
                     if (siblingEl && siblingEl.parentNode) {
                       if (payload.action === 'before') {
                         siblingEl.parentNode.insertBefore(sourceEl, siblingEl);
@@ -2650,7 +2905,8 @@
               }
             }
           } else {
-            var targetEl = document.querySelector(mut.targetSelector);
+            var targetEl = null;
+            try { targetEl = document.querySelector(mut.targetSelector); } catch (e) { targetEl = null; }
             if (targetEl && mut.htmlPayload) {
               var tempDiv = document.createElement('div');
               tempDiv.innerHTML = mut.htmlPayload;
@@ -2684,7 +2940,8 @@
         var htmlPayload = payload.htmlPayload;
 
         if (targetSelector && htmlPayload) {
-          var targetEl = document.querySelector(targetSelector);
+          var targetEl = null;
+          try { targetEl = document.querySelector(targetSelector); } catch (e) { targetEl = null; }
           if (targetEl) {
             var tempDiv = document.createElement('div');
             tempDiv.innerHTML = htmlPayload;
@@ -2756,7 +3013,10 @@
 
     if (data.type === "STAGE_CAPTURE_ELEMENT_CROP") {
       captureElementCrop(data.selector, function(base64, rect) {
-        const el = document.querySelector(data.selector);
+        let el = null;
+        try {
+          el = document.querySelector(data.selector);
+        } catch (_) {}
         const domRect = rect || (el && typeof el.getBoundingClientRect === "function" ? el.getBoundingClientRect() : null);
         window.parent?.postMessage({
           type: "STAGE_ELEMENT_CROP_RESULT",
@@ -2779,11 +3039,25 @@
         styleEl.id = "stage-ephemeral-staging";
         document.head.appendChild(styleEl);
       }
+      if (data.projectId && document.body && document.body.classList) {
+        const scopeClass = "stage-copilot-scoped-" + data.projectId;
+        document.body.classList.add(scopeClass);
+        styleEl.setAttribute("data-project-id", data.projectId);
+      }
       if (data.cssRules) {
-        styleEl.textContent = data.cssRules;
+        if (data.projectId) {
+          styleEl.textContent = scopeCssRules(data.cssRules, "stage-copilot-scoped-" + data.projectId);
+        } else {
+          styleEl.textContent = data.cssRules;
+        }
       }
       if (data.selector && data.textMutation) {
-        const el = document.querySelector(data.selector);
+        let el = null;
+        try {
+          el = document.querySelector(data.selector);
+        } catch (err) {
+          console.warn("[STAGE Agent] Invalid selector in STAGE_APPLY_EPHEMERAL_MUTATION:", data.selector, err);
+        }
         if (el) {
           if (el.dataset.stageOriginalText === undefined) {
             el.dataset.stageOriginalText = (el.innerText !== undefined ? el.innerText : el.textContent) || "";
@@ -2800,8 +3074,24 @@
     if (data.type === "STAGE_REVERT_EPHEMERAL_MUTATION") {
       const styleEl = document.getElementById("stage-ephemeral-staging");
       if (styleEl) styleEl.remove();
+      if (document.body && document.body.classList) {
+        if (data.projectId) {
+          document.body.classList.remove("stage-copilot-scoped-" + data.projectId);
+        } else {
+          Array.from(document.body.classList).forEach(cls => {
+            if (cls.startsWith("stage-copilot-scoped-")) {
+              document.body.classList.remove(cls);
+            }
+          });
+        }
+      }
       if (data.selector) {
-        const el = document.querySelector(data.selector);
+        let el = null;
+        try {
+          el = document.querySelector(data.selector);
+        } catch (err) {
+          console.warn("[STAGE Agent] Invalid selector in STAGE_REVERT_EPHEMERAL_MUTATION:", data.selector, err);
+        }
         if (el && el.dataset.stageOriginalText !== undefined) {
           if (el.innerText !== undefined) {
             el.innerText = el.dataset.stageOriginalText;
@@ -2821,6 +3111,34 @@
           }
           delete mEl.dataset.stageOriginalText;
         }
+      }
+    }
+
+    if (data.type === "STAGE_REQUEST_SITE_FINGERPRINT") {
+      try {
+        const fp = extractSiteFingerprint();
+        window.parent?.postMessage({
+          type: "STAGE_SITE_FINGERPRINT_RESULT",
+          title: fp.title,
+          description: fp.description,
+          headings: fp.headings,
+          dominant_colors: fp.dominant_colors,
+          colors: fp.colors,
+          cta_buttons: fp.cta_buttons,
+          ctas: fp.ctas
+        }, "*");
+      } catch (err) {
+        console.warn("[STAGE Agent] Failed to handle STAGE_REQUEST_SITE_FINGERPRINT:", err);
+        window.parent?.postMessage({
+          type: "STAGE_SITE_FINGERPRINT_RESULT",
+          title: document.title || "",
+          description: "",
+          headings: [],
+          dominant_colors: [],
+          colors: [],
+          cta_buttons: [],
+          ctas: []
+        }, "*");
       }
     }
 
