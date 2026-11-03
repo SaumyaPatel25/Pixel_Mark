@@ -22,7 +22,7 @@ async def run_provider_json_completion(
     # Free Omni-Route & OpenAI-compatible provider defaults
     if provider == "groq":
         base_url = base_url or "https://api.groq.com/openai/v1"
-        model_name = model_name or "llama-3.3-70b-versatile"
+        model_name = model_name or "qwen/qwen3.8-27b"
         supports_compat = True
     elif provider in ("gemini", "google"):
         base_url = base_url or "https://generativelanguage.googleapis.com/v1beta/openai/"

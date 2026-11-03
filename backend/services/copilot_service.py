@@ -59,7 +59,7 @@ async def resolve_ai_provider(
     """
     Hierarchical Omni-Route Resolver for Copilot and AI Services:
     Priority 1: User's active UserAIProviderConfig (BYOK vault).
-    Priority 2: System GROQ_API_KEY (Free Omni-Route, llama-3.3-70b-versatile).
+    Priority 2: System GROQ_API_KEY (Free Omni-Route, qwen/qwen3.8-27b).
     Priority 3: System GEMINI_API_KEY (Free Omni-Route, gemini-1.5-flash).
     Priority 4: System OPENAI_API_KEY (gpt-4o-mini).
     """
@@ -89,7 +89,7 @@ async def resolve_ai_provider(
 
                     if provider == "groq":
                         base_url = base_url or "https://api.groq.com/openai/v1"
-                        model_name = model_name or "llama-3.3-70b-versatile"
+                        model_name = model_name or "qwen/qwen3.8-27b"
                         supports_compat = True
                     elif provider in ("gemini", "google"):
                         base_url = base_url or "https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -118,7 +118,7 @@ async def resolve_ai_provider(
             "provider": "groq",
             "api_key": groq_key.strip(),
             "base_url": "https://api.groq.com/openai/v1",
-            "model_name": "llama-3.3-70b-versatile",
+            "model_name": "qwen/qwen3.8-27b",
             "supports_openai_compat": True,
             "is_omni_route": True,
         }

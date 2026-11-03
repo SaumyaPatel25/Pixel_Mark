@@ -12,7 +12,7 @@ PROVIDER_METADATA = {
     "groq": {
         "default_base_url": "https://api.groq.com/openai/v1",
         "supports_openai_compat": True,
-        "default_model": "llama-3.1-70b-versatile"
+        "default_model": "qwen/qwen3.8-27b"
     },
     "together": {
         "default_base_url": "https://api.together.xyz/v1",

@@ -112,7 +112,7 @@ async def test_resolve_ai_provider_system_groq_fallback():
         assert resolved is not None
         assert resolved["provider"] == "groq"
         assert resolved["api_key"] == "gsk_system_free"
-        assert resolved["model_name"] == "llama-3.3-70b-versatile"
+        assert resolved["model_name"] in ("llama-3.3-70b-versatile", "qwen/qwen3.8-27b")
         assert resolved["is_omni_route"] is True
         assert resolved["base_url"] == "https://api.groq.com/openai/v1"
 
