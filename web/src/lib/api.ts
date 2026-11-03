@@ -809,6 +809,82 @@ export const api = {
     },
   },
 
+  // COPILOT
+  copilot: {
+    async parse(data: {
+      prompt: string
+      micro_dom?: any[]
+      viewport?: any
+      session_id?: string
+      mock_client?: boolean
+    }) {
+      return apiQueue.enqueueRead('Parsing design copilot intent...', () =>
+        request('/api/copilot/parse', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        })
+      )
+    },
+    async analyzeSite(data: {
+      title?: string
+      description?: string
+      headings?: any[]
+      dominant_colors?: string[]
+      colors?: string[]
+      cta_buttons?: any[]
+      ctas?: any[]
+      mock_client?: boolean
+    }) {
+      return apiQueue.enqueueRead('Analyzing site design context...', () =>
+        request('/api/copilot/analyze-site', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        })
+      )
+    },
+    async confirmPin(data: {
+      session_id: string
+      selector: string
+      image_base64?: string | null
+      inspo_image_url?: string | null
+      css_mutations?: Record<string, any> | null
+      css_rules?: string | null
+      text_mutation?: string | null
+      client_summary: string
+      developer_explanation?: string | null
+      rect?: Record<string, any> | null
+    }) {
+      return apiQueue.enqueueWrite('Confirming AI copilot pin...', () =>
+        request('/api/copilot/confirm-pin', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        })
+      )
+    },
+    async generateDevFix(data: {
+      marker_id?: string | null
+      selector: string
+      comment: string
+      target_url?: string | null
+      image_base64?: string | null
+      inspo_image_url?: string | null
+      mock_client?: boolean
+    }): Promise<{
+      marker_id?: string | null
+      issue_analysis: string
+      suggested_code: string
+      file_hint: string
+      css_rules?: string
+    }> {
+      return apiQueue.enqueueWrite('Generating AI developer fix...', () =>
+        request('/api/copilot/generate-dev-fix', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        })
+      )
+    },
+  },
+
   // CANVAS
   canvas: {
     async getCanvas(projectId: string) {

@@ -15,7 +15,12 @@ from markers.repository import MarkerRepository
 from markers.router import resolve_actor_context, invalidate_project_analytics_cache
 from realtime.redis_broadcaster import redis_broadcaster
 from realtime.events import build_marker_event
-from services.copilot_service import resolve_ai_provider, parse_copilot_dom_intent, analyze_site_context
+from services.copilot_service import (
+    resolve_ai_provider,
+    parse_copilot_dom_intent,
+    analyze_site_context,
+    generate_developer_fix,
+)
 
 logger = logging.getLogger("stage.copilot")
 
@@ -44,12 +49,31 @@ class CopilotConfirmPinRequest(BaseModel):
     session_id: str
     selector: str
     image_base64: Optional[str] = None
+    inspo_image_url: Optional[str] = None
     css_mutations: Optional[Dict[str, Any]] = None
     css_rules: Optional[str] = None
     text_mutation: Optional[str] = None
     client_summary: str = Field(..., min_length=1)
     developer_explanation: Optional[str] = None
     rect: Optional[Dict[str, Any]] = None
+
+
+class CopilotDevFixRequest(BaseModel):
+    marker_id: Optional[str] = None
+    selector: str = Field(..., min_length=1)
+    comment: str = Field(..., min_length=1)
+    target_url: Optional[str] = None
+    image_base64: Optional[str] = None
+    inspo_image_url: Optional[str] = None
+    mock_client: Optional[bool] = False
+
+
+class CopilotDevFixResponse(BaseModel):
+    marker_id: Optional[str] = None
+    issue_analysis: str
+    suggested_code: str
+    file_hint: str
+    css_rules: Optional[str] = ""
 
 
 class SiteSuggestion(BaseModel):
@@ -198,9 +222,13 @@ async def confirm_copilot_pin_endpoint(
         "text_mutation": payload.text_mutation,
         "source": "ai_copilot"
     }
+    if payload.inspo_image_url:
+        metadata["inspo_image_url"] = payload.inspo_image_url
 
     element_rect = dict(payload.rect or {})
     element_rect["metadata"] = metadata
+    if payload.inspo_image_url:
+        element_rect["inspo_image_url"] = payload.inspo_image_url
 
     top = float(element_rect.get("top", 0.0)) if "top" in element_rect else 0.0
     left = float(element_rect.get("left", 0.0)) if "left" in element_rect else 0.0
@@ -214,7 +242,7 @@ async def confirm_copilot_pin_endpoint(
         creator_id=actor["id"],
         creator_name=actor.get("name") or "STAGE Copilot",
         creator_role=actor.get("role") or "reviewer",
-        color_token=actor.get("color_token") or "#10b981",
+        color_token="ai_copilot",
         anchor_kind="dom",
         anchor_mode="dom",
         page_url=getattr(sess, "target_url", None) or getattr(sess, "url", None),
@@ -314,3 +342,33 @@ async def confirm_copilot_pin_endpoint(
         "created_at": marker.created_at.isoformat() if marker.created_at else None,
         "metadata": metadata
     }
+
+
+@router.post("/api/copilot/generate-dev-fix", response_model=CopilotDevFixResponse)
+@router.post("/copilot/generate-dev-fix", response_model=CopilotDevFixResponse)
+async def generate_dev_fix_endpoint(
+    payload: CopilotDevFixRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """
+    Generates an automated, production-ready developer code fix, root cause analysis,
+    and scoped CSS rules for an observation pin.
+    """
+    is_mock = bool(payload.mock_client) or (os.getenv("COPILOT_MOCK_CLIENT") == "true")
+    provider_config = None
+    if not is_mock:
+        provider_config = await resolve_ai_provider(db=db, user=current_user)
+
+    fix = await generate_developer_fix(
+        marker_id=payload.marker_id,
+        selector=payload.selector,
+        comment=payload.comment,
+        target_url=payload.target_url,
+        image_base64=payload.image_base64,
+        inspo_image_url=payload.inspo_image_url,
+        provider_config=provider_config,
+        is_mock=is_mock
+    )
+    return fix
+

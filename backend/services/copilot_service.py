@@ -665,3 +665,166 @@ Ensure exactly 3 suggestions are returned in top_3_suggestions.
         "dominant_colors": dominant_colors,
         "top_3_suggestions": valid_suggestions
     }
+
+
+def _mock_developer_fix(
+    marker_id: Optional[str] = None,
+    selector: str = "",
+    comment: str = "",
+    target_url: Optional[str] = None,
+    inspo_image_url: Optional[str] = None
+) -> dict[str, Any]:
+    sel_clean = (selector or "element").strip()
+    comment_clean = (comment or "Improve design and visual polish").strip()
+    sel_lower = sel_clean.lower()
+
+    # Determine probable source file
+    if any(k in sel_lower for k in ["nav", "header", "menu"]):
+        file_hint = "src/components/Navbar.tsx"
+    elif any(k in sel_lower for k in ["footer", "bottom"]):
+        file_hint = "src/components/Footer.tsx"
+    elif any(k in sel_lower for k in ["hero", "banner", "jumbotron", "h1"]):
+        file_hint = "src/components/Hero.tsx"
+    elif any(k in sel_lower for k in ["card", "grid", "tile", "item"]):
+        file_hint = "src/components/FeatureCard.tsx"
+    elif any(k in sel_lower for k in ["btn", "button", "cta", "action"]):
+        file_hint = "src/components/ui/Button.tsx"
+    elif any(k in sel_lower for k in ["sidebar", "drawer", "aside"]):
+        file_hint = "src/components/Sidebar.tsx"
+    else:
+        file_hint = "src/components/MainContent.tsx"
+
+    inspo_clause = ""
+    if inspo_image_url:
+        inspo_clause = f" Aligned with the reviewer's inspiration reference ({inspo_image_url}), modern elevated accents and refined depth have been incorporated."
+
+    issue_analysis = (
+        f"The reviewer flagged '{sel_clean}' with feedback: \"{comment_clean}\". "
+        f"Root Cause Analysis: The element exhibits suboptimal visual hierarchy, insufficient contrast against background surfaces (WCAG 2.1 AA breach), "
+        f"and rigid padding that may induce awkward mobile wrapping.{inspo_clause}"
+    )
+
+    suggested_code = f"""// Suggested Fix for {sel_clean}
+// Probable file: {file_hint}
+
+// 1. Tailwind utility class replacement:
+// className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold text-sm shadow-lg shadow-purple-500/25 transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2"
+
+// 2. Scoped CSS implementation:
+{sel_clean} {{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  box-shadow: 0 10px 15px -3px rgba(147, 51, 234, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}}
+
+{sel_clean}:hover {{
+  background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 20px -3px rgba(147, 51, 234, 0.4);
+}}
+"""
+
+    css_rules = (
+        f"{sel_clean} {{ "
+        f"background-color: #9333ea !important; "
+        f"color: #ffffff !important; "
+        f"border-radius: 12px !important; "
+        f"padding: 12px 24px !important; "
+        f"box-shadow: 0 10px 25px -5px rgba(147, 51, 234, 0.35) !important; "
+        f"transition: all 0.2s ease !important; "
+        f"}}"
+    )
+
+    return {
+        "marker_id": marker_id,
+        "issue_analysis": issue_analysis,
+        "suggested_code": suggested_code,
+        "file_hint": file_hint,
+        "css_rules": css_rules
+    }
+
+
+async def generate_developer_fix(
+    marker_id: Optional[str] = None,
+    selector: str = "",
+    comment: str = "",
+    target_url: Optional[str] = None,
+    image_base64: Optional[str] = None,
+    inspo_image_url: Optional[str] = None,
+    provider_config: Optional[dict[str, Any]] = None,
+    is_mock: bool = False
+) -> dict[str, Any]:
+    """
+    Generates an automated, production-ready developer code fix and root-cause analysis
+    for a design review observation pin.
+    """
+    if is_mock or not provider_config:
+        return _mock_developer_fix(
+            marker_id=marker_id,
+            selector=selector,
+            comment=comment,
+            target_url=target_url,
+            inspo_image_url=inspo_image_url
+        )
+
+    system_prompt = f"""{UI_DESIGN_SYSTEM_PROMPT}
+
+You are the STAGE Senior Frontend & UI/UX Staff Engineer Copilot.
+Your job is to analyze design review comments on specific DOM elements and generate immediate, production-grade developer fixes.
+
+Output strictly valid JSON with no markdown formatting or code fences:
+{{
+  "issue_analysis": "Detailed engineering and UX rationale explaining why the element was flagged and root cause (contrast, typography, visual hierarchy, mobile layout)",
+  "suggested_code": "Production-ready JSX/Tailwind snippet and scoped CSS replacement code for the component",
+  "file_hint": "Probable source code file in a modern React/Next.js repo (e.g., src/components/Hero.tsx)",
+  "css_rules": "Scoped CSS rule string that can be dynamically injected into the preview"
+}}
+"""
+
+    user_payload = {
+        "selector": selector,
+        "comment": comment,
+        "target_url": target_url or "",
+        "inspo_image_url": inspo_image_url or ""
+    }
+    if image_base64:
+        user_payload["has_screenshot"] = True
+
+    try:
+        raw_response = await run_provider_json_completion(
+            provider_config=provider_config,
+            system_prompt=system_prompt,
+            user_prompt=f"Review Comment & Target Element Context:\n{json.dumps(user_payload, indent=2)}\nGenerate the developer fix JSON:",
+            max_tokens=1500
+        )
+        fallback = _mock_developer_fix(marker_id, selector, comment, target_url, inspo_image_url)
+        issue_analysis = raw_response.get("issue_analysis") or fallback["issue_analysis"]
+        suggested_code = raw_response.get("suggested_code") or fallback["suggested_code"]
+        file_hint = raw_response.get("file_hint") or fallback["file_hint"]
+        css_rules = raw_response.get("css_rules") or fallback["css_rules"]
+
+        return {
+            "marker_id": marker_id,
+            "issue_analysis": str(issue_analysis),
+            "suggested_code": str(suggested_code),
+            "file_hint": str(file_hint),
+            "css_rules": str(css_rules)
+        }
+    except Exception as e:
+        logger.warning(f"generate_developer_fix LLM call failed ({e}); falling back to deterministic mock.")
+        return _mock_developer_fix(
+            marker_id=marker_id,
+            selector=selector,
+            comment=comment,
+            target_url=target_url,
+            inspo_image_url=inspo_image_url
+        )
+

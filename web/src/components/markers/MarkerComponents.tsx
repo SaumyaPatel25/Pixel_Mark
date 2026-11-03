@@ -1,7 +1,7 @@
 import { Marker } from '@/types/markers'
 import { getMarkerColors } from '@/lib/markerColors'
 import { canCurrentActorMutateMarker, ActorContext } from '@/lib/permissions'
-import { Trash2, Move } from 'lucide-react'
+import { Trash2, Move, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 
 interface MarkerPinProps {
@@ -24,6 +24,7 @@ interface MarkerPinProps {
 export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClick, size = 'md', dragging = false, isSelected = false }: MarkerPinProps) {
   const colors = getMarkerColors(marker.color_token)
   const canMutate = canCurrentActorMutateMarker(actor, marker)
+  const isAi = marker.color_token === 'ai_copilot' || (marker as any).metadata?.source === 'ai_copilot'
   const initials = marker.id === '__draft_pin__' ? '+' : (marker.creator_name ?? '?').slice(0, 2).toUpperCase()
   const sizeClass = size === 'sm' ? 'w-7 h-7 text-[10px]' : 'w-9 h-9 text-xs'
   const [isHovered, setIsHovered] = useState(false)
@@ -69,15 +70,21 @@ export function MarkerPin({ marker, actor, onDelete, onMove, onDragStart, onClic
             window.addEventListener('pointerup', onUp)
           }
         }}
-        className={`${sizeClass} rounded-full flex items-center justify-center font-black border-2 shadow-lg transition-transform touch-none relative after:absolute after:-inset-2.5 after:content-[''] ${dragging ? 'scale-125 ring-4 ring-purple-500/30' : (isHovered || isSelected ? 'scale-115 ring-2 ring-white/40' : '')}`}
+        className={`${sizeClass} rounded-full flex items-center justify-center font-black border-2 shadow-lg transition-transform touch-none relative after:absolute after:-inset-2.5 after:content-[''] ${isAi ? 'ring-2 ring-purple-400' : ''} ${dragging ? 'scale-125 ring-4 ring-purple-500/30' : (isHovered || isSelected ? 'scale-115 ring-2 ring-white/40' : '')}`}
         style={{
           backgroundColor: colors.dot,
           borderColor: isSelected ? '#FFFFFF' : colors.border,
           color: '#fff',
-          boxShadow: dragging ? `0 0 15px ${colors.dot}` : isSelected ? `0 0 0 4px ${colors.dot}60, 0 4px 12px rgba(0,0,0,0.5)` : `0 0 0 3px ${colors.dot}30`,
+          boxShadow: isAi
+            ? '0 0 16px #9333ea, 0 0 32px rgba(147, 51, 234, 0.45)'
+            : dragging 
+              ? `0 0 15px ${colors.dot}` 
+              : isSelected 
+                ? `0 0 0 4px ${colors.dot}60, 0 4px 12px rgba(0,0,0,0.5)` 
+                : `0 0 0 3px ${colors.dot}30`,
         }}
       >
-        {initials}
+        {isAi ? <Sparkles className="w-4 h-4 text-white animate-pulse" /> : initials}
       </div>
 
       {/* Invisible bridge fills the gap between pin bottom and action strip */}

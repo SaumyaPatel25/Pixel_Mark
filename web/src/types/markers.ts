@@ -106,6 +106,8 @@ export interface Marker extends CanonicalMarkerAnchor {
   issue_type?: string | null;
   needsRecapture?: boolean;
   expected_version?: number;
+  inspo_image_url?: string | null;
+  metadata?: Record<string, any> | null;
 }
 
 export interface ReviewerIdentity {

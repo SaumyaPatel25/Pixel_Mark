@@ -19,6 +19,7 @@ export const MARKER_COLOR_MAP: Record<string, ColorTheme> = {
   purple: { bg: '#f3e8ff', border: '#c084fc', text: '#6b21a8', dot: '#a855f7' },
   magenta: { bg: '#fdf2f8', border: '#f472b6', text: '#9d174d', dot: '#ec4899' },
   indigo: { bg: '#e0e7ff', border: '#818cf8', text: '#3730a3', dot: '#6366f1' },
+  ai_copilot: { bg: '#f3e8ff', border: '#c084fc', text: '#581c87', dot: '#9333ea' },
 }
 
 const DEFAULT_COLOR: ColorTheme = {

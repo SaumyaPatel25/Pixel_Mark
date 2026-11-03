@@ -28,7 +28,9 @@ import {
   Loader2,
   TrendingUp,
   CornerDownRight,
-  Send
+  Send,
+  Sparkles,
+  Check
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getMarkerColors } from '@/lib/markerColors'
@@ -72,6 +74,83 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
   // Replies State (Stored in localStorage for full persistence)
   const [replies, setReplies] = useState<LocalReply[]>([])
   const [newReplyText, setNewReplyText] = useState('')
+
+  // Dev Fix State
+  const [devFix, setDevFix] = useState<{
+    marker_id?: string | null
+    issue_analysis: string
+    suggested_code: string
+    file_hint: string
+    css_rules?: string
+  } | null>(null)
+  const [devFixLoading, setDevFixLoading] = useState(false)
+  const [devFixError, setDevFixError] = useState<string | null>(null)
+  const [copiedFixCode, setCopiedFixCode] = useState(false)
+
+  // Derive metadata, AI flag and inspo image URL
+  const markerMetadata = useMemo(() => {
+    if (!selectedMarker) return null
+    if (selectedMarker.metadata) return selectedMarker.metadata
+    if (selectedMarker.element_rect_json?.metadata) return selectedMarker.element_rect_json.metadata
+    if (selectedMarker.encrypted_context) {
+      try {
+        return JSON.parse(selectedMarker.encrypted_context)
+      } catch {
+        return null
+      }
+    }
+    return null
+  }, [selectedMarker])
+
+  const isAiMarker = Boolean(
+    selectedMarker && (
+      selectedMarker.color_token === 'ai_copilot' ||
+      markerMetadata?.source === 'ai_copilot' ||
+      (selectedMarker as any).metadata?.source === 'ai_copilot'
+    )
+  )
+
+  const inspoImageUrl = (
+    selectedMarker?.inspo_image_url ||
+    markerMetadata?.inspo_image_url ||
+    selectedMarker?.element_rect_json?.inspo_image_url ||
+    null
+  )
+
+  useEffect(() => {
+    setDevFix(null)
+    setDevFixLoading(false)
+    setDevFixError(null)
+    setCopiedFixCode(false)
+  }, [selectedMarker?.id])
+
+  const handleGenerateDevFix = async () => {
+    if (!selectedMarker) return
+    setDevFixLoading(true)
+    setDevFixError(null)
+    try {
+      const res = await api.copilot.generateDevFix({
+        marker_id: selectedMarker.id,
+        selector: selectedMarker.target_selector || 'body',
+        comment: selectedMarker.description || selectedMarker.title || 'Improve design',
+        target_url: selectedMarker.page_url || '',
+        inspo_image_url: inspoImageUrl || undefined,
+      })
+      setDevFix(res)
+    } catch (err: any) {
+      console.error('Failed to generate dev fix:', err)
+      setDevFixError(err?.message || 'Failed to generate developer fix. Please try again.')
+    } finally {
+      setDevFixLoading(false)
+    }
+  }
+
+  const handleCopyFixCode = (code: string) => {
+    navigator.clipboard.writeText(code)
+    setCopiedFixCode(true)
+    setTimeout(() => setCopiedFixCode(false), 2000)
+    useUIStore.getState().addToast('Fix code copied to clipboard!', 'success')
+  }
 
   // Fetch History & Load Replies when selected observation changes
   useEffect(() => {
@@ -606,13 +685,23 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={cn(
                       "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white shadow-sm",
-                      selectedMarker.status === 'resolved' ? 'bg-emerald-600' : 'bg-[#4382DF]'
+                      isAiMarker
+                        ? 'bg-purple-600 shadow-purple-500/50 shadow-md ring-2 ring-purple-400'
+                        : selectedMarker.status === 'resolved' 
+                          ? 'bg-emerald-600' 
+                          : 'bg-[#4382DF]'
                     )}>
-                      {markers.findIndex(m => m.id === selectedMarker.id) + 1}
+                      {isAiMarker ? <Sparkles className="w-3 h-3 text-white animate-pulse" /> : (markers.findIndex(m => m.id === selectedMarker.id) + 1)}
                     </span>
                     <h3 className="text-sm font-extrabold text-pm-text truncate max-w-xs sm:max-w-md">
                       {selectedMarker.title || 'Pinned Observation'}
                     </h3>
+                    {isAiMarker && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black tracking-wide bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/30 shadow-sm">
+                        <Sparkles className="w-3 h-3 text-purple-500 animate-pulse" />
+                        ✨ AI Copilot Suggestion
+                      </span>
+                    )}
                   </div>
                   <p className="text-[8.5px] font-mono font-bold uppercase tracking-widest text-pm-muted">
                     ID: {selectedMarker.id.substring(0, 8)} • Created {new Date(selectedMarker.created_at).toLocaleDateString()}
@@ -689,6 +778,40 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                 </div>
               </div>
 
+              {/* Inspiration Photo Card */}
+              {inspoImageUrl && (
+                <div className="bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-transparent border border-purple-500/20 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[8.5px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-purple-500" />
+                      Inspiration Photo
+                    </h4>
+                    <a
+                      href={inspoImageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[9px] font-mono text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 truncate max-w-[200px]"
+                    >
+                      View full image <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-20 h-20 rounded-lg overflow-hidden border border-purple-500/30 flex-shrink-0 bg-black/20 shadow-sm">
+                      <img
+                        src={inspoImageUrl}
+                        alt="Inspiration reference"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="space-y-1 min-w-0">
+                      <p className="text-xs font-bold text-pm-text">Client Design Reference</p>
+                      <p className="text-[9px] font-mono text-pm-muted truncate max-w-sm">{inspoImageUrl}</p>
+                      <p className="text-[9px] text-pm-muted">Visual benchmark provided by reviewer during live session capture.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Screenshot Preview */}
               {selectedMarker.screenshot_url && (
                 <div className="space-y-2">
@@ -760,6 +883,114 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                     )}
                   </div>
                 </details>
+              </div>
+
+              {/* ✨ Ask AI to Generate Dev Fix Section */}
+              <div className="border border-purple-500/20 bg-gradient-to-br from-purple-500/[0.04] to-transparent rounded-xl p-4 md:p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-500 animate-pulse" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                        AI Developer Fix Generator
+                      </h4>
+                    </div>
+                    <p className="text-[10px] text-pm-muted">
+                      Synthesizes root cause analysis and production-ready React/Tailwind/CSS code snippets directly for developers.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleGenerateDevFix}
+                    disabled={devFixLoading}
+                    className="h-8.5 px-3.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[9.5px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md shadow-purple-500/20 disabled:opacity-60 cursor-pointer flex-shrink-0 self-start sm:self-auto"
+                  >
+                    {devFixLoading ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Generating Fix...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Ask AI for Dev Fix
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {devFixError && (
+                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{devFixError}</span>
+                  </div>
+                )}
+
+                {devFix && (
+                  <div className="space-y-4 pt-2 border-t border-purple-500/20 animate-in fade-in duration-200">
+                    {/* Root Cause Analysis */}
+                    <div className="space-y-1.5">
+                      <span className="text-[8.5px] font-black uppercase tracking-widest text-pm-muted">
+                        Root Cause & UX Analysis
+                      </span>
+                      <p className="text-xs text-pm-text leading-relaxed bg-pm-surface-2 border border-pm-border rounded-lg p-3 font-medium">
+                        {devFix.issue_analysis}
+                      </p>
+                    </div>
+
+                    {/* Likely File Hint */}
+                    {devFix.file_hint && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-[8.5px] font-black uppercase tracking-widest text-pm-muted">
+                          Probable File:
+                        </span>
+                        <code className="px-2 py-0.5 rounded bg-pm-surface-2 border border-pm-border font-mono text-[10px] text-purple-600 dark:text-purple-300 font-bold">
+                          {devFix.file_hint}
+                        </code>
+                      </div>
+                    )}
+
+                    {/* Suggested Code Snippet */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8.5px] font-black uppercase tracking-widest text-pm-muted">
+                          Production Code Snippet
+                        </span>
+                        <button
+                          onClick={() => handleCopyFixCode(devFix.suggested_code)}
+                          className="h-7 px-2.5 rounded bg-pm-surface-2 hover:bg-pm-surface border border-pm-border text-pm-text text-[9px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          {copiedFixCode ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-500" />
+                              <span className="text-emerald-500 font-black">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3 text-pm-muted" />
+                              <span>Copy Code</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <pre className="font-mono text-[10px] bg-slate-950 text-slate-100 p-3.5 rounded-lg border border-white/10 overflow-x-auto leading-relaxed max-h-[300px]">
+                        <code>{devFix.suggested_code}</code>
+                      </pre>
+                    </div>
+
+                    {/* Injectable CSS Rules */}
+                    {devFix.css_rules && (
+                      <div className="space-y-1">
+                        <span className="text-[8.5px] font-black uppercase tracking-widest text-pm-muted">
+                          Scoped CSS Rules
+                        </span>
+                        <pre className="font-mono text-[9px] bg-slate-900 text-purple-300 p-2.5 rounded-lg border border-purple-500/20 overflow-x-auto">
+                          <code>{devFix.css_rules}</code>
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Split row: Activity Timeline & Collaboration Discussion */}
