@@ -9,6 +9,7 @@ from sqlalchemy import select, desc
 from models.core import User, UserAIProviderConfig
 from utils.encryption import decrypt_secret
 from services.ai_service import run_provider_json_completion
+from services.ui_design_rules import UI_DESIGN_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -321,7 +322,9 @@ async def parse_copilot_dom_intent(
     if not provider_config:
         raise RuntimeError("No active AI provider configured for Copilot. Please configure a key or enable Groq/Gemini.")
 
-    system_prompt = """
+    system_prompt = f"""
+{UI_DESIGN_SYSTEM_PROMPT}
+
 You are STAGE Copilot, an expert AI visual DOM engineer.
 The user wants to visually edit or restyle an element on a live webpage using natural language or voice commands.
 You are given the user's prompt and a candidate list of micro-DOM elements currently visible on the page.
@@ -329,24 +332,24 @@ You are given the user's prompt and a candidate list of micro-DOM elements curre
 Your job:
 1. Select the exact `selector` from the provided micro_dom candidates that best corresponds to the user's intent.
    CRITICAL: You MUST use an exact `selector` from the candidates list. Do NOT invent new or hallucinated CSS selectors.
-2. Determine the CSS mutations required as key-value pairs (e.g., {"background-color": "#10B981", "padding": "12px 24px"}).
+2. Determine the CSS mutations required as key-value pairs (e.g., {{"background-color": "#10B981", "padding": "12px 24px"}}).
 3. Generate valid scoped CSS rules string with `!important` flags so the styles override existing specificity, e.g.:
-   "button.cta-primary { background-color: #10B981 !important; padding: 12px 24px !important; }"
+   "button.cta-primary {{ background-color: #10B981 !important; padding: 12px 24px !important; }}"
 4. Determine `text_mutation` if the user requested a change to the copy/text of the element, otherwise null.
 5. Write a concise 1-sentence `client_summary` suitable for non-technical stakeholders explaining what changed.
 6. Write a 1-2 sentence `developer_explanation` detailing the technical CSS deltas and conversion/design rationale.
 7. Provide a `confidence` score between 0.0 and 1.0.
 
 Return ONLY a valid JSON object with this exact structure:
-{
+{{
   "selector": "<exact selector from micro_dom candidates>",
-  "css_mutations": { "<css-prop>": "<css-value>" },
+  "css_mutations": {{ "<css-prop>": "<css-value>" }},
   "css_rules": "<scoped selector rule with !important>",
   "text_mutation": "<new text or null>",
   "client_summary": "<non-technical client summary>",
   "developer_explanation": "<technical explanation for developers>",
   "confidence": 0.95
-}
+}}
 """
 
     user_payload = (
@@ -411,4 +414,254 @@ Return ONLY a valid JSON object with this exact structure:
         "client_summary": client_summary,
         "developer_explanation": developer_explanation,
         "confidence": confidence
+    }
+
+
+def _mock_site_analysis(site_fingerprint: dict) -> dict[str, Any]:
+    """
+    Deterministic site context analyzer for tests, offline mode, and fallback.
+    Examines title, description, headings, dominant colors, and CTAs to categorize
+    industry posture, aesthetic summary, and top 3 high-impact design improvements.
+    """
+    title = str(site_fingerprint.get("title") or "")
+    desc = str(site_fingerprint.get("description") or "")
+    headings = site_fingerprint.get("headings") or []
+    headings_text = " ".join(str(h.get("text", h) if isinstance(h, dict) else h) for h in headings)
+
+    combined_corpus = f"{title} {desc} {headings_text}".lower()
+
+    # 1. Determine Business Category
+    if any(k in combined_corpus for k in ["saas", "software", "api", "platform", "cloud", "developer", "microservice", "ai", "llm", "automation", "metric", "observability", "testing"]):
+        business_category = "SaaS & Developer Tools"
+    elif any(k in combined_corpus for k in ["shop", "store", "ecommerce", "e-commerce", "retail", "product", "cart", "apparel", "boots", "shoe", "fashion"]):
+        business_category = "E-Commerce & Digital Retail"
+    elif any(k in combined_corpus for k in ["bank", "finance", "fintech", "wealth", "invest", "crypto", "trading", "capital"]):
+        business_category = "Fintech & Wealth Management"
+    elif any(k in combined_corpus for k in ["agency", "studio", "creative", "portfolio", "director", "design", "showcase"]):
+        business_category = "Creative Agency & Portfolio"
+    elif any(k in combined_corpus for k in ["health", "medical", "clinic", "wellness", "fitness", "care", "doctor"]):
+        business_category = "Healthcare & Wellness"
+    else:
+        business_category = "Modern Tech Platform"
+
+    # 2. Extract & Normalize Dominant Colors
+    raw_colors = site_fingerprint.get("dominant_colors") or site_fingerprint.get("colors") or []
+    dominant_colors = [str(c) for c in raw_colors if c]
+    if not dominant_colors:
+        dominant_colors = ["#0F172A", "#6366F1", "#10B981"]
+
+    # 3. Determine Aesthetic Summary
+    has_dark_base = any(c.lower() in ["#000000", "#000", "#0f172a", "#111827", "#1e293b", "#0b0f19", "#18181b", "#111"] for c in dominant_colors)
+    if has_dark_base:
+        aesthetic_summary = "Modern dark minimalist with high-contrast accent focal points and clean geometry."
+    else:
+        aesthetic_summary = "Clean modern light aesthetic with focused visual rhythm and airy spatial proportions."
+
+    # 4. Resolve Target Selectors
+    raw_ctas = site_fingerprint.get("cta_buttons") or site_fingerprint.get("ctas") or []
+    cta_selector = "button.cta-primary"
+    if raw_ctas:
+        first_cta = raw_ctas[0]
+        if isinstance(first_cta, dict) and first_cta.get("selector"):
+            cta_selector = first_cta["selector"]
+        elif isinstance(first_cta, str) and first_cta.startswith((".", "#", "button", "a")):
+            cta_selector = first_cta
+
+    heading_selector = "h1.hero-title, h1"
+    if headings:
+        first_h = headings[0]
+        if isinstance(first_h, dict) and first_h.get("selector"):
+            heading_selector = first_h["selector"]
+
+    # 5. Build Top 3 High-Impact Suggestions
+    top_3_suggestions = [
+        {
+            "id": "sug-cro-cta",
+            "title": "Elevate Primary CTA Visual Dominance",
+            "impact_tag": "CRO",
+            "selector": cta_selector,
+            "description": "Standardize primary button with 8pt spatial rhythm (12px 24px padding), high-contrast emerald fill, and soft shadow to boost conversion focus.",
+            "css_mutations": {
+                "background-color": "#10B981",
+                "color": "#FFFFFF",
+                "padding": "12px 24px",
+                "border-radius": "8px",
+                "font-weight": "600",
+                "box-shadow": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)"
+            },
+            "css_rules": f"{cta_selector} {{ background-color: #10B981 !important; color: #FFFFFF !important; padding: 12px 24px !important; border-radius: 8px !important; font-weight: 600 !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important; }}"
+        },
+        {
+            "id": "sug-typo-headings",
+            "title": "Headline Optical Tracking & Tight Rhythm",
+            "impact_tag": "Typography",
+            "selector": heading_selector,
+            "description": "Apply -0.025em optical tracking to hero headings with 1.2 modular line-height to tighten visual mass and improve editorial authority.",
+            "css_mutations": {
+                "letter-spacing": "-0.025em",
+                "line-height": "1.2",
+                "font-weight": "700"
+            },
+            "css_rules": f"{heading_selector} {{ letter-spacing: -0.025em !important; line-height: 1.2 !important; font-weight: 700 !important; }}"
+        },
+        {
+            "id": "sug-polish-cards",
+            "title": "Surface Depth & Subtle Border Polish",
+            "impact_tag": "Polish",
+            "selector": ".card, .feature-card, section.hero, .hero-container",
+            "description": "Add 1px subtle boundary border and layered soft elevation shadow to separate foreground content with modern polish.",
+            "css_mutations": {
+                "border": "1px solid rgba(255, 255, 255, 0.08)",
+                "border-radius": "12px",
+                "box-shadow": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)"
+            },
+            "css_rules": ".card, .feature-card, section.hero, .hero-container { border: 1px solid rgba(255, 255, 255, 0.08) !important; border-radius: 12px !important; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important; }"
+        }
+    ]
+
+    return {
+        "business_category": business_category,
+        "aesthetic_summary": aesthetic_summary,
+        "dominant_colors": dominant_colors,
+        "top_3_suggestions": top_3_suggestions
+    }
+
+
+async def analyze_site_context(
+    site_fingerprint: dict,
+    provider_config: Optional[dict] = None,
+    mock_client: bool = False,
+    db: Optional[AsyncSession] = None,
+    user: Optional[User] = None
+) -> dict[str, Any]:
+    """
+    Analyzes site DOM fingerprint (title, headings, colors, CTAs)
+    against UI design heuristics (WCAG 2.1, 8pt spacing rhythm, optical typography,
+    modern component polish, and CRO).
+    Returns business_category, aesthetic_summary, dominant_colors, and top_3_suggestions.
+    Falls back to deterministic analysis when mock_client=True or when LLM is unavailable.
+    """
+    if mock_client:
+        return _mock_site_analysis(site_fingerprint)
+
+    # Resolve provider config if not supplied
+    if not provider_config:
+        try:
+            provider_config = await resolve_ai_provider(db=db, user=user)
+        except Exception as e:
+            logger.warning(f"Failed to resolve AI provider for site analysis: {e}")
+            provider_config = None
+
+    if not provider_config:
+        logger.info("No AI provider available; executing deterministic site analysis.")
+        return _mock_site_analysis(site_fingerprint)
+
+    system_prompt = f"""
+{UI_DESIGN_SYSTEM_PROMPT}
+
+You are the STAGE Site Context Analyzer & UI Heuristics Engine.
+Given a website's extracted DOM fingerprint (title, meta description, headings, dominant colors, and CTA buttons), analyze its business niche and aesthetic posture, then generate the TOP 3 highest-impact design suggestions to elevate the site.
+
+Every suggestion MUST strictly comply with:
+- WCAG 2.1 contrast (AA/AAA)
+- 8-point spatial rhythm (padding: 4px, 8px, 12px 24px, 16px 32px, 24px, 32px)
+- Modular typography with optical tracking (-0.025em on headlines, +0.05em on badges)
+- Modern component polish (subtle borders 'rgba(255, 255, 255, 0.08)', double box shadows, 8px/12px radius)
+- CRO visual dominance for the primary CTA
+
+Return ONLY a valid JSON object matching this schema:
+{{
+  "business_category": "Short industry category (e.g. 'SaaS & Developer Tools', 'Fintech & Wealth Management')",
+  "aesthetic_summary": "1-sentence summary of the visual vibe, color mood, and typography tone",
+  "dominant_colors": ["#hex1", "#hex2", "#hex3"],
+  "top_3_suggestions": [
+    {{
+      "id": "sug-1",
+      "title": "Concise suggestion headline (3-6 words)",
+      "impact_tag": "CRO" | "Typography" | "Polish" | "A11Y" | "Aesthetics",
+      "selector": "CSS selector to target on the page",
+      "description": "1-2 sentence rationale explaining the design/conversion benefit",
+      "css_mutations": {{ "property": "value" }},
+      "css_rules": "selector {{ prop: value !important; }}"
+    }}
+  ]
+}}
+Ensure exactly 3 suggestions are returned in top_3_suggestions.
+""".strip()
+
+    user_payload = (
+        f"Site Fingerprint (JSON):\n"
+        f"{json.dumps(site_fingerprint, indent=2)}\n\n"
+        f"Analyze this site context and return the structured JSON assessment with top 3 suggestions."
+    )
+
+    try:
+        raw_response = await run_provider_json_completion(
+            provider_config=provider_config,
+            system_prompt=system_prompt,
+            user_prompt=user_payload,
+            max_tokens=1500
+        )
+    except Exception as e:
+        logger.warning(f"analyze_site_context LLM call failed ({e}); falling back to deterministic mock.")
+        return _mock_site_analysis(site_fingerprint)
+
+    # Sanitize and validate LLM output
+    fallback = _mock_site_analysis(site_fingerprint)
+
+    business_category = raw_response.get("business_category")
+    if not business_category or not isinstance(business_category, str):
+        business_category = fallback["business_category"]
+
+    aesthetic_summary = raw_response.get("aesthetic_summary")
+    if not aesthetic_summary or not isinstance(aesthetic_summary, str):
+        aesthetic_summary = fallback["aesthetic_summary"]
+
+    dominant_colors = raw_response.get("dominant_colors")
+    if not isinstance(dominant_colors, list) or not dominant_colors:
+        dominant_colors = fallback["dominant_colors"]
+    else:
+        dominant_colors = [str(c) for c in dominant_colors[:6]]
+
+    raw_suggestions = raw_response.get("top_3_suggestions")
+    valid_suggestions = []
+    if isinstance(raw_suggestions, list):
+        for idx, item in enumerate(raw_suggestions[:3]):
+            if not isinstance(item, dict):
+                continue
+            sug_id = str(item.get("id") or f"sug-{idx + 1}")
+            title = str(item.get("title") or f"Design Improvement {idx + 1}")
+            impact_tag = str(item.get("impact_tag") or "Polish")
+            selector = str(item.get("selector") or "body")
+            description = str(item.get("description") or "Elevate component styling.")
+            css_mutations = item.get("css_mutations")
+            if not isinstance(css_mutations, dict):
+                css_mutations = {}
+            css_rules = item.get("css_rules")
+            if not css_rules or not isinstance(css_rules, str):
+                if css_mutations:
+                    rules_body = " ".join(f"{k}: {v} !important;" for k, v in css_mutations.items())
+                    css_rules = f"{selector} {{ {rules_body} }}"
+                else:
+                    css_rules = ""
+            valid_suggestions.append({
+                "id": sug_id,
+                "title": title,
+                "impact_tag": impact_tag,
+                "selector": selector,
+                "description": description,
+                "css_mutations": css_mutations,
+                "css_rules": css_rules
+            })
+
+    # If LLM gave fewer than 3 suggestions, pad with fallback suggestions
+    while len(valid_suggestions) < 3:
+        next_sug = fallback["top_3_suggestions"][len(valid_suggestions)]
+        valid_suggestions.append(next_sug)
+
+    return {
+        "business_category": business_category,
+        "aesthetic_summary": aesthetic_summary,
+        "dominant_colors": dominant_colors,
+        "top_3_suggestions": valid_suggestions
     }

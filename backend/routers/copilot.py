@@ -15,7 +15,7 @@ from markers.repository import MarkerRepository
 from markers.router import resolve_actor_context, invalidate_project_analytics_cache
 from realtime.redis_broadcaster import redis_broadcaster
 from realtime.events import build_marker_event
-from services.copilot_service import resolve_ai_provider, parse_copilot_dom_intent
+from services.copilot_service import resolve_ai_provider, parse_copilot_dom_intent, analyze_site_context
 
 logger = logging.getLogger("stage.copilot")
 
@@ -50,6 +50,34 @@ class CopilotConfirmPinRequest(BaseModel):
     client_summary: str = Field(..., min_length=1)
     developer_explanation: Optional[str] = None
     rect: Optional[Dict[str, Any]] = None
+
+
+class SiteSuggestion(BaseModel):
+    id: str
+    title: str
+    impact_tag: str
+    selector: str
+    description: str
+    css_mutations: Dict[str, Any] = Field(default_factory=dict)
+    css_rules: str = ""
+
+
+class SiteFingerprintRequest(BaseModel):
+    title: Optional[str] = ""
+    description: Optional[str] = ""
+    headings: Optional[List[Any]] = Field(default_factory=list)
+    dominant_colors: Optional[List[str]] = Field(default_factory=list)
+    colors: Optional[List[str]] = None
+    cta_buttons: Optional[List[Any]] = Field(default_factory=list)
+    ctas: Optional[List[Any]] = None
+    mock_client: Optional[bool] = False
+
+
+class SiteContextResponse(BaseModel):
+    business_category: str
+    aesthetic_summary: str
+    dominant_colors: List[str] = Field(default_factory=list)
+    top_3_suggestions: List[SiteSuggestion] = Field(default_factory=list)
 
 
 @router.post("/api/copilot/parse", response_model=CopilotResolution)
@@ -95,6 +123,45 @@ async def parse_copilot_intent_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Copilot parse failed: {str(e)}"
         )
+
+
+@router.post("/api/copilot/analyze-site", response_model=SiteContextResponse)
+@router.post("/copilot/analyze-site", response_model=SiteContextResponse)
+async def analyze_site_endpoint(
+    payload: SiteFingerprintRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """
+    Analyzes extracted site fingerprint (title, headings, colors, CTAs)
+    against UI design heuristics and produces business categorization,
+    aesthetic posture, and top 3 high-impact UI suggestions with CSS rules.
+    """
+    is_mock = bool(payload.mock_client) or (os.getenv("COPILOT_MOCK_CLIENT") == "true")
+
+    fingerprint_dict = payload.model_dump()
+    if payload.colors and not payload.dominant_colors:
+        fingerprint_dict["dominant_colors"] = payload.colors
+    if payload.ctas and not payload.cta_buttons:
+        fingerprint_dict["cta_buttons"] = payload.ctas
+
+    try:
+        provider_config = None
+        if not is_mock:
+            provider_config = await resolve_ai_provider(db=db, user=current_user)
+
+        analysis = await analyze_site_context(
+            site_fingerprint=fingerprint_dict,
+            provider_config=provider_config,
+            mock_client=is_mock,
+            db=db,
+            user=current_user
+        )
+        return analysis
+    except Exception as e:
+        logger.error(f"Site analysis endpoint failed: {e}", exc_info=True)
+        from services.copilot_service import _mock_site_analysis
+        return _mock_site_analysis(fingerprint_dict)
 
 
 @router.post("/api/copilot/confirm-pin", status_code=status.HTTP_201_CREATED)
