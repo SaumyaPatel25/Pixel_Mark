@@ -1,6 +1,5 @@
 'use client'
 import { useUIStore } from '@/store/uiStore'
-import { usePlan } from '@/hooks/usePlan'
 import { normalizeMarkerCoordinates } from '@/utils/normalizeCapturePayload'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useDOMEditStore } from '@/store/domEditStore'
@@ -340,7 +339,6 @@ export function AuditSurface({
   onHeaderCollapsedChange,
   domEditAvailable = false
 }: AuditSurfaceProps) {
-  const { canUseBlueprintDomEdit } = usePlan()
   const addToast = useUIStore(s => s.addToast)
   const isCommandCenterOpen = useUIStore(s => s.isCommandCenterOpen)
   const toggleCommandCenter = useUIStore(s => s.toggleCommandCenter)
@@ -2599,43 +2597,25 @@ export function AuditSurface({
                 <Plus className="w-3 h-3" />
                 Comment Mode
               </button>
-              {shareToken ? (
-                domEditAvailable && (
-                  <button
-                    id="canvas-mode-reviewer-edit-btn"
-                    aria-label="Switch to Suggestion Edit Mode"
-                    onClick={() => {
-                      setCanvasMode('edit')
-                      setFeedbackModeActive(false)
-                    }}
-                    className={cn(
-                      "h-7 px-3 rounded-lg font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer",
-                      canvasMode === 'edit'
-                        ? "bg-purple-600 text-white shadow-md shadow-purple-900/40"
-                        : "text-slate-400 hover:text-white hover:bg-white/5"
-                    )}
-                  >
-                    <Layers className="w-3 h-3" />
-                    Suggest Edits
-                  </button>
-                )
-              ) : (
+              {shareToken && domEditAvailable ? (
                 <button
-                  id="open-in-blueprint-btn"
-                  aria-label="Refine this page in Blueprint Canvas"
+                  id="canvas-mode-reviewer-edit-btn"
+                  aria-label="Switch to Suggestion Edit Mode"
                   onClick={() => {
-                    if (canUseBlueprintDomEdit) {
-                      window.location.href = `/canvas/${projectId}?sessionId=${sessionId}`
-                    } else {
-                      window.location.href = '/pricing'
-                    }
+                    setCanvasMode('edit')
+                    setFeedbackModeActive(false)
                   }}
-                  className="h-7 px-3 rounded-lg font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer text-teal-400 border border-teal-500/30 hover:bg-teal-500/10"
+                  className={cn(
+                    "h-7 px-3 rounded-lg font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer",
+                    canvasMode === 'edit'
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-900/40"
+                      : "text-slate-400 hover:text-white hover:bg-white/5"
+                  )}
                 >
                   <Layers className="w-3 h-3" />
-                  Open in Blueprint
+                  Suggest Edits
                 </button>
-              )}
+              ) : null}
             </div>
 
             {/* ── PRIMARY CTA: Leave Feedback (Desktop only, mobile has bottom bar) ── */}
@@ -3197,29 +3177,7 @@ export function AuditSurface({
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="absolute top-20 right-6 bg-[#18181b] border border-teal-500/30 text-white p-4 rounded-xl shadow-2xl z-40 max-w-xs space-y-3">
-                <div className="flex items-center gap-2 text-teal-400 font-bold text-xs">
-                  <Layers className="w-4 h-4" />
-                  <span>Refine page in Blueprint</span>
-                </div>
-                <p className="text-xs text-white/70">
-                  Design style editing has moved to the Blueprint Canvas. Select a frame there to tweak layout, typography, background, and effects.
-                </p>
-                <button
-                  onClick={() => {
-                    if (canUseBlueprintDomEdit) {
-                      window.location.href = `/canvas/${projectId}?sessionId=${sessionId}`
-                    } else {
-                      window.location.href = '/pricing'
-                    }
-                  }}
-                  className="w-full py-2 px-3 bg-teal-500 hover:bg-teal-400 text-black font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <span>Open in Blueprint</span>
-                </button>
-              </div>
-            )
+            ) : null
           )}
 
           {/* ── Shortcut hint ───────────────────────────────────────────── */}
