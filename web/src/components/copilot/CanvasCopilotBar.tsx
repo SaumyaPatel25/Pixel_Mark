@@ -44,6 +44,7 @@ interface CanvasCopilotBarProps {
 export function CanvasCopilotBar({
   iframeRef,
   sessionId,
+  projectId,
   reviewerId,
   onPinCreated,
   className,
@@ -116,10 +117,11 @@ export function CanvasCopilotBar({
         cssRules: resolution.css_rules,
         selector: resolution.selector,
         textMutation: resolution.text_mutation,
+        projectId: projectId,
       },
       '*'
     )
-  }, [iframeRef])
+  }, [iframeRef, projectId])
 
   const revertEphemeralMutation = useCallback((selector?: string | null) => {
     const iframe = iframeRef.current
@@ -130,11 +132,12 @@ export function CanvasCopilotBar({
       {
         type: 'STAGE_REVERT_EPHEMERAL_MUTATION',
         selector: targetSelector || undefined,
+        projectId: projectId,
       },
       '*'
     )
     activeSelectorRef.current = null
-  }, [iframeRef])
+  }, [iframeRef, projectId])
 
   // ─── Undo & Redo Handlers ─────────────────────────────────────────────────
   const handleUndo = useCallback(() => {

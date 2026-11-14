@@ -20,7 +20,11 @@ async def run_provider_json_completion(
     supports_compat = provider_config.get("supports_openai_compat", False)
 
     # Free Omni-Route & OpenAI-compatible provider defaults
-    if provider == "groq":
+    if provider == "openrouter":
+        base_url = base_url or "https://openrouter.ai/api/v1"
+        model_name = model_name or "openai/gpt-4o-mini"
+        supports_compat = True
+    elif provider == "groq":
         base_url = base_url or "https://api.groq.com/openai/v1"
         model_name = model_name or "qwen/qwen3.8-27b"
         supports_compat = True

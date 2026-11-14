@@ -112,7 +112,21 @@ async def resolve_ai_provider(
         except Exception as e:
             logger.warning(f"Failed querying user AI provider config: {e}")
 
-    # Priority 2: System GROQ_API_KEY (Free Omni-Route)
+    # Priority 2: System OPENROUTER_API_KEY (Flagship gpt-4o-mini via OpenRouter)
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    if openrouter_key and openrouter_key.strip():
+        first_key = openrouter_key.split(",")[0].strip()
+        if first_key:
+            return {
+                "provider": "openrouter",
+                "api_key": first_key,
+                "base_url": "https://openrouter.ai/api/v1",
+                "model_name": "openai/gpt-4o-mini",
+                "supports_openai_compat": True,
+                "is_omni_route": True,
+            }
+
+    # Priority 3: System GROQ_API_KEY (Free Omni-Route)
     groq_key = os.getenv("GROQ_API_KEY")
     if groq_key and groq_key.strip():
         return {
@@ -124,7 +138,7 @@ async def resolve_ai_provider(
             "is_omni_route": True,
         }
 
-    # Priority 3: System GEMINI_API_KEY (Free Omni-Route)
+    # Priority 4: System GEMINI_API_KEY (Free Omni-Route)
     gemini_key = os.getenv("GEMINI_API_KEY")
     if gemini_key and gemini_key.strip():
         return {
@@ -136,7 +150,7 @@ async def resolve_ai_provider(
             "is_omni_route": True,
         }
 
-    # Priority 4: System OPENAI_API_KEY
+    # Priority 5: System OPENAI_API_KEY
     openai_key = os.getenv("OPENAI_API_KEY")
     if openai_key and openai_key.strip():
         return {
@@ -459,7 +473,7 @@ def _mock_site_analysis(site_fingerprint: dict) -> dict[str, Any]:
 
     # 4. Resolve Target Selectors
     raw_ctas = site_fingerprint.get("cta_buttons") or site_fingerprint.get("ctas") or []
-    cta_selector = "button.cta-primary"
+    cta_selector = "button, a[role='button'], .btn, a.button"
     if raw_ctas:
         first_cta = raw_ctas[0]
         if isinstance(first_cta, dict) and first_cta.get("selector"):
@@ -467,11 +481,13 @@ def _mock_site_analysis(site_fingerprint: dict) -> dict[str, Any]:
         elif isinstance(first_cta, str) and first_cta.startswith((".", "#", "button", "a")):
             cta_selector = first_cta
 
-    heading_selector = "h1.hero-title, h1"
+    heading_selector = "h1, h2, h3"
     if headings:
         first_h = headings[0]
         if isinstance(first_h, dict) and first_h.get("selector"):
             heading_selector = first_h["selector"]
+
+    surface_selector = "header, nav, [role='navigation']"
 
     # 5. Build Top 3 High-Impact Suggestions
     top_3_suggestions = [
@@ -506,16 +522,16 @@ def _mock_site_analysis(site_fingerprint: dict) -> dict[str, Any]:
         },
         {
             "id": "sug-polish-cards",
-            "title": "Surface Depth & Subtle Border Polish",
+            "title": "Navigation & Surface Depth Polish",
             "impact_tag": "Polish",
-            "selector": ".card, .feature-card, section.hero, .hero-container",
-            "description": "Add 1px subtle boundary border and layered soft elevation shadow to separate foreground content with modern polish.",
+            "selector": surface_selector,
+            "description": "Add modern subtle boundary border and layered elevation to navigation/header surfaces to establish visual hierarchy.",
             "css_mutations": {
-                "border": "1px solid rgba(255, 255, 255, 0.08)",
-                "border-radius": "12px",
-                "box-shadow": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)"
+                "border-bottom": "1px solid rgba(255, 255, 255, 0.12)",
+                "backdrop-filter": "blur(12px)",
+                "box-shadow": "0 4px 20px -2px rgba(0, 0, 0, 0.1)"
             },
-            "css_rules": ".card, .feature-card, section.hero, .hero-container { border: 1px solid rgba(255, 255, 255, 0.08) !important; border-radius: 12px !important; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important; }"
+            "css_rules": f"{surface_selector} {{ border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important; backdrop-filter: blur(12px) !important; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.1) !important; }}"
         }
     ]
 
@@ -556,11 +572,35 @@ async def analyze_site_context(
         logger.info("No AI provider available; executing deterministic site analysis.")
         return _mock_site_analysis(site_fingerprint)
 
+    fallback = _mock_site_analysis(site_fingerprint)
+    fallback_cta = fallback["top_3_suggestions"][0]["selector"]
+    fallback_heading = fallback["top_3_suggestions"][1]["selector"]
+    fallback_surface = fallback["top_3_suggestions"][2]["selector"]
+
+    available_ctas = [
+        btn.get("selector") for btn in (site_fingerprint.get("cta_buttons") or site_fingerprint.get("ctas") or [])
+        if isinstance(btn, dict) and btn.get("selector")
+    ]
+    available_headings = [
+        h.get("selector") for h in (site_fingerprint.get("headings") or [])
+        if isinstance(h, dict) and h.get("selector")
+    ]
+
+    target_cta = available_ctas[0] if available_ctas else fallback_cta
+    target_heading = available_headings[0] if available_headings else fallback_heading
+
     system_prompt = f"""
 {UI_DESIGN_SYSTEM_PROMPT}
 
 You are the STAGE Site Context Analyzer & UI Heuristics Engine.
 Given a website's extracted DOM fingerprint (title, meta description, headings, dominant colors, and CTA buttons), analyze its business niche and aesthetic posture, then generate the TOP 3 highest-impact design suggestions to elevate the site.
+
+CRITICAL SELECTOR GROUNDING RULES (NEVER INVENT PHANTOM SELECTORS):
+1. Suggestion 1 (CRO Focus): MUST target the primary CTA selector: '{target_cta}'.
+2. Suggestion 2 (Typography Focus): MUST target the primary headline selector: '{target_heading}'.
+3. Suggestion 3 (Surface/Nav Polish): MUST target a universal semantic element guaranteed to exist: '{fallback_surface}' or 'main, section'.
+NEVER invent fictitious class names like '.card', '.feature-card', '.hero-container' unless they appear in the fingerprint!
+Every CSS property in css_rules MUST include '!important' so it renders reliably over existing site utility classes.
 
 Every suggestion MUST strictly comply with:
 - WCAG 2.1 contrast (AA/AAA)
@@ -579,7 +619,7 @@ Return ONLY a valid JSON object matching this schema:
       "id": "sug-1",
       "title": "Concise suggestion headline (3-6 words)",
       "impact_tag": "CRO" | "Typography" | "Polish" | "A11Y" | "Aesthetics",
-      "selector": "CSS selector to target on the page",
+      "selector": "Grounded CSS selector matching the rules above",
       "description": "1-2 sentence rationale explaining the design/conversion benefit",
       "css_mutations": {{ "property": "value" }},
       "css_rules": "selector {{ prop: value !important; }}"
@@ -592,6 +632,10 @@ Ensure exactly 3 suggestions are returned in top_3_suggestions.
     user_payload = (
         f"Site Fingerprint (JSON):\n"
         f"{json.dumps(site_fingerprint, indent=2)}\n\n"
+        f"Grounded Selectors Available:\n"
+        f"- Primary CTA: {target_cta}\n"
+        f"- Primary Headline: {target_heading}\n"
+        f"- Surface/Navigation: {fallback_surface}\n\n"
         f"Analyze this site context and return the structured JSON assessment with top 3 suggestions."
     )
 
@@ -600,15 +644,13 @@ Ensure exactly 3 suggestions are returned in top_3_suggestions.
             provider_config=provider_config,
             system_prompt=system_prompt,
             user_prompt=user_payload,
-            max_tokens=1500
+            max_tokens=800
         )
     except Exception as e:
         logger.warning(f"analyze_site_context LLM call failed ({e}); falling back to deterministic mock.")
-        return _mock_site_analysis(site_fingerprint)
+        return fallback
 
     # Sanitize and validate LLM output
-    fallback = _mock_site_analysis(site_fingerprint)
-
     business_category = raw_response.get("business_category")
     if not business_category or not isinstance(business_category, str):
         business_category = fallback["business_category"]
@@ -631,19 +673,37 @@ Ensure exactly 3 suggestions are returned in top_3_suggestions.
                 continue
             sug_id = str(item.get("id") or f"sug-{idx + 1}")
             title = str(item.get("title") or f"Design Improvement {idx + 1}")
-            impact_tag = str(item.get("impact_tag") or "Polish")
-            selector = str(item.get("selector") or "body")
+            impact_tag = str(item.get("impact_tag") or ("CRO" if idx == 0 else "Typography" if idx == 1 else "Polish"))
+            
+            raw_sel = str(item.get("selector") or "").strip()
+            # Grounding check: if selector is hallucinated/phantom, ground to real element
+            is_phantom = not raw_sel or any(p in raw_sel for p in [".card", ".feature-card", ".hero-container", ".hero-card", "body"])
+            if is_phantom:
+                if impact_tag == "CRO" or idx == 0:
+                    selector = target_cta
+                elif impact_tag == "Typography" or idx == 1:
+                    selector = target_heading
+                else:
+                    selector = fallback_surface
+            else:
+                selector = raw_sel
+
             description = str(item.get("description") or "Elevate component styling.")
             css_mutations = item.get("css_mutations")
             if not isinstance(css_mutations, dict):
                 css_mutations = {}
-            css_rules = item.get("css_rules")
-            if not css_rules or not isinstance(css_rules, str):
-                if css_mutations:
-                    rules_body = " ".join(f"{k}: {v} !important;" for k, v in css_mutations.items())
-                    css_rules = f"{selector} {{ {rules_body} }}"
-                else:
-                    css_rules = ""
+
+            # Ensure all values in css_rules include !important
+            if css_mutations:
+                rules_body = " ".join(
+                    f"{k}: {v if '!important' in str(v) else str(v) + ' !important'};"
+                    for k, v in css_mutations.items()
+                )
+                css_rules = f"{selector} {{ {rules_body} }}"
+            else:
+                raw_rules = item.get("css_rules")
+                css_rules = raw_rules if raw_rules and isinstance(raw_rules, str) else ""
+
             valid_suggestions.append({
                 "id": sug_id,
                 "title": title,
