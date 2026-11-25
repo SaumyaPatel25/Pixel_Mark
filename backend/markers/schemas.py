@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from markers.contracts import MarkerAnchorKind, MarkerRendererType, CreatorRole, MarkerStatus, MarkerPriority
@@ -61,6 +61,8 @@ class MarkerCreate(BaseModel):
 
     title: Optional[str] = None
     description: Optional[str] = None
+    issue_type: Optional[str] = "other"
+    category: Optional[str] = None
     status: Optional[MarkerStatus] = MarkerStatus.OPEN
     priority: Optional[MarkerPriority] = MarkerPriority.MEDIUM
 
@@ -113,6 +115,8 @@ class MarkerCreate(BaseModel):
 class MarkerUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    issue_type: Optional[str] = None
+    category: Optional[str] = None
     status: Optional[MarkerStatus] = None
     priority: Optional[MarkerPriority] = None
     renderer_type: Optional[MarkerRendererType] = None
@@ -226,6 +230,8 @@ class MarkerRead(BaseModel):
 
     title: Optional[str]
     description: Optional[str]
+    issue_type: Optional[str] = "other"
+    category: Optional[str] = None
     status: str
     priority: str
     is_deleted: bool
@@ -242,6 +248,13 @@ class MarkerRead(BaseModel):
     screenshot_url: Optional[str]
     encrypted_context: Optional[str]
 
+    @model_validator(mode='after')
+    def sync_category_and_issue_type(self) -> 'MarkerRead':
+        resolved = self.issue_type or self.category or "other"
+        self.issue_type = resolved
+        self.category = resolved
+        return self
+
     class Config:
         from_attributes = True
 
@@ -252,6 +265,8 @@ class MarkerListItem(BaseModel):
     anchor_kind: str
     anchor_mode: str
     title: Optional[str]
+    issue_type: Optional[str] = "other"
+    category: Optional[str] = None
     status: str
     priority: str
     color_token: Optional[str]
@@ -260,6 +275,13 @@ class MarkerListItem(BaseModel):
     created_at: datetime
     version: int
     marker_number: Optional[int] = None
+
+    @model_validator(mode='after')
+    def sync_category_and_issue_type(self) -> 'MarkerListItem':
+        resolved = self.issue_type or self.category or "other"
+        self.issue_type = resolved
+        self.category = resolved
+        return self
 
     class Config:
         from_attributes = True

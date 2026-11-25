@@ -162,7 +162,7 @@ export default function NotificationSettingsClient() {
                   <p className="text-xs text-amber-400/90 font-medium pt-1">
                     Your organization is currently on the Free plan.{' '}
                     <Link href="/pricing" className="underline font-bold text-amber-300 hover:text-amber-200">
-                      Upgrade to Dev Team
+                      Upgrade to Team Plan
                     </Link>{' '}
                     to unlock Blueprint Canvas features & notifications.
                   </p>

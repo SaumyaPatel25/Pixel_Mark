@@ -17,7 +17,13 @@ import {
   ArrowRight,
   ShieldCheck,
   RefreshCw,
-  HeartHandshake
+  HeartHandshake,
+  Paperclip,
+  Image as ImageIcon,
+  Smartphone,
+  Laptop,
+  X,
+  Upload
 } from 'lucide-react';
 import Link from 'next/link';
 import MarketingNav from '@/components/marketing/MarketingNav';
@@ -100,6 +106,22 @@ const ROLES = [
   'Other'
 ];
 
+interface TopicPreset {
+  id: string;
+  label: string;
+  category: CategoryType;
+  prompt: string;
+}
+
+const TOPIC_PRESETS: TopicPreset[] = [
+  { id: 'mobile-ui', label: '📱 Mobile / 390px View', category: 'improve', prompt: 'On mobile view (e.g. 390px iPhone), ' },
+  { id: 'pin-accuracy', label: '📍 Pin Placement & Accuracy', category: 'improve', prompt: 'When placing feedback pins on elements, ' },
+  { id: 'canvas-dom', label: '🎨 Canvas & Blueprint DOM', category: 'improve', prompt: 'In the Canvas sandbox / DOM editor, ' },
+  { id: 'share-links', label: '🔗 Client Review Links', category: 'improve', prompt: 'When sharing client review links with clients, ' },
+  { id: 'pricing-plans', label: '💳 Plans & Project Limits', category: 'general', prompt: 'Regarding the project limits and plans, ' },
+  { id: 'speed', label: '⚡ Performance & Speed', category: 'improve', prompt: 'The review session speed could be improved by ' },
+];
+
 export default function FeedbackClient() {
   const searchParams = useSearchParams();
   const initialCategoryParam = searchParams.get('category') as CategoryType | null;
@@ -117,9 +139,75 @@ export default function FeedbackClient() {
   const [email, setEmail] = useState('');
   const [selectedRole, setSelectedRole] = useState('Agency Owner');
 
+  // Diagnostics and attachment states
+  const [includeDiagnostics, setIncludeDiagnostics] = useState(true);
+  const [diagnosticsData, setDiagnosticsData] = useState<{
+    browser: string;
+    screen: string;
+    viewport: string;
+    dpr: string;
+  } | null>(null);
+
+  const [screenshotDataUrl, setScreenshotDataUrl] = useState<string | null>(null);
+  const [screenshotFileName, setScreenshotFileName] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  // Auto-detect client device specs
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const ua = navigator.userAgent;
+      let browser = 'Modern Browser';
+      if (ua.includes('Chrome')) browser = 'Chrome';
+      else if (ua.includes('Safari')) browser = 'Safari';
+      else if (ua.includes('Firefox')) browser = 'Firefox';
+      else if (ua.includes('Edge')) browser = 'Edge';
+
+      const os = ua.includes('Win') ? 'Windows' : ua.includes('Mac') ? 'macOS' : ua.includes('iPhone') || ua.includes('iPad') ? 'iOS' : ua.includes('Android') ? 'Android' : 'Linux';
+
+      setDiagnosticsData({
+        browser: `${browser} on ${os}`,
+        screen: `${window.screen.width} × ${window.screen.height}`,
+        viewport: `${window.innerWidth} × ${window.innerHeight}`,
+        dpr: `${window.devicePixelRatio || 1}x`
+      });
+    }
+  }, []);
+
+  const handleImageFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setSubmitError('Please attach an image file (PNG, JPG, WebP).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setSubmitError('Image size exceeds 5MB limit.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setScreenshotDataUrl(e.target?.result as string);
+      setScreenshotFileName(file.name);
+      setSubmitError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) {
+          handleImageFile(file);
+          break;
+        }
+      }
+    }
+  };
 
   // Sync category if URL param changes
   useEffect(() => {
@@ -157,6 +245,8 @@ export default function FeedbackClient() {
           name: name.trim() || 'Anonymous User',
           email: email.trim() || undefined,
           role: selectedRole,
+          diagnostics: includeDiagnostics ? diagnosticsData : undefined,
+          screenshot_data_url: screenshotDataUrl || undefined,
         }),
       });
 
@@ -167,6 +257,8 @@ export default function FeedbackClient() {
 
       setSubmitSuccess(true);
       setMessage('');
+      setScreenshotDataUrl(null);
+      setScreenshotFileName(null);
     } catch (err: any) {
       console.error('[FEEDBACK SUBMISSION ERROR]', err);
       setSubmitError(err.message || 'Could not send feedback. Please check your connection and try again.');
@@ -303,6 +395,32 @@ export default function FeedbackClient() {
                 <p className="text-xs text-pm-muted/80 pl-1 pt-1 italic">
                   {currentCategoryObj.description}
                 </p>
+
+                {/* Quick Topic Presets */}
+                <div className="space-y-1.5 pt-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-pm-muted">
+                    Quick Topics:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TOPIC_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveCategory(preset.category);
+                          if (!message.trim() || message === preset.prompt) {
+                            setMessage(preset.prompt);
+                          } else if (!message.includes(preset.prompt)) {
+                            setMessage(prev => `${prev}\n${preset.prompt}`);
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-pm-surface-2 border border-pm-border hover:border-pm-accent hover:text-pm-accent text-pm-muted transition-all cursor-pointer active:scale-95"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Star Rating Section */}
@@ -374,6 +492,7 @@ export default function FeedbackClient() {
                     required
                     rows={5}
                     value={message}
+                    onPaste={handlePaste}
                     onChange={(e) => {
                       setMessage(e.target.value);
                       if (submitError) setSubmitError(null);
@@ -382,6 +501,97 @@ export default function FeedbackClient() {
                     className="w-full p-4 rounded-2xl bg-pm-bg border border-pm-border focus:border-pm-accent focus:ring-2 focus:ring-purple-500/20 text-sm text-pm-text placeholder:text-pm-muted/60 transition-all outline-none resize-y min-h-[130px]"
                   />
                 </div>
+
+                {/* Screenshot / File Attachment */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black uppercase tracking-wider text-pm-muted flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5" />
+                      <span>Attach Screenshot or Visual Proof (Optional)</span>
+                    </label>
+                    <span className="text-[10px] text-pm-muted">Paste directly (Ctrl+V) or upload</span>
+                  </div>
+
+                  {screenshotDataUrl ? (
+                    <div className="relative rounded-2xl border border-pm-border overflow-hidden bg-pm-surface-2 p-3 flex items-center gap-3">
+                      <img 
+                        src={screenshotDataUrl} 
+                        alt="Screenshot preview" 
+                        className="w-14 h-14 object-cover rounded-xl border border-pm-border flex-shrink-0" 
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-pm-text truncate">
+                          {screenshotFileName || 'Attached Screenshot.png'}
+                        </p>
+                        <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">Ready to submit with feedback</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScreenshotDataUrl(null);
+                          setScreenshotFileName(null);
+                        }}
+                        className="p-1.5 rounded-lg bg-pm-surface hover:bg-rose-500/20 text-pm-muted hover:text-rose-400 transition-colors mr-1 cursor-pointer"
+                        title="Remove image"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border border-dashed border-pm-border hover:border-pm-accent/50 rounded-2xl p-4 text-center cursor-pointer transition-colors bg-pm-bg/40 hover:bg-pm-surface-2/40 group select-none"
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageFile(file);
+                        }}
+                      />
+                      <div className="flex items-center justify-center gap-2 text-xs font-bold text-pm-muted group-hover:text-pm-accent transition-colors">
+                        <Upload className="w-4 h-4" />
+                        <span>Click to attach screenshot, or paste image with Ctrl+V</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Diagnostics Toggle */}
+                {diagnosticsData && (
+                  <div className="p-3.5 rounded-2xl bg-pm-surface-2 border border-pm-border space-y-2">
+                    <label className="flex items-center justify-between cursor-pointer select-none">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={includeDiagnostics}
+                          onChange={(e) => setIncludeDiagnostics(e.target.checked)}
+                          className="w-4 h-4 rounded text-pm-accent focus:ring-pm-accent bg-pm-bg border-pm-border cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-pm-text">
+                          Include device diagnostics to help diagnose visual bugs
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-pm-muted uppercase">Recommended</span>
+                    </label>
+                    {includeDiagnostics && (
+                      <div className="flex flex-wrap gap-2 text-[10px] font-mono text-pm-muted pl-6 pt-1">
+                        <span className="px-2 py-0.5 rounded-md bg-pm-bg border border-pm-border">
+                          Browser: {diagnosticsData.browser}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-pm-bg border border-pm-border">
+                          Viewport: {diagnosticsData.viewport}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-pm-bg border border-pm-border">
+                          DPR: {diagnosticsData.dpr}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Sender Context: Role */}
                 <div className="space-y-2">

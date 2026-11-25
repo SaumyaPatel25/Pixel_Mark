@@ -752,6 +752,7 @@ function ProjectPageContent() {
                             sessionId={sessionId}
                             projectId={id}
                             initialUrl={currentProject?.url}
+                            initialMarkerId={queryMarkerId}
                             shouldConnectSocket={false}
                             isHeaderCollapsed={isHeaderCollapsed}
                             onHeaderCollapsedChange={setIsHeaderCollapsed}

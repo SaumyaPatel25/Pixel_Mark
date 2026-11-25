@@ -296,7 +296,7 @@ export function BlueprintToolbar({ projectId }: BlueprintToolbarProps) {
             }
           }}
           icon={!canUseBlueprintDomEdit ? <Lock className="w-4 h-4 text-amber-400" /> : <MousePointerClick className="w-4 h-4" />}
-          label={!canUseBlueprintDomEdit ? "Upgrade to Dev Team to unlock Blueprint DOM Edit mode" : "DOM Edit Tool"}
+          label={!canUseBlueprintDomEdit ? "Upgrade to Team Plan to unlock Blueprint DOM Edit mode" : "DOM Edit Tool"}
           badge={!canUseBlueprintDomEdit ? "LOCK" : "DOM"}
         />
         <ToolButton

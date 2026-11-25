@@ -34,7 +34,9 @@ import {
   Layers,
   ChevronRight,
   TrendingUp,
-  Inbox
+  Inbox,
+  Check,
+  Sparkles
 } from 'lucide-react'
 
 // Relative time helper
@@ -420,6 +422,9 @@ export default function DashboardPage() {
 
   const { isPaid, currentPlan, fetchBillingStatus } = useBillingStore()
 
+  const projectLimit = isPaid ? (currentPlan === 'enterprise' ? 999 : 10) : 1
+  const isAtProjectLimit = projects.length >= projectLimit
+
   useEffect(() => {
     fetchBillingStatus()
   }, [fetchBillingStatus])
@@ -446,8 +451,8 @@ export default function DashboardPage() {
               <span className="w-1 h-1 rounded-full bg-pm-border-bright" />
               <span>
                 {currentPlan === 'stage_team' ? 'STAGE Team' :
-                 currentPlan === 'dev_team_early_bird' ? 'Dev Team Early Bird' :
-                 currentPlan === 'dev_team' ? 'Dev Team Plan' :
+                 currentPlan === 'dev_team_early_bird' ? 'Team Early Bird (25% OFF)' :
+                 currentPlan === 'dev_team' ? 'Team Plan' :
                  currentPlan === 'enterprise' ? 'Enterprise Plan' : 'Free Plan'}
               </span>
             </div>
@@ -467,6 +472,18 @@ export default function DashboardPage() {
               <Settings className="w-4 h-4 text-pm-muted" />
               Settings
             </Link>
+
+            {/* Project Capacity Counter */}
+            <span className={cn(
+              "px-3 py-2 rounded-xl border text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-xs select-none",
+              isAtProjectLimit && !isPaid
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-500 dark:text-amber-400"
+                : "bg-pm-surface border-pm-border text-pm-muted"
+            )}>
+              <span className={cn("w-1.5 h-1.5 rounded-full", isAtProjectLimit && !isPaid ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
+              <span>{projects.length} / {projectLimit === 999 ? '∞' : projectLimit} projects</span>
+            </span>
+
             <button
               id="onboarding-new-project-btn"
               onClick={() => setShowCreateProject(true)}
@@ -758,97 +775,150 @@ export default function DashboardPage() {
               className="bg-pm-surface border border-pm-border rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-xl relative z-10 space-y-6 text-pm-text"
             >
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold uppercase tracking-widest text-pm-accent">New Review Project</h2>
+                <h2 className="text-sm font-bold uppercase tracking-widest text-pm-accent">
+                  {isAtProjectLimit && !isPaid ? 'Upgrade to Team Plan' : 'New Review Project'}
+                </h2>
                 <button onClick={closeCreateProjectModal} className="text-pm-muted hover:text-pm-text transition-colors p-1 hover:bg-pm-surface-2 rounded-lg cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateProject} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-pm-muted text-[10px] font-bold uppercase tracking-widest block font-sans">Project Name</label>
-                  <input
-                     autoFocus
-                     required
-                     disabled={isCreatingProject}
-                     type="text"
-                     placeholder="Acme Workspace / Landing Portal"
-                     value={newProjectName}
-                     onChange={(e) => setNewProjectName(e.target.value)}
-                     className="w-full bg-pm-bg border border-pm-border rounded-xl px-4 py-3 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent outline-none transition-all shadow-inner"
-                  />
-                </div>
+              {isAtProjectLimit && !isPaid ? (
+                <div className="space-y-5 text-center py-2">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center mx-auto">
+                    <Sparkles className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-lg font-black text-pm-text">Project Limit Reached (1 / 1)</h3>
+                    <p className="text-xs text-pm-muted max-w-sm mx-auto leading-relaxed">
+                      You are using 1 of 1 active projects on the Free plan. Upgrade to the <strong>Team Plan</strong> to unlock 10 projects, 5 seats, and live Blueprint DOM on-page editing.
+                    </p>
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-pm-muted text-[10px] font-bold uppercase tracking-widest block font-sans">Target Environment URL</label>
-                  <div className="relative">
-                    <Globe className="w-4 h-4 text-pm-muted absolute left-4 top-1/2 -translate-y-1/2" />
+                  <div className="p-4 rounded-2xl bg-pm-surface-2 border border-pm-border text-left space-y-2 text-xs">
+                    <div className="flex items-center gap-2 text-pm-text font-bold">
+                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>10 Active Projects (vs 1 on Free)</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-pm-text font-bold">
+                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>5 Developer Seats & Real-time Sync</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-pm-text font-bold">
+                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>Live Blueprint DOM on-page editing</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 pt-2">
+                    <Link
+                      href="/pricing"
+                      className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs text-center uppercase tracking-wider transition-all shadow-md active:scale-95"
+                    >
+                      Upgrade to Team Plan →
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={closeCreateProjectModal}
+                      className="w-full py-2.5 rounded-xl border border-pm-border bg-pm-surface hover:bg-pm-surface-2 text-xs font-bold text-pm-muted hover:text-pm-text transition-all cursor-pointer"
+                    >
+                      Maybe Later
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleCreateProject} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-pm-muted text-[10px] font-bold uppercase tracking-widest block font-sans">Project Name</label>
                     <input
-                      disabled={isCreatingProject}
-                      type="url"
-                      placeholder="https://staging.acme.com"
-                      value={newProjectUrl}
-                      onChange={(e) => setNewProjectUrl(e.target.value)}
-                      className="w-full bg-pm-bg border border-pm-border rounded-xl pl-11 pr-4 py-3 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent outline-none transition-all shadow-inner"
+                       autoFocus
+                       required
+                       disabled={isCreatingProject}
+                       type="text"
+                       placeholder="Acme Workspace / Landing Portal"
+                       value={newProjectName}
+                       onChange={(e) => setNewProjectName(e.target.value)}
+                       className="w-full bg-pm-bg border border-pm-border rounded-xl px-4 py-3 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent outline-none transition-all shadow-inner"
                     />
                   </div>
-                  {newProjectUrl.trim() && (
-                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2">
-                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
-                      <p className="text-[11px] text-amber-300/90 leading-relaxed font-medium">
-                        The website address cannot be changed after you create the project. To review a different site, create a new project.
-                      </p>
-                    </div>
-                  )}
-                </div>
 
-                {projectError && (
-                  <div className={`p-4 rounded-2xl border text-xs leading-relaxed flex flex-col gap-3 ${
-                    projectError.code === 'LIMIT_PROJECTS_EXCEEDED'
-                      ? 'bg-purple-950/20 border-purple-500/30 text-purple-200'
-                      : 'bg-rose-950/20 border-rose-500/30 text-rose-200'
-                  }`}>
-                    <div className="flex items-start gap-2.5">
-                      <AlertCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
-                        projectError.code === 'LIMIT_PROJECTS_EXCEEDED' ? 'text-purple-400' : 'text-rose-400'
-                      }`} />
-                      <div>
-                        <p className="font-bold">
-                          {projectError.code === 'LIMIT_PROJECTS_EXCEEDED' ? 'Project Limit Reached' : 'Unable to create project'}
-                        </p>
-                        <p className="mt-0.5 opacity-90">{projectError.message}</p>
-                      </div>
+                  <div className="space-y-1.5">
+                    <label className="text-pm-muted text-[10px] font-bold uppercase tracking-widest block font-sans">Target Environment URL</label>
+                    <div className="relative">
+                      <Globe className="w-4 h-4 text-pm-muted absolute left-4 top-1/2 -translate-y-1/2" />
+                      <input
+                        disabled={isCreatingProject}
+                        type="url"
+                        placeholder="https://staging.acme.com"
+                        value={newProjectUrl}
+                        onChange={(e) => setNewProjectUrl(e.target.value)}
+                        className="w-full bg-pm-bg border border-pm-border rounded-xl pl-11 pr-4 py-3 text-xs text-pm-text placeholder:text-pm-muted focus:border-pm-accent outline-none transition-all shadow-inner"
+                      />
                     </div>
-                    {projectError.code === 'LIMIT_PROJECTS_EXCEEDED' && (
-                      <Link
-                        href="/pricing"
-                        className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-extrabold text-[11px] text-center uppercase tracking-wider transition-all shadow-lg shadow-purple-600/20 active:scale-[0.98]"
-                      >
-                        Upgrade to Dev Team Plan
-                      </Link>
+                    {newProjectUrl.trim() && (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-400 text-xs mt-2">
+                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
+                        <p className="text-[11px] text-amber-300/90 leading-relaxed font-medium">
+                          The website address cannot be changed after you create the project. To review a different site, create a new project.
+                        </p>
+                      </div>
                     )}
                   </div>
-                )}
 
-                <div className="flex gap-2.5 justify-end pt-4 border-t border-pm-border">
-                  <button
-                    type="button"
-                    disabled={isCreatingProject}
-                    onClick={closeCreateProjectModal}
-                    className="px-5 py-3 rounded-xl border border-pm-border bg-pm-surface hover:bg-pm-surface-2 text-xs font-bold text-pm-text transition-all active:scale-95 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isCreatingProject || !newProjectName.trim()}
-                    className="px-6 py-3 rounded-xl bg-pm-accent hover:bg-pm-accent-bright text-white font-bold text-xs transition-all flex items-center gap-2 active:scale-95 shadow-sm cursor-pointer"
-                  >
-                    {isCreatingProject ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                    {isCreatingProject ? 'Creating...' : 'Initialize Project'}
-                  </button>
-                </div>
-              </form>
+                  {projectError && (
+                    <div className={`p-4 rounded-2xl border text-xs leading-relaxed flex flex-col gap-3 ${
+                      projectError.code === 'LIMIT_PROJECTS_EXCEEDED'
+                        ? 'bg-purple-950/20 border-purple-500/30 text-purple-200'
+                        : 'bg-rose-950/20 border-rose-500/30 text-rose-200'
+                    }`}>
+                      <div className="flex items-start gap-2.5">
+                        <AlertCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                          projectError.code === 'LIMIT_PROJECTS_EXCEEDED' ? 'text-purple-400' : 'text-rose-400'
+                        }`} />
+                        <div>
+                          <p className="font-bold">
+                            {projectError.code === 'LIMIT_PROJECTS_EXCEEDED' ? 'Project Limit Reached' : 'Unable to create project'}
+                          </p>
+                          <p className="mt-0.5 opacity-90">{projectError.message}</p>
+                        </div>
+                      </div>
+                      {projectError.code === 'LIMIT_PROJECTS_EXCEEDED' && (
+                        <Link
+                          href="/pricing"
+                          className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-extrabold text-[11px] text-center uppercase tracking-wider transition-all shadow-lg shadow-purple-600/20 active:scale-[0.98]"
+                        >
+                          Upgrade to Team Plan
+                        </Link>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2.5 justify-end pt-4 border-t border-pm-border">
+                    <button
+                      type="button"
+                      disabled={isCreatingProject}
+                      onClick={closeCreateProjectModal}
+                      className="px-5 py-3 rounded-xl border border-pm-border bg-pm-surface hover:bg-pm-surface-2 text-xs font-bold text-pm-text transition-all active:scale-95 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isCreatingProject || !newProjectName.trim()}
+                      className="px-6 py-3 rounded-xl bg-pm-accent hover:bg-pm-accent-bright text-white font-bold text-xs transition-all flex items-center gap-2 active:scale-95 shadow-sm cursor-pointer"
+                    >
+                      {isCreatingProject ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Initializing...</span>
+                        </>
+                      ) : (
+                        <span>Initialize Project</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </div>
         )}

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/store/projectStore';
+import { useBillingStore } from '@/store/useBillingStore';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Plus, Globe, FileText, Layout, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Globe, FileText, Layout, Loader2, AlertCircle, Sparkles, Check } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,8 +13,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export default function NewProject() {
   const router = useRouter();
-  const createProject = useProjectStore((state) => state.createProject);
-  const loading = useProjectStore((state) => state.loading);
+  const { projects, fetchProjects, createProject, loading } = useProjectStore();
+  const { isPaid, currentPlan, fetchBillingStatus } = useBillingStore();
+
+  useEffect(() => {
+    fetchProjects();
+    fetchBillingStatus();
+  }, [fetchProjects, fetchBillingStatus]);
+
+  const projectLimit = isPaid ? (currentPlan === 'enterprise' ? 999 : 10) : 1;
+  const isAtProjectLimit = projects.length >= projectLimit;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -53,9 +62,22 @@ export default function NewProject() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Dashboard
            </Button>
-           <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 shadow-lg shadow-purple-500/20" />
-              <span className="font-bold text-lg tracking-tighter">STAGE</span>
+
+           <div className="flex items-center gap-3">
+              {/* Project Capacity Counter Badge */}
+              <span className={`px-3 py-1.5 rounded-full border text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs select-none ${
+                isAtProjectLimit && !isPaid
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                  : "bg-white/5 border-white/10 text-white/60"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isAtProjectLimit && !isPaid ? "bg-amber-400 animate-pulse" : "bg-emerald-400"}`} />
+                <span>{projects.length} / {projectLimit === 999 ? '∞' : projectLimit} projects</span>
+              </span>
+
+              <div className="flex items-center gap-2">
+                 <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 shadow-lg shadow-purple-500/20" />
+                 <span className="font-bold text-lg tracking-tighter">STAGE</span>
+              </div>
            </div>
         </div>
 
@@ -72,10 +94,56 @@ export default function NewProject() {
 
           <Card className="border-white/5 bg-white/[0.02] backdrop-blur-3xl overflow-hidden">
             <CardHeader className="p-8 pb-0">
-               <CardTitle className="text-sm font-bold uppercase tracking-widest text-white/40">Project Configuration</CardTitle>
+               <CardTitle className="text-sm font-bold uppercase tracking-widest text-white/40">
+                 {isAtProjectLimit && !isPaid ? 'Upgrade to Team Plan' : 'Project Configuration'}
+               </CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
-              <form onSubmit={handleSubmit} className="space-y-8">
+              {isAtProjectLimit && !isPaid ? (
+                <div className="space-y-6 text-center py-4">
+                  <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-lg">
+                    <Sparkles className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black text-white">Project Limit Reached (1 / 1)</h3>
+                    <p className="text-sm text-white/60 max-w-md mx-auto leading-relaxed">
+                      You are using 1 of 1 active projects on the Free plan. Upgrade to the <strong>Team Plan</strong> to unlock 10 projects, 5 seats, and live Blueprint DOM on-page editing.
+                    </p>
+                  </div>
+
+                  <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 text-left space-y-3 text-xs max-w-md mx-auto">
+                    <div className="flex items-center gap-2.5 text-white/90 font-bold">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>10 Active Projects (vs 1 on Free)</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-white/90 font-bold">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>5 Developer Seats & Real-time Sync</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-white/90 font-bold">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Live Blueprint DOM on-page editing</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 pt-2 max-w-md mx-auto">
+                    <Link
+                      href="/pricing"
+                      className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs text-center uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95"
+                    >
+                      Upgrade to Team Plan →
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      onClick={() => router.push('/dashboard')}
+                      className="w-full h-12 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-bold text-white/60 hover:text-white transition-all cursor-pointer"
+                    >
+                      Return to Dashboard
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Project Name */}
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-white/30 flex items-center gap-2">
@@ -153,6 +221,7 @@ export default function NewProject() {
                   </Button>
                 </div>
               </form>
+              )}
             </CardContent>
           </Card>
         </motion.div>

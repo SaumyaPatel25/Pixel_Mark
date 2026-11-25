@@ -261,6 +261,8 @@ export const useMarkerStore = create<MarkerStoreState>((set, get) => ({
       webgl_clip_y: null,
       title: payload.title || 'New Marker',
       description: payload.description || null,
+      issue_type: payload.issue_type || payload.category || 'other',
+      issueType: payload.issue_type || payload.category || 'other',
       browser: payload.browser || null,
       os: payload.os || null,
       device_pixel_ratio: payload.device_pixel_ratio || null,

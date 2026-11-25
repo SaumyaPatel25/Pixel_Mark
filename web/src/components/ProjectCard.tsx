@@ -479,42 +479,45 @@ export function ProjectCard({
             {/* Primary Workspace CTA Button */}
             <span 
               id="onboarding-open-workspace-btn" 
-              className="text-[10px] font-extrabold uppercase bg-pm-accent-subtle border border-pm-border text-pm-accent px-4 py-1.5 rounded-xl select-none transition-all duration-200 transform group-hover:opacity-0 group-hover:scale-95 group-hover:pointer-events-none"
+              className="text-[10px] font-extrabold uppercase bg-pm-accent-subtle border border-pm-border text-pm-accent px-4 py-1.5 rounded-xl select-none pointer-events-none transition-all duration-200 transform group-hover:opacity-0 group-hover:scale-95"
             >
               Open Workspace →
             </span>
 
             {/* Quick Action Overlays */}
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 transform scale-95 group-hover:scale-100">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 transform scale-95 group-hover:scale-100 z-30">
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   onOpenCanvas(e)
                 }}
                 title="Launch Canvas Sandbox"
-                className="h-8 w-8 rounded-xl bg-pm-surface-2 border border-pm-border text-pm-accent hover:bg-pm-accent hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm cursor-pointer"
+                className="h-8 w-8 rounded-xl bg-pm-surface-2 border border-pm-border text-pm-accent hover:bg-pm-accent hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm cursor-pointer relative z-30 pointer-events-auto"
               >
                 <Layout className="w-3.5 h-3.5" />
               </button>
               
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   onNewSession(e)
                 }}
                 title="Start New Review Session"
-                className="h-8 w-8 rounded-xl bg-pm-surface-2 border border-pm-border text-emerald-500 hover:bg-emerald-600 hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm cursor-pointer"
+                className="h-8 w-8 rounded-xl bg-pm-surface-2 border border-pm-border text-emerald-500 hover:bg-emerald-600 hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm cursor-pointer relative z-30 pointer-events-auto"
               >
                 <Play className="w-3.5 h-3.5" />
               </button>
               
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   onShare(e)
                 }}
                 title="Generate Client Share Link"
-                className="h-8 w-8 rounded-xl bg-pm-surface-2 border border-pm-border text-indigo-500 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm cursor-pointer"
+                className="h-8 w-8 rounded-xl bg-pm-surface-2 border border-pm-border text-indigo-500 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm cursor-pointer relative z-30 pointer-events-auto"
               >
                 <Share2 className="w-3.5 h-3.5" />
               </button>

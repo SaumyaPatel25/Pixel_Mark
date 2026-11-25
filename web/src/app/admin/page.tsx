@@ -817,8 +817,8 @@ export default function AdminPage() {
                     className="w-full bg-pm-bg border border-pm-border rounded-xl px-3 py-2.5 text-xs text-pm-text focus:outline-none focus:border-pm-accent font-sans capitalize"
                   >
                     <option value="stage_team">STAGE Team (Unlimited internal access)</option>
-                    <option value="dev_team">Dev Team (5 seats, 10 projects)</option>
-                    <option value="dev_team_early_bird">Dev Team Early Bird (25% OFF)</option>
+                    <option value="dev_team">TEAM (5 seats, 10 projects)</option>
+                    <option value="dev_team_early_bird">TEAM Early Bird (25% OFF)</option>
                     <option value="enterprise">Enterprise (Unlimited custom)</option>
                     <option value="none">Free Workspace (1 seat, 1 project)</option>
                   </select>

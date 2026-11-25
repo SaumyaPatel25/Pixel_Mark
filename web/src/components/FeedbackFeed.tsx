@@ -275,6 +275,8 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
                 }
 
                 const screenshotUrl = item.screenshot_url
+                const isAi = item.color_token === 'ai_copilot' || (item as any).metadata?.source === 'ai_copilot'
+                const benchName = (item as any).metadata?.benchmark_name || item.element_rect_json?.benchmark_name || null
 
                 return (
                   <button
@@ -325,6 +327,27 @@ export default function FeedbackFeed({ sessionId }: FeedbackFeedProps) {
                       </div>
                       
                       <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {benchName && (
+                          <span className="px-1.5 py-0.5 rounded text-[7px] font-bold bg-cyan-500/10 text-cyan-500 dark:text-cyan-300 border border-cyan-500/20 truncate max-w-[80px]">
+                            {benchName}
+                          </span>
+                        )}
+                        {(() => {
+                          const raw = String(item.issue_type || item.issueType || (item as any).category || '').trim().toLowerCase()
+                          if (!raw || raw === 'other') return null
+                          const label = 
+                            raw.includes('copy') ? 'Copy / Text' :
+                            raw.includes('nav') ? 'Navigation' :
+                            raw.includes('interact') ? 'Interaction' :
+                            raw.includes('render') ? 'Rendering' :
+                            (raw.includes('canvas') || raw.includes('webgl') || raw.includes('3d')) ? 'Canvas / 3D' :
+                            raw.includes('layout') ? 'Layout' : raw
+                          return (
+                            <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 truncate max-w-[80px]">
+                              {label}
+                            </span>
+                          )
+                        })()}
                         <span className={cn(
                           "px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider border",
                           item.status === 'resolved' 

@@ -16,6 +16,7 @@ from typing import Optional, Tuple, Dict, Any, List
 from datetime import datetime
 from proxy.runtime_policy import check_third_party_policy, get_failure_fallback_response
 from proxy.asset_resolver import resolve_asset_url, get_asset_failure_fallback
+from proxy.proxy_rotator import proxy_pool, is_captcha_or_bot_gate
 
 router = APIRouter(prefix="/proxy", tags=["proxy"])
 
@@ -92,13 +93,71 @@ def get_active_ip_session(client_host: str) -> Optional[str]:
 
 import asyncio
 
-async def fetch_task(client: httpx.AsyncClient, method: str, url: str, **kwargs) -> httpx.Response:
+async def _single_http_call(client: httpx.AsyncClient, method: str, url: str, **kwargs) -> httpx.Response:
     if method == "POST":
         return await client.post(url, **kwargs)
     elif method == "OPTIONS":
         return await client.options(url, **kwargs)
     else:
         return await client.get(url, **kwargs)
+
+
+async def fetch_task(client: httpx.AsyncClient, method: str, url: str, **kwargs) -> httpx.Response:
+    """
+    Executes an upstream HTTP fetch. When `ROTATING_PROXY_URLS` is configured in `proxy_pool`,
+    rotates proxy IPs across requests and automatically retries once on a fresh proxy IP if
+    an upstream returns 403/429 or a transport error (stopping cleanly on CAPTCHA gates).
+    """
+    if not proxy_pool.has_proxies:
+        return await _single_http_call(client, method, url, **kwargs)
+
+    follow_redirects = bool(getattr(client, "follow_redirects", True))
+    tried: set = set()
+    max_attempts = min(3, max(1, proxy_pool.pool_size))
+    last_exc: Optional[Exception] = None
+    last_resp: Optional[httpx.Response] = None
+
+    for _ in range(max_attempts):
+        proxy_url = proxy_pool.next_proxy(exclude=tried)
+        if not proxy_url:
+            break
+        tried.add(proxy_url)
+        rot_client = proxy_pool.get_httpx_client(proxy_url, follow_redirects=follow_redirects)
+        try:
+            resp = await _single_http_call(rot_client, method, url, **kwargs)
+            last_resp = resp
+            if resp.status_code in (403, 429):
+                # Do not attempt to bypass explicit CAPTCHA/human-verification gates
+                body_preview = ""
+                try:
+                    if "text/html" in (resp.headers.get("content-type") or "").lower():
+                        body_preview = resp.text
+                except Exception:
+                    pass
+                if is_captcha_or_bot_gate(resp.status_code, body_preview):
+                    logger.warning(f"[PROXY_ROTATOR] CAPTCHA/verification gate detected on {url}; stopping cleanly.")
+                    return resp
+                proxy_pool.mark_failure(proxy_url, resp.status_code)
+                continue
+            proxy_pool.mark_success(proxy_url)
+            return resp
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            last_exc = exc
+            proxy_pool.mark_failure(proxy_url)
+
+    if last_resp is not None:
+        return last_resp
+    if last_exc is not None:
+        raise last_exc
+    return await _single_http_call(client, method, url, **kwargs)
+
+
+@router.get("/rotator/status")
+async def get_proxy_rotator_status():
+    """Returns health and rotation summary for configured rotating proxy IPs."""
+    return proxy_pool.status_summary()
 
 async def send_with_cancellation(client: httpx.AsyncClient, request: Request, method: str, url: str, **kwargs) -> httpx.Response:
     try:

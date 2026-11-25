@@ -117,6 +117,17 @@
   window.lastpageurl = window.lastpageurl || window.__STAGE_TARGET_URL__ || TARGET_URL;
 
   let feedbackModeActive = false;
+  let isAltActive = false;
+
+  function safeUUID() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      try { return crypto.randomUUID(); } catch (_) {}
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
 
   // ─── RAF Hook & FPS Tracker ───────────────────────────────────────────────
   let rAFCount = 0;
@@ -307,6 +318,36 @@
     }
     try {
       const response = await originalFetch.call(this, input, init);
+      try {
+        const reqUrlStr = (response && response.url) || (typeof input === 'string' ? input : input?.url) || "";
+        const ctype = (response && response.headers && response.headers.get && response.headers.get("content-type")) || "";
+        if (
+          reqUrlStr &&
+          !reqUrlStr.includes("/api/copilot") &&
+          !reqUrlStr.includes("/sessions/") &&
+          ctype.toLowerCase().includes("application/json")
+        ) {
+          if (!window.__STAGE__.observedApis) window.__STAGE__.observedApis = [];
+          if (window.__STAGE__.observedApis.length < 25) {
+            let apiPath = reqUrlStr;
+            try { apiPath = new URL(reqUrlStr, window.location.origin).pathname; } catch (_) {}
+            const already = window.__STAGE__.observedApis.some(a => a.path === apiPath && a.method === method);
+            if (!already) {
+              const entry = { method: method, path: apiPath.slice(0, 140), status: response.status, keys: [] };
+              window.__STAGE__.observedApis.push(entry);
+              try {
+                response.clone().json().then(jsonBody => {
+                  if (jsonBody && typeof jsonBody === "object" && !Array.isArray(jsonBody)) {
+                    entry.keys = Object.keys(jsonBody).slice(0, 10);
+                  } else if (Array.isArray(jsonBody) && jsonBody[0] && typeof jsonBody[0] === "object") {
+                    entry.keys = Object.keys(jsonBody[0]).slice(0, 10);
+                  }
+                }).catch(() => {});
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (_) {}
       if (response && response.status >= 400) {
         pushCircular(window.__STAGE__.networkErrors, {
           url: response.url,
@@ -1667,7 +1708,7 @@
       this.pins = new Map();
     }
     createPin(payload) {
-      const id = payload.id || crypto.randomUUID();
+      const id = payload.id || safeUUID();
       const el = document.createElement('div');
       el.dataset.stagePin = id;
       el.style.cssText = `
@@ -1776,8 +1817,8 @@
       offset_x_ratio = canvasAnchor.offsetXRatio;
       offset_y_ratio = canvasAnchor.offsetYRatio;
     } else if (bbox && bbox.width > 0 && bbox.height > 0) {
-      offset_x_ratio = (clickX - bbox.left) / bbox.width;
-      offset_y_ratio = (clickY - bbox.top) / bbox.height;
+      offset_x_ratio = Math.max(0, Math.min(1, (clickX - bbox.left) / bbox.width));
+      offset_y_ratio = Math.max(0, Math.min(1, (clickY - bbox.top) / bbox.height));
     }
     
     const canonical_anchor = {
@@ -1799,12 +1840,16 @@
     };
     
     const payload = {
-      id: crypto.randomUUID(),
+      id: safeUUID(),
       session_id: SESSION_ID,
       pageurl: logicalUrl,
       page_url: logicalUrl,
       page_title: document.title,
       created_via: feedbackModeActive ? 'feedback-mode' : (event.altKey ? 'alt-click' : 'unknown'),
+      offset_x_ratio: offset_x_ratio,
+      offset_y_ratio: offset_y_ratio,
+      offsetXRatio: offset_x_ratio,
+      offsetYRatio: offset_y_ratio,
       click: {
         page_x: pageX,
         page_y: pageY,
@@ -1817,11 +1862,11 @@
       },
       canonical_anchor: canonical_anchor,
       displayX: clickX,
-        displayY: clickY,
-        pageX: pageX,
-        pageY: pageY,
-        viewport_x: clickX,
-        viewport_y: clickY,
+      displayY: clickY,
+      pageX: pageX,
+      pageY: pageY,
+      viewport_x: clickX,
+      viewport_y: clickY,
       canvas_context: canvasCtx,
       norm_x: canvasCtx ? (canvasCtx.canvas_coords.x / canvasCtx.canvas_rect.width) : (canvasAnchor ? canvasAnchor.offsetXRatio : null),
       norm_y: canvasCtx ? (canvasCtx.canvas_coords.y / canvasCtx.canvas_rect.height) : (canvasAnchor ? canvasAnchor.offsetYRatio : null),
@@ -1880,7 +1925,7 @@
   // Main capture handler – wired to click events and mobile gestures
   function handleFeedbackCapture(e, isLongPress = false) {
     try {
-      const isAlt = e.altKey;
+      const isAlt = Boolean(e.altKey || e.metaKey || isAltActive);
       const isMode = feedbackModeActive;
       console.log("[STAGE Pins] capture event. feedbackModeActive=" + feedbackModeActive + ", altKey=" + isAlt + ", isLongPress=" + isLongPress);
       if (!isAlt && !isMode && !isLongPress) return;
@@ -1995,6 +2040,11 @@
         pageurl: getAbsoluteTargetUrl(),
         page_title: document.title,
         pagetitle: document.title,
+        offset_x_ratio: payload.offset_x_ratio,
+        offset_y_ratio: payload.offset_y_ratio,
+        offsetXRatio: payload.offset_x_ratio,
+        offsetYRatio: payload.offset_y_ratio,
+        canonical_anchor: payload.canonical_anchor,
         displayX: clickX,
         displayY: clickY,
         pageX: pageX,
@@ -2121,6 +2171,7 @@
 
     // Filter pins that belong to the current page
     const pinsToResolve = window.__trackedPins.filter(pin => {
+      if (!pin.pageUrl || !currentUrl) return true;
       return normalizeUrl(pin.pageUrl) === normalizeUrl(currentUrl);
     });
 
@@ -2134,6 +2185,22 @@
 
       if (pin.selector && pin.selector !== "visual-canvas-context") {
         try { el = document.querySelector(pin.selector); } catch(e) {}
+        if (!el && pin.selector.includes(',')) {
+          const parts = pin.selector.split(',');
+          for (let part of parts) {
+            try {
+              const candidate = document.querySelector(part.trim());
+              if (candidate) { el = candidate; break; }
+            } catch (_) {}
+          }
+        }
+        if (!el) {
+          try {
+            // Escape Tailwind colons, slashes, or brackets
+            const escaped = pin.selector.replace(/([:/.\[\]])/g, '\\$1');
+            el = document.querySelector(escaped);
+          } catch (_) {}
+        }
       }
       if (!el && pin.xpath) {
         try {
@@ -2146,6 +2213,36 @@
           );
           el = result.singleNodeValue;
         } catch(e) {}
+      }
+      if (!el && (pin.text || pin.dom_text_excerpt || pin.textHint)) {
+        const hint = (pin.text || pin.dom_text_excerpt || pin.textHint).trim().toLowerCase();
+        if (hint.length > 2) {
+          try {
+            const candidates = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, button, a, span, div');
+            for (let c of candidates) {
+              const cText = (c.innerText || c.textContent || '').trim().toLowerCase();
+              if (cText && (cText.includes(hint) || hint.includes(cText))) {
+                el = c;
+                break;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+      if (!el && pin.boundingBox) {
+        try {
+          const b = pin.boundingBox;
+          const bLeft = b.left !== undefined ? b.left : b.x || 0;
+          const bTop = b.top !== undefined ? b.top : b.y || 0;
+          const bWidth = b.width || 0;
+          const bHeight = b.height || 0;
+          if (bWidth > 0 && bHeight > 0) {
+            const probeEl = document.elementFromPoint(bLeft + bWidth / 2, bTop + bHeight / 2);
+            if (probeEl && !isSTAGENode(probeEl) && probeEl !== document.body && probeEl !== document.documentElement) {
+              el = probeEl;
+            }
+          }
+        } catch (_) {}
       }
       if (!el && (pin.selector === "visual-canvas-context" || pin.canvas_context || anchor.anchorKind === "canvas-relative" || anchor.anchor_kind === "canvas-relative")) {
         try { el = document.querySelector('canvas'); } catch(e) {}
@@ -2160,6 +2257,10 @@
           let relY = anchor.offset_y_ratio !== undefined && anchor.offset_y_ratio !== null ? anchor.offset_y_ratio : 0.5;
           if (anchor.offsetXRatio !== undefined && anchor.offsetXRatio !== null) relX = anchor.offsetXRatio;
           if (anchor.offsetYRatio !== undefined && anchor.offsetYRatio !== null) relY = anchor.offsetYRatio;
+          if (pin.offset_x_ratio !== undefined && pin.offset_x_ratio !== null) relX = pin.offset_x_ratio;
+          if (pin.offset_y_ratio !== undefined && pin.offset_y_ratio !== null) relY = pin.offset_y_ratio;
+          if (pin.offsetXRatio !== undefined && pin.offsetXRatio !== null) relX = pin.offsetXRatio;
+          if (pin.offsetYRatio !== undefined && pin.offsetYRatio !== null) relY = pin.offsetYRatio;
           if (pin.canvas_context?.offsetXRatio !== undefined && pin.canvas_context?.offsetXRatio !== null) relX = pin.canvas_context.offsetXRatio;
           if (pin.canvas_context?.offsetYRatio !== undefined && pin.canvas_context?.offsetYRatio !== null) relY = pin.canvas_context.offsetYRatio;
 
@@ -2202,16 +2303,41 @@
         } else if (pin.click && pin.click.page_x !== undefined) {
           pageX = pin.click.page_x;
           pageY = pin.click.page_y;
+        } else if (pin.boundingBox) {
+          const b = pin.boundingBox;
+          const origLeft = b.left !== undefined ? b.left : b.x || 0;
+          const origTop = b.top !== undefined ? b.top : b.y || 0;
+          const w = b.width || 0;
+          const h = b.height || 0;
+          pageX = origLeft + w * (anchor.offset_x_ratio || 0.5);
+          pageY = origTop + h * (anchor.offset_y_ratio || 0.5);
         }
         
-        const effScroll = getEffectiveScroll();
-        clientX = pageX - effScroll.x;
-        clientY = pageY - effScroll.y;
-        resolved = true;
-        source = "pagexy";
+        if (pageX === 0 && pageY === 0) {
+          source = "none";
+          resolved = false;
+          clientX = null;
+          clientY = null;
+        } else {
+          const effScroll = getEffectiveScroll();
+          clientX = pageX - effScroll.x;
+          clientY = pageY - effScroll.y;
+          resolved = true;
+          source = "pagexy";
+        }
       }
 
       const effScroll = getEffectiveScroll();
+      if (!resolved || clientX === null || clientY === null || !Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+        return {
+          id: pin.id,
+          clientX: null,
+          clientY: null,
+          source: "none",
+          degraded: true
+        };
+      }
+
       return {
         id: pin.id,
         clientX: Math.round(clientX),
@@ -2253,6 +2379,7 @@
   let mobileLongPressTimer = null;
   let mobileLongPressStart = null;
   let mobileLongPressTarget = null;
+  let activePinCandidate = null;
 
   function attachPointerListeners() {
     if (pointerListenersAttached) return;
@@ -2333,30 +2460,53 @@
     document.addEventListener("touchend", handleTouchReset, { capture: true, passive: true });
     document.addEventListener("touchcancel", handleTouchReset, { capture: true, passive: true });
 
-    // Attach on pointerdown in the CAPTURE phase, not click in bubble phase
+    // Attach on pointerdown in the CAPTURE phase
     document.addEventListener("pointerdown", (e) => {
       if (isPinchingOrMultiTouch) return;
-      if (!feedbackModeActive && !e.altKey) return;
-      // Stamp the event so canvas-owned listeners downstream know STAGE already claimed it
-      e.__stagePinCandidate = {
+      const isAlt = Boolean(e.altKey || e.metaKey || isAltActive);
+      if (!feedbackModeActive && !isAlt) return;
+      activePinCandidate = {
         x: e.clientX,
         y: e.clientY,
         target: e.composedPath?.()[0] || e.target,
-        pointerType: e.pointerType || 'mouse'
+        pointerType: e.pointerType || 'mouse',
+        altKey: isAlt,
+        feedbackModeActive: Boolean(feedbackModeActive),
+        timestamp: Date.now()
       };
-    }, { capture: true, passive: false });
+    }, { capture: true, passive: true });
 
     document.addEventListener("pointerup", (e) => {
       if (isPinchingOrMultiTouch) return;
-      const candidate = e.__stagePinCandidate;
+      const candidate = activePinCandidate;
+      activePinCandidate = null;
       if (!candidate) return;
-      // Only fire if pointerup is close to pointerdown (avoid drag/orbit/pinch gestures)
-      // Allow 18px drift for touch devices to accommodate finger wobble; 6px for mouse
-      const maxDrift = candidate.pointerType === 'touch' ? 18 : 6;
+
+      // Allow 24px drift for touch devices; 20px for mouse clicks to avoid dropped pins
+      const maxDrift = candidate.pointerType === 'touch' ? 24 : 20;
       const drift = Math.hypot(e.clientX - candidate.x, e.clientY - candidate.y);
       if (drift > maxDrift) return; // user was dragging/scrolling, not clicking
-      e.__stageHandledByPointerUp = true;
-      handleFeedbackCapture(e);
+
+      const isAlt = Boolean(candidate.altKey || e.altKey || e.metaKey || isAltActive);
+      if (!candidate.feedbackModeActive && !isAlt) return;
+
+      if (isAlt) {
+        try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+      }
+
+      const synthEvent = {
+        altKey: isAlt,
+        metaKey: isAlt,
+        clientX: candidate.x,
+        clientY: candidate.y,
+        target: candidate.target || e.target,
+        composedPath: () => [candidate.target || e.target],
+        preventDefault: () => { try { e.preventDefault(); } catch(_) {} },
+        stopPropagation: () => { try { e.stopPropagation(); } catch(_) {} }
+      };
+
+      window.__stageLastHandledTime = Date.now();
+      handleFeedbackCapture(synthEvent);
     }, { capture: true, passive: false });
 
     // Relay native mousemove events from within the iframe up to the parent
@@ -2434,6 +2584,20 @@
       });
     }
 
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Alt" || e.altKey || e.metaKey) {
+        isAltActive = true;
+      }
+    }, true);
+    window.addEventListener("keyup", (e) => {
+      if (e.key === "Alt" || (!e.altKey && !e.metaKey)) {
+        isAltActive = false;
+      }
+    }, true);
+    window.addEventListener("blur", () => {
+      isAltActive = false;
+    });
+
     attachPointerListeners();
   }
 
@@ -2475,16 +2639,21 @@
           const bRect = typeof current.getBoundingClientRect === "function"
             ? current.getBoundingClientRect()
             : { top: 0, left: 0, width: 0, height: 0 };
+          const effScroll = getEffectiveScroll();
           visibleElements.push({
             selector: getCSSSelector(current),
             tag: tag,
             className: (current.className && typeof current.className === "string") ? current.className.slice(0, 100) : "",
             text: text,
             rect: {
-              top: Math.round(bRect.top),
-              left: Math.round(bRect.left),
+              top: Math.round(bRect.top + effScroll.y),
+              left: Math.round(bRect.left + effScroll.x),
+              viewport_top: Math.round(bRect.top),
+              viewport_left: Math.round(bRect.left),
               width: Math.round(bRect.width),
-              height: Math.round(bRect.height)
+              height: Math.round(bRect.height),
+              scroll_x: effScroll.x,
+              scroll_y: effScroll.y
             }
           });
         }
@@ -2563,6 +2732,15 @@
         const s = sel.trim();
         if (!s) return "";
         if (s.includes(scopeClass)) return s;
+        if (/^body(?=[\s.:#\[>]|$)/i.test(s)) {
+          return s.replace(/^body/i, "body." + scopeClass);
+        }
+        if (/^html[\s\S]*?>\s*body(?=[\s.:#\[>]|$)/i.test(s)) {
+          return s.replace(/(>\s*)body/i, "$1body." + scopeClass);
+        }
+        if (/^html(?=[\s.:#\[]|$)/i.test(s)) {
+          return s.replace(/^html/i, "html") + (s.includes(" ") ? "" : " ." + scopeClass);
+        }
         return "." + scopeClass + " " + s;
       }).filter(Boolean).join(", ");
 
@@ -2624,10 +2802,17 @@
         if (isSTAGENode(hEl)) continue;
         const text = (hEl.innerText || hEl.textContent || "").trim().replace(/\s+/g, " ");
         if (!text) continue;
+        const bRect = typeof hEl.getBoundingClientRect === "function" ? hEl.getBoundingClientRect() : { top: 0, left: 0, width: 0, height: 0 };
         headings.push({
           tag: hEl.tagName.toLowerCase(),
           text: text.slice(0, 80),
-          selector: getCSSSelector(hEl)
+          selector: getCSSSelector(hEl),
+          rect: {
+            top: Math.round(bRect.top),
+            left: Math.round(bRect.left),
+            width: Math.round(bRect.width),
+            height: Math.round(bRect.height)
+          }
         });
       }
 
@@ -2663,26 +2848,78 @@
         if (navEl) elementsToSample.push(navEl);
         const mainEl = document.querySelector("main");
         if (mainEl) elementsToSample.push(mainEl);
-        const btnEls = Array.from(document.querySelectorAll("button, a.btn, a.button, [role='button']")).slice(0, 5);
+        const h1El = document.querySelector("h1");
+        if (h1El) elementsToSample.push(h1El);
+        const btnEls = Array.from(document.querySelectorAll("button, a.btn, a.button, [role='button'], nav a")).slice(0, 6);
         elementsToSample.push(...btnEls);
       } catch (_) {}
 
+      const BANNED_LINK_HEX = new Set(["#0000ee", "#0000ff", "#551a8b"]);
       for (const el of elementsToSample) {
         if (!el || isSTAGENode(el)) continue;
         try {
           const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
           if (style) {
             const bg = normalizeToHex(style.backgroundColor);
-            if (bg) colorSet.add(bg);
+            if (bg && !BANNED_LINK_HEX.has(bg.toLowerCase())) colorSet.add(bg);
             const fg = normalizeToHex(style.color);
-            if (fg) colorSet.add(fg);
+            if (fg && !BANNED_LINK_HEX.has(fg.toLowerCase())) colorSet.add(fg);
           }
         } catch (_) {}
       }
 
       const dominant_colors = Array.from(colorSet).slice(0, 6);
 
-      // 5. Up to 3 Primary Interactive Buttons/Links (cta_buttons)
+      // Helper: filter out screen reader, skip-link, or off-screen accessibility utility links
+      function isAccessibilityOrUtilityLink(el) {
+        if (!el) return true;
+        const text = (el.innerText || el.textContent || "").trim().toLowerCase();
+        if (text.includes("skip to") || text.includes("skip link") || text === "skip" || text.includes("accessibility")) return true;
+        const href = (el.getAttribute("href") || "").trim();
+        if (href.startsWith("#main") || href.startsWith("#content") || href === "#" || href === "#top") return true;
+        const cls = (el.className || "").toString().toLowerCase();
+        if (cls.includes("sr-only") || cls.includes("visually-hidden") || cls.includes("skip-link") || cls.includes("screen-reader")) return true;
+        if (el.getAttribute("aria-hidden") === "true") return true;
+        try {
+          const rect = typeof el.getBoundingClientRect === "function" ? el.getBoundingClientRect() : null;
+          if (rect && (rect.left < -50 || rect.top < -50)) return true;
+        } catch (_) {}
+        if (window.getComputedStyle) {
+          try {
+            const st = window.getComputedStyle(el);
+            if (st.position === "absolute" && (parseInt(st.left, 10) < -200 || parseInt(st.top, 10) < -200)) return true;
+            if (st.clip === "rect(0px, 0px, 0px, 0px)" || st.clip === "rect(0, 0, 0, 0)") return true;
+          } catch (_) {}
+        }
+        return false;
+      }
+
+      // 5. Semantic Navigation & Hero Context (for AI Domain Understanding)
+      const nav_items = [];
+      try {
+        const navLinks = Array.from(document.querySelectorAll("header nav a, nav a, [role='navigation'] a, header a"));
+        for (const nl of navLinks) {
+          if (isSTAGENode(nl) || isAccessibilityOrUtilityLink(nl)) continue;
+          const t = (nl.innerText || nl.textContent || "").trim();
+          if (t && t.length >= 2 && t.length <= 25 && !nav_items.includes(t)) {
+            nav_items.push(t);
+            if (nav_items.length >= 5) break;
+          }
+        }
+      } catch (_) {}
+
+      let hero_summary = "";
+      try {
+        const h1 = document.querySelector("h1") || document.querySelector("main h2, header h2");
+        if (h1) {
+          const h1Text = (h1.innerText || h1.textContent || "").trim();
+          const p = h1.closest("section, div, header, main")?.querySelector("p");
+          const pText = p ? (p.innerText || p.textContent || "").trim() : "";
+          hero_summary = (h1Text + (pText ? " — " + pText : "")).slice(0, 140);
+        }
+      } catch (_) {}
+
+      // 6. Up to 3 Primary Interactive Buttons/Links (cta_buttons)
       const cta_buttons = [];
       let candidateElements = [];
       try {
@@ -2693,6 +2930,7 @@
 
       for (const el of candidateElements) {
         if (!el || isSTAGENode(el)) continue;
+        if (isAccessibilityOrUtilityLink(el)) continue;
         if (window.getComputedStyle) {
           try {
             const st = window.getComputedStyle(el);
@@ -2712,15 +2950,18 @@
         const textColor = computed.color || "";
         const borderRadius = computed.borderRadius || "";
         const padding = computed.padding || "";
+        const bRect = typeof el.getBoundingClientRect === "function" ? el.getBoundingClientRect() : { top: 0, left: 0, width: 0, height: 0 };
 
         cta_buttons.push({
           text: text.slice(0, 50),
           selector: getCSSSelector(el),
           tag: tag,
-          backgroundColor: bgColor,
-          color: textColor,
-          borderRadius: borderRadius,
-          padding: padding,
+          rect: {
+            top: Math.round(bRect.top),
+            left: Math.round(bRect.left),
+            width: Math.round(bRect.width),
+            height: Math.round(bRect.height)
+          },
           styles: {
             backgroundColor: bgColor,
             color: textColor,
@@ -2735,9 +2976,16 @@
       const payload = {
         title: title,
         description: description,
+        hero_summary: hero_summary,
+        nav_items: nav_items,
         headings: headings,
         dominant_colors: dominant_colors,
-        cta_buttons: cta_buttons
+        cta_buttons: cta_buttons,
+        observed_apis: Array.isArray(window.__STAGE__?.observedApis) ? window.__STAGE__.observedApis.slice(0, 10) : [],
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight
+        }
       };
 
       Object.defineProperty(payload, "colors", {
@@ -2788,6 +3036,10 @@
     const data = event.data;
     if (!data || typeof data !== "object") return;
 
+    if (data.type === "STAGE_ALT_KEY_STATE") {
+      isAltActive = Boolean(data.altKey);
+    }
+
     if (data.type === "STAGE_TRACK_PINS") {
       window.__trackedPins = data.pins || [];
       resolveAndSendPins();
@@ -2812,6 +3064,45 @@
     if (data.type === "STAGE_CURSOR_MOVE") {
       if (typeof data.x === 'number' && typeof data.y === 'number') {
         relayCursorEvent(data.x, data.y);
+      }
+    }
+
+    // ── Element inspection at point for Gemini-style Circle & Inspect
+    if (data.type === "STAGE_GET_ELEMENT_AT_POINT") {
+      try {
+        const cx = typeof data.clientX === 'number' ? data.clientX : (data.x || 0);
+        const cy = typeof data.clientY === 'number' ? data.clientY : (data.y || 0);
+        let target = document.elementFromPoint(cx, cy);
+        if (target) {
+          if (target.tagName === "SPAN" && target.parentElement && ["BUTTON", "A", "H1", "H2", "H3", "H4", "NAV"].includes(target.parentElement.tagName)) {
+            target = target.parentElement;
+          }
+          const sel = typeof getCSSSelector === "function" ? getCSSSelector(target) : target.tagName.toLowerCase();
+          const rect = target.getBoundingClientRect();
+          const textContent = (target.innerText || target.textContent || "").trim().slice(0, 150);
+          console.log("[STAGE Agent] STAGE_GET_ELEMENT_AT_POINT resolved:", { sel, tag: target.tagName, text: textContent });
+          window.parent.postMessage({
+            type: "STAGE_ELEMENT_AT_POINT_RESULT",
+            requestId: data.requestId,
+            element: {
+              selector: sel,
+              tag: target.tagName,
+              text: textContent,
+              rect: {
+                top: rect.top,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height,
+                scroll_x: window.scrollX || window.pageXOffset || 0,
+                scroll_y: window.scrollY || window.pageYOffset || 0
+              }
+            }
+          }, "*");
+        } else {
+          console.warn("[STAGE Agent] STAGE_GET_ELEMENT_AT_POINT: no element found at", cx, cy);
+        }
+      } catch (err) {
+        console.error("[STAGE Agent] STAGE_GET_ELEMENT_AT_POINT failed:", err);
       }
     }
 
@@ -2846,6 +3137,38 @@
     if (data.type === "STAGE_SELECT_SIBLING") {
       if (window.__STAGE_EDIT_MODE__ && typeof window.__STAGE_EDIT_MODE__.selectSibling === "function") {
         window.__STAGE_EDIT_MODE__.selectSibling(data.direction);
+      }
+    }
+
+    if (data.type === "STAGE_HIGHLIGHT_ELEMENT") {
+      try {
+        var hlEl = null;
+        if (data.selector) {
+          hlEl = document.querySelector(data.selector);
+        }
+        if (!hlEl && data.xpath) {
+          try {
+            var xRes = document.evaluate(data.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+            hlEl = xRes.singleNodeValue;
+          } catch (e) {}
+        }
+        if (hlEl) {
+          hlEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          var origOutline = hlEl.style.outline;
+          var origTransition = hlEl.style.transition;
+          hlEl.style.transition = 'outline 0.3s ease-in-out';
+          hlEl.style.outline = '3px solid #8b5cf6';
+          hlEl.style.outlineOffset = '2px';
+          setTimeout(function() {
+            hlEl.style.outline = '3px solid transparent';
+            setTimeout(function() {
+              hlEl.style.outline = origOutline;
+              hlEl.style.transition = origTransition;
+            }, 600);
+          }, 2400);
+        }
+      } catch (err) {
+        console.warn("[STAGE Agent] STAGE_HIGHLIGHT_ELEMENT error:", err);
       }
     }
 
@@ -3018,15 +3341,22 @@
           el = document.querySelector(data.selector);
         } catch (_) {}
         const domRect = rect || (el && typeof el.getBoundingClientRect === "function" ? el.getBoundingClientRect() : null);
+        const effScroll = getEffectiveScroll();
         window.parent?.postMessage({
           type: "STAGE_ELEMENT_CROP_RESULT",
           selector: data.selector,
           imageBase64: base64,
           rect: domRect ? {
-            top: Math.round(domRect.top),
-            left: Math.round(domRect.left),
+            top: Math.round(domRect.top + effScroll.y),
+            left: Math.round(domRect.left + effScroll.x),
+            viewport_top: Math.round(domRect.top),
+            viewport_left: Math.round(domRect.left),
             width: Math.round(domRect.width),
-            height: Math.round(domRect.height)
+            height: Math.round(domRect.height),
+            viewport_width: window.innerWidth,
+            viewport_height: window.innerHeight,
+            scroll_x: effScroll.x,
+            scroll_y: effScroll.y
           } : null
         }, "*");
       });
@@ -3069,6 +3399,9 @@
           }
         }
       }
+      setTimeout(function() {
+        throttleResolvePins();
+      }, 50);
     }
 
     if (data.type === "STAGE_REVERT_EPHEMERAL_MUTATION") {
@@ -3112,6 +3445,9 @@
           delete mEl.dataset.stageOriginalText;
         }
       }
+      setTimeout(function() {
+        throttleResolvePins();
+      }, 50);
     }
 
     if (data.type === "STAGE_REQUEST_SITE_FINGERPRINT") {
@@ -3125,7 +3461,8 @@
           dominant_colors: fp.dominant_colors,
           colors: fp.colors,
           cta_buttons: fp.cta_buttons,
-          ctas: fp.ctas
+          ctas: fp.ctas,
+          viewport: fp.viewport
         }, "*");
       } catch (err) {
         console.warn("[STAGE Agent] Failed to handle STAGE_REQUEST_SITE_FINGERPRINT:", err);
@@ -3187,7 +3524,7 @@
         
         const effScroll = getEffectiveScroll();
         const payload = {
-          id: crypto.randomUUID(),
+          id: safeUUID(),
           session_id: window.__STAGE__.sessionId,
           pageurl: getAbsoluteTargetUrl(),
           page_url: getAbsoluteTargetUrl(),
@@ -3665,6 +4002,12 @@
   // This bypasses any delays from heavy-rendering detection or DOMContentLoaded.
   attachPointerListeners();
   document.addEventListener("click", (e) => {
+    const isAlt = Boolean(e.altKey || e.metaKey || isAltActive);
+    if (!isAlt && !feedbackModeActive) return;
+    if (isAlt) {
+      try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+    }
+    if (window.__stageLastHandledTime && (Date.now() - window.__stageLastHandledTime < 400)) return;
     if (window.__lastFeedbackTime && (Date.now() - window.__lastFeedbackTime < 400)) return;
     handleFeedbackCapture(e);
   }, true);

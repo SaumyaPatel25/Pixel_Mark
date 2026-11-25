@@ -128,7 +128,7 @@ async def check_project_limit(org_id: str, db: AsyncSession = Depends(get_db)):
                 status_code=403,
                 detail={
                     "code": "LIMIT_PROJECTS_EXCEEDED",
-                    "message": "Free plan project limit (1 project max) reached. Please upgrade to Dev Team to create more projects."
+                    "message": "Free plan project limit (1 project max) reached. Please upgrade to Team Plan to create more projects."
                 }
             )
         else:
@@ -180,7 +180,7 @@ def require_plan_feature(feature_name: str):
                     status_code=403,
                     detail={
                         "code": "FEATURE_REQUIRES_PAID_PLAN",
-                        "message": "Blueprint DOM Edit mode is available on Dev Team and Enterprise plans."
+                        "message": "Blueprint DOM Edit mode is available on Team and Enterprise plans."
                     }
                 )
         return True

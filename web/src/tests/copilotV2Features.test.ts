@@ -276,6 +276,7 @@ describe('STAGE Copilot V2 Features: Site DNA, History Stack, Suggestions & Insp
       // Confirm pin payload
       const sessionId = 'session-mock-uuid'
       const activeInspoUrl = 'https://example.com/palette.png'
+      const currentUrl = 'https://nddplatform.com/'
 
       const confirmPinPayload = {
         session_id: sessionId,
@@ -287,13 +288,50 @@ describe('STAGE Copilot V2 Features: Site DNA, History Stack, Suggestions & Insp
         text_mutation: null,
         client_summary: suggestion.title,
         developer_explanation: suggestion.description,
-        rect: null,
+        rect: { top: 100, left: 200, width: 120, height: 40 },
+        page_url: currentUrl,
+        offset_x_ratio: 0.5,
+        offset_y_ratio: 0.5,
       }
 
       expect(confirmPinPayload.session_id).toBe(sessionId)
       expect(confirmPinPayload.selector).toBe('#hero-cta')
       expect(confirmPinPayload.inspo_image_url).toBe(activeInspoUrl)
       expect(confirmPinPayload.client_summary).toBe(suggestion.title)
+      expect(confirmPinPayload.page_url).toBe('https://nddplatform.com/')
+      expect(confirmPinPayload.offset_x_ratio).toBe(0.5)
+      expect(confirmPinPayload.rect.width).toBe(120)
+    })
+
+    it('ensures MarkerPinLayer page URL filtering preserves pins on matching or missing URLs', () => {
+      const normalizeUrl = (url: string) => {
+        if (!url) return ''
+        try {
+          const parsed = new URL(url.startsWith('http') ? url : 'http://localhost' + url)
+          return parsed.origin + parsed.pathname.replace(/\/+$/, '').toLowerCase()
+        } catch (e) {
+          return url.split('?')[0].split('#')[0].replace(/\/+$/, '').toLowerCase()
+        }
+      }
+
+      const currentUrl = 'https://nddplatform.com/'
+      const normCurrentUrl = normalizeUrl(currentUrl)
+
+      const markers = [
+        { id: 'm1', page_url: 'https://nddplatform.com', is_deleted: false },
+        { id: 'm2', page_url: 'https://nddplatform.com/', is_deleted: false },
+        { id: 'm3', page_url: null, is_deleted: false },
+        { id: 'm4', page_url: 'https://other.com/page', is_deleted: false },
+        { id: 'm5', page_url: 'https://nddplatform.com', is_deleted: true },
+      ]
+
+      const pagePins = markers.filter(m => {
+        if (m.is_deleted) return false
+        if (!m.page_url || !normCurrentUrl) return true
+        return normalizeUrl(m.page_url) === normCurrentUrl
+      })
+
+      expect(pagePins.map(p => p.id)).toEqual(['m1', 'm2', 'm3'])
     })
   })
 

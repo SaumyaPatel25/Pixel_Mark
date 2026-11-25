@@ -284,9 +284,19 @@ def compile_digest_email(
     # Build marker cards list HTML
     cards_html = ""
     for idx, item in enumerate(items[:15], 1):
-        pin_title = item.title or f"Marker #{idx}"
-        pin_body = item.body or "(No comment body provided)"
-        pin_actor = item.actor_name or "Reviewer"
+        payload = getattr(item, 'payload', None)
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+        elif not isinstance(payload, dict):
+            payload = {}
+
+        marker_dict = payload.get('marker', {}) if isinstance(payload.get('marker'), dict) else {}
+        pin_title = getattr(item, 'title', None) or payload.get('title') or marker_dict.get('title') or f"Marker #{idx}"
+        pin_body = getattr(item, 'body', None) or payload.get('body') or marker_dict.get('description') or "(No comment body provided)"
+        pin_actor = getattr(item, 'actor_name', None) or payload.get('actor_name') or "Reviewer"
         
         cards_html += f"""
         <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px 16px;margin-bottom:12px;">
@@ -496,7 +506,7 @@ async def _dispatch_single_instant_notification(db: AsyncSession, item: Notifica
         # Fetch session info
         sess_res = await db.execute(select(Session).where(Session.id == item.session_id))
         sess = sess_res.scalar_one_or_none()
-        session_title = sess.target_url if sess else "STAGE Session"
+        session_title = (getattr(sess, "current_page_url", None) or getattr(sess, "url", None) or getattr(sess, "title", None) or "STAGE Session") if sess else "STAGE Session"
         review_url = f"{APP_URL}/sessions/{item.session_id}"
 
         if item.event_type == "pin.sla_breached":
@@ -520,6 +530,7 @@ async def _dispatch_single_instant_notification(db: AsyncSession, item: Notifica
         target_email = user.email if (user and user.email) else f"user:{item.user_id}"
         attempt = NotificationDeliveryAttempt(
             outbox_id=item.id,
+            notification_event_id=getattr(item, "notification_event_id", None) or item.id,
             channel="email",
             target=target_email,
             status="dead_letter" if is_dlq else "failed",
@@ -628,6 +639,7 @@ async def flush_expired_debounces(db: AsyncSession):
 
                     attempt = NotificationDeliveryAttempt(
                         outbox_id=it.id,
+                        notification_event_id=getattr(it, "notification_event_id", None) or it.id,
                         channel="email",
                         target=target_email,
                         status="dead_letter" if is_dlq else "failed",

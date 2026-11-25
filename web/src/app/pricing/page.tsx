@@ -4,7 +4,7 @@ import PricingClient from './PricingClient';
 
 export const metadata: Metadata = {
   title: 'Pricing & Plans — Free, Dev & Enterprise',
-  description: 'Transparent pricing for STAGE visual feedback tool. Start free with unlimited markers, or upgrade to Dev Team for real-time WebSocket sync and DOM edits.',
+  description: 'Transparent pricing for STAGE visual feedback tool. Start free with unlimited markers, or upgrade to Team Plan for real-time WebSocket sync and DOM edits.',
   alternates: {
     canonical: `${seoConfig.siteUrl}/pricing`,
   },
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     site: seoConfig.twitterHandle,
     creator: seoConfig.twitterHandle,
     title: `Pricing & Plans | ${seoConfig.shortTitle}`,
-    description: 'Transparent pricing for STAGE visual feedback tool. Start free or upgrade to Dev Team.',
+    description: 'Transparent pricing for STAGE visual feedback tool. Start free or upgrade to Team Plan.',
     images: [`${seoConfig.siteUrl}/og-image.png`],
   }
 };

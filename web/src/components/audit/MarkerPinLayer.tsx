@@ -8,6 +8,7 @@ import { Marker } from '@/types/markers'
 import { computePinScreenPosition, buildDomMovePatch } from '@/lib/markerPlacement'
 import { MarkerPin } from '@/components/markers/MarkerComponents'
 import { canCurrentActorMutateMarker, ActorContext } from '@/lib/permissions'
+import { ExternalLink, Sparkles } from 'lucide-react'
 
 interface MarkerPinLayerProps {
   markers: Marker[]
@@ -16,6 +17,7 @@ interface MarkerPinLayerProps {
   scrollPos: { x: number; y: number }
   iframeNode: HTMLIFrameElement | null
   selectedMarkerId: string | null
+  resolvedPositions?: Record<string, { clientX: number; clientY: number; pageX?: number; pageY?: number; source: string }>
   actor: ActorContext | null
   onSelectPin: (id: string) => void
   onDeletePin?: (id: string) => void
@@ -40,6 +42,7 @@ export function MarkerPinLayer({
   scrollPos,
   iframeNode = null,
   selectedMarkerId,
+  resolvedPositions,
   orderedMarkerIds,
   actor,
   onSelectPin,
@@ -68,13 +71,14 @@ export function MarkerPinLayer({
   }, [])
 
   useEffect(() => {
-    if (!iframeNode) return
+    const targetIframe = iframeNode || (typeof document !== 'undefined' ? (document.querySelector('#audit-iframe-container iframe') as HTMLIFrameElement | null) : null)
+    if (!targetIframe) return
 
     let iframeWin: Window | null = null
     let iframeDoc: Document | null = null
     try {
-      iframeWin = iframeNode.contentWindow
-      iframeDoc = iframeNode.contentDocument
+      iframeWin = targetIframe.contentWindow
+      iframeDoc = targetIframe.contentDocument
     } catch (_) {}
 
     let rAFId: number | null = null
@@ -84,8 +88,8 @@ export function MarkerPinLayer({
       if (rAFId) return
       rAFId = requestAnimationFrame(() => {
         rAFId = null
-        if (iframeNode) {
-          const rect = iframeNode.getBoundingClientRect()
+        if (targetIframe) {
+          const rect = targetIframe.getBoundingClientRect()
           setIframeRect(rect)
         }
         forceReflow()
@@ -123,7 +127,7 @@ export function MarkerPinLayer({
       scheduleStabilizationPasses()
     }
 
-    iframeNode.addEventListener('load', handleLoad)
+    targetIframe.addEventListener('load', handleLoad)
 
     // Check if iframe is already loaded on mount (session restart / review session load)
     try {
@@ -142,12 +146,12 @@ export function MarkerPinLayer({
         debouncedTimer = setTimeout(handleUpdate, 150)
       })
 
-      resizeObserver.observe(iframeNode)
-      if (iframeNode.parentElement) {
-        resizeObserver.observe(iframeNode.parentElement)
+      resizeObserver.observe(targetIframe)
+      if (targetIframe.parentElement) {
+        resizeObserver.observe(targetIframe.parentElement)
       }
-      const auditContainer = iframeNode.closest('#audit-iframe-container') || iframeNode.closest('.flex-1')
-      if (auditContainer && auditContainer !== iframeNode.parentElement) {
+      const auditContainer = targetIframe.closest('#audit-iframe-container') || targetIframe.closest('.flex-1')
+      if (auditContainer && auditContainer !== targetIframe.parentElement) {
         resizeObserver.observe(auditContainer)
       }
       if (document.body) {
@@ -238,8 +242,18 @@ export function MarkerPinLayer({
   const pagePins = useMemo(() => {
     const normCurrentUrl = normalizeUrl(currentUrl)
     return markers.filter(m => {
-      const match = normalizeUrl(m.page_url || '') === normCurrentUrl
-      return match && !m.is_deleted
+      if (m.is_deleted) return false
+      // Skip markers with no anchor data at all — they would render at (0,0) top-left corner
+      const hasSelector = !!((m as any).target_selector || (m as any).elementSelector)
+      const hasXpath = !!((m as any).target_xpath || (m as any).xpath)
+      const hasBbox = !!((m as any).element_rect_json || (m as any).boundingBoxAtCapture)
+      const hasPageXY = typeof (m as any).page_x === 'number' && typeof (m as any).page_y === 'number' && ((m as any).page_x !== 0 || (m as any).page_y !== 0)
+      const hasViewportXY = typeof (m as any).viewport_x === 'number' && typeof (m as any).viewport_y === 'number' && ((m as any).viewport_x !== 0 || (m as any).viewport_y !== 0)
+      const hasCanvasCtx = !!((m as any).canvas_x_ratio != null || (m as any).canvas_y_ratio != null)
+      if (!hasSelector && !hasXpath && !hasBbox && !hasPageXY && !hasViewportXY && !hasCanvasCtx) return false
+      if (!m.page_url || !normCurrentUrl) return true
+      const match = normalizeUrl(m.page_url) === normCurrentUrl
+      return match
     })
   }, [markers, currentUrl])
 
@@ -346,13 +360,14 @@ export function MarkerPinLayer({
 
   if (!mounted || typeof document === 'undefined') return null
 
-  const currentIframeRect = iframeRect || (iframeNode ? iframeNode.getBoundingClientRect() : null)
+  const targetIframe = iframeNode || (typeof document !== 'undefined' ? (document.querySelector('#audit-iframe-container iframe') as HTMLIFrameElement | null) : null)
+  const currentIframeRect = iframeRect || (targetIframe ? targetIframe.getBoundingClientRect() : null)
 
   let iframeWin: Window | null = null
   let iframeDoc: Document | null = null
   try {
-    iframeWin = iframeNode?.contentWindow || null
-    iframeDoc = iframeNode?.contentDocument || null
+    iframeWin = targetIframe?.contentWindow || null
+    iframeDoc = targetIframe?.contentDocument || null
   } catch (_) {}
 
   const pinOverlay = (
@@ -374,7 +389,7 @@ export function MarkerPinLayer({
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 2147483646,
+          zIndex: 35,
           pointerEvents: 'none',
           overflow: 'visible',
           outline: diagnosticMode ? '3px dashed #ef4444' : 'none'
@@ -402,31 +417,58 @@ export function MarkerPinLayer({
             isDegraded = false
             source = 'dom'
           } else {
-            const posResult = computePinScreenPosition(
-              marker,
-              scrollPos,
-              currentIframeRect,
-              iframeWin,
-              iframeDoc
-            )
+            const resolved = resolvedPositions?.[marker.id]
+            const rect = currentIframeRect
 
-            if (!posResult) {
-              return null
+            if (resolved && Number.isFinite(resolved.clientX) && Number.isFinite(resolved.clientY) && rect) {
+              const scaleX = rect.width / (iframeNode?.offsetWidth || iframeNode?.clientWidth || 1)
+              const scaleY = rect.height / (iframeNode?.offsetHeight || iframeNode?.clientHeight || 1)
+              parentX = resolved.clientX * scaleX + rect.left
+              parentY = resolved.clientY * scaleY + rect.top
+              isDegraded = false
+              source = resolved.source || 'element'
+            } else {
+              const posResult = computePinScreenPosition(
+                marker,
+                scrollPos,
+                currentIframeRect,
+                iframeWin,
+                iframeDoc
+              )
+
+              if (!posResult) {
+                return null
+              }
+
+              parentX = posResult.screenX
+              parentY = posResult.screenY
+              isDegraded = posResult.isDegraded
+              source = posResult.source
             }
-
-            parentX = posResult.screenX
-            parentY = posResult.screenY
-            isDegraded = posResult.isDegraded
-            source = posResult.source
           }
 
           if (!Number.isFinite(parentX) || !Number.isFinite(parentY)) {
             return null
           }
 
+          // If iframe rect is unavailable or unmeasured, skip rendering to prevent out-of-box drift
+          if (!currentIframeRect || currentIframeRect.width <= 0 || currentIframeRect.height <= 0) {
+            return null
+          }
+
           if (typeof window !== 'undefined' && !isDragging) {
-            const isOffscreen = parentX < -50 || parentY < -50 || parentX > window.innerWidth + 50 || parentY > window.innerHeight + 50
-            if (isOffscreen) {
+            const isWindowOffscreen = parentX < -50 || parentY < -50 || parentX > window.innerWidth + 50 || parentY > window.innerHeight + 50
+            if (isWindowOffscreen) {
+              return null
+            }
+
+            // Strictly prevent pin from floating outside canvas box into the STAGE navbar or shell
+            const isIframeOffscreen =
+              parentY < currentIframeRect.top ||
+              parentY > currentIframeRect.bottom ||
+              parentX < currentIframeRect.left ||
+              parentX > currentIframeRect.right
+            if (isIframeOffscreen) {
               return null
             }
           }
@@ -480,9 +522,17 @@ export function MarkerPinLayer({
                       e.currentTarget.setPointerCapture(e.pointerId)
                     } catch (_) {}
                     
-                    const posRes = computePinScreenPosition(targetMarker, scrollPos, currentIframeRect, iframeWin, iframeDoc)
-                    const initialLeft = posRes ? posRes.pageLeft : (targetMarker.page_x || 0)
-                    const initialTop = posRes ? posRes.pageTop : (targetMarker.page_y || 0)
+                    const resolved = resolvedPositions?.[id]
+                    let initialLeft = 0
+                    let initialTop = 0
+                    if (resolved && Number.isFinite(resolved.clientX) && Number.isFinite(resolved.clientY)) {
+                      initialLeft = resolved.pageX !== undefined ? resolved.pageX : resolved.clientX + scrollPos.x
+                      initialTop = resolved.pageY !== undefined ? resolved.pageY : resolved.clientY + scrollPos.y
+                    } else {
+                      const posRes = computePinScreenPosition(targetMarker, scrollPos, currentIframeRect, iframeWin, iframeDoc)
+                      initialLeft = posRes ? posRes.pageLeft : (targetMarker.page_x || 0)
+                      initialTop = posRes ? posRes.pageTop : (targetMarker.page_y || 0)
+                    }
                     
                     setDragState({
                       markerId: id,
@@ -510,26 +560,71 @@ export function MarkerPinLayer({
               {/* Hover Tooltip Popover */}
               {hoveredPinId === marker.id && !isDragging && (
                 <div
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3.5 p-3 bg-[#0d0d14]/95 border border-white/10 rounded-2xl shadow-2xl flex flex-col gap-2 pointer-events-none z-[2147483647] w-60 text-white animate-fade-in"
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3.5 p-3.5 bg-[#0d0d14]/95 border border-purple-500/30 rounded-2xl shadow-2xl flex flex-col gap-2 pointer-events-auto z-50 w-72 text-white animate-fade-in backdrop-blur-xl"
                 >
-                  {marker.screenshot_url && (
-                    <div className="relative rounded-lg overflow-hidden border border-white/10 h-24 bg-black/40">
+                  {/* Screenshot or Inspo Thumbnail */}
+                  {(marker.screenshot_url || (marker as any).metadata?.inspo_image_url) && (
+                    <div className="relative rounded-xl overflow-hidden border border-white/10 h-28 bg-black/40">
                       <img
-                        src={marker.screenshot_url}
-                        alt="Pin screenshot thumbnail"
+                        src={marker.screenshot_url || (marker as any).metadata?.inspo_image_url}
+                        alt="Pin preview thumbnail"
                         className="w-full h-full object-cover"
                       />
+                      {(marker as any).metadata?.inspo_image_url && (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-purple-950/80 border border-purple-500/40 text-[8px] font-black uppercase tracking-wider text-purple-300">
+                          Inspiration
+                        </div>
+                      )}
                     </div>
                   )}
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="text-[10px] font-bold truncate text-white/90">
-                      {marker.title || 'Untitled Marker'}
-                    </span>
+
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      {(marker.color_token === 'ai_copilot' || (marker as any).metadata?.source === 'ai_copilot') && (
+                        <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[8px] font-black uppercase tracking-wider border border-purple-500/30 flex items-center gap-1">
+                          <Sparkles className="w-2.5 h-2.5" />
+                          AI Suggestion
+                        </span>
+                      )}
+                      <span className="text-[11px] font-bold truncate text-white/95">
+                        {marker.title || 'Untitled Marker'}
+                      </span>
+                    </div>
+
                     <span className="text-[8px] font-mono text-white/40 truncate">
                       {marker.target_selector || 'No selector'}
                     </span>
+
+                    {/* Benchmark Design Reference Link */}
+                    {Boolean((marker as any).metadata?.benchmark_name || (marker as any).element_rect_json?.benchmark_name) && (
+                      <div className="mt-1 flex items-center gap-1 text-[9px] text-purple-300 bg-purple-950/40 border border-purple-500/20 rounded-lg px-2 py-1">
+                        <span className="font-semibold truncate">
+                          Benchmark: {(marker as any).metadata?.benchmark_name || (marker as any).element_rect_json?.benchmark_name}
+                        </span>
+                        {Boolean((marker as any).metadata?.benchmark_url || (marker as any).element_rect_json?.benchmark_url) && (
+                          <a
+                            href={(marker as any).metadata?.benchmark_url || (marker as any).element_rect_json?.benchmark_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-auto text-purple-400 hover:text-white underline inline-flex items-center gap-0.5 flex-shrink-0 cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span>view</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Developer directive / detailed feedback */}
+                    {Boolean((marker as any).metadata?.developer_directive || marker.description) && (
+                      <p className="text-[9.5px] text-white/70 leading-relaxed line-clamp-3 mt-0.5">
+                        {(marker as any).metadata?.developer_directive || marker.description}
+                      </p>
+                    )}
+
                     {marker.dom_text_excerpt && (
-                      <span className="text-[9px] text-white/60 italic truncate mt-1 pl-1 border-l border-purple-500/50">
+                      <span className="text-[9px] text-white/60 italic truncate mt-0.5 pl-1 border-l border-purple-500/50">
                         &ldquo;{marker.dom_text_excerpt}&rdquo;
                       </span>
                     )}

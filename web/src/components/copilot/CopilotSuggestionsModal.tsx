@@ -12,8 +12,12 @@ import {
   BookOpen,
   Palette,
   Lightbulb,
+  ExternalLink,
+  Wrench,
+  Pin,
+  Target,
 } from 'lucide-react'
-import { SiteSuggestion } from './CopilotTypes'
+import { SiteSuggestion, FocusedElement } from './CopilotTypes'
 import { cn } from '@/lib/utils'
 
 export interface CopilotSuggestionsModalProps {
@@ -24,6 +28,7 @@ export interface CopilotSuggestionsModalProps {
   onRevertPreview: (selector: string) => void
   onConfirmPin: (suggestion: SiteSuggestion) => Promise<void>
   isConfirming?: boolean
+  focusContext?: FocusedElement | null
 }
 
 export function CopilotSuggestionsModal({
@@ -34,6 +39,7 @@ export function CopilotSuggestionsModal({
   onRevertPreview,
   onConfirmPin,
   isConfirming = false,
+  focusContext = null,
 }: CopilotSuggestionsModalProps) {
   const [previewedId, setPreviewedId] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
@@ -140,22 +146,43 @@ export function CopilotSuggestionsModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/[0.02]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-400">
-              <Lightbulb className="w-4 h-4" />
+            <div className={cn(
+              "p-2 rounded-xl border transition-all",
+              focusContext
+                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
+                : "bg-violet-500/10 border-violet-500/30 text-violet-400"
+            )}>
+              {focusContext ? <Target className="w-4 h-4 text-emerald-400" /> : <Lightbulb className="w-4 h-4" />}
             </div>
             <div>
               <h2
                 id="suggestions-modal-title"
                 className="text-sm font-extrabold tracking-wide text-white flex items-center gap-2"
               >
-                Top 3 AI Design Suggestions
-                <span className="text-[10px] font-mono font-normal px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                  Site DNA
-                </span>
+                {focusContext ? 'Focused Component Suggestions' : 'Top 3 AI Design Suggestions'}
+                {focusContext ? (
+                  <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    {focusContext.source === 'circle' ? 'Circled' : 'Focused'}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-mono font-normal px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                    Site DNA
+                  </span>
+                )}
               </h2>
-              <p className="text-[11px] text-white/50">
-                AI analyzed your page structure, contrast, and visual rhythm to suggest high-impact improvements.
-              </p>
+              {focusContext ? (
+                <p className="text-[11px] text-white/60 truncate max-w-xl">
+                  Targeted analysis on{' '}
+                  <span className="text-emerald-300 font-mono font-semibold">&lt;{focusContext.tag?.toLowerCase() || 'element'}&gt;</span>{' '}
+                  <span className="text-white/80 font-mono">({focusContext.selector})</span>
+                  {focusContext.text ? ` • "${focusContext.text.slice(0, 40)}..."` : ''}
+                </p>
+              ) : (
+                <p className="text-[11px] text-white/50">
+                  AI analyzed your page structure, contrast, and visual rhythm to suggest high-impact improvements.
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -224,14 +251,69 @@ export function CopilotSuggestionsModal({
                     </div>
                   </div>
 
-                  {/* Target Selector Pill */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">
-                      Target:
-                    </span>
-                    <span className="font-mono text-[11px] text-violet-300/80 bg-black/40 px-2 py-0.5 rounded border border-white/5 truncate max-w-full">
-                      {suggestion.selector}
-                    </span>
+                  {/* Developer Directive Callout */}
+                  {(suggestion.developer_directive || suggestion.description) && (
+                    <div className="p-2.5 rounded-lg bg-black/40 border border-violet-500/20 text-xs">
+                      <div className="flex items-center gap-1.5 text-violet-300 font-semibold mb-1">
+                        <Wrench className="w-3.5 h-3.5 text-violet-400" />
+                        <span>Developer Directive:</span>
+                      </div>
+                      <p className="text-white/80 leading-relaxed font-sans text-xs">
+                        {suggestion.developer_directive || suggestion.description}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Benchmark Inspiration & Target Selector */}
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">
+                        Target:
+                      </span>
+                      <span className="font-mono text-[11px] text-violet-300/80 bg-black/40 px-2 py-0.5 rounded border border-white/5 truncate max-w-[220px]">
+                        {suggestion.selector}
+                      </span>
+                    </div>
+
+                    {suggestion.benchmark_name && (
+                      <div className="flex items-center gap-2 text-xs flex-wrap">
+                        {suggestion.theme_colors && suggestion.theme_colors.length > 0 && (
+                          <div
+                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10"
+                            title={`Adapted to site theme: ${suggestion.theme_colors.join(', ')}`}
+                          >
+                            <span className="text-[10px] text-white/50 font-medium">Theme-Matched</span>
+                            <div className="flex items-center -space-x-1">
+                              {suggestion.theme_colors.slice(0, 3).map((hex, i) => (
+                                <span
+                                  key={`${hex}-${i}`}
+                                  className="w-2.5 h-2.5 rounded-full border border-white/30"
+                                  style={{ backgroundColor: hex }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">
+                          {suggestion.source_platform ? `${suggestion.source_platform} Ref:` : 'Reference:'}
+                        </span>
+                        {suggestion.benchmark_url ? (
+                          <a
+                            href={suggestion.benchmark_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition-colors"
+                          >
+                            <span>{suggestion.benchmark_name}</span>
+                            <ExternalLink className="w-3 h-3 text-cyan-400" />
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 text-[11px]">
+                            {suggestion.benchmark_name}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Action Buttons Row */}
@@ -262,7 +344,7 @@ export function CopilotSuggestionsModal({
                       )}
                     </button>
 
-                    {/* Apply & Pin Button with Electric Violet Sparkle Styling */}
+                    {/* Pin for Developer Button */}
                     <button
                       type="button"
                       onClick={() => handleApply(suggestion)}
@@ -271,17 +353,17 @@ export function CopilotSuggestionsModal({
                         "px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50",
                         "bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-violet-900/40 border border-violet-400/40"
                       )}
-                      title="Apply live mutation and save permanent marker"
+                      title="Apply live mutation and save permanent marker for developer handoff"
                     >
                       {isThisConfirming ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Applying...</span>
+                          <span>Pinning...</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-3.5 h-3.5 text-fuchsia-200" />
-                          <span>Apply & Pin</span>
+                          <Pin className="w-3.5 h-3.5 text-fuchsia-200" />
+                          <span>Pin for Developer</span>
                         </>
                       )}
                     </button>

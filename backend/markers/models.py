@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import String, Integer, Float, ForeignKey, DateTime, Boolean, JSON, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
@@ -51,6 +52,15 @@ class Marker(Base):
     # Marker content and lifecycle
     title: Mapped[str] = mapped_column(String, nullable=True)
     description: Mapped[str] = mapped_column(String, nullable=True)
+    issue_type: Mapped[Optional[str]] = mapped_column(String, default="other", server_default="other", nullable=True)
+
+    @property
+    def category(self) -> Optional[str]:
+        return self.issue_type
+
+    @category.setter
+    def category(self, value: Optional[str]):
+        self.issue_type = value
     status: Mapped[str] = mapped_column(String, default=MarkerStatus.OPEN.value, server_default=MarkerStatus.OPEN.value, nullable=False, index=True)
     priority: Mapped[str] = mapped_column(String, default=MarkerPriority.MEDIUM.value, server_default=MarkerPriority.MEDIUM.value, nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False, index=True)

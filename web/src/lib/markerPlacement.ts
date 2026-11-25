@@ -89,7 +89,7 @@ export function resolveMarkerRenderPosition(
   const scrollPos = getEffectiveScroll(iframeWindow, iframeDocument)
   
   // Fallback parameters DTO normalization
-  const selector = marker.elementSelector || (marker as any).target_selector
+  const selector = marker.elementSelector || (marker as any).target_selector || (marker as any).selector
   const xpath = marker.xpath || (marker as any).target_xpath
   const offsetX = marker.offsetXRatio ?? (marker as any).offset_x_ratio ?? 0.5
   const offsetY = marker.offsetYRatio ?? (marker as any).offset_y_ratio ?? 0.5
@@ -215,22 +215,28 @@ export function resolveMarkerRenderPosition(
   }
 
   // 5. Bounding Box fallback
-  if (!result && marker.boundingBoxAtCapture) {
-    const { left: bboxLeft, top: bboxTop, width: bboxWidth, height: bboxHeight } = marker.boundingBoxAtCapture
-    const left = bboxLeft + scrollPos.x + bboxWidth * offsetX
-    const top = bboxTop + scrollPos.y + bboxHeight * offsetY
-    if (Number.isFinite(left) && Number.isFinite(top)) {
+  const bbox = marker.boundingBoxAtCapture || (marker as any).element_rect_json || (marker as any).boundingBox
+  if (!result && bbox) {
+    const bboxLeft = bbox.left ?? bbox.x ?? 0
+    const bboxTop = bbox.top ?? bbox.y ?? 0
+    const bboxWidth = bbox.width ?? bbox.w ?? 0
+    const bboxHeight = bbox.height ?? bbox.h ?? 0
+    const scrollXAtCap = (marker as any).scrollXAtCapture ?? (marker as any).scroll_x ?? (marker as any).scrollX ?? 0
+    const scrollYAtCap = (marker as any).scrollYAtCapture ?? (marker as any).scroll_y ?? (marker as any).scrollY ?? 0
+    const left = bboxLeft + scrollXAtCap + bboxWidth * offsetX
+    const top = bboxTop + scrollYAtCap + bboxHeight * offsetY
+    if (Number.isFinite(left) && Number.isFinite(top) && (left !== 0 || top !== 0 || bboxWidth > 0 || bboxHeight > 0)) {
       result = { left, top, source: 'bbox', confidence: 0.6, degraded: true }
     }
   }
 
-  // 6. pageX/pageY fallback
-  if (!result && typeof pgX === 'number' && typeof pgY === 'number' && Number.isFinite(pgX) && Number.isFinite(pgY)) {
+  // 6. pageX/pageY fallback — skip (0,0) which is almost never intentional and renders at top-left corner
+  if (!result && typeof pgX === 'number' && typeof pgY === 'number' && Number.isFinite(pgX) && Number.isFinite(pgY) && (pgX !== 0 || pgY !== 0)) {
     result = { left: pgX, top: pgY, source: 'page_xy', confidence: 0.5, degraded: true }
   }
 
-  // 7. viewportX/viewportY fallback (Final fallback)
-  if (!result && typeof vpX === 'number' && typeof vpY === 'number' && Number.isFinite(vpX) && Number.isFinite(vpY)) {
+  // 7. viewportX/viewportY fallback (Final fallback) — skip (0,0) for same reason
+  if (!result && typeof vpX === 'number' && typeof vpY === 'number' && Number.isFinite(vpX) && Number.isFinite(vpY) && (vpX !== 0 || vpY !== 0)) {
     const scrollXAtCap = (marker as any).scrollXAtCapture ?? (marker as any).scroll_x ?? (marker as any).scrollX ?? 0
     const scrollYAtCap = (marker as any).scrollYAtCapture ?? (marker as any).scroll_y ?? (marker as any).scrollY ?? 0
     result = { left: vpX + scrollXAtCap, top: vpY + scrollYAtCap, source: 'viewport_fallback', confidence: 0.2, degraded: true }
@@ -373,7 +379,8 @@ function getXPath(el: HTMLElement, doc: Document): string {
  */
 export function buildDomMovePatch(marker: Marker, iframeDocument: Document | null, clientX: number, clientY: number, currentScroll: { x: number, y: number }): Partial<Marker> | null {
   const anchorKind = marker.anchor_kind || (marker as any).anchorKind
-  if (anchorKind !== 'dom-relative') {
+  const isDomRelative = !anchorKind || anchorKind === 'dom-relative' || anchorKind === 'dom_relative' || anchorKind === 'dom'
+  if (!isDomRelative) {
      const pageX = clientX + currentScroll.x
      const pageY = clientY + currentScroll.y
      return {
@@ -384,6 +391,8 @@ export function buildDomMovePatch(marker: Marker, iframeDocument: Document | nul
        page_y: pageY,
        scroll_x: currentScroll.x,
        scroll_y: currentScroll.y,
+       offset_x_ratio: 0.5,
+       offset_y_ratio: 0.5,
        anchor_mode: 'viewport_fallback',
 
        viewportX: clientX,
@@ -392,6 +401,8 @@ export function buildDomMovePatch(marker: Marker, iframeDocument: Document | nul
        pageY: pageY,
        scrollXAtCapture: currentScroll.x,
        scrollYAtCapture: currentScroll.y,
+       offsetXRatio: 0.5,
+       offsetYRatio: 0.5,
        anchorMode: 'viewport_fallback'
      } as Partial<Marker>
   }

@@ -225,7 +225,9 @@ export default function ProfileSettingsPage() {
                     {caps.plan_type === 'stage_team'
                       ? 'STAGE Team (Internal)'
                       : caps.plan_type === 'dev_team_early_bird'
-                      ? 'Dev Team Early Bird (25% OFF)'
+                      ? 'Team Early Bird (25% OFF)'
+                      : caps.plan_type === 'dev_team'
+                      ? 'TEAM'
                       : caps.plan_type.toUpperCase()}
                   </span>
                 </span>
@@ -364,20 +366,20 @@ export default function ProfileSettingsPage() {
             {!caps.is_paid ? (
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-pm-border/60">
                 <p className="text-xs text-pm-muted">
-                  Upgrade your workspace to Dev Team to unlock Blueprint DOM mode, 5 seats, and 10 projects.
+                  Upgrade your workspace to Team Plan to unlock Blueprint DOM mode, 5 seats, and 10 projects.
                 </p>
                 <Link
                   href="/pricing"
                   className="px-5 py-2.5 rounded-xl bg-pm-accent hover:bg-pm-accent-bright text-white text-xs font-bold shadow-md transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer"
                 >
-                  <span>Upgrade to Dev Team</span>
+                  <span>Upgrade to Team Plan</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
             ) : (
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-pm-border/60">
                 <p className="text-xs text-pm-muted">
-                  Your Dev Team subscription is active. Share invite links with up to 5 developers.
+                  Your Team subscription is active. Share invite links with up to 5 developers.
                 </p>
                 {(caps.is_billing_owner || caps.role === 'admin' || caps.role === 'owner') && (
                   <button

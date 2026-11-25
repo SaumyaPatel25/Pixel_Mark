@@ -186,6 +186,9 @@ async def test_copilot_parse_with_active_user_provider():
 async def test_copilot_parse_no_provider_error(monkeypatch):
     # Ensure no system env keys
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEYS", raising=False)
+    monkeypatch.delenv("NVIDIA_NIM_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 

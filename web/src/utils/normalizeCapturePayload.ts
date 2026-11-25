@@ -24,6 +24,9 @@ export type CapturePayload = {
   deletedAt: string | null
   visible: boolean
   isNormalized?: boolean
+  offsetXRatio?: number | null
+  offsetYRatio?: number | null
+  canonicalAnchor?: any
 
   // Compatibility fields
   status: CaptureStatus
@@ -374,6 +377,12 @@ export function normalizeCapturePayload(raw: any): CapturePayload {
 
   const commentValue = raw.note ?? raw.userComment ?? raw.usercomment ?? raw.user_comment ?? raw.comment ?? ''
 
+  const rawAnchor = raw.canonical_anchor || raw.canonicalAnchor || {}
+  const rawOffsetX = raw.offsetXRatio ?? raw.offset_x_ratio ?? rawAnchor.offsetXRatio ?? rawAnchor.offset_x_ratio ?? null
+  const rawOffsetY = raw.offsetYRatio ?? raw.offset_y_ratio ?? rawAnchor.offsetYRatio ?? rawAnchor.offset_y_ratio ?? null
+  const offsetXRatio = rawOffsetX !== null && rawOffsetX !== undefined && !isNaN(Number(rawOffsetX)) ? Math.max(0, Math.min(1, Number(rawOffsetX))) : null
+  const offsetYRatio = rawOffsetY !== null && rawOffsetY !== undefined && !isNaN(Number(rawOffsetY)) ? Math.max(0, Math.min(1, Number(rawOffsetY))) : null
+
   return {
     // Direct Store Fields
     id,
@@ -383,6 +392,9 @@ export function normalizeCapturePayload(raw: any): CapturePayload {
     displayY: stable.displayY,
     pageX: stable.pageX,
     pageY: stable.pageY,
+    offsetXRatio,
+    offsetYRatio,
+    canonicalAnchor: raw.canonical_anchor || raw.canonicalAnchor || null,
     bboxLeft: raw.bboxLeft ?? raw.boundingBox?.left ?? raw.boundingBox?.x ?? null,
     bboxTop: raw.bboxTop ?? raw.boundingBox?.top ?? raw.boundingBox?.y ?? null,
     bboxWidth: raw.bboxWidth ?? raw.boundingBox?.width ?? null,
@@ -411,8 +423,8 @@ export function normalizeCapturePayload(raw: any): CapturePayload {
     coordinates: {
       pageX: stable.pageX,
       pageY: stable.pageY,
-      viewportX: stable.displayX,
-      viewportY: stable.displayY,
+      viewportX: stable.clientX,
+      viewportY: stable.clientY,
       clientX: stable.clientX,
       clientY: stable.clientY,
       normX: raw.coordinates?.normX ?? raw.normX ?? raw.normx ?? raw.norm_x ?? null,

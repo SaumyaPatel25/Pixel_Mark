@@ -40,14 +40,14 @@ export function LockedDomModal({ onClose }: LockedDomModalProps) {
 
         {/* Summary text */}
         <p className="text-sm text-pm-muted leading-relaxed mb-6">
-          Blueprint DOM mode is available on <strong className="text-pm-text">Dev Team</strong> and <strong className="text-pm-text">Enterprise</strong> plans. Upgrade your workspace to unlock live visual element editing, CSS tweaking, and multi-user canvas collaboration.
+          Blueprint DOM mode is available on <strong className="text-pm-text">TEAM</strong> and <strong className="text-pm-text">Enterprise</strong> plans. Upgrade your workspace to unlock live visual element editing, CSS tweaking, and multi-user canvas collaboration.
         </p>
 
         {/* Feature Highlights */}
         <div className="bg-pm-surface-2 border border-pm-border rounded-2xl p-4 mb-8 space-y-3">
           <h4 className="text-[11px] font-mono font-bold uppercase tracking-wider text-pm-accent flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-pm-accent" />
-            <span>Dev Team Included Capabilities</span>
+            <span>Team Plan Included Capabilities</span>
           </h4>
           <ul className="space-y-2 text-xs text-pm-text">
             <li className="flex items-center gap-2">

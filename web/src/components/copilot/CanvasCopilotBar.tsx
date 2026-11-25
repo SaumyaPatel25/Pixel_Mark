@@ -15,6 +15,7 @@ import {
   Redo2,
   Lightbulb,
   Image as ImageIcon,
+  Target,
 } from 'lucide-react'
 import {
   CopilotResolution,
@@ -24,6 +25,7 @@ import {
   SiteAnalysisResult,
   MutationHistoryItem,
   ActiveInspiration,
+  FocusedElement,
 } from './CopilotTypes'
 import { CopilotConfirmationModal } from './CopilotConfirmationModal'
 import { CopilotSuggestionsModal } from './CopilotSuggestionsModal'
@@ -36,18 +38,24 @@ interface CanvasCopilotBarProps {
   iframeRef: React.RefObject<HTMLIFrameElement | null>
   sessionId: string
   projectId?: string
+  currentUrl?: string
   reviewerId?: string | null
   onPinCreated?: (marker: any) => void
   className?: string
+  activeMarker?: any
+  onClearActiveMarker?: () => void
 }
 
 export function CanvasCopilotBar({
   iframeRef,
   sessionId,
   projectId,
+  currentUrl,
   reviewerId,
   onPinCreated,
   className,
+  activeMarker,
+  onClearActiveMarker,
 }: CanvasCopilotBarProps) {
   const [prompt, setPrompt] = useState('')
   const [status, setStatus] = useState<CopilotStatus>('idle')
@@ -67,6 +75,28 @@ export function CanvasCopilotBar({
   const [siteAnalysisStatus, setSiteAnalysisStatus] = useState<'idle' | 'analyzing' | 'ready'>('idle')
   const [siteAnalysis, setSiteAnalysis] = useState<SiteAnalysisResult | null>(null)
   const siteAnalysisStatusRef = useRef<'idle' | 'analyzing' | 'ready'>('idle')
+
+  // Focused Element & Gemini Circle-to-Inspect State
+  const [isCircleModeActive, setIsCircleModeActive] = useState(false)
+  const [focusedElement, setFocusedElement] = useState<FocusedElement | null>(null)
+  const [isDrawingCircle, setIsDrawingCircle] = useState(false)
+  const [circlePoints, setCirclePoints] = useState<{ x: number; y: number }[]>([])
+  const [circleHighlightRect, setCircleHighlightRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null)
+  const siteFingerprintRef = useRef<any>(null)
+  const circlePointResolverRef = useRef<((element: any) => void) | null>(null)
+
+  // Sync activeMarker prop to focusedElement if available
+  useEffect(() => {
+    if (activeMarker && activeMarker.target_selector) {
+      setFocusedElement({
+        selector: activeMarker.target_selector,
+        tag: activeMarker.element_rect_json?.tagName || 'ELEMENT',
+        text: activeMarker.dom_text_excerpt || activeMarker.title || '',
+        source: 'pin',
+        rect: activeMarker.element_rect_json || null,
+      })
+    }
+  }, [activeMarker?.id])
 
   // Modals state
   const [isSuggestionsModalOpen, setIsSuggestionsModalOpen] = useState(false)
@@ -292,6 +322,7 @@ export function CanvasCopilotBar({
 
       // Handle Site Fingerprint response & trigger background analysis
       if (data.type === 'STAGE_SITE_FINGERPRINT_RESULT') {
+        siteFingerprintRef.current = data
         if (
           siteAnalysisStatusRef.current === 'ready' ||
           siteAnalysisStatusRef.current === 'analyzing'
@@ -302,15 +333,26 @@ export function CanvasCopilotBar({
         setSiteAnalysisStatus('analyzing')
         siteAnalysisStatusRef.current = 'analyzing'
 
+        // Safety timeout to prevent background analysis from hanging indefinitely
+        const safetyTimer = setTimeout(() => {
+          if (siteAnalysisStatusRef.current === 'analyzing') {
+            setSiteAnalysisStatus('idle')
+            siteAnalysisStatusRef.current = 'idle'
+          }
+        }, 6000)
+
         api.copilot
           .analyzeSite({
             title: data.title || '',
             description: data.description || '',
+            hero_summary: data.hero_summary || '',
+            nav_items: data.nav_items || [],
             headings: data.headings || [],
             dominant_colors: data.dominant_colors || data.colors || [],
             cta_buttons: data.cta_buttons || data.ctas || [],
           })
           .then((result: any) => {
+            clearTimeout(safetyTimer)
             if (result && result.business_category) {
               setSiteAnalysis(result)
               setSiteAnalysisStatus('ready')
@@ -321,10 +363,19 @@ export function CanvasCopilotBar({
             }
           })
           .catch((err) => {
+            clearTimeout(safetyTimer)
             console.warn('[STAGE Copilot] Site context analysis error:', err)
             setSiteAnalysisStatus('idle')
             siteAnalysisStatusRef.current = 'idle'
           })
+      }
+
+      // Handle element inspection result from stage-agent
+      if (data.type === 'STAGE_ELEMENT_AT_POINT_RESULT') {
+        if (circlePointResolverRef.current) {
+          circlePointResolverRef.current(data.element)
+          circlePointResolverRef.current = null
+        }
       }
     }
 
@@ -408,6 +459,224 @@ export function CanvasCopilotBar({
     }
   }, [])
 
+  // ─── Focused Analysis Trigger ────────────────────────────────────────────
+  const triggerFocusedAnalysis = useCallback(async (focused: FocusedElement) => {
+    setSiteAnalysisStatus('analyzing')
+    siteAnalysisStatusRef.current = 'analyzing'
+    try {
+      const fp = siteFingerprintRef.current || {}
+      const result: any = await api.copilot.analyzeSite({
+        title: fp.title || '',
+        description: fp.description || '',
+        hero_summary: fp.hero_summary || '',
+        nav_items: fp.nav_items || [],
+        headings: fp.headings || [],
+        dominant_colors: fp.dominant_colors || fp.colors || [],
+        cta_buttons: fp.cta_buttons || fp.ctas || [],
+        focused_element: {
+          selector: focused.selector,
+          tag: focused.tag,
+          text: focused.text,
+          rect: focused.rect,
+          source: focused.source || 'circle',
+        },
+      })
+      if (result && result.top_3_suggestions) {
+        setSiteAnalysis({
+          ...result,
+          focusContext: focused,
+        })
+        setSiteAnalysisStatus('ready')
+        siteAnalysisStatusRef.current = 'ready'
+        setIsSuggestionsModalOpen(true)
+      } else {
+        setSiteAnalysisStatus('idle')
+        siteAnalysisStatusRef.current = 'idle'
+      }
+    } catch (err) {
+      console.warn('[STAGE Copilot] Focused analysis error:', err)
+      setSiteAnalysisStatus('idle')
+      siteAnalysisStatusRef.current = 'idle'
+    }
+  }, [])
+
+  // ─── Gemini-style Circle & Inspect Pointer Handlers ───────────────────────
+  const handleCirclePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    } catch (_) {}
+    setIsDrawingCircle(true)
+    setCirclePoints([{ x: e.clientX, y: e.clientY }])
+  }
+
+  const handleCirclePointerMove = (e: React.PointerEvent) => {
+    if (!isDrawingCircle) return
+    e.preventDefault()
+    e.stopPropagation()
+    setCirclePoints((prev) => [...prev, { x: e.clientX, y: e.clientY }])
+  }
+
+  const handleCirclePointerUp = (e: React.PointerEvent) => {
+    if (!isDrawingCircle) return
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDrawingCircle(false)
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+    } catch (_) {}
+
+    const pts = circlePoints.length > 0 ? circlePoints : [{ x: e.clientX, y: e.clientY }]
+    let cx = e.clientX
+    let cy = e.clientY
+    if (pts.length > 2) {
+      const minX = Math.min(...pts.map((p) => p.x))
+      const maxX = Math.max(...pts.map((p) => p.x))
+      const minY = Math.min(...pts.map((p) => p.y))
+      const maxY = Math.max(...pts.map((p) => p.y))
+      cx = (minX + maxX) / 2
+      cy = (minY + maxY) / 2
+    }
+
+    const iframe = iframeRef.current
+    if (iframe) {
+      const iframeRect = iframe.getBoundingClientRect()
+      const rawX = cx - iframeRect.left
+      const rawY = cy - iframeRect.top
+      const iframeX = Math.max(10, Math.min(Math.round(rawX), (iframeRect.width || 1280) - 10))
+      const iframeY = Math.max(10, Math.min(Math.round(rawY), (iframeRect.height || 800) - 10))
+
+      console.log('[STAGE Copilot] Circle inspect point:', { cx, cy, iframeX, iframeY })
+
+      let targetEl: Element | null = null
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document
+        if (doc) {
+          targetEl = doc.elementFromPoint(iframeX, iframeY)
+          if (
+            targetEl &&
+            targetEl.tagName === 'SPAN' &&
+            targetEl.parentElement &&
+            ['BUTTON', 'A', 'H1', 'H2', 'H3', 'H4', 'NAV'].includes(targetEl.parentElement.tagName)
+          ) {
+            targetEl = targetEl.parentElement
+          }
+        }
+      } catch (_) {}
+
+      if (targetEl) {
+        let selector = targetEl.id ? `#${targetEl.id}` : ''
+        if (!selector) {
+          const tag = targetEl.tagName.toLowerCase()
+          const classList = Array.from(targetEl.classList).filter(
+            (c) => c && !c.includes(':') && !c.includes('/') && !c.startsWith('stage-')
+          )
+          if (classList.length > 0) {
+            selector = `${tag}.${classList.slice(0, 2).join('.')}`
+          } else if (targetEl.parentElement && targetEl.parentElement.tagName !== 'BODY') {
+            const pTag = targetEl.parentElement.tagName.toLowerCase()
+            selector = `${pTag} > ${tag}`
+          } else {
+            selector = tag
+          }
+        }
+
+        const rect = targetEl.getBoundingClientRect()
+        const text = (targetEl.textContent || '').trim().slice(0, 100)
+        const newFocused: FocusedElement = {
+          selector,
+          tag: targetEl.tagName,
+          text,
+          source: 'circle',
+          rect: {
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+            scroll_x: iframe.contentWindow?.scrollX || 0,
+            scroll_y: iframe.contentWindow?.scrollY || 0,
+          },
+        }
+
+        console.log('[STAGE Copilot] Resolved element directly from document:', newFocused)
+        setFocusedElement(newFocused)
+        setCircleHighlightRect({
+          top: iframeRect.top + rect.top,
+          left: iframeRect.left + rect.left,
+          width: rect.width,
+          height: rect.height,
+        })
+        setTimeout(() => setCircleHighlightRect(null), 2500)
+        setIsCircleModeActive(false)
+        setCirclePoints([])
+        triggerFocusedAnalysis(newFocused)
+        return
+      }
+
+      // If cross-origin or direct access failed, use postMessage to stage-agent
+      if (iframe.contentWindow) {
+        const reqId = `circle_inspect_${Date.now()}`
+        circlePointResolverRef.current = (resolvedElement: any) => {
+          if (resolvedElement && resolvedElement.selector) {
+            console.log('[STAGE Copilot] Resolved element via postMessage:', resolvedElement)
+            const newFocused: FocusedElement = {
+              selector: resolvedElement.selector,
+              tag: resolvedElement.tag,
+              text: resolvedElement.text,
+              source: 'circle',
+              rect: resolvedElement.rect,
+            }
+            setFocusedElement(newFocused)
+            if (resolvedElement.rect) {
+              setCircleHighlightRect({
+                top: iframeRect.top + resolvedElement.rect.top,
+                left: iframeRect.left + resolvedElement.rect.left,
+                width: resolvedElement.rect.width,
+                height: resolvedElement.rect.height,
+              })
+              setTimeout(() => setCircleHighlightRect(null), 2500)
+            }
+            triggerFocusedAnalysis(newFocused)
+          }
+        }
+
+        iframe.contentWindow.postMessage(
+          {
+            type: 'STAGE_GET_ELEMENT_AT_POINT',
+            requestId: reqId,
+            clientX: iframeX,
+            clientY: iframeY,
+          },
+          '*'
+        )
+
+        // Fallback safety timeout: if stage-agent didn't resolve within 2.5s, use site fingerprint
+        setTimeout(() => {
+          if (circlePointResolverRef.current) {
+            console.warn('[STAGE Copilot] Circle inspect timeout, falling back to top component')
+            circlePointResolverRef.current = null
+            const fp = siteFingerprintRef.current || {}
+            const fallbackEl = (fp.cta_buttons && fp.cta_buttons[0]) || (fp.headings && fp.headings[0])
+            if (fallbackEl && fallbackEl.selector) {
+              const fallbackFocused: FocusedElement = {
+                selector: fallbackEl.selector,
+                tag: fallbackEl.tag || 'ELEMENT',
+                text: fallbackEl.text || '',
+                source: 'circle',
+              }
+              setFocusedElement(fallbackFocused)
+              triggerFocusedAnalysis(fallbackFocused)
+            }
+          }
+        }, 2500)
+      }
+    }
+
+    setIsCircleModeActive(false)
+    setCirclePoints([])
+  }
+
   // ─── Main Submit & Handshake Flow ─────────────────────────────────────────
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
@@ -415,11 +684,10 @@ export function CanvasCopilotBar({
       const trimmedPrompt = prompt.trim()
       if (!trimmedPrompt) return
 
-      // Guard: If site is still being analyzed in the background
+      // If site analysis is still running in background, allow user prompt to proceed
       if (siteAnalysisStatus === 'analyzing') {
-        setErrorMessage('✨ Analyzing site with AI in background... Please wait a moment.')
-        setTimeout(() => setErrorMessage(null), 4000)
-        return
+        setSiteAnalysisStatus('idle')
+        siteAnalysisStatusRef.current = 'idle'
       }
 
       const iframe = iframeRef.current
@@ -440,10 +708,14 @@ export function CanvasCopilotBar({
       }
 
       try {
-        // Prepend inspiration prompt if active
-        const effectivePrompt = activeInspo?.prompt
+        // Prepend inspiration prompt if active, and include focused element context if selected
+        let effectivePrompt = activeInspo?.prompt
           ? `[Inspiration: ${activeInspo.prompt}] ${trimmedPrompt}`
           : trimmedPrompt
+
+        if (focusedElement && focusedElement.selector) {
+          effectivePrompt = `[Focus on <${focusedElement.tag || 'element'}> ${focusedElement.selector}: "${focusedElement.text || ''}"] ${effectivePrompt}`
+        }
 
         // Step a: Request micro-DOM from iframe
         setStatus('extracting')
@@ -471,8 +743,9 @@ export function CanvasCopilotBar({
         setStatus('analyzing')
         setStatusMessage('Locating element & applying preview...')
 
-        const resolution: CopilotResolution = await request('/api/copilot/parse', {
+        const parsePromise = request('/api/copilot/parse', {
           method: 'POST',
+          headers: reviewerId ? { 'x-reviewer-id': reviewerId } : undefined,
           body: JSON.stringify({
             prompt: effectivePrompt,
             micro_dom: candidates,
@@ -483,7 +756,13 @@ export function CanvasCopilotBar({
             session_id: sessionId,
             inspo_image_url: activeInspo?.imageUrl || null,
           }),
+        }) as Promise<CopilotResolution>
+
+        const parseTimeout = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('AI response timed out. Please try again.')), 45000)
         })
+
+        const resolution: CopilotResolution = await Promise.race([parsePromise, parseTimeout])
 
         if (!resolution || !resolution.selector) {
           throw new Error('AI was unable to locate a target element matching your request.')
@@ -564,6 +843,28 @@ export function CanvasCopilotBar({
     setConfirmError(null)
 
     try {
+      let rect = pendingCrop?.rect || (pendingCrop as any)?.cropRect || pendingResolution.rect || null
+      if (!rect && iframeRef.current?.contentDocument && pendingResolution.selector) {
+        try {
+          const el = iframeRef.current.contentDocument.querySelector(pendingResolution.selector) as HTMLElement | null
+          if (el) {
+            const b = el.getBoundingClientRect()
+            const scrollX = iframeRef.current.contentWindow?.scrollX || 0
+            const scrollY = iframeRef.current.contentWindow?.scrollY || 0
+            rect = {
+              left: Math.round(b.left + scrollX),
+              top: Math.round(b.top + scrollY),
+              width: Math.round(b.width),
+              height: Math.round(b.height),
+              viewport_width: iframeRef.current.contentWindow?.innerWidth || 1280,
+              viewport_height: iframeRef.current.contentWindow?.innerHeight || 800,
+              scroll_x: scrollX,
+              scroll_y: scrollY,
+            }
+          }
+        } catch (_) {}
+      }
+
       const confirmPayload = {
         session_id: sessionId,
         selector: pendingResolution.selector,
@@ -574,7 +875,15 @@ export function CanvasCopilotBar({
         text_mutation: pendingResolution.text_mutation || null,
         client_summary: pendingResolution.client_summary || 'AI Visual Mutation',
         developer_explanation: pendingResolution.developer_explanation || '',
-        rect: pendingCrop?.rect || null,
+        developer_directive: pendingResolution.developer_directive || pendingResolution.developer_explanation || '',
+        benchmark_name: pendingResolution.benchmark_name || null,
+        benchmark_url: pendingResolution.benchmark_url || null,
+        benchmark_pattern: pendingResolution.benchmark_pattern || null,
+        developer_code_spec: pendingResolution.developer_code_spec || pendingResolution.css_rules || null,
+        rect,
+        page_url: currentUrl || null,
+        offset_x_ratio: 0.5,
+        offset_y_ratio: 0.5,
       }
 
       const confirmedPin = await request('/api/copilot/confirm-pin', {
@@ -599,7 +908,7 @@ export function CanvasCopilotBar({
     } finally {
       setIsConfirming(false)
     }
-  }, [pendingResolution, pendingCrop, activeInspo, sessionId, reviewerId, onPinCreated])
+  }, [pendingResolution, pendingCrop, activeInspo, sessionId, reviewerId, onPinCreated, currentUrl])
 
   // ─── Modal Cancel / Dismiss Handler ───────────────────────────────────────
   const handleModalCancel = useCallback(() => {
@@ -653,20 +962,86 @@ export function CanvasCopilotBar({
 
   const handleSuggestionConfirmPin = useCallback(
     async (suggestion: SiteSuggestion) => {
+      let rect: any = null
+      let imageBase64: string | null = null
+
+      const iframe = iframeRef.current
+      if (iframe?.contentWindow && suggestion.selector) {
+        try {
+          const cropPromise = new Promise<ElementCropResult>((resolve) => {
+            cropResolverRef.current = resolve
+            iframe.contentWindow?.postMessage(
+              {
+                type: 'STAGE_CAPTURE_ELEMENT_CROP',
+                selector: suggestion.selector,
+              },
+              '*'
+            )
+          })
+
+          const timeoutPromise = new Promise<ElementCropResult>((resolve) => {
+            setTimeout(
+              () =>
+                resolve({
+                  selector: suggestion.selector,
+                  imageBase64: null,
+                  rect: null,
+                }),
+              1500
+            )
+          })
+
+          const cropResult = await Promise.race([cropPromise, timeoutPromise])
+          if (cropResult?.rect) {
+            rect = cropResult.rect
+          }
+          if (cropResult?.imageBase64) {
+            imageBase64 = cropResult.imageBase64
+          }
+        } catch (_) {}
+
+        if (!rect && iframe.contentDocument && suggestion.selector) {
+          try {
+            const el = iframe.contentDocument.querySelector(suggestion.selector) as HTMLElement | null
+            if (el) {
+              const b = el.getBoundingClientRect()
+              const scrollX = iframe.contentWindow?.scrollX || 0
+              const scrollY = iframe.contentWindow?.scrollY || 0
+              rect = {
+                left: Math.round(b.left + scrollX),
+                top: Math.round(b.top + scrollY),
+                width: Math.round(b.width),
+                height: Math.round(b.height),
+                viewport_width: iframe.contentWindow?.innerWidth || 1280,
+                viewport_height: iframe.contentWindow?.innerHeight || 800,
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
       const confirmedPin = await request('/api/copilot/confirm-pin', {
         method: 'POST',
         headers: reviewerId ? { 'x-reviewer-id': reviewerId } : undefined,
         body: JSON.stringify({
           session_id: sessionId,
           selector: suggestion.selector,
-          image_base64: null,
+          image_base64: imageBase64,
           inspo_image_url: activeInspo?.imageUrl || null,
           css_mutations: suggestion.css_mutations || {},
           css_rules: suggestion.css_rules || '',
           text_mutation: null,
           client_summary: suggestion.title,
           developer_explanation: suggestion.description,
-          rect: null,
+          developer_directive: suggestion.developer_directive || suggestion.description,
+          benchmark_name: suggestion.benchmark_name || null,
+          benchmark_url: suggestion.benchmark_url || null,
+          benchmark_pattern: suggestion.benchmark_pattern || null,
+          developer_code_spec: suggestion.developer_code_spec || null,
+          rect,
+          page_url: currentUrl || null,
+          offset_x_ratio: 0.5,
+          offset_y_ratio: 0.5,
         }),
       })
 
@@ -675,7 +1050,7 @@ export function CanvasCopilotBar({
         onPinCreated?.(confirmedPin)
       }
     },
-    [sessionId, reviewerId, activeInspo, onPinCreated]
+    [sessionId, reviewerId, activeInspo, onPinCreated, currentUrl, iframeRef]
   )
 
   const isLoading = status !== 'idle' && status !== 'error'
@@ -784,17 +1159,73 @@ export function CanvasCopilotBar({
             <ImageIcon className="w-4 h-4" />
           </button>
 
-          {/* "💡 3 Suggestions" Button */}
+          {/* "🎯 Circle & Inspect" Button (Gemini-style visual area/element focus) */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsCircleModeActive((prev) => !prev)
+              setCirclePoints([])
+            }}
+            disabled={isLoading}
+            className={cn(
+              "p-2 rounded-full transition-all cursor-pointer flex-shrink-0 disabled:opacity-40",
+              isCircleModeActive
+                ? "bg-cyan-500/30 text-cyan-300 border border-cyan-400/50 shadow-md shadow-cyan-900/40 ring-2 ring-cyan-400/40 animate-pulse"
+                : focusedElement
+                ? "bg-emerald-500/25 text-emerald-300 border border-emerald-500/40"
+                : "text-white/50 hover:text-white hover:bg-white/10"
+            )}
+            title={
+              isCircleModeActive
+                ? "Circle mode active: Draw a circle or click any element"
+                : focusedElement
+                ? `Focused: ${focusedElement.selector} (click to re-circle)`
+                : "Circle to Inspect: Draw a circle or click any element (Gemini style)"
+            }
+          >
+            <Target className="w-4 h-4" />
+          </button>
+
+          {/* Focused Element Chip Badge */}
+          {focusedElement && (
+            <div className="flex items-center gap-1.5 pl-2 pr-1.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 text-[11px] flex-shrink-0 animate-in fade-in zoom-in-95">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="max-w-[100px] truncate text-[10px] font-mono font-medium">
+                {focusedElement.tag?.toLowerCase() || 'target'}
+                {focusedElement.text ? ` "${focusedElement.text}"` : ''}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setFocusedElement(null)
+                  if (activeMarker && onClearActiveMarker) {
+                    onClearActiveMarker()
+                  }
+                }}
+                className="text-emerald-300 hover:text-white p-0.5 rounded-full hover:bg-white/10 cursor-pointer"
+                title="Clear focus"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
+          {/* "💡 3 Suggestions" Button (Adaptive for whole site or focused element) */}
           {siteAnalysis && siteAnalysis.top_3_suggestions && siteAnalysis.top_3_suggestions.length > 0 && (
             <button
               type="button"
               onClick={() => setIsSuggestionsModalOpen(true)}
               disabled={isLoading}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300 text-xs font-semibold transition-all cursor-pointer flex-shrink-0 active:scale-95"
-              title="View 3 AI Heuristic Recommendations"
+              className={cn(
+                "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex-shrink-0 active:scale-95",
+                focusedElement
+                  ? "bg-emerald-600/25 hover:bg-emerald-600/35 border border-emerald-500/50 text-emerald-300 shadow-sm shadow-emerald-950/40"
+                  : "bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300"
+              )}
+              title={focusedElement ? "View Focused AI Suggestions for Selected Element" : "View 3 AI Heuristic Recommendations"}
             >
-              <Lightbulb className="w-3.5 h-3.5 text-violet-400" />
-              <span className="hidden sm:inline">3 Suggestions</span>
+              {focusedElement ? <Target className="w-3.5 h-3.5 text-emerald-400" /> : <Lightbulb className="w-3.5 h-3.5 text-violet-400" />}
+              <span className="hidden sm:inline">{focusedElement ? "Focused Suggestions" : "3 Suggestions"}</span>
             </button>
           )}
 
@@ -836,6 +1267,8 @@ export function CanvasCopilotBar({
                 placeholder={
                   isRecording
                     ? 'Listening to voice...'
+                    : focusedElement
+                    ? `Ask AI to change <${focusedElement.tag?.toLowerCase() || 'element'}> "${(focusedElement.text || focusedElement.selector).slice(0, 24)}..."`
                     : activeInspo
                     ? 'Prompt guided by attached inspiration...'
                     : 'Tell AI what to change or mark...'
@@ -948,6 +1381,7 @@ export function CanvasCopilotBar({
         isOpen={isSuggestionsModalOpen}
         onClose={() => setIsSuggestionsModalOpen(false)}
         suggestions={siteAnalysis?.top_3_suggestions || []}
+        focusContext={siteAnalysis?.focusContext || focusedElement}
         onPreview={handleSuggestionPreview}
         onRevertPreview={handleSuggestionRevertPreview}
         onConfirmPin={handleSuggestionConfirmPin}
@@ -960,6 +1394,84 @@ export function CanvasCopilotBar({
         onSubmitInspo={(inspo) => setActiveInspo(inspo)}
         initialInspo={activeInspo}
       />
+
+      {/* ── Gemini-style Circle & Inspect Overlay ── */}
+      {isCircleModeActive && (
+        <div
+          className="fixed inset-0 z-[80] cursor-crosshair select-none bg-black/10 backdrop-blur-[0.5px]"
+          onPointerDown={handleCirclePointerDown}
+          onPointerMove={handleCirclePointerMove}
+          onPointerUp={handleCirclePointerUp}
+        >
+          {/* Instruction Floating Pill */}
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[85] px-4 py-2 rounded-full bg-[#0d0d14]/90 border border-purple-500/40 shadow-[0_0_30px_rgba(168,85,247,0.35)] backdrop-blur-md flex items-center gap-2.5 text-xs text-white font-medium animate-in fade-in slide-in-from-top-3">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            <Target className="w-4 h-4 text-cyan-400" />
+            <span>Draw a circle or click any element to inspect with AI</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsCircleModeActive(false)
+                setCirclePoints([])
+              }}
+              className="p-1 rounded-full hover:bg-white/10 text-white/60 hover:text-white cursor-pointer ml-1"
+              title="Cancel (Esc)"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Render live SVG iridescent stroke */}
+          {circlePoints.length > 1 && (
+            <svg className="fixed inset-0 pointer-events-none w-full h-full z-[82]">
+              <defs>
+                <linearGradient id="geminiGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#06b6d4" />
+                  <stop offset="50%" stopColor="#a855f7" />
+                  <stop offset="100%" stopColor="#ec4899" />
+                </linearGradient>
+                <filter id="glowBlur" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <path
+                d={circlePoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')}
+                fill="none"
+                stroke="url(#geminiGlow)"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                filter="url(#glowBlur)"
+              />
+            </svg>
+          )}
+        </div>
+      )}
+
+      {/* Render element lock halo ring */}
+      {circleHighlightRect && (
+        <div
+          style={{
+            position: 'fixed',
+            top: circleHighlightRect.top - 6,
+            left: circleHighlightRect.left - 6,
+            width: circleHighlightRect.width + 12,
+            height: circleHighlightRect.height + 12,
+            zIndex: 75,
+            pointerEvents: 'none',
+          }}
+          className="rounded-xl border-2 border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.6)] animate-pulse"
+        >
+          <span className="absolute -top-3 -right-3 p-1 rounded-full bg-cyan-500 text-black shadow-lg">
+            <Target className="w-3 h-3" />
+          </span>
+        </div>
+      )}
     </>
   )
 }

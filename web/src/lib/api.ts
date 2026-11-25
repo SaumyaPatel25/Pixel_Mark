@@ -828,11 +828,14 @@ export const api = {
     async analyzeSite(data: {
       title?: string
       description?: string
+      hero_summary?: string
+      nav_items?: string[]
       headings?: any[]
       dominant_colors?: string[]
       colors?: string[]
       cta_buttons?: any[]
       ctas?: any[]
+      focused_element?: any
       mock_client?: boolean
     }) {
       return apiQueue.enqueueRead('Analyzing site design context...', () =>
@@ -852,7 +855,15 @@ export const api = {
       text_mutation?: string | null
       client_summary: string
       developer_explanation?: string | null
+      developer_directive?: string | null
+      benchmark_name?: string | null
+      benchmark_url?: string | null
+      benchmark_pattern?: string | null
+      developer_code_spec?: string | null
       rect?: Record<string, any> | null
+      page_url?: string | null
+      offset_x_ratio?: number | null
+      offset_y_ratio?: number | null
     }) {
       return apiQueue.enqueueWrite('Confirming AI copilot pin...', () =>
         request('/api/copilot/confirm-pin', {

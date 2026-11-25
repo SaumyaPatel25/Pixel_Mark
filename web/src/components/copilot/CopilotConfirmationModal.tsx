@@ -12,7 +12,8 @@ import {
   Layers,
   Loader2,
   Tag,
-  AlertCircle
+  AlertCircle,
+  ExternalLink
 } from 'lucide-react'
 import { CopilotResolution, ElementCropResult } from './CopilotTypes'
 import { cn } from '@/lib/utils'
@@ -142,6 +143,38 @@ export function CopilotConfirmationModal({
               </div>
             )}
           </div>
+
+          {/* Benchmark Design Reference */}
+          {resolution.benchmark_name && (
+            <div className="p-3.5 rounded-xl bg-violet-950/20 border border-violet-500/20 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-violet-400" />
+                  Benchmark Inspiration
+                </span>
+                {resolution.benchmark_url && (
+                  <a
+                    href={resolution.benchmark_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] font-medium text-violet-300 hover:text-white underline underline-offset-2 transition-colors"
+                  >
+                    <span>View Benchmark</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                )}
+              </div>
+              <p className="text-xs font-semibold text-white/90">
+                {resolution.benchmark_name}
+              </p>
+              {resolution.developer_directive && (
+                <p className="text-[11px] text-white/60 font-mono bg-black/40 p-2 rounded-lg border border-white/5">
+                  <span className="text-violet-400 font-bold block mb-0.5 uppercase text-[9px]">Developer Directive:</span>
+                  {resolution.developer_directive}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Technical Details Accordion */}
           <div className="border border-white/5 rounded-xl overflow-hidden bg-black/20">

@@ -60,6 +60,9 @@ interface IssueMarker {
   marker_number?: number
   screenshot_url?: string
   project_name?: string
+  issue_type?: string | null
+  issueType?: string | null
+  category?: string | null
   [key: string]: any
 }
 
@@ -125,7 +128,7 @@ function IssuesContent() {
   }, [])
 
   // Sync project names
-  const enrichedIssues = useMemo(() => {
+  const enrichedIssues = useMemo<IssueMarker[]>(() => {
     return issues.map(issue => {
       const matchedProject = projects.find(p => p.id === issue.project_id)
       return {
@@ -519,6 +522,26 @@ function IssuesContent() {
                       )}>
                         {pBadge.label}
                       </span>
+
+                      {/* Issue Type Badge */}
+                      {(() => {
+                        const itype = (issue.issue_type || issue.issueType || issue.category || '').toLowerCase()
+                        if (!itype || itype === 'other') return null
+                        const labelMap: Record<string, string> = {
+                          layout: 'Layout',
+                          copy: 'Copy / Text',
+                          interaction: 'Interaction',
+                          navigation: 'Navigation',
+                          rendering: 'Rendering',
+                          canvas_webgl: 'Canvas / 3D'
+                        }
+                        const label = labelMap[itype] || itype
+                        return (
+                          <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-purple-500/10 text-purple-400 border-purple-500/20">
+                            {label}
+                          </span>
+                        )
+                      })()}
 
                       {/* Project Name Badge */}
                       <Link 

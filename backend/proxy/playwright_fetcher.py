@@ -2,6 +2,7 @@ import logging
 import asyncio
 from typing import Optional, Tuple
 from utils.ssrf_guard import is_ssrf_safe
+from proxy.proxy_rotator import proxy_pool, is_captcha_or_bot_gate
 
 logger = logging.getLogger("stage.proxy.playwright")
 
@@ -24,17 +25,21 @@ async def fetch_with_playwright_fallback(url: str, timeout_ms: int = 15000) -> T
 
     try:
         logger.info(f"[PLAYWRIGHT FALLBACK] Attempting Headless Chromium fetch for: {url}")
+        pw_proxy = proxy_pool.get_playwright_proxy()
+        launch_kwargs = {
+            "headless": True,
+            "args": [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--blink-settings=imagesEnabled=true"
+            ]
+        }
+        if pw_proxy:
+            launch_kwargs["proxy"] = pw_proxy
         async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--blink-settings=imagesEnabled=true"
-                ]
-            )
+            browser = await p.chromium.launch(**launch_kwargs)
             context = await browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
                 viewport={"width": 1280, "height": 800},
@@ -59,6 +64,8 @@ async def fetch_with_playwright_fallback(url: str, timeout_ms: int = 15000) -> T
             content_type = response.headers.get("content-type", "text/html") if response else "text/html"
             
             await browser.close()
+            if is_captcha_or_bot_gate(status_code, content):
+                logger.warning(f"[PLAYWRIGHT FALLBACK] CAPTCHA/verification gate encountered for {url}; returning cleanly without bypass.")
             logger.info(f"[PLAYWRIGHT FALLBACK] Successfully retrieved {len(content)} bytes with status {status_code} for {url}")
             return content, status_code, content_type
             

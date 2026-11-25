@@ -195,3 +195,47 @@ async def test_parse_copilot_dom_intent_no_provider_error():
     with patch.dict(os.environ, {}, clear=True):
         with pytest.raises(RuntimeError, match="No active AI provider configured"):
             await parse_copilot_dom_intent("make it green", sample_dom, None, mock_client=False)
+
+
+@pytest.mark.asyncio
+async def test_analyze_site_context_with_focused_interactive_element():
+    from services.copilot_service import analyze_site_context
+    site_fp = {
+        "title": "eChai Ventures",
+        "description": "Where founders meet",
+        "hero_summary": "Where founders meet offline in 25 cities",
+        "nav_items": ["Home", "Events", "Cities"],
+        "headings": [{"tag": "h1", "text": "Where founders meet", "selector": "div.mh-home h1"}],
+        "dominant_colors": ["#000000", "#10B981"],
+        "cta_buttons": [{"text": "Events", "selector": "a.nav-events"}],
+        "focused_element": {
+            "selector": "a.nav-events",
+            "tag": "A",
+            "text": "Events",
+            "source": "circle"
+        }
+    }
+    result = await analyze_site_context(site_fp, mock_client=True)
+    assert len(result["top_3_suggestions"]) == 3
+    for sug in result["top_3_suggestions"]:
+        assert sug["selector"] == "a.nav-events"
+        assert "a.nav-events" in sug["css_rules"]
+
+
+@pytest.mark.asyncio
+async def test_analyze_site_context_with_focused_heading_element():
+    from services.copilot_service import analyze_site_context
+    site_fp = {
+        "title": "eChai Ventures",
+        "focused_element": {
+            "selector": "h1.hero-headline",
+            "tag": "H1",
+            "text": "Where founders meet",
+            "source": "click"
+        }
+    }
+    result = await analyze_site_context(site_fp, mock_client=True)
+    assert len(result["top_3_suggestions"]) == 3
+    for sug in result["top_3_suggestions"]:
+        assert sug["selector"] == "h1.hero-headline"
+        assert "h1.hero-headline" in sug["css_rules"]

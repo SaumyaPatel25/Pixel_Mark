@@ -149,6 +149,34 @@ describe('markerPlacement', () => {
       expect(patch!.offset_x_ratio).toBe(1) // Max 1
       expect(patch!.offset_y_ratio).toBe(0) // Min 0
     })
+
+    it('generates offset_x_ratio and offset_y_ratio when marker uses snake_case anchor_kind', () => {
+      const marker = {
+        anchor_kind: 'dom-relative',
+        version: 1
+      } as any
+
+      const patch = buildDomMovePatch(marker, mockDoc, 125, 225, { x: 0, y: 0 })
+      expect(patch).not.toBeNull()
+      expect(patch!.offset_x_ratio).toBeDefined()
+      expect(patch!.offset_y_ratio).toBeDefined()
+      expect(patch!.offset_x_ratio).toBeCloseTo(0.5)
+      expect(patch!.offset_y_ratio).toBeCloseTo(0.5)
+    })
+
+    it('provides default offset ratios even when iframeDocument is null', () => {
+      const marker = {
+        anchor_kind: 'dom-relative',
+        version: 1
+      } as any
+
+      const patch = buildDomMovePatch(marker, null, 150, 250, { x: 0, y: 0 })
+      expect(patch).not.toBeNull()
+      expect(patch!.offset_x_ratio).toBe(0.5)
+      expect(patch!.offset_y_ratio).toBe(0.5)
+      expect(patch!.viewport_x).toBe(150)
+      expect(patch!.viewport_y).toBe(250)
+    })
   })
 
   describe('computePinScreenPosition', () => {

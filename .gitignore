@@ -48,3 +48,8 @@ backend/scratch/
 scratch/
 tests/check_db_markers.py
 *.dump
+testsprite_tests/tmp/
+testsprite_tests/tmp/config.json
+
+.agents/mcp_config.json
+.cursor/mcp.json

@@ -310,3 +310,112 @@ async def dispatch_webhooks_for_outbox(
 
     except Exception as exc:
         logger.error(f"[WebhookDispatcher] Error dispatching webhooks for project {project_id}: {exc}", exc_info=True)
+
+
+async def dispatch_direct_project_webhook(
+    webhook_url: str,
+    event_type: str,
+    data: Dict[str, Any],
+    project_id: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
+    """
+    Directly dispatches formatted notifications to user-configured project webhooks
+    such as Slack Incoming Webhooks, Discord Webhooks, or generic HTTPS endpoints.
+    Formats rich Slack Block Kit blocks or Discord embeds when recognized.
+    """
+    if not webhook_url or not webhook_url.strip():
+        return False, "Empty webhook URL"
+
+    clean_url = webhook_url.strip()
+
+    # SSRF verification
+    is_safe, ssrf_err = await verify_resolution_time_ssrf(clean_url)
+    if not is_safe:
+        logger.warning(f"[Direct Webhook Blocked] SSRF check failed for {clean_url}: {ssrf_err}")
+        return False, f"SSRF Check Failed: {ssrf_err}"
+
+    title = data.get("title") or "New AI UX Pin"
+    directive = data.get("developer_directive") or data.get("description") or "New action item created"
+    benchmark_name = data.get("benchmark_name") or ""
+    benchmark_url = data.get("benchmark_url") or ""
+    code_spec = data.get("developer_code_spec") or ""
+    marker_id = data.get("marker_id") or ""
+    review_url = f"http://localhost:3000/project/{project_id}?marker={marker_id}" if project_id and marker_id else ""
+
+    headers = {"Content-Type": "application/json"}
+    body_dict: Dict[str, Any]
+
+    if "hooks.slack.com" in clean_url:
+        blocks = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": f"🚀 AI Design Review: {title[:75]}", "emoji": True}
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": (
+                        f"*Developer Directive:*\n>{directive}\n\n"
+                        + (f"*Benchmark Inspiration:* <{benchmark_url}|{benchmark_name}>\n" if benchmark_url else "")
+                        + (f"<{review_url}|👉 Open and inspect pin on STAGE>" if review_url else "")
+                    )
+                }
+            }
+        ]
+        if code_spec:
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Implementation Snippet:*\n```{code_spec[:500]}```"
+                }
+            })
+        body_dict = {"blocks": blocks, "text": f"New AI Pin: {title}"}
+    elif "discord.com/api/webhooks" in clean_url:
+        fields = [
+            {"name": "Developer Directive", "value": directive[:1024], "inline": False}
+        ]
+        if benchmark_name:
+            bench_val = f"[{benchmark_name}]({benchmark_url})" if benchmark_url else benchmark_name
+            fields.append({"name": "Benchmark Inspiration", "value": bench_val, "inline": True})
+        if review_url:
+            fields.append({"name": "Inspection Link", "value": f"[Open Pin on STAGE]({review_url})", "inline": True})
+        if code_spec:
+            fields.append({"name": "Code / Architecture Spec", "value": f"```tsx\n{code_spec[:900]}\n```", "inline": False})
+
+        embed = {
+            "title": f"🚀 {title}",
+            "color": 0x6366F1,  # Indigo primary
+            "fields": fields,
+            "footer": {"text": "STAGE AI Copilot • Developer Action"}
+        }
+        body_dict = {"content": f"**New AI Review Pin Created:** {title}", "embeds": [embed]}
+    else:
+        # Standard generic webhook JSON
+        body_dict = {
+            "event": event_type,
+            "project_id": project_id,
+            "marker_id": marker_id,
+            "title": title,
+            "developer_directive": directive,
+            "benchmark_name": benchmark_name,
+            "benchmark_url": benchmark_url,
+            "developer_code_spec": code_spec,
+            "review_url": review_url,
+            "timestamp": datetime.utcnow().isoformat(),
+            "raw_data": data
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
+            resp = await client.post(clean_url, json=body_dict, headers=headers)
+            if 200 <= resp.status_code < 300:
+                logger.info(f"[Direct Webhook] Successfully delivered to {clean_url} (status {resp.status_code})")
+                return True, None
+            logger.warning(f"[Direct Webhook] Endpoint returned HTTP {resp.status_code}: {resp.text[:200]}")
+            return False, f"HTTP {resp.status_code}"
+    except Exception as exc:
+        logger.error(f"[Direct Webhook] Delivery exception to {clean_url}: {exc}")
+        return False, str(exc)
+

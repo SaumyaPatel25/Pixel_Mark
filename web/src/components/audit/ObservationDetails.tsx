@@ -30,7 +30,10 @@ import {
   CornerDownRight,
   Send,
   Sparkles,
-  Check
+  Check,
+  Terminal,
+  Wrench,
+  Target
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getMarkerColors } from '@/lib/markerColors'
@@ -86,6 +89,7 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
   const [devFixLoading, setDevFixLoading] = useState(false)
   const [devFixError, setDevFixError] = useState<string | null>(null)
   const [copiedFixCode, setCopiedFixCode] = useState(false)
+  const [copiedPrompt, setCopiedPrompt] = useState(false)
 
   // Derive metadata, AI flag and inspo image URL
   const markerMetadata = useMemo(() => {
@@ -101,6 +105,30 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
     }
     return null
   }, [selectedMarker])
+
+  const benchmarkName = markerMetadata?.benchmark_name || selectedMarker?.element_rect_json?.benchmark_name || null
+  const benchmarkUrl = markerMetadata?.benchmark_url || selectedMarker?.element_rect_json?.benchmark_url || null
+  const developerDirective = markerMetadata?.developer_directive || selectedMarker?.element_rect_json?.developer_directive || null
+  const developerCodeSpec = markerMetadata?.developer_code_spec || selectedMarker?.element_rect_json?.developer_code_spec || null
+
+  const handleCopyPromptForAI = () => {
+    if (!selectedMarker) return
+    const directive = developerDirective || selectedMarker.description || selectedMarker.title || ''
+    const bench = benchmarkName ? `\n- **Benchmark Reference**: [${benchmarkName}](${benchmarkUrl || '#'})` : ''
+    const code = developerCodeSpec ? `\n\n#### Architectural Code Specification:\n\`\`\`tsx\n${developerCodeSpec}\n\`\`\`` : ''
+    const target = selectedMarker.target_selector ? `\n- **Target Element Selector**: \`${selectedMarker.target_selector}\`` : ''
+    const page = selectedMarker.page_url ? `\n- **Page URL**: ${selectedMarker.page_url}` : ''
+
+    const promptText = `### STAGE Developer Directive: ${selectedMarker.title || 'UI Enhancement'}\n` +
+      `**Context**:${page}${target}${bench}\n\n` +
+      `#### Developer Action Required:\n${directive}${code}\n\n` +
+      `*Please implement this change cleanly, adhering to the project's design system and responsiveness.*`
+
+    navigator.clipboard.writeText(promptText)
+    setCopiedPrompt(true)
+    setTimeout(() => setCopiedPrompt(false), 2000)
+    useUIStore.getState().addToast('Copied developer prompt for AI Agent / Cursor!', 'success')
+  }
 
   const isAiMarker = Boolean(
     selectedMarker && (
@@ -718,6 +746,18 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                   </button>
 
                   <button
+                    onClick={() => {
+                      onJumpToCanvas(selectedMarker.id)
+                      useUIStore.getState().toggleCommandCenter(false)
+                    }}
+                    className="h-8.5 px-3 rounded-lg bg-purple-600/15 border border-purple-500/30 hover:bg-purple-600/25 text-purple-400 font-black text-[9.5px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                    title="Focus on this element in AI Copilot"
+                  >
+                    <Target className="w-3 h-3 text-purple-400" />
+                    AI Focus
+                  </button>
+
+                  <button
                     onClick={() => handleStatusChange(
                       selectedMarker.id, 
                       selectedMarker.status === 'resolved' ? 'open' : 'resolved'
@@ -825,6 +865,84 @@ export function ObservationDetails({ sessionId, projectId, onJumpToCanvas }: Obs
                       className="w-full max-h-[260px] object-contain rounded-lg"
                     />
                   </div>
+                </div>
+              )}
+
+              {/* Senior AI Design Directive & Benchmark Inspiration */}
+              {(isAiMarker || developerDirective || benchmarkName) && (
+                <div className="bg-gradient-to-br from-violet-500/10 via-fuchsia-500/5 to-transparent border border-violet-500/30 rounded-xl p-4 space-y-3.5 shadow-sm">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-violet-500/20 text-violet-400 border border-violet-500/30">
+                        <Wrench className="w-3.5 h-3.5" />
+                      </div>
+                      <h4 className="text-[10px] font-black uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+                        Senior Developer Directive
+                        <span className="text-[9px] px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">
+                          Action Required
+                        </span>
+                      </h4>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyPromptForAI}
+                      className="px-2.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-violet-500/20 transition-all cursor-pointer active:scale-95"
+                      title="Copy complete directive formatted for Cursor, Claude Code, or Antigravity"
+                    >
+                      {copiedPrompt ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-300" />
+                          <span>Copied for Cursor!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Terminal className="w-3 h-3 text-violet-200" />
+                          <span>Copy Prompt for Cursor</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {developerDirective && (
+                    <div className="p-3 rounded-lg bg-black/40 border border-violet-500/20 text-xs font-sans text-white/90 leading-relaxed font-medium">
+                      {developerDirective}
+                    </div>
+                  )}
+
+                  {benchmarkName && (
+                    <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-pm-muted">
+                        Visual Benchmark:
+                      </span>
+                      {benchmarkUrl ? (
+                        <a
+                          href={benchmarkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold transition-colors"
+                        >
+                          <span>{benchmarkName}</span>
+                          <ExternalLink className="w-3 h-3 text-cyan-400" />
+                        </a>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold">
+                          {benchmarkName}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {developerCodeSpec && (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[8.5px] font-black uppercase tracking-widest text-violet-400 block">
+                        Architecture / Code Spec:
+                      </span>
+                      <pre className="font-mono text-[9.5px] bg-slate-950 text-slate-200 p-3 rounded-lg border border-white/10 overflow-x-auto leading-relaxed max-h-[180px]">
+                        <code>{developerCodeSpec}</code>
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
 

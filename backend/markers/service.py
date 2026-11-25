@@ -105,10 +105,17 @@ class MarkerService:
 
         if kind == MarkerAnchorKind.DOM_RELATIVE:
             if patch.offset_x_ratio is None or patch.offset_y_ratio is None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="DOM-relative marker requires offset_x_ratio and offset_y_ratio for move"
-                )
+                # If viewport or page coordinates were provided (e.g. from viewport_fallback drag), default ratios to 0.5
+                if (patch.viewport_x is not None and patch.viewport_y is not None) or (patch.page_x is not None and patch.page_y is not None):
+                    if patch.offset_x_ratio is None:
+                        patch.offset_x_ratio = 0.5
+                    if patch.offset_y_ratio is None:
+                        patch.offset_y_ratio = 0.5
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="DOM-relative marker requires offset_x_ratio and offset_y_ratio for move"
+                    )
         elif kind == MarkerAnchorKind.VIEWPORT_ABSOLUTE:
             if patch.viewport_x is None or patch.viewport_y is None:
                 raise HTTPException(
@@ -164,6 +171,9 @@ class MarkerService:
         # Assign default color token if absent
         color_token = payload.color_token or actor_color or "#8b5cf6"
 
+        raw_issue_type = payload.issue_type or payload.category or "other"
+        clean_issue_type = raw_issue_type.strip().lower() if isinstance(raw_issue_type, str) else "other"
+
         # Construct SQLAlchemy Model
         marker = Marker(
             project_id=payload.project_id,
@@ -199,6 +209,7 @@ class MarkerService:
             renderer_type=payload.renderer_type.value if payload.renderer_type else None,
             title=payload.title,
             description=payload.description,
+            issue_type=clean_issue_type,
             status=payload.status.value if payload.status else MarkerStatus.OPEN.value,
             priority=payload.priority.value if payload.priority else MarkerPriority.MEDIUM.value,
             browser=payload.browser,
@@ -229,6 +240,9 @@ class MarkerService:
             marker.title = update_payload.title
         if update_payload.description is not None:
             marker.description = update_payload.description
+        new_issue_type = update_payload.issue_type or update_payload.category
+        if new_issue_type is not None:
+            marker.issue_type = new_issue_type.strip().lower()
         if update_payload.status is not None:
             marker.status = update_payload.status.value
         if update_payload.priority is not None:

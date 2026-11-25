@@ -514,11 +514,14 @@ async def get_session_analytics(
             else:
                 status_counts[status_val] = status_counts.get(status_val, 0) + 1
                 
-            # Map renderer_type to issue_type
-            if m.renderer_type in ("webgl", "threejs", "canvas2d"):
+            # Map actual issue_type, falling back to renderer_type or other
+            raw_type = (getattr(m, 'issue_type', None) or getattr(m, 'category', None) or "").strip().lower()
+            if raw_type in issue_type_counts:
+                issue_type_counts[raw_type] += 1
+            elif m.renderer_type in ("webgl", "threejs", "canvas2d"):
                 issue_type_counts["canvas_webgl"] += 1
             else:
-                issue_type_counts["layout"] += 1
+                issue_type_counts["other"] += 1
                 
             if m.priority in priority_counts:
                 priority_counts[m.priority] += 1

@@ -30,12 +30,12 @@ export function PlanBadge() {
 
   if (isPaid) {
     const titleText = capabilities.is_early_bird 
-      ? 'Dev Team ⚡ 25% Off' 
+      ? 'TEAM ⚡ 25% Off' 
       : capabilities.planType === 'stage_team'
       ? 'STAGE Team'
       : capabilities.planType === 'enterprise' 
       ? 'Enterprise' 
-      : 'Dev Team'
+      : 'TEAM'
 
     const seatText = (capabilities.planType === 'stage_team' || capabilities.planType === 'enterprise')
       ? 'Unlimited Seats'

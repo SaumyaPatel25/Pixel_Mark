@@ -131,6 +131,7 @@ class Project(Base):
     frames: Mapped[list["CanvasFrame"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     flows: Mapped[list["CanvasFlow"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     allow_reviewer_dom_edit: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
+    webhook_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     sla_config: Mapped[Optional[dict]] = mapped_column(
         JSON().with_variant(JSONB, "postgresql"),
         nullable=True,

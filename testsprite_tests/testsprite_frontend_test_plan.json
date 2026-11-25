@@ -1,0 +1,1298 @@
+[
+  {
+    "id": "TC001",
+    "title": "Create and save a pin in a project review session",
+    "description": "A reviewer can inspect a proxied live page in a project session, place a pin, and see it saved in the feedback drawer.",
+    "category": "Interactive Pin & Comment Placement in /project/[id] and /review/[token]",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open a project workspace"
+      },
+      {
+        "type": "action",
+        "description": "Inspect the proxied live page"
+      },
+      {
+        "type": "action",
+        "description": "Click an element on the live page to create a pin"
+      },
+      {
+        "type": "action",
+        "description": "Save the pin with a comment"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the pin appears in the feedback drawer"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the saved feedback item is displayed in the issue tracker"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Guest reviewer places feedback in the shared review portal",
+    "description": "A guest reviewer can open a shared review portal, inspect the live preview, place a pin, and see the shared feedback feed update for collaborators.",
+    "category": "Interactive Pin & Comment Placement in /project/[id] and /review/[token]",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /review/[token]"
+      },
+      {
+        "type": "action",
+        "description": "Inspect the live canvas preview"
+      },
+      {
+        "type": "action",
+        "description": "Click an element on the preview to create a pin"
+      },
+      {
+        "type": "action",
+        "description": "Save the pin with a comment"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the pin appears in the shared feedback feed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify collaborator feedback is updated"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Create and save a feedback pin from the project workspace",
+    "description": "A project manager can open a review session, place a pin on the live page, and see the saved feedback appear in the workspace.",
+    "category": "Interactive Pin & Comment Placement",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the project workspace"
+      },
+      {
+        "type": "action",
+        "description": "Click a target element on the live page preview"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the comment title field with Project homepage feedback"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the comment description field with The primary call to action should be more prominent"
+      },
+      {
+        "type": "action",
+        "description": "Select a medium severity"
+      },
+      {
+        "type": "action",
+        "description": "Select a layout issue type"
+      },
+      {
+        "type": "action",
+        "description": "Submit the pin"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the saved pin appears in the feedback drawer"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Save a guest review pin from the shared review portal",
+    "description": "A client reviewer can open a shared review session, place feedback on the preview, and see the new item in the shared feed.",
+    "category": "Interactive Pin & Comment Placement",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /review/{{REVIEW_TOKEN}}"
+      },
+      {
+        "type": "action",
+        "description": "Click a target element on the live canvas preview"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the comment title field with Review feedback"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the comment description field with The hero section needs clearer hierarchy"
+      },
+      {
+        "type": "action",
+        "description": "Select a high severity"
+      },
+      {
+        "type": "action",
+        "description": "Select a content issue type"
+      },
+      {
+        "type": "action",
+        "description": "Submit the pin"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the saved pin appears in the shared feedback feed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Retrieve existing markers in a project session",
+    "description": "A reviewer can open a project session and see previously saved markers loaded into the review workspace.",
+    "category": "Interactive Pin & Comment Placement in /project/[id] and /review/[token]",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open a project workspace"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify existing markers are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the feedback drawer contains saved items"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "View existing review markers in the project workspace",
+    "description": "A signed-in user can open a project workspace and retrieve previously saved markers for the current review session.",
+    "category": "Interactive Pin & Comment Placement",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the project workspace"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify existing feedback markers are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the feedback drawer shows saved observations"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Create a new project workspace",
+    "description": "A workspace owner can create a project workspace from the dashboard and see it added to the workspace list.",
+    "category": "Project Dashboard and Workspace Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the dashboard link"
+      },
+      {
+        "type": "action",
+        "description": "Start creating a new project workspace"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the project name field with Project Atlas"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the target URL field with a valid website address"
+      },
+      {
+        "type": "action",
+        "description": "Save the new project workspace"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new project appears in the workspace list"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Create a new project from the dashboard",
+    "description": "A workspace owner can open the dashboard and create a new project workspace from the project management view.",
+    "category": "Project Dashboard Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Create a new project workspace"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new project appears in the dashboard"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "Review issue details and update status",
+    "description": "An auditor can open an issue, change its status in the tracker, and keep the observation organized in the issue list.",
+    "category": "Unified Audit Issue Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the issues link"
+      },
+      {
+        "type": "action",
+        "description": "Open an issue detail"
+      },
+      {
+        "type": "action",
+        "description": "Update the issue status to in progress"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated issue remains visible in the tracker"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue status reflects the change"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Save an AI recommendation as a permanent pin",
+    "description": "A project user can convert an AI recommendation into a saved pin that remains visible in the workspace.",
+    "category": "STAGE AI Copilot Site Analysis",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the project workspace"
+      },
+      {
+        "type": "action",
+        "description": "Trigger the AI site analysis from the copilot bar"
+      },
+      {
+        "type": "action",
+        "description": "Select an AI recommendation to save as a pin"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the recommendation is saved as a permanent pin"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "Run Copilot analysis and review recommendations",
+    "description": "A reviewer can run STAGE AI Copilot analysis in a project session and see the top recommendations appear in the workspace.",
+    "category": "STAGE AI Copilot Site Analysis in /project/[id]",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open a project workspace"
+      },
+      {
+        "type": "action",
+        "description": "Run the site analysis"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify three recommendations are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the benchmark link is available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC012",
+    "title": "Run AI analysis and review the top recommendations",
+    "description": "A project user can trigger STAGE AI Copilot analysis and see the top three recommendations returned in the workspace.",
+    "category": "STAGE AI Copilot Site Analysis",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the project workspace"
+      },
+      {
+        "type": "action",
+        "description": "Trigger the AI site analysis from the copilot bar"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify three design recommendations are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC013",
+    "title": "Preview a benchmark recommendation and save it as a pin",
+    "description": "A reviewer can open a benchmark example from Copilot analysis, preview the suggested visual change, and save it as a permanent pin.",
+    "category": "STAGE AI Copilot Site Analysis in /project/[id]",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open a project workspace"
+      },
+      {
+        "type": "action",
+        "description": "Run the site analysis"
+      },
+      {
+        "type": "action",
+        "description": "Open a benchmark example"
+      },
+      {
+        "type": "action",
+        "description": "Preview the suggested visual change"
+      },
+      {
+        "type": "action",
+        "description": "Save the recommendation as a pin"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the saved recommendation appears as a pin"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the recommendation is retained in the workspace"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC014",
+    "title": "View dashboard projects and sessions",
+    "description": "A workspace owner can open the dashboard and see their projects and audit sessions organized for management.",
+    "category": "Project Dashboard and Workspace Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the dashboard link"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the project list is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify audit sessions are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC015",
+    "title": "Open an issue and change its status",
+    "description": "A project team member can open an observation in the issue tracker and update its status through the workflow.",
+    "category": "Unified Audit Issue Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the issue tracker"
+      },
+      {
+        "type": "action",
+        "description": "Open an observation detail"
+      },
+      {
+        "type": "action",
+        "description": "Change the issue status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated issue status is shown"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC016",
+    "title": "Inspect a benchmark example and preview the suggested change",
+    "description": "A project user can open a benchmark inspiration link from AI analysis and preview the suggested visual change before saving it.",
+    "category": "STAGE AI Copilot Site Analysis",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the project workspace"
+      },
+      {
+        "type": "action",
+        "description": "Trigger the AI site analysis from the copilot bar"
+      },
+      {
+        "type": "action",
+        "description": "Open a benchmark inspiration link"
+      },
+      {
+        "type": "action",
+        "description": "Preview the suggested visual change"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the benchmark reference and preview state are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC017",
+    "title": "Filter issues by status",
+    "description": "An auditor can filter the unified issue list by status and see only matching issues.",
+    "category": "Unified Audit Issue Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the issues link"
+      },
+      {
+        "type": "action",
+        "description": "Filter issues by status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue list updates to the selected status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify non-matching issues are hidden"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC018",
+    "title": "Plan a blueprint canvas with frames and connections",
+    "description": "A designer can add frames on the blueprint canvas, connect them, and see collaborative presence in the workspace.",
+    "category": "Blueprint Spatial Canvas collaboration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the blueprint canvas"
+      },
+      {
+        "type": "action",
+        "description": "Create a frame on the canvas"
+      },
+      {
+        "type": "action",
+        "description": "Create a second frame on the canvas"
+      },
+      {
+        "type": "action",
+        "description": "Connect the two frames with an arrow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the frames and their connection are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify collaborator presence indicators are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC019",
+    "title": "Open a project workspace from the dashboard",
+    "description": "A user can open an existing project workspace from the dashboard and reach the project review area.",
+    "category": "Project Dashboard and Workspace Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the dashboard link"
+      },
+      {
+        "type": "action",
+        "description": "Open a project workspace"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the project workspace is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC020",
+    "title": "Create and connect frames on the blueprint canvas",
+    "description": "A planner can create frames on the spatial canvas and connect them to define a site flow.",
+    "category": "Blueprint Spatial Canvas Collaboration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the blueprint canvas"
+      },
+      {
+        "type": "action",
+        "description": "Create a new frame"
+      },
+      {
+        "type": "action",
+        "description": "Position the frame on the canvas"
+      },
+      {
+        "type": "action",
+        "description": "Create a connection between frames"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the frames are displayed on the canvas"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the flow connection is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC021",
+    "title": "View and update account settings",
+    "description": "A user can review their settings, change profile details, and save the updated account information.",
+    "category": "Account and Workspace Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credential field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings"
+      },
+      {
+        "type": "action",
+        "description": "Update the profile details with valid new information"
+      },
+      {
+        "type": "action",
+        "description": "Save the settings changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated account information is reflected in settings"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC022",
+    "title": "Copy the developer prompt from an issue detail",
+    "description": "A developer can open an issue detail and copy the implementation prompt for use in an external editor.",
+    "category": "Developer Directive & Prompt Export",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the issue tracker"
+      },
+      {
+        "type": "action",
+        "description": "Open an observation detail"
+      },
+      {
+        "type": "action",
+        "description": "Copy the developer prompt for Cursor"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a prompt copied confirmation is visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC023",
+    "title": "Observe collaborator presence on the canvas",
+    "description": "A team member can move around the canvas and see collaborator presence and selections update in real time.",
+    "category": "Blueprint Spatial Canvas Collaboration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the blueprint canvas"
+      },
+      {
+        "type": "action",
+        "description": "Move the cursor across the canvas"
+      },
+      {
+        "type": "action",
+        "description": "Select a frame on the canvas"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify collaborator presence is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the shared selection is visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC024",
+    "title": "Change AI provider settings",
+    "description": "A user can switch the configured AI provider and save the new provider selection.",
+    "category": "Account and Workspace Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credential field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/ai"
+      },
+      {
+        "type": "action",
+        "description": "Select a different AI provider option"
+      },
+      {
+        "type": "action",
+        "description": "Save the AI settings"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new AI provider configuration is reflected on the settings page"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC025",
+    "title": "Update account profile and workspace settings",
+    "description": "An account settings user can edit profile and workspace configuration details from the settings area.",
+    "category": "Account/Workspace Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open account settings"
+      },
+      {
+        "type": "action",
+        "description": "Update the profile details"
+      },
+      {
+        "type": "action",
+        "description": "Save the settings changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated settings are saved"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC026",
+    "title": "Save notification delivery settings",
+    "description": "A user can configure notification delivery preferences and save them successfully.",
+    "category": "Account and Workspace Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credential field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/notifications"
+      },
+      {
+        "type": "action",
+        "description": "Enter a valid Slack or Discord webhook URL"
+      },
+      {
+        "type": "action",
+        "description": "Save the notification preferences"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify notification delivery settings are configured"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC027",
+    "title": "Configure notification preferences and webhook setup",
+    "description": "An account settings user can change notification preferences and configure workspace webhook delivery from the notifications settings page.",
+    "category": "Account/Workspace Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open notification settings"
+      },
+      {
+        "type": "action",
+        "description": "Change the notification preferences"
+      },
+      {
+        "type": "action",
+        "description": "Update the webhook configuration"
+      },
+      {
+        "type": "action",
+        "description": "Save the notification settings"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the notification settings are saved"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC028",
+    "title": "Start checkout from pricing",
+    "description": "A visitor can proceed from the pricing page toward checkout after reviewing plan options.",
+    "category": "Public Pricing Information",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /pricing"
+      },
+      {
+        "type": "action",
+        "description": "Proceed with the checkout action from the pricing page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the checkout flow is initiated"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC029",
+    "title": "Review account and workspace configuration",
+    "description": "A user can open settings and see the account profile and workspace configuration sections available for review.",
+    "category": "Account and Workspace Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credential field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify account profile information is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify workspace configuration options are displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC030",
+    "title": "Compare pricing plans",
+    "description": "A visitor can review the pricing tiers and compare the feature breakdown between Free and Team plans.",
+    "category": "Public Pricing Information",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /pricing"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the available pricing tiers are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the plan feature comparison is displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC031",
+    "title": "Review available AI providers",
+    "description": "A user can open AI settings and see the available provider choices before making a change.",
+    "category": "Account and Workspace Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credential field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/ai"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify available AI provider options are displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC032",
+    "title": "Review notification delivery options",
+    "description": "A user can open notification settings and see the delivery configuration options before saving changes.",
+    "category": "Account and Workspace Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credential field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/notifications"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify notification delivery configuration options are displayed"
+      }
+    ],
+    "priority": "Low"
+  }
+]

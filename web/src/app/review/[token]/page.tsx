@@ -13,8 +13,8 @@ import { getStoredReviewerIdentity, clearStoredReviewerIdentity } from '@/lib/re
 import { getMarkerColors } from '@/lib/markerColors'
 import { ReviewerIdentity } from '@/types/markers'
 import { cn } from '@/lib/utils'
-import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
 import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist'
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
 import { useOnboardingStore } from '@/store/onboardingStore'
 
 export default function ReviewPage() {
@@ -91,8 +91,12 @@ export default function ReviewPage() {
   const handleIdentityReady = (identity: ReviewerIdentity) => {
     setReviewerIdentity(identity)
     setShowIdentityGate(false)
-    // Auto-trigger reviewer tutorial
-    useOnboardingStore.getState().startOnboarding('reviewer')
+    // Auto-trigger reviewer tutorial once per session/token
+    const tourKey = `stage_reviewer_tour_completed_${sessionInfo?.session_id || token}`
+    if (typeof window !== 'undefined' && !localStorage.getItem(tourKey)) {
+      localStorage.setItem(tourKey, 'true')
+      useOnboardingStore.getState().startOnboarding('reviewer')
+    }
   }
 
   const handlePasswordSubmit = (e: React.FormEvent) => {

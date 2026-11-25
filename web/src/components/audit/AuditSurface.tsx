@@ -10,7 +10,7 @@ import {
   ArrowLeft, Monitor, Pin, Plus, X, Check,
   AlertTriangle, ChevronDown, MousePointer2, Layers,
   Type, Navigation2, Eye, Cpu, HelpCircle, Zap, Pencil, Share2, Minimize2, Maximize2,
-  MessageSquare, PanelRightClose, Trash2, Move
+  MessageSquare, PanelRightClose, Trash2, Move, Sparkles, ExternalLink
 } from 'lucide-react'
 import { StageSpinner, StageLoader } from '@/components/ui/StageLoader'
 import { ShareLinkPanel } from '@/components/share/ShareLinkPanel'
@@ -77,6 +77,7 @@ interface AuditSurfaceProps {
   isHeaderCollapsed?: boolean
   onHeaderCollapsedChange?: (collapsed: boolean) => void
   domEditAvailable?: boolean
+  initialMarkerId?: string | null
 }
 
 type Severity = 'low' | 'medium' | 'high' | 'critical'
@@ -92,6 +93,8 @@ interface CaptureContext {
   viewport_y: number
   displayX?: number
   displayY?: number
+  offset_x_ratio?: number | null
+  offset_y_ratio?: number | null
 
   // Element context
   element_selector: string
@@ -337,18 +340,25 @@ export function AuditSurface({
   shouldConnectSocket = true,
   isHeaderCollapsed = false,
   onHeaderCollapsedChange,
-  domEditAvailable = false
+  domEditAvailable = false,
+  initialMarkerId = null
 }: AuditSurfaceProps) {
   const addToast = useUIStore(s => s.addToast)
   const isCommandCenterOpen = useUIStore(s => s.isCommandCenterOpen)
   const toggleCommandCenter = useUIStore(s => s.toggleCommandCenter)
-  const markerCount = useMarkerStore(s => s.orderedMarkerIds.length)
+  const { markersById, orderedMarkerIds, createMarkerViaApi, updateMarkerViaApi, moveMarkerViaApi, deleteMarkerViaApi, selectMarker, selectedMarkerId } = useMarkerStore()
+  const markerCount = orderedMarkerIds.length
   const [isFloatingFeedbackDismissed, setIsFloatingFeedbackDismissed] = useState(false)
   const [isFocusBarDismissed, setIsFocusBarDismissed] = useState(false)
   const isDraggingFloatingFeedbackRef = useRef(false)
   const API_BASE = getApiBaseUrl()
   const [initialProxyUrl, setInitialProxyUrl] = useState<string | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [iframeElement, setIframeElement] = useState<HTMLIFrameElement | null>(null)
+  const handleIframeRef = useCallback((el: HTMLIFrameElement | null) => {
+    (iframeRef as any).current = el
+    setIframeElement(el)
+  }, [])
   const isDraggingExitFocusRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -385,7 +395,9 @@ export function AuditSurface({
   const [degradedAssets, setDegradedAssets] = useState<{ url: string; tagName: string }[]>([])
   const [bootTimeout, setBootTimeout] = useState(false)
   const [deviceViewport, setDeviceViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
-  const [isMobileDevice, setIsMobileDevice] = useState(false)
+  const [isMobileDevice, setIsMobileDevice] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  )
   const [mobileDesktopMode, setMobileDesktopMode] = useState<'mobile' | 'desktop'>('mobile')
   const [siteNotMobileOptimized, setSiteNotMobileOptimized] = useState<{
     hasMetaViewport?: boolean
@@ -403,6 +415,7 @@ export function AuditSurface({
       setIsMobileDevice(isMobile)
       if (isMobile) {
         setScreenshotPanelExpanded(false)
+        setIsListSidebarOpen(false)
       }
       if (containerRef.current) {
         setContainerWidth(containerRef.current.clientWidth)
@@ -425,8 +438,19 @@ export function AuditSurface({
         sessionStorage.setItem(`stage_session_ready_${sessionId}`, 'true')
         try { sessionStorage.setItem(`stage_session_renderer_${sessionId}`, rendererType); } catch (_) {}
       }
+      // Re-trigger element highlight if a marker was requested via URL/props
+      if (selectedMarkerId) {
+        const marker = markersById[selectedMarkerId]
+        if (marker && iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage({
+            type: 'STAGE_HIGHLIGHT_ELEMENT',
+            selector: marker.target_selector,
+            xpath: marker.target_xpath
+          }, '*')
+        }
+      }
     }
-  }, [readinessState, sessionId, rendererType])
+  }, [readinessState, sessionId, rendererType, selectedMarkerId, markersById])
 
   const bootIdRef = useRef(0)
 
@@ -576,7 +600,6 @@ export function AuditSurface({
   const [isHoveringOverlay, setIsHoveringOverlay] = useState(false)
   
   // Phase 4: Canonical Marker Store Integration
-  const { markersById, orderedMarkerIds, createMarkerViaApi, updateMarkerViaApi, moveMarkerViaApi, deleteMarkerViaApi, selectMarker, selectedMarkerId } = useMarkerStore()
   const markers = Object.values(markersById).filter(m => !m.is_deleted)
   
   // Setup Realtime Sync
@@ -611,7 +634,19 @@ export function AuditSurface({
   // Phase 4 Feedback drawer state extensions
   const [issueTitle, setIssueTitle] = useState('')
   const [tags, setTags] = useState('')
-  const [isListSidebarOpen, setIsListSidebarOpen] = useState(!!shareToken)
+  const [isListSidebarOpen, setIsListSidebarOpen] = useState(
+    typeof window !== 'undefined' && window.innerWidth >= 768 ? !!shareToken : false
+  )
+
+  // Synchronize target marker from URL query or initialMarkerId prop
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const urlParams = new URLSearchParams(window.location.search)
+    const targetMarkerId = initialMarkerId || urlParams.get('marker')
+    if (targetMarkerId && targetMarkerId !== selectedMarkerId) {
+      selectMarker(targetMarkerId)
+    }
+  }, [initialMarkerId])
   
   // Collapsible Evidence Panel States (Phase 3.5 Upgrade)
   const [inspectorPanelExpanded, setInspectorPanelExpanded] = useState(false)
@@ -847,8 +882,7 @@ export function AuditSurface({
 
   useEffect(() => {
     if (selectedMarkerId) {
-      setIsDrawerOpen(true)
-      const marker = useMarkerStore.getState().markersById[selectedMarkerId]
+      const marker = markersById[selectedMarkerId] || useMarkerStore.getState().markersById[selectedMarkerId]
       if (marker) {
         const existingMode = useScreenshotStore.getState().markerModes[selectedMarkerId] || 'element'
         useScreenshotStore.getState().setModeForMarker(selectedMarkerId, existingMode)
@@ -887,9 +921,18 @@ export function AuditSurface({
         setStatusVal(marker.status ?? 'open')
         setIssueTitle(marker.title ?? '')
 
-        const loadedType = ((marker as any).category || (marker as any).issue_type) as IssueType
-        if (loadedType && ISSUE_TYPES.some(t => t.value === loadedType)) {
-          setIssueType(loadedType)
+        const rawLoaded = String((marker as any).issue_type || (marker as any).issueType || (marker as any).category || '').trim().toLowerCase()
+        const normalizedLoaded: IssueType | null = 
+          rawLoaded.includes('copy') ? 'copy' :
+          rawLoaded.includes('nav') ? 'navigation' :
+          rawLoaded.includes('interact') ? 'interaction' :
+          rawLoaded.includes('render') ? 'rendering' :
+          (rawLoaded.includes('canvas') || rawLoaded.includes('webgl') || rawLoaded.includes('3d')) ? 'canvas_webgl' :
+          rawLoaded.includes('layout') ? 'layout' :
+          rawLoaded === 'other' ? 'other' : null
+
+        if (normalizedLoaded && ISSUE_TYPES.some(t => t.value === normalizedLoaded)) {
+          setIssueType(normalizedLoaded)
           setIsIssueTypeManuallySet(true)
         } else {
           const inferred = inferIssueType({
@@ -905,9 +948,25 @@ export function AuditSurface({
           setIssueType(inferred)
           setIsIssueTypeManuallySet(false)
         }
+
+        setIsDrawerOpen(true)
+
+        // Highlight element in iframe if selector or xpath available
+        if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage({
+            type: 'STAGE_HIGHLIGHT_ELEMENT',
+            selector: marker.target_selector,
+            xpath: marker.target_xpath
+          }, '*')
+        }
+
+        // If marker is on a different page URL, navigate iframe
+        if (marker.page_url && marker.page_url !== currentUrl && !marker.page_url.startsWith('about:')) {
+          handleSelectPage(marker.page_url)
+        }
       }
     }
-  }, [selectedMarkerId])
+  }, [selectedMarkerId, markersById])
 
   // Save current active draft form state to localStorage
   useEffect(() => {
@@ -1677,16 +1736,29 @@ export function AuditSurface({
           const safeRendererType = normalizeRendererType(normalized.rendererType || rendererType || 'dom')
           const safeAnchorKind = normalized.anchorKind || (normalized.target?.selector ? 'dom-relative' : 'viewport-absolute')
 
+          const rawAnchor = rawData.canonical_anchor || rawData.canonicalAnchor || {}
+          const rawOffsetX = normalized.offsetXRatio ?? rawData.offset_x_ratio ?? rawData.offsetXRatio ?? rawAnchor.offset_x_ratio ?? rawAnchor.offsetXRatio ?? null
+          const rawOffsetY = normalized.offsetYRatio ?? rawData.offset_y_ratio ?? rawData.offsetYRatio ?? rawAnchor.offset_y_ratio ?? rawAnchor.offsetYRatio ?? null
+          const extractedOffsetX = rawOffsetX !== null && rawOffsetX !== undefined && !isNaN(Number(rawOffsetX)) ? Math.max(0, Math.min(1, Number(rawOffsetX))) : 0.5
+          const extractedOffsetY = rawOffsetY !== null && rawOffsetY !== undefined && !isNaN(Number(rawOffsetY)) ? Math.max(0, Math.min(1, Number(rawOffsetY))) : 0.5
+
+          const iframeViewportX = normalized.coordinates?.clientX ?? (typeof rawData.viewport_x === 'number' ? rawData.viewport_x : (typeof rawData.click?.client_x === 'number' ? rawData.click.client_x : (typeof rawData.click?.viewport_x === 'number' ? rawData.click.viewport_x : coords.clientX)))
+          const iframeViewportY = normalized.coordinates?.clientY ?? (typeof rawData.viewport_y === 'number' ? rawData.viewport_y : (typeof rawData.click?.client_y === 'number' ? rawData.click.client_y : (typeof rawData.click?.viewport_y === 'number' ? rawData.click.viewport_y : coords.clientY)))
+          const capPageX = normalized.coordinates?.pageX ?? normalized.pageX ?? coords.pageX
+          const capPageY = normalized.coordinates?.pageY ?? normalized.pageY ?? coords.pageY
+
           // Build context for the feedback drawer
           const newCaptureCtx: CaptureContext = {
             page_url: normalized.pageUrl || currentUrl,
             page_title: normalized.pageTitle || currentTitle,
-            x: normalized.coordinates?.pageX ?? normalized.pageX ?? 0,
-            y: normalized.coordinates?.pageY ?? normalized.pageY ?? 0,
+            x: capPageX,
+            y: capPageY,
             displayX: normalized.displayX,
             displayY: normalized.displayY,
-            viewport_x: normalized.coordinates?.viewportX ?? normalized.displayX ?? 0,
-            viewport_y: normalized.coordinates?.viewportY ?? normalized.displayY ?? 0,
+            viewport_x: iframeViewportX,
+            viewport_y: iframeViewportY,
+            offset_x_ratio: extractedOffsetX,
+            offset_y_ratio: extractedOffsetY,
             element_selector: normalized.selector || normalized.target?.selector || '',
             element_text: normalized.target?.text || normalized.dom_text_excerpt || '',
             element_tag: normalized.target?.tagName || 'ELEMENT',
@@ -1722,6 +1794,16 @@ export function AuditSurface({
           // Open drawer instantly without network latency or blocking API queues
           selectMarker(null)
           setCaptureCtx(newCaptureCtx)
+          setResolvedPositions(prev => ({
+            ...prev,
+            __draft_pin__: {
+              clientX: iframeViewportX,
+              clientY: iframeViewportY,
+              pageX: capPageX,
+              pageY: capPageY,
+              source: 'initial_click'
+            }
+          }))
           setNoteText('')
           setIssueTitle('')
           setSubmitError(null)
@@ -1983,8 +2065,8 @@ export function AuditSurface({
       target_selector: captureCtx.element_selector,
       target_xpath: captureCtx.xpath,
       dom_text_excerpt: captureCtx.element_text,
-      offset_x_ratio: 0.5,
-      offset_y_ratio: 0.5,
+      offset_x_ratio: captureCtx.offset_x_ratio ?? 0.5,
+      offset_y_ratio: captureCtx.offset_y_ratio ?? 0.5,
       viewport_x: captureCtx.viewport_x,
       viewport_y: captureCtx.viewport_y,
       page_x: captureCtx.x,
@@ -2039,8 +2121,10 @@ export function AuditSurface({
 
     return {
       id: c.id,
-      selector: c.target_selector,
+      selector: c.target_selector || (c as any).selector,
       xpath: c.target_xpath,
+      text: c.dom_text_excerpt || (c as any).textHint || (c as any).element_text || null,
+      dom_text_excerpt: c.dom_text_excerpt || (c as any).textHint || (c as any).element_text || null,
       boundingBox: c.element_rect_json,
       x: pageX,
       y: pageY,
@@ -2050,7 +2134,15 @@ export function AuditSurface({
         x: capScrollX,
         y: capScrollY
       },
-      pageUrl: c.page_url
+      pageUrl: c.page_url,
+      canonical_anchor: {
+        offset_x_ratio: c.offset_x_ratio ?? 0.5,
+        offset_y_ratio: c.offset_y_ratio ?? 0.5,
+        offsetXRatio: c.offset_x_ratio ?? 0.5,
+        offsetYRatio: c.offset_y_ratio ?? 0.5,
+        page_x: pageX,
+        page_y: pageY
+      }
     }
   }).filter(Boolean))
 
@@ -2086,6 +2178,40 @@ export function AuditSurface({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [orderedMarkerIds, reviewerIdentity, deleteMarkerViaApi, selectMarker])
+
+  // Relay Alt key state to iframe so Alt+Click works seamlessly even when keyboard focus is in parent window
+  useEffect(() => {
+    const handleAltDown = (e: KeyboardEvent) => {
+      if (e.key === 'Alt' || e.altKey || e.metaKey) {
+        iframeRef.current?.contentWindow?.postMessage({
+          type: 'STAGE_ALT_KEY_STATE',
+          altKey: true
+        }, '*')
+      }
+    }
+    const handleAltUp = (e: KeyboardEvent) => {
+      if (e.key === 'Alt' || (!e.altKey && !e.metaKey)) {
+        iframeRef.current?.contentWindow?.postMessage({
+          type: 'STAGE_ALT_KEY_STATE',
+          altKey: false
+        }, '*')
+      }
+    }
+    const handleBlur = () => {
+      iframeRef.current?.contentWindow?.postMessage({
+        type: 'STAGE_ALT_KEY_STATE',
+        altKey: false
+      }, '*')
+    }
+    window.addEventListener('keydown', handleAltDown, true)
+    window.addEventListener('keyup', handleAltUp, true)
+    window.addEventListener('blur', handleBlur)
+    return () => {
+      window.removeEventListener('keydown', handleAltDown, true)
+      window.removeEventListener('keyup', handleAltUp, true)
+      window.removeEventListener('blur', handleBlur)
+    }
+  }, [])
 
   // ─── Cursor relay: forward cursor coords to iframe so cursor-reactive
   //     backgrounds (spotlight/glow/WebGL mouse effects) keep working when
@@ -2249,6 +2375,12 @@ export function AuditSurface({
           anchor_kind: captureCtx.element_tag === 'MANUAL' ? 'viewport-absolute' : (captureCtx.element_selector ? 'dom-relative' : 'viewport-absolute'),
           page_url: captureCtx.page_url || currentUrl,
           page_title: captureCtx.page_title || currentTitle,
+          target_selector: captureCtx.element_selector || null,
+          target_xpath: captureCtx.xpath || null,
+          dom_text_excerpt: captureCtx.element_text || null,
+          offset_x_ratio: captureCtx.offset_x_ratio ?? 0.5,
+          offset_y_ratio: captureCtx.offset_y_ratio ?? 0.5,
+          element_rect_json: captureCtx.bounding_box || null,
           viewport_x: captureCtx.viewport_x || 0,
           viewport_y: captureCtx.viewport_y || 0,
           page_x: captureCtx.x || 0,
@@ -2259,6 +2391,7 @@ export function AuditSurface({
           scroll_y: captureCtx.scroll_position?.y || 0,
           title: issueTitle.trim(),
           description: noteText.trim(),
+          issue_type: issueType,
           category: issueType,
           priority: severity,
           status: statusVal,
@@ -2277,6 +2410,7 @@ export function AuditSurface({
         const patch = {
           title: issueTitle.trim(),
           description: noteText.trim(),
+          issue_type: issueType,
           category: issueType,
           priority: severity,
           status: statusVal,
@@ -2321,8 +2455,23 @@ export function AuditSurface({
         onCancel={handleRegionCancel} 
       />
 
+      {isListSidebarOpen && isMobileDevice && (
+        <div
+          onClick={() => setIsListSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-45 animate-in fade-in"
+        />
+      )}
+
       {isListSidebarOpen && (
-        <div id="onboarding-feedback-sidebar-reviewer" className="w-80 h-full border-r border-white/5 bg-[#0d0d14] flex flex-col flex-shrink-0 z-30 select-none animate-in slide-in-from-left duration-300">
+        <div 
+          id="onboarding-feedback-sidebar-reviewer" 
+          className={cn(
+            "h-full border-r border-white/5 bg-[#0d0d14] flex flex-col select-none animate-in slide-in-from-left duration-300",
+            isMobileDevice 
+              ? "fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] shadow-2xl" 
+              : "w-80 flex-shrink-0 z-30"
+          )}
+        >
           {/* Sidebar Header */}
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -2409,17 +2558,31 @@ export function AuditSurface({
                             {item.title || 'Untitled Feedback'}
                           </span>
                         </div>
-                        <span className={cn(
-                          "px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider flex-shrink-0",
-                          item.issueType === 'layout' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                          item.issueType === 'copy' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                          item.issueType === 'interaction' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                          item.issueType === 'navigation' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
-                          item.issueType === 'rendering' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                          'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                        )}>
-                          {item.issueType || 'Other'}
-                        </span>
+                        {(() => {
+                          const rawType = String(item.issue_type || item.issueType || (item as any).category || 'other').trim().toLowerCase()
+                          const normalizedType: IssueType = 
+                            rawType.includes('copy') ? 'copy' :
+                            rawType.includes('nav') ? 'navigation' :
+                            rawType.includes('interact') ? 'interaction' :
+                            rawType.includes('render') ? 'rendering' :
+                            (rawType.includes('canvas') || rawType.includes('webgl') || rawType.includes('3d')) ? 'canvas_webgl' :
+                            rawType.includes('layout') ? 'layout' : 'other'
+                          const matchedType = ISSUE_TYPES.find(t => t.value === normalizedType) || ISSUE_TYPES[ISSUE_TYPES.length - 1]
+                          return (
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider flex-shrink-0",
+                              normalizedType === 'layout' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                              normalizedType === 'copy' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                              normalizedType === 'interaction' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              normalizedType === 'navigation' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                              normalizedType === 'rendering' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                              normalizedType === 'canvas_webgl' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
+                              'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                            )}>
+                              {matchedType.label}
+                            </span>
+                          )
+                        })()}
                       </div>
 
                       {/* Comment description */}
@@ -2757,7 +2920,7 @@ export function AuditSurface({
                 navigate the parent frame to the current page URL. */}
             {proxyUrl ? (
               <iframe
-                ref={iframeRef}
+                ref={handleIframeRef}
                 src={proxyUrl}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                 allow="accelerometer; autoplay; xr-spatial-tracking; clipboard-read; clipboard-write"
@@ -2937,8 +3100,9 @@ export function AuditSurface({
             orderedMarkerIds={[...orderedMarkerIds, ...(draftMarker ? ['__draft_pin__'] : [])]}
             currentUrl={currentUrl}
             scrollPos={scrollPos}
-            iframeNode={iframeRef.current}
+            iframeNode={iframeElement || iframeRef.current}
             selectedMarkerId={selectedMarkerId || (draftMarker ? '__draft_pin__' : null)}
+            resolvedPositions={resolvedPositions}
             actor={actor}
             onSelectPin={(id) => {
               if (id === '__draft_pin__') return
@@ -3757,6 +3921,48 @@ export function AuditSurface({
               </div>
             )}
 
+            {/* ── AI Copilot Benchmark Inspiration Card ── */}
+            {(() => {
+              const rectJson = (activeMarker as any)?.element_rect_json
+              const bName = (activeMarker as any)?.benchmark_name || rectJson?.benchmark_name || rectJson?.metadata?.benchmark_name
+              const bUrl = (activeMarker as any)?.benchmark_url || rectJson?.benchmark_url || rectJson?.metadata?.benchmark_url
+              const bDirective = (activeMarker as any)?.developer_directive || rectJson?.developer_directive || rectJson?.metadata?.developer_directive
+              if (!bName && !bDirective) return null
+
+              return (
+                <div className="p-3.5 rounded-xl sm:rounded-2xl bg-violet-950/20 border border-violet-500/25 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
+                      Benchmark Inspiration
+                    </span>
+                    {bUrl && (
+                      <a
+                        href={bUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-violet-300 hover:text-white underline underline-offset-2 transition-colors"
+                      >
+                        <span>View Benchmark</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                  </div>
+                  {bName && (
+                    <p className="text-xs font-bold text-white/95">
+                      {bName}
+                    </p>
+                  )}
+                  {bDirective && (
+                    <div className="text-[10px] text-white/70 font-mono bg-black/40 p-2.5 rounded-xl border border-white/5 space-y-0.5">
+                      <span className="text-violet-400 font-bold block uppercase text-[8.5px]">Developer Directive:</span>
+                      <p className="leading-relaxed">{bDirective}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
             {/* ── Coordinates & Diagnostics (collapsible on mobile, open on desktop) ── */}
             {captureCtx && (
               <details className="bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/[0.04] rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 group">
@@ -4007,14 +4213,14 @@ export function AuditSurface({
         iframeRef={iframeRef}
         sessionId={sessionId}
         projectId={projectId}
+        currentUrl={currentUrl}
         reviewerId={reviewerIdentity?.id}
         onPinCreated={(marker) => {
           onMarkerCreated?.(marker)
         }}
+        activeMarker={selectedMarkerId ? markersById[selectedMarkerId] : null}
+        onClearActiveMarker={() => selectMarker(null)}
       />
-
-      <OnboardingTour />
-      <OnboardingChecklist />
     </div>
   )
 }

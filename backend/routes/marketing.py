@@ -246,6 +246,8 @@ class FeedbackSubmissionRequest(BaseModel):
     email: Optional[str] = Field(None, max_length=256)
     role: Optional[str] = Field("user", max_length=32)
     sentiment: Optional[str] = Field(None, max_length=32)
+    diagnostics: Optional[Dict[str, Any]] = None
+    screenshot_data_url: Optional[str] = None
 
 
 @router.post("/marketing/feedback", status_code=status.HTTP_201_CREATED)
@@ -313,6 +315,27 @@ async def submit_feedback(
           </tr>
         """
 
+    diagnostics_html = ""
+    if payload.diagnostics and isinstance(payload.diagnostics, dict):
+        diag_items = "".join(f"<div style='margin-bottom:2px;'><strong style='color:#94a3b8;'>{k}:</strong> {v}</div>" for k, v in payload.diagnostics.items())
+        diagnostics_html = f"""
+          <tr>
+            <td style="color: #94a3b8; padding: 6px 0; vertical-align: top;"><strong>Diagnostics:</strong></td>
+            <td style="color: #cbd5e1; padding: 6px 0; font-family: monospace; font-size: 11px;">{diag_items}</td>
+          </tr>
+        """
+
+    screenshot_html = ""
+    if payload.screenshot_data_url and payload.screenshot_data_url.startswith("data:image"):
+        screenshot_html = f"""
+        <div style="margin-top: 20px;">
+          <h3 style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin: 0 0 10px 0;">Attached Screenshot</h3>
+          <div style="border-radius: 8px; overflow: hidden; border: 1px solid #334155;">
+            <img src="{payload.screenshot_data_url}" style="max-width: 100%; display: block;" alt="Feedback Screenshot" />
+          </div>
+        </div>
+        """
+
     html_body = f"""<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -344,6 +367,7 @@ async def submit_feedback(
               {f'<a href="mailto:{sender_email}" style="color: #38bdf8; text-decoration: none;">{sender_email}</a>' if payload.email else '<span style="color: #64748b; font-style: italic;">Not provided (Anonymous)</span>'}
             </td>
           </tr>
+          {diagnostics_html}
           <tr>
             <td style="color: #94a3b8; padding: 6px 0;"><strong>Received At:</strong></td>
             <td style="color: #94a3b8; padding: 6px 0;">{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</td>
@@ -356,6 +380,7 @@ async def submit_feedback(
         <div style="background: #0f172a; border-radius: 8px; padding: 20px; border: 1px solid #1e293b; color: #e2e8f0; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">
 {payload.message.strip()}
         </div>
+        {screenshot_html}
       </div>
 
       {reply_button_html}

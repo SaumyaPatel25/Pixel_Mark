@@ -9,8 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from dependencies import get_db, get_current_user_optional
-from models.core import User, Session as DbSession
+from models.core import User, Session as DbSession, Project
 from markers.models import Marker
+from markers.schemas import MarkerRead
 from markers.repository import MarkerRepository
 from markers.router import resolve_actor_context, invalidate_project_analytics_cache
 from realtime.redis_broadcaster import redis_broadcaster
@@ -21,6 +22,7 @@ from services.copilot_service import (
     analyze_site_context,
     generate_developer_fix,
 )
+from services.webhook_dispatcher import dispatch_direct_project_webhook, dispatch_webhooks_for_outbox
 
 logger = logging.getLogger("stage.copilot")
 
@@ -28,12 +30,18 @@ router = APIRouter(tags=["Copilot"])
 
 
 class CopilotResolution(BaseModel):
-    selector: str
+    selector: str = "body"
     css_mutations: Dict[str, Any] = Field(default_factory=dict)
     css_rules: str = ""
     text_mutation: Optional[str] = None
     client_summary: str = ""
     developer_explanation: str = ""
+    developer_directive: Optional[str] = None
+    benchmark_name: Optional[str] = None
+    benchmark_url: Optional[str] = None
+    benchmark_pattern: Optional[str] = None
+    developer_code_spec: Optional[str] = None
+    rect: Optional[Dict[str, Any]] = None
     confidence: float = 0.0
 
 
@@ -55,7 +63,15 @@ class CopilotConfirmPinRequest(BaseModel):
     text_mutation: Optional[str] = None
     client_summary: str = Field(..., min_length=1)
     developer_explanation: Optional[str] = None
+    developer_directive: Optional[str] = None
+    benchmark_name: Optional[str] = None
+    benchmark_url: Optional[str] = None
+    benchmark_pattern: Optional[str] = None
+    developer_code_spec: Optional[str] = None
     rect: Optional[Dict[str, Any]] = None
+    page_url: Optional[str] = None
+    offset_x_ratio: Optional[float] = 0.5
+    offset_y_ratio: Optional[float] = 0.5
 
 
 class CopilotDevFixRequest(BaseModel):
@@ -82,6 +98,13 @@ class SiteSuggestion(BaseModel):
     impact_tag: str
     selector: str
     description: str
+    developer_directive: Optional[str] = None
+    source_platform: Optional[str] = None
+    benchmark_name: Optional[str] = None
+    benchmark_url: Optional[str] = None
+    benchmark_pattern: Optional[str] = None
+    developer_code_spec: Optional[str] = None
+    theme_colors: List[str] = Field(default_factory=list)
     css_mutations: Dict[str, Any] = Field(default_factory=dict)
     css_rules: str = ""
 
@@ -89,11 +112,15 @@ class SiteSuggestion(BaseModel):
 class SiteFingerprintRequest(BaseModel):
     title: Optional[str] = ""
     description: Optional[str] = ""
+    hero_summary: Optional[str] = ""
+    nav_items: Optional[List[str]] = Field(default_factory=list)
     headings: Optional[List[Any]] = Field(default_factory=list)
     dominant_colors: Optional[List[str]] = Field(default_factory=list)
     colors: Optional[List[str]] = None
     cta_buttons: Optional[List[Any]] = Field(default_factory=list)
     ctas: Optional[List[Any]] = None
+    focused_element: Optional[Dict[str, Any]] = None
+    observed_apis: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     mock_client: Optional[bool] = False
 
 
@@ -102,6 +129,17 @@ class SiteContextResponse(BaseModel):
     aesthetic_summary: str
     dominant_colors: List[str] = Field(default_factory=list)
     top_3_suggestions: List[SiteSuggestion] = Field(default_factory=list)
+
+
+@router.post("/api/copilot/agent-reach/read")
+@router.post("/copilot/agent-reach/read")
+async def agent_reach_read_endpoint(
+    payload: Dict[str, Any],
+):
+    """Read-only Agent-Reach public content reader routed through rotating proxy IPs."""
+    from services.agent_reach_service import read_public_url
+    url = str(payload.get("url") or "").strip()
+    return await read_public_url(url)
 
 
 @router.post("/api/copilot/parse", response_model=CopilotResolution)
@@ -216,24 +254,61 @@ async def confirm_copilot_pin_endpoint(
     actor = await resolve_actor_context(payload.session_id, db, current_user, x_reviewer_id)
 
     # 3. Assemble structured AI metadata
+    directive_text = payload.developer_directive or payload.developer_explanation or ""
     metadata = {
         "css_mutations": payload.css_mutations or {},
         "css_rules": payload.css_rules or "",
         "text_mutation": payload.text_mutation,
-        "source": "ai_copilot"
+        "source": "ai_copilot",
+        "developer_directive": directive_text,
+        "benchmark_name": payload.benchmark_name or "",
+        "benchmark_url": payload.benchmark_url or "",
+        "benchmark_pattern": payload.benchmark_pattern or "",
+        "developer_code_spec": payload.developer_code_spec or ""
     }
     if payload.inspo_image_url:
         metadata["inspo_image_url"] = payload.inspo_image_url
 
     element_rect = dict(payload.rect or {})
     element_rect["metadata"] = metadata
+    element_rect["developer_directive"] = directive_text
+    element_rect["benchmark_name"] = payload.benchmark_name or ""
+    element_rect["benchmark_url"] = payload.benchmark_url or ""
+    element_rect["developer_code_spec"] = payload.developer_code_spec or ""
     if payload.inspo_image_url:
         element_rect["inspo_image_url"] = payload.inspo_image_url
 
     top = float(element_rect.get("top", 0.0)) if "top" in element_rect else 0.0
     left = float(element_rect.get("left", 0.0)) if "left" in element_rect else 0.0
-    viewport_w = float(element_rect.get("viewport_width", 1280.0)) if "viewport_width" in element_rect else None
-    viewport_h = float(element_rect.get("viewport_height", 800.0)) if "viewport_height" in element_rect else None
+    width = float(element_rect.get("width", 0.0)) if "width" in element_rect else 0.0
+    height = float(element_rect.get("height", 0.0)) if "height" in element_rect else 0.0
+    scroll_x = float(element_rect.get("scroll_x", 0.0)) if "scroll_x" in element_rect else 0.0
+    scroll_y = float(element_rect.get("scroll_y", 0.0)) if "scroll_y" in element_rect else 0.0
+    viewport_w = float(element_rect.get("viewport_width", 1280.0)) if "viewport_width" in element_rect else 1280.0
+    viewport_h = float(element_rect.get("viewport_height", 800.0)) if "viewport_height" in element_rect else 800.0
+
+    offset_x = float(payload.offset_x_ratio) if payload.offset_x_ratio is not None else 0.5
+    offset_y = float(payload.offset_y_ratio) if payload.offset_y_ratio is not None else 0.5
+
+    # Center point on target element in page coordinates
+    page_x = left + (width * offset_x) if width > 0 else left
+    page_y = top + (height * offset_y) if height > 0 else top
+
+    # Fallback to visible position if rect is missing or coords resolved to 0,0
+    if page_x == 0.0 and page_y == 0.0:
+        page_x = 320.0
+        page_y = 160.0
+
+    viewport_x = page_x - scroll_x
+    viewport_y = page_y - scroll_y
+
+    # Resolve active URL from payload, session current_page_url, or target_url
+    resolved_page_url = (
+        payload.page_url
+        or getattr(sess, "current_page_url", None)
+        or getattr(sess, "target_url", None)
+        or getattr(sess, "url", None)
+    )
 
     # 4. Construct Marker instance
     marker = Marker(
@@ -243,21 +318,27 @@ async def confirm_copilot_pin_endpoint(
         creator_name="STAGE Copilot",
         creator_role=actor.get("role") or "reviewer",
         color_token="ai_copilot",
-        anchor_kind="dom",
+        anchor_kind="dom-relative",
         anchor_mode="dom",
-        page_url=getattr(sess, "target_url", None) or getattr(sess, "url", None),
+        page_url=resolved_page_url,
         target_selector=payload.selector,
-        page_x=left,
-        page_y=top,
+        offset_x_ratio=offset_x,
+        offset_y_ratio=offset_y,
+        page_x=page_x,
+        page_y=page_y,
+        viewport_x=viewport_x,
+        viewport_y=viewport_y,
         viewport_width=viewport_w,
         viewport_height=viewport_h,
+        scroll_x=scroll_x,
+        scroll_y=scroll_y,
         element_rect_json=element_rect,
         title=payload.client_summary,
-        description=payload.developer_explanation or "",
+        description=directive_text,
         screenshot_url=payload.image_base64,
         encrypted_context=json.dumps(metadata),
         status="open",
-        priority="medium",
+        priority="high" if payload.benchmark_name else "medium",
         version=1
     )
 
@@ -265,13 +346,26 @@ async def confirm_copilot_pin_endpoint(
     await repo.create_marker(marker)
     await db.flush()
 
-    # 5. Outbox Notification
+    # 5. Outbox & Webhook Notifications
+    webhook_payload_data = {
+        "id": marker.id,
+        "marker_id": marker.id,
+        "title": marker.title or "New AI UX Pin",
+        "description": marker.description,
+        "developer_directive": directive_text,
+        "benchmark_name": payload.benchmark_name or "",
+        "benchmark_url": payload.benchmark_url or "",
+        "developer_code_spec": payload.developer_code_spec or "",
+        "selector": marker.target_selector or payload.selector,
+        "status": marker.status
+    }
+
     try:
         from services.notification_service import emit_pin_event
         await emit_pin_event(
             db=db,
             event_type="pin.created",
-            marker={"id": marker.id, "title": marker.title or "New Pin", "status": marker.status},
+            marker=webhook_payload_data,
             session_id=payload.session_id,
             project_id=sess.project_id,
             actor_id=actor["id"],
@@ -279,6 +373,39 @@ async def confirm_copilot_pin_endpoint(
         )
     except Exception as oe:
         logger.warning(f"[Outbox] Failed to write outbox pin event: {oe}")
+
+    # Check for direct Project webhook URL (e.g. Slack/Discord)
+    try:
+        proj_res = await db.execute(select(Project).where(Project.id == sess.project_id))
+        proj = proj_res.scalar_one_or_none()
+        if proj and proj.webhook_url:
+            import asyncio
+            asyncio.create_task(
+                dispatch_direct_project_webhook(
+                    webhook_url=proj.webhook_url,
+                    event_type="pin.created",
+                    data=webhook_payload_data,
+                    project_id=sess.project_id
+                )
+            )
+        # Also fan out to any registered project webhooks
+        import asyncio
+        asyncio.create_task(
+            dispatch_webhooks_for_outbox(
+                project_id=sess.project_id,
+                event_type="pin.created",
+                payload={
+                    "event": "pin.created",
+                    "project_id": sess.project_id,
+                    "session_id": payload.session_id,
+                    "marker_id": marker.id,
+                    "data": webhook_payload_data,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+        )
+    except Exception as whe:
+        logger.warning(f"[Direct Webhook] Failed to dispatch project webhook: {whe}")
 
     # 6. Commit transaction
     await db.commit()
@@ -329,19 +456,15 @@ async def confirm_copilot_pin_endpoint(
     except Exception as ne:
         logger.warning(f"[STAGE Notification] Failed to emit marker_created event: {ne}")
 
-    return {
-        "id": marker.id,
+    # Return complete canonical Marker data compatible with MarkerRead and store upsert
+    marker_dict = MarkerRead.model_validate(marker).model_dump(mode="json")
+    marker_dict.update({
         "marker_id": marker.id,
-        "session_id": marker.session_id,
         "selector": marker.target_selector or payload.selector,
         "status": "created",
-        "title": marker.title,
-        "description": marker.description,
-        "screenshot_url": marker.screenshot_url,
-        "element_rect_json": marker.element_rect_json,
-        "created_at": marker.created_at.isoformat() if marker.created_at else None,
         "metadata": metadata
-    }
+    })
+    return marker_dict
 
 
 @router.post("/api/copilot/generate-dev-fix", response_model=CopilotDevFixResponse)

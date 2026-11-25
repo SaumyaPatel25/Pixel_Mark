@@ -78,8 +78,8 @@ export function BlueprintToolRail() {
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/25 scale-105'
                   : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
               }`}
-              title={isLockedDomEdit ? 'Upgrade to Dev Team to unlock Blueprint DOM Edit mode' : t.label}
-              aria-label={isLockedDomEdit ? 'Upgrade to Dev Team to unlock Blueprint DOM Edit mode' : t.label}
+              title={isLockedDomEdit ? 'Upgrade to Team Plan to unlock Blueprint DOM Edit mode' : t.label}
+              aria-label={isLockedDomEdit ? 'Upgrade to Team Plan to unlock Blueprint DOM Edit mode' : t.label}
             >
               {t.icon}
               {isLockedDomEdit && (
